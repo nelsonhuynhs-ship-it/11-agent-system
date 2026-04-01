@@ -1,0 +1,45 @@
+{
+  "carrier": "MSC",
+  "carrier_full_name": "Mediterranean Shipping Company",
+  "updated": "2025",
+  "source_files": [
+    "MSC usa_rail_info_2025.xlsx",
+    "MSC canada_weight_restrictions.pdf"
+  ],
+  "gross_weight": {
+    "US": {
+      "on_dock": {
+        "description": "ON-DOCK Rail CY cargo",
+        "limits_lbs": {
+          "20GP": 47840,
+          "40GP": 58450,
+          "40HQ": 58450
+        },
+        "limits_kgs": {
+          "20GP": 21700,
+          "40GP": 26512,
+          "40HQ": 26512
+        },
+        "note": "Standard on-dock weight, no OWS surcharge"
+      },
+      "off_dock": {
+        "description": "OFF-DOCK Rail CY cargo (truck move involved)",
+        "standard_lbs": {
+          "20GP": 38200,
+          "40GP": 44000,
+          "40HQ": 44000
+        },
+        "max_with_surcharge_lbs": {
+          "20GP": 44000,
+          "40GP": "N/A",
+          "40HQ": "N/A"
+        },
+        "note": "20GP can go up to 44,000 lbs with triaxle/overweight surcharge"
+      },
+      "routing_detail": "Detailed per-ramp ON/OFF dock data available (6 sheets: EC/WC Import/Export)"
+    },
+    "CA": {
+      "note": "Refer to MSC canada_weight_restrictions.pdf"
+    }
+  }
+}

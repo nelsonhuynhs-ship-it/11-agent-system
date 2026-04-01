@@ -1,0 +1,461 @@
+{
+  "_comment": "Pudong Prime Organization Rules — dùng cho email scanner, shipment assignment, mentee tracking",
+  "_updated": "2026-03-26",
+  "_source": "PICPUDONG.xlsx + Nelson brainstorm",
+  "company_domain": "pudongprime.vn",
+  "departments": {
+    "sale": {
+      "label": "Phòng Sale (Team Sunny)",
+      "manager": {
+        "name": "Jessie",
+        "email": "jessie@pudongprime.vn",
+        "role": "Trưởng phòng Sale"
+      },
+      "deputy": {
+        "name": "Sunny",
+        "email": "sunny@pudongprime.vn",
+        "role": "Phó phòng Sale / Leader"
+      },
+      "mentors": [
+        {
+          "name": "Nelson",
+          "email": "nelson@pudongprime.vn",
+          "role": "Mentor"
+        },
+        {
+          "name": "Brian",
+          "email": "brian@pudongprime.vn",
+          "role": "Mentor"
+        }
+      ],
+      "mid_level": [
+        {
+          "name": "Johnny",
+          "email": "johnny@pudongprime.vn",
+          "role": "Cấp trung — thử sức Mentor cho Jennie",
+          "mentoring": [
+            "jennie@pudongprime.vn"
+          ]
+        }
+      ],
+      "mentees": [
+        {
+          "name": "Otis",
+          "email": "otis@pudongprime.vn"
+        },
+        {
+          "name": "Jun",
+          "email": "jun@pudongprime.vn"
+        },
+        {
+          "name": "Lina",
+          "email": "lina@pudongprime.vn"
+        },
+        {
+          "name": "Jennie",
+          "email": "jennie@pudongprime.vn"
+        }
+      ],
+      "cc_rules": {
+        "_comment": "Mentee phải CC ai khi gửi email",
+        "default": [
+          "nelson@pudongprime.vn",
+          "brian@pudongprime.vn",
+          "sunny@pudongprime.vn"
+        ],
+        "jennie_special": [
+          "johnny@pudongprime.vn",
+          "nelson@pudongprime.vn",
+          "brian@pudongprime.vn",
+          "sunny@pudongprime.vn"
+        ]
+      },
+      "transferred_out": [
+        {
+          "name": "Mark",
+          "email": "mark@pudongprime.vn",
+          "to": "cs",
+          "date": "2026-03-26"
+        }
+      ]
+    },
+    "cs": {
+      "label": "Phòng Customer Service",
+      "manager": {
+        "name": "Sean",
+        "email": "sean@pudongprime.vn",
+        "role": "Trưởng phòng CS"
+      },
+      "deputy": {
+        "name": "CS18 (Hằng)",
+        "email": "cs18@pudongprime.vn",
+        "role": "Phó phòng CS"
+      },
+      "staff": [
+        {
+          "name": "Krissey",
+          "email": "krissey@pudongprime.vn"
+        },
+        {
+          "name": "CS3 (Linh)",
+          "email": "cs3@pudongprime.vn"
+        },
+        {
+          "name": "CS16 (Phóng)",
+          "email": "cs16@pudongprime.vn"
+        },
+        {
+          "name": "CS6 (Việt)",
+          "email": "cs6@pudongprime.vn"
+        },
+        {
+          "name": "Mark",
+          "email": "mark@pudongprime.vn",
+          "note": "Chuyển từ Sale 2026-03-26"
+        },
+        {
+          "name": "Nancie",
+          "email": "nancie@pudongprime.vn"
+        }
+      ]
+    },
+    "doc": {
+      "label": "Phòng Documentation",
+      "manager": {
+        "name": "Jolie",
+        "email": "jolie@pudongprime.vn",
+        "role": "Trưởng phòng Doc"
+      },
+      "deputies": [
+        {
+          "name": "Klany",
+          "email": "klany@pudongprime.vn",
+          "role": "Phó phòng Doc"
+        },
+        {
+          "name": "Victor",
+          "email": "victor@pudongprime.vn",
+          "role": "Phó phòng Doc"
+        }
+      ],
+      "staff": [
+        {
+          "name": "Malie",
+          "email": "malie@pudongprime.vn"
+        },
+        {
+          "name": "Lucy",
+          "email": "lucy@pudongprime.vn"
+        },
+        {
+          "name": "Jennifer",
+          "email": "jennifer@pudongprime.vn"
+        },
+        {
+          "name": "Isabel",
+          "email": "isabel@pudongprime.vn"
+        },
+        {
+          "name": "Jade",
+          "email": "jade@pudongprime.vn"
+        },
+        {
+          "name": "Sarah",
+          "email": "sarah@pudongprime.vn"
+        },
+        {
+          "name": "Cara",
+          "email": "cara@pudongprime.vn"
+        },
+        {
+          "name": "Dolys",
+          "email": "dolys@pudongprime.vn"
+        },
+        {
+          "name": "Evelyn",
+          "email": "evelyn@pudongprime.vn"
+        }
+      ]
+    },
+    "pricing": {
+      "label": "Phòng Pricing",
+      "manager": {
+        "name": "Harry",
+        "email": "pricing@pudongprime.vn",
+        "role": "Trưởng phòng Pricing"
+      },
+      "staff": [
+        {
+          "name": "Ashley",
+          "email": "ashley@pudongprime.vn",
+          "role": "Phụ trách SOC"
+        },
+        {
+          "name": "Alice",
+          "email": "alice@pudongprime.vn",
+          "role": "Phụ trách pricing other trade"
+        },
+        {
+          "name": "Liana",
+          "email": "liana@pudongprime.vn",
+          "role": "Phụ trách log/thủ tục hải quan"
+        },
+        {
+          "name": "Alina",
+          "email": "alina@pudongprime.vn",
+          "role": "Phụ trách check giá hàng nhập"
+        }
+      ]
+    },
+    "accounting": {
+      "label": "Phòng Kế toán",
+      "manager": {
+        "name": "Grace",
+        "email": "grace@pudongprime.vn",
+        "role": "Trưởng phòng Kế toán"
+      },
+      "deputy": {
+        "name": "Accounting1 (Dung)",
+        "email": "accounting1@pudongprime.vn",
+        "role": "Phó phòng Kế toán"
+      },
+      "staff": [
+        {
+          "name": "Accounting7 (Ngọc)",
+          "email": "accounting7@pudongprime.vn"
+        },
+        {
+          "name": "Accounting2 (Ngân)",
+          "email": "accounting2@pudongprime.vn"
+        },
+        {
+          "name": "Accounting3 (Nhi)",
+          "email": "accounting3@pudongprime.vn"
+        },
+        {
+          "name": "Accounting4 (Huyền)",
+          "email": "accounting4@pudongprime.vn"
+        },
+        {
+          "name": "Accounting5 (Giang)",
+          "email": "accounting5@pudongprime.vn"
+        }
+      ]
+    }
+  },
+  "email_lookup": {
+    "_comment": "Tra nhanh email → department + role. Hệ thống dùng để gán PIC cho shipment.",
+    "sale_emails": [
+      "jessie@pudongprime.vn",
+      "sunny@pudongprime.vn",
+      "nelson@pudongprime.vn",
+      "brian@pudongprime.vn",
+      "johnny@pudongprime.vn",
+      "otis@pudongprime.vn",
+      "jun@pudongprime.vn",
+      "lina@pudongprime.vn",
+      "jennie@pudongprime.vn"
+    ],
+    "mentee_emails": [
+      "otis@pudongprime.vn",
+      "jun@pudongprime.vn",
+      "lina@pudongprime.vn",
+      "jennie@pudongprime.vn",
+      "johnny@pudongprime.vn"
+    ],
+    "doc_emails": [
+      "jolie@pudongprime.vn",
+      "klany@pudongprime.vn",
+      "victor@pudongprime.vn",
+      "malie@pudongprime.vn",
+      "lucy@pudongprime.vn",
+      "jennifer@pudongprime.vn",
+      "isabel@pudongprime.vn",
+      "jade@pudongprime.vn",
+      "sarah@pudongprime.vn",
+      "cara@pudongprime.vn",
+      "dolys@pudongprime.vn",
+      "evelyn@pudongprime.vn"
+    ],
+    "cs_emails": [
+      "sean@pudongprime.vn",
+      "cs18@pudongprime.vn",
+      "krissey@pudongprime.vn",
+      "cs3@pudongprime.vn",
+      "cs16@pudongprime.vn",
+      "cs6@pudongprime.vn",
+      "mark@pudongprime.vn",
+      "nancie@pudongprime.vn"
+    ],
+    "pricing_emails": [
+      "pricing@pudongprime.vn",
+      "ashley@pudongprime.vn",
+      "alice@pudongprime.vn",
+      "liana@pudongprime.vn",
+      "alina@pudongprime.vn"
+    ],
+    "accounting_emails": [
+      "grace@pudongprime.vn",
+      "accounting1@pudongprime.vn",
+      "accounting7@pudongprime.vn",
+      "accounting2@pudongprime.vn",
+      "accounting3@pudongprime.vn",
+      "accounting4@pudongprime.vn",
+      "accounting5@pudongprime.vn"
+    ]
+  },
+  "customer_identification": {
+    "_comment": "3 lớp lọc: keyword → HBL lookup → domain",
+    "known_customers": {
+      "HML": {
+        "keywords": [
+          "HML"
+        ],
+        "domains": [
+          "hml-usa.com"
+        ]
+      },
+      "SIRI": {
+        "keywords": [
+          "SIRI"
+        ],
+        "domains": [
+          "sirilogistics.vn"
+        ]
+      },
+      "PANDA": {
+        "keywords": [
+          "PANDA"
+        ],
+        "domains": [
+          "panda4u.com"
+        ]
+      },
+      "Nafood": {
+        "keywords": [
+          "NAFOOD",
+          "Nafood"
+        ],
+        "domains": [
+          "nafood.com"
+        ]
+      },
+      "PT FOOD": {
+        "keywords": [
+          "PT FOOD",
+          "PTFOOD"
+        ],
+        "domains": []
+      },
+      "TRALINKS": {
+        "keywords": [
+          "TRALINKS"
+        ],
+        "domains": []
+      },
+      "CAROLINA": {
+        "keywords": [
+          "CAROLINA"
+        ],
+        "domains": []
+      },
+      "GREEN FOOD": {
+        "keywords": [
+          "GREEN FOOD"
+        ],
+        "domains": []
+      },
+      "MP GLOBAL": {
+        "keywords": [
+          "MP GLOBAL"
+        ],
+        "domains": []
+      },
+      "SILHOUETTE": {
+        "keywords": [
+          "SILHOUETTE"
+        ],
+        "domains": []
+      },
+      "SOFIA": {
+        "keywords": [
+          "SOFIA"
+        ],
+        "domains": []
+      },
+      "GSV": {
+        "keywords": [
+          "GSV"
+        ],
+        "domains": []
+      },
+      "COWIN": {
+        "keywords": [
+          "COWIN"
+        ],
+        "domains": []
+      },
+      "VH LOG": {
+        "keywords": [
+          "VH LOG"
+        ],
+        "domains": []
+      },
+      "LKB": {
+        "keywords": [
+          "LKB"
+        ],
+        "domains": []
+      },
+      "DOUSHENG": {
+        "keywords": [
+          "DOUSHENG"
+        ],
+        "domains": [
+          "doushengfood@gmail.com"
+        ]
+      },
+      "WEST FOOD": {
+        "keywords": [
+          "WEST FOOD",
+          "WESTFOOD"
+        ],
+        "domains": [
+          "westfood.vn"
+        ]
+      }
+    },
+    "hbl_prefix_map": {
+      "_comment": "Map HBL prefix → customer. Tự học từ email lần đầu gặp.",
+      "PPIL": "auto_learn",
+      "PELP": "auto_learn",
+      "PNYC": "auto_learn",
+      "PHOU": "auto_learn",
+      "PLAX": "auto_learn",
+      "PCHS": "auto_learn",
+      "PSAV": "auto_learn",
+      "PATL": "auto_learn",
+      "PMSP": "auto_learn",
+      "POMA": "auto_learn"
+    }
+  },
+  "mentee_tracking": {
+    "_comment": "Theo dõi hoạt động email hàng ngày cho Sales mentees",
+    "enabled": true,
+    "tracked_mentees": [
+      "otis@pudongprime.vn",
+      "jun@pudongprime.vn",
+      "lina@pudongprime.vn",
+      "jennie@pudongprime.vn",
+      "johnny@pudongprime.vn"
+    ],
+    "metrics": [
+      "emails_sent",
+      "emails_received",
+      "replies_given",
+      "avg_response_time_minutes",
+      "customers_contacted",
+      "shipments_active"
+    ]
+  }
+}

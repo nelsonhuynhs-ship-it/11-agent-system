@@ -1,0 +1,6 @@
+# Nelson Freight Bot v3 — Dependencies
+python-telegram-bot==22.6
+google-genai
+pandas>=2.0
+openpyxl>=3.1
+APScheduler>=3.10

@@ -1,0 +1,149 @@
+{
+  "carrier": "YML",
+  "carrier_full_name": "Yang Ming Line",
+  "updated": "2024",
+  "source_files": [
+    "YML -Cargo_Weight_Limitation.xlsx"
+  ],
+  "gross_weight": {
+    "CA": {
+      "quebec_door": {
+        "description": "Province of Quebec Door Service",
+        "limits_lbs": {
+          "20GP": 47500,
+          "40GP": 50000,
+          "40HQ": 50000,
+          "45GP": 50000
+        },
+        "limits_kgs": {
+          "20GP": 21546,
+          "40GP": 22680,
+          "40HQ": 22680,
+          "45GP": 22680
+        }
+      },
+      "canada_door": {
+        "description": "Canada Door Service (general)",
+        "limits_lbs": {
+          "20GP": 47500,
+          "40GP": 55000,
+          "40HQ": 55000,
+          "45GP": 55000
+        },
+        "limits_kgs": {
+          "20GP": 21546,
+          "40GP": 24948,
+          "40HQ": 24948,
+          "45GP": 24948
+        }
+      },
+      "cy_cp_rail": {
+        "description": "Canada CY via CP Rail",
+        "limits_lbs": {
+          "20GP": 47500,
+          "40GP": 58000,
+          "40HQ": 58000,
+          "45GP": 58000
+        },
+        "limits_kgs": {
+          "20GP": 21546,
+          "40GP": 26308,
+          "40HQ": 26308,
+          "45GP": 26308
+        }
+      },
+      "cy_cn_rail": {
+        "description": "Canada CY via CN Rail",
+        "limits_lbs": {
+          "20GP": 47900,
+          "40GP": 60000,
+          "40HQ": 60000,
+          "45GP": 60000
+        },
+        "limits_kgs": {
+          "20GP": 21727,
+          "40GP": 27216,
+          "40HQ": 27216,
+          "45GP": 27216
+        }
+      },
+      "cy_cp_rail_heavy": {
+        "description": "Canada CY via CP Rail - Heavy Weight",
+        "limits_lbs": {
+          "20GP": 54000,
+          "40GP": 60000,
+          "40HQ": 60000,
+          "45GP": 60000
+        },
+        "limits_kgs": {
+          "20GP": 24494,
+          "40GP": 27216,
+          "40HQ": 27216,
+          "45GP": 27216
+        }
+      },
+      "cy_cn_rail_heavy": {
+        "description": "Canada CY via CN Rail - Heavy Weight",
+        "limits_lbs": {
+          "20GP": 55000,
+          "40GP": 65000,
+          "40HQ": 65000,
+          "45GP": 65000
+        },
+        "limits_kgs": {
+          "20GP": 24948,
+          "40GP": 29484,
+          "40HQ": 29484,
+          "45GP": 29484
+        }
+      },
+      "notes": [
+        "During Canadian Spring Thaw period, weight limits may be reduced",
+        "For US cargo moving via Canada, check specific routing requirements"
+      ]
+    },
+    "US": {
+      "rail_limits": {
+        "ns_rail": {
+          "20GP_lbs": 44000,
+          "40GP_lbs": 52000,
+          "45GP_lbs": 52000,
+          "note": "NS Rail standard"
+        },
+        "ns_rail_heavy": {
+          "20GP_lbs": 47500,
+          "40GP_lbs": 58000,
+          "45GP_lbs": 55500,
+          "note": "NS Rail Heavy Load"
+        },
+        "csx_rail": {
+          "20GP_lbs": 48000,
+          "40GP_lbs": 58000,
+          "45GP_lbs": 58000
+        },
+        "bnsf_rail": {
+          "20GP_lbs": 48000,
+          "40GP_lbs": 58000,
+          "45GP_lbs": 58000
+        },
+        "up_rail": {
+          "20GP_lbs": 48000,
+          "40GP_lbs": 58000,
+          "45GP_lbs": 58000
+        },
+        "portland_nwcs": {
+          "20GP_lbs": 39050,
+          "40GP_lbs": 44000,
+          "45GP_lbs": 44000
+        },
+        "portland_nwcs_heavy": {
+          "20GP_lbs": 48000,
+          "40GP_lbs": 58000,
+          "45GP_lbs": 58000
+        }
+      },
+      "state_limits_available": true,
+      "note": "Per-state GVW and cargo weight limits available — refer to source file"
+    }
+  }
+}

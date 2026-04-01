@@ -1,0 +1,14 @@
+{
+  "carrier": "MSK",
+  "carrier_full_name": "Maersk Line",
+  "updated": "2024-11",
+  "source_files": [
+    "MSK local-charges-nam-15-11-2024.pdf"
+  ],
+  "gross_weight": {
+    "note": "Data in PDF format — local charges North America. Needs manual extraction."
+  },
+  "ows_charges": {
+    "note": "Refer to MSK local charges PDF for OWS rates"
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "_comment": "Org Chart & CC Compliance Rules for Team Sunny.",
+  "_notes": {
+    "mark_transferred": "Mark chuyen sang CS team tu 2026-03-26. Xem org_rules.json."
+  },
+  "team_name": "TEAM SUNNY",
+  "members": {
+    "sunny@pudongprime.vn": {
+      "name": "Sunny",
+      "role": "Leader",
+      "folder": "Sunny",
+      "reports_to": null,
+      "skip_routing": true,
+      "required_cc": []
+    },
+    "nelson@pudongprime.vn": {
+      "name": "Nelson",
+      "role": "Mentor",
+      "folder": "Nelson",
+      "reports_to": "sunny@pudongprime.vn",
+      "skip_routing": true,
+      "note": "System owner - excluded from auto-routing.",
+      "required_cc": []
+    },
+    "brian@pudongprime.vn": {
+      "name": "Brian",
+      "role": "Mentor",
+      "folder": "Brian",
+      "reports_to": "sunny@pudongprime.vn",
+      "skip_routing": true,
+      "required_cc": []
+    },
+    "johnny@pudongprime.vn": {
+      "name": "Johnny",
+      "role": "Mid-level",
+      "folder": "Johnny",
+      "reports_to": "nelson@pudongprime.vn",
+      "manages": [
+        "jennie@pudongprime.vn"
+      ],
+      "required_cc": [
+        "nelson@pudongprime.vn",
+        "brian@pudongprime.vn",
+        "sunny@pudongprime.vn"
+      ]
+    },
+    "jennie@pudongprime.vn": {
+      "name": "Jennie",
+      "role": "Mentee",
+      "folder": "Jennie",
+      "reports_to": "johnny@pudongprime.vn",
+      "required_cc": [
+        "johnny@pudongprime.vn",
+        "nelson@pudongprime.vn",
+        "brian@pudongprime.vn",
+        "sunny@pudongprime.vn"
+      ]
+    },
+    "blue@pudongprime.vn": {
+      "name": "Blue",
+      "role": "Mentee",
+      "folder": "Blue",
+      "reports_to": "brian@pudongprime.vn",
+      "required_cc": [
+        "brian@pudongprime.vn",
+        "nelson@pudongprime.vn",
+        "sunny@pudongprime.vn"
+      ]
+    },
+    "lina@pudongprime.vn": {
+      "name": "Lina",
+      "role": "Mentee",
+      "folder": "Lina",
+      "reports_to": "brian@pudongprime.vn",
+      "required_cc": [
+        "brian@pudongprime.vn",
+        "nelson@pudongprime.vn",
+        "sunny@pudongprime.vn"
+      ]
+    },
+    "otis@pudongprime.vn": {
+      "name": "Otis",
+      "role": "Mentee",
+      "folder": "Otis",
+      "reports_to": "brian@pudongprime.vn",
+      "required_cc": [
+        "brian@pudongprime.vn",
+        "nelson@pudongprime.vn",
+        "sunny@pudongprime.vn"
+      ]
+    },
+    "jun@pudongprime.vn": {
+      "name": "Jun",
+      "role": "Mentee",
+      "folder": "Jun",
+      "reports_to": "brian@pudongprime.vn",
+      "required_cc": [
+        "brian@pudongprime.vn",
+        "nelson@pudongprime.vn",
+        "sunny@pudongprime.vn"
+      ]
+    }
+  }
+}

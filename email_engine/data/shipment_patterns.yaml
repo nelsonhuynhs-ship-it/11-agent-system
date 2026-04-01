@@ -1,0 +1,274 @@
+version: "2.0"
+generated_at: "2026-03-13"
+source: "Inferred from 9 Outlook .msg email files"
+
+# ============================
+# IDENTIFIER PATTERNS
+# (ordered by specificity — most specific first)
+# ============================
+identifier_patterns:
+
+  - id: HBL_ONE_HAPAG
+    regex: '\b(P(?:NYC|SAV|HOU|DEN|CHS|SEA|OMA|YTO|ELP|MAN|LAX)[0-9]{7,12})\b'
+    type: HBL
+    carrier_mapping:
+      PNYC: "ONE/Hapag"
+      PSAV: "ONE/Hapag"
+      PHOU: "ONE/Hapag"
+      PDEN: "ONE/Hapag"
+      PCHS: "ONE/Hapag"
+      PSEA: "ONE/Hapag"
+      POMA: "ONE/Hapag"
+      PYTO: "ONE/Hapag"
+      PELP: "CMA CGM"
+    examples:
+      - PNYC26010385
+      - PSAV26020325
+      - PHOU26020455
+      - PDEN26020517
+      - PCHS26030364
+      - PSEA26020066
+      - PYTO26010027
+      - PELP26030260
+
+  - id: HBL_HAPAG_MAPI
+    regex: '\b(HLCU[A-Z]{3}[0-9]{9,})\b'
+    type: HBL
+    carrier_mapping:
+      HLCU: "Hapag-Lloyd"
+    examples:
+      - HLCUBKK260281582
+
+  - id: HBL_ZIM
+    regex: '\b(ZIMU(?:HCM|HAI|SGN)[0-9]{8,})\b'
+    type: HBL
+    carrier_mapping:
+      ZIMUHCM: "ZIM"
+      ZIMUHAI: "ZIM"
+    examples:
+      - ZIMUHCM80610801
+      - ZIMUHCM80618691
+      - ZIMUHAI80201821
+
+  - id: HBL_YANG_HANG
+    regex: '\b(HANG[0-9]{8,12})\b'
+    type: HBL_or_BKG
+    carrier_mapping:
+      HANG: "Yang Ming / Evergreen"
+    examples:
+      - HANG17369900
+      - HANG25448600
+      - HANG26062600
+
+  - id: HBL_EVERGREEN_ESLV
+    regex: '\b(ESLV[A-Z0-9]{5,15})\b'
+    type: HBL
+    carrier_mapping:
+      ESLV: "Evergreen"
+    examples:
+      - ESLVNESAL003946
+
+  - id: BKG_CARRIER_SGN
+    regex: '\b(SGN[0-9]{7,10})\b'
+    type: BKG
+    examples:
+      - SGN3084097
+
+  - id: BKG_CARRIER_HANFG
+    regex: '\b(HANFG[0-9]{7,10})\b'
+    type: BKG
+    carrier_mapping:
+      HANFG: "ONE"
+    examples:
+      - HANFG2303400
+
+  - id: BKG_NAFOOD_EBKG
+    regex: '\bEBKG([0-9]{8,12})\b'
+    type: BKG
+    examples:
+      - EBKG14870911
+
+  - id: BKG_NUMERIC_GENERIC
+    regex: '\bBKG[\s#]*([0-9]{6,10})\b'
+    type: BKG
+    examples:
+      - "BKG 14380157"
+      - "BKG 30167565"
+      - "BKG 12766472"
+
+  - id: CONTAINER_ISO
+    regex: '\b([A-Z]{4}[0-9]{7})\b'
+    type: CONTAINER
+    examples: []
+
+
+# ============================
+# LIFECYCLE PATTERNS
+# (inferred from real email subjects)
+# ============================
+lifecycle_patterns:
+
+  - stage: BOOKING_CONFIRMED
+    keywords:
+      - "booking confirmation"
+      - "bkg confirmed"
+      - "confirmed"
+      - "keep booking"
+    sender_roles: [carrier, ops_team]
+    identifier_types: [BKG]
+    automation_action: "update_status:BOOKING_CONFIRMED + create_shipment_record"
+    sample_subjects: []
+
+  - stage: DRAFT_BL_ISSUED
+    keywords:
+      - "draft b/l"
+      - "draft bl"
+      - "draft b_l"
+      - "bill nháp"
+    sender_roles: [carrier, ops_team, accounting]
+    identifier_types: [HBL]
+    automation_action: "update_status:DRAFT_BL_ISSUED + alert_team_member"
+    sample_subjects:
+      - "DN __  ATD__ DRAFT B_L#PELP26030260 __ SIRI BKG SGN3084097"
+      - "Re_ ATD__DN __ DRAFT B_L#PSEA26020066 _ 26001- SI - ESLVNESAL003946"
+      - "RE_ DN __  ATD__ DRAFT B_L#PDEN26020517 __  HML BKG HANG17369900"
+      - "RE_ DRAFT B_L#PCHS26030364 __  UPDATE COT- PANDA HN BOOKING REQUEST ZIMUHAI80201821"
+      - "RE_ DRAFT B_L#PYTO26010027 __ VINARES BKG HANFG2303400 __ DELAY NOTICE ETD 3JAN"
+
+  - stage: ATD
+    keywords:
+      - "update atd"
+      - "atd"
+      - "atd__"
+      - "vessel departed"
+    exclude_keywords:
+      - "etd"
+    sender_roles: [carrier, ops_team, accounting]
+    identifier_types: [HBL, BKG]
+    automation_action: "update_status:ATD + trigger_eta_alerts"
+    sample_subjects:
+      - "DN __  ATD__ DRAFT B_L#PELP26030260"
+      - "RE_ DN __  UPDATE ATD__BKG NAFOOD EBKG14870911"
+
+  - stage: DN_SENT
+    keywords:
+      - "dn __"
+      - " dn "
+      - "debit //"
+      - "debit note"
+      - "giấy báo tiền"
+    sender_roles: [ops_team, accounting]
+    identifier_types: [HBL, BKG]
+    automation_action: "update_payment_status:PENDING + alert_nelson_payment_pending"
+    accounting_senders:
+      - "accounting4@pudongprime.vn"
+      - "isabel@pudongprime.vn"
+    sample_subjects:
+      - "DN __  ATD__ DRAFT B_L#PELP26030260 __ SIRI BKG SGN3084097"
+      - "RE_ DN __  ATD__ DRAFT B_L#PHOU26020455 __ PANDA HCM BKG ZIMUHCM80610801"
+      - "RE_ DN __  ATD__DRAFT B_L#PNYC26010385 __ PANDA HANOI BKG 12766472"
+      - "RE_ DN __  UPDATE ATD__BKG NAFOOD EBKG14870911 __ HCM-ADELAIDE_ AUS"
+
+  - stage: INVOICE_ISSUED
+    keywords:
+      - "invoice"
+      - "e-invoice"
+      - "xuất hóa đơn"
+    sender_roles: [accounting]
+    identifier_types: [HBL, BKG]
+    automation_action: "update_payment_status:INVOICE_SENT"
+    sample_subjects: []
+
+  - stage: PAYMENT_CONFIRMED
+    keywords:
+      - "payment received"
+      - "paid"
+      - "đã nhận được thanh toán"
+      - "đã thanh toán"
+      - "xác nhận thanh toán"
+    sender_roles: [accounting, customer]
+    identifier_types: [HBL, BKG]
+    automation_action: "update_payment_status:PAID + telegram_notify_nelson"
+    accounting_senders:
+      - "accounting4@pudongprime.vn"
+    sample_subjects: []  # TODO: add real subjects
+
+  - stage: DELAY_NOTICE
+    keywords:
+      - "delay"
+      - "delay notice"
+      - "rollover"
+      - "postpone"
+    sender_roles: [carrier, ops_team]
+    identifier_types: [HBL, BKG]
+    automation_action: "alert_nelson_delay:URGENT + notify_customer"
+    sample_subjects:
+      - "RE_ DRAFT B_L#PYTO26010027 __ VINARES BKG HANFG2303400 __ DELAY NOTICE ETD 3JAN"
+
+  - stage: CHANGE_VESSEL
+    keywords:
+      - "change vessel"
+      - "vessel change"
+      - "update vessel"
+      - "change vessel notice"
+      - "updated //changed mother vessel"
+    sender_roles: [carrier]
+    identifier_types: [HBL, BKG]
+    automation_action: "alert_nelson_urgent:CRITICAL + update_vessel_info"
+    sample_subjects:
+      - "UPDATED //CHANGED MOTHER VESSEL //BKG 30167565"
+
+  - stage: SI_SUBMITTED
+    keywords:
+      - "si bkg"
+      - "SI //"
+      - "shipping instruction"
+      - "si hang"
+    sender_roles: [ops_team]
+    identifier_types: [BKG]
+    automation_action: "update_status:SI_SUBMITTED + log_si_received"
+    sample_subjects:
+      - "Re_ ATD__DN __ DRAFT B_L#PSEA26020066 _ 26001- SI - ESLVNESAL003946"
+
+
+# ============================
+# RISK KEYWORDS
+# ============================
+risk_keywords:
+  CRITICAL:
+    - "urgent"
+    - "gấp"
+    - "asap"
+    - "top priority"
+    - "poa"
+    - "change vessel"
+  HIGH:
+    - "delay"
+    - "delay notice"
+    - "rollover"
+    - "amendment"
+    - "si change"
+  MEDIUM:
+    - "update atd"
+    - "vessel change"
+    - "omit"
+
+
+# ============================
+# ACCOUNTING CONFIG
+# ============================
+accounting:
+  confirmed_senders:
+    - "accounting4@pudongprime.vn"   # Crystal Huyen
+    - "isabel@pudongprime.vn"        # Isabel Vo (also ops)
+  payment_confirmation_keywords:
+    - "payment received"
+    - "paid"
+    - "đã thanh toán"
+    - "xác nhận thanh toán"
+    - "đã nhận được"
+  debit_note_keywords:
+    - "dn __"
+    - "debit //"
+    - "debit note"
+    - "giấy báo tiền"

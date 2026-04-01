@@ -1,0 +1,6 @@
+webapp/node_modules
+webapp/.next
+**/__pycache__
+*.pyc
+.git
+claudekit-skills

@@ -1,0 +1,16 @@
+{
+  "_comment": "Carrier advisory notes for quote formatter. Add/edit carriers here — no code change needed.",
+  "ONE":    "ONE: dich vu on dinh, nhieu chuyen / tuan",
+  "MSC":    "MSC: gia canh tranh, can booking som",
+  "CMA":    "CMA: yeu cau PREPAID, confirm som tranh rollover",
+  "YML":    "YML: on dinh, phu hop hang bulk volume",
+  "MSK":    "Maersk: premium, lich tau chac",
+  "MAERSK": "Maersk: premium, lich tau chac",
+  "ZIM":    "ZIM: transit time tot voi East Coast",
+  "EMC":    "Evergreen: gia tot bulk, dat som",
+  "COSCO":  "COSCO: tuyen TRANSPACIFIC manh",
+  "WHL":    "WHL: gia tot, on dinh",
+  "HMM":    "HMM: lich tau tot, gia canh tranh",
+  "HPL":    "Hapag-Lloyd: dich vu on dinh, phu hop hang regular",
+  "OOCL":   "OOCL: tuyen chac, transit tot US West Coast"
+}

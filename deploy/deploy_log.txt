@@ -1,0 +1,238 @@
+[2026-04-01 19:45:19] ============================================
+[2026-04-01 19:45:19]   NELSON FREIGHT COWORK DEPLOY
+[2026-04-01 19:45:19]   04/01/2026 19:45:19
+[2026-04-01 19:45:19] ============================================
+[2026-04-01 19:45:19] 
+[2026-04-01 19:45:19] [1/4] Checking git status...
+[2026-04-01 19:45:19] Changes detected:
+[2026-04-01 19:45:19]    M .github/workflows/deploy.yml
+[2026-04-01 19:45:19]    M .planning/codebase/INTEGRATIONS.md
+[2026-04-01 19:45:19]    M CLAUDE.md
+[2026-04-01 19:45:19]    D "Freight Intelligence Platform Benchmarking Research.docx"
+[2026-04-01 19:45:19]    M api/routers/email_rate_router.py
+[2026-04-01 19:45:19]    M claudekit-skills
+[2026-04-01 19:45:19]    M deploy/SETUP_AUTO_DEPLOY.md
+[2026-04-01 19:45:19]    M deploy/cowork_deploy.ps1
+[2026-04-01 19:45:19]    M deploy/setup_github_key.sh
+[2026-04-01 19:45:19]    M deploy/setup_vps_full.sh
+[2026-04-01 19:45:19]    D email_engine/SOP.md
+[2026-04-01 19:45:19]    D "email_engine/TASK 3.docx"
+[2026-04-01 19:45:19]    D email_engine/UPGRADE_PLAN_V2.md
+[2026-04-01 19:45:19]    D email_engine/_archived_schedulers/setup_brain_scheduler.ps1
+[2026-04-01 19:45:19]    D email_engine/_archived_schedulers/setup_task_scheduler.ps1
+[2026-04-01 19:45:19]    D "email_engine/_backup/backup_20260320/PUDONG PRIME PROFILE.pdf"
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/Port_Code_Mapping_Final.xlsx
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/README.md
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/_parse_msg_files.py
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/clean_data.py
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/config.xlsx
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/customer_final.xlsx
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/customer_rules.json
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/data.xlsx
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/data_panjiva/data_FOODFURLCH.xlsx
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/data_panjiva/data_candle.xlsx
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/data_panjiva/data_from_panjiva_final.xlsx
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/data_panjiva/data_frozen.xlsx
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/data_panjiva/data_plywood.xlsx
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/data_panjiva/panjiva_raw_LCHFOOD.xlsx
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/data_panjiva/panjiva_raw_LCHFURNITURE.xlsx
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/data_panjiva/panjiva_raw_candle.xlsx
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/data_panjiva/panjiva_raw_foodstuff.xlsx
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/data_panjiva/panjiva_raw_frozen.xlsx
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/data_panjiva/panjiva_raw_furniture.xlsx
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/data_panjiva/panjiva_raw_plastic.xlsx
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/data_panjiva/panjiva_raw_plywood.xlsx
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/data_panjiva/panjiva_rawflooring.xlsx
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/email_engine.py
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/email_master.xlsx
+[2026-04-01 19:45:19]    D email_engine/_backup/backup_20260320/email_template.html
+[2026-04-01 19:45:20]    D email_engine/_backup/backup_20260320/follow_up_engine.py
+[2026-04-01 19:45:20]    D email_engine/_backup/backup_20260320/generate_dashboard.py
+[2026-04-01 19:45:20]    D email_engine/_backup/backup_20260320/generate_readme.py
+[2026-04-01 19:45:20]    D email_engine/_backup/backup_20260320/logo.png
+[2026-04-01 19:45:20]    D email_engine/_backup/backup_20260320/main.py
+[2026-04-01 19:45:20]    D "email_engine/_backup/backup_20260320/merge - Copy.py"
+[2026-04-01 19:45:20]    D email_engine/_backup/backup_20260320/merge.py
+[2026-04-01 19:45:20]    D email_engine/_backup/backup_20260320/normalize.py
+[2026-04-01 19:45:20]    D email_engine/_backup/backup_20260320/notify.py
+[2026-04-01 19:45:20]    D email_engine/_backup/backup_20260320/ops_briefing.py
+[2026-04-01 19:45:20]    D email_engine/_backup/backup_20260320/outlook_dataset.json
+[2026-04-01 19:45:20]    D email_engine/_backup/backup_20260320/process_reply.py
+[2026-04-01 19:45:20]    D email_engine/_backup/backup_20260320/read_email.py
+[2026-04-01 19:45:20]    D email_engine/_backup/backup_20260320/read_email1.py
+[2026-04-01 19:45:20]    D email_engine/_backup/backup_20260320/read_email2.py
+[2026-04-01 19:45:20]    D email_engine/_backup/backup_20260320/rules.json
+[2026-04-01 19:45:20]    D email_engine/_backup/backup_20260320/rules.yaml
+[2026-04-01 19:45:20]    D email_engine/_backup/backup_20260320/run_all.py
+[2026-04-01 19:45:20]    D email_engine/_backup/backup_20260320/scan_outlook_folders.py
+[2026-04-01 19:45:20]    D email_engine/_backup/backup_20260320/send_email.py
+[2026-04-01 19:45:20]    D email_engine/_backup/backup_20260320/setup_brain_scheduler.ps1
+[2026-04-01 19:45:20]    D email_engine/_backup/backup_20260320/setup_task_scheduler.ps1
+[2026-04-01 19:45:20]    D email_engine/_backup/backup_20260320/shipment_brain.py
+[2026-04-01 19:45:20]    D email_engine/_backup/backup_20260320/shipment_patterns.yaml
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260306_171056.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260306_171121.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260306_171211.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260306_172044.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260306_173816.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260309_145858.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260311_143659.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260311_161456.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260311_170950.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260311_172248.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260312_085508.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260312_133803.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260312_151831.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260312_165302.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260312_171246.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260320_153420.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260320_153622.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260320_153815.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260320_165608.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260326_172747.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260330_110037.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260331_062034.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260331_062239.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260331_063916.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/customer_final_20260331_072119.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260114_1651.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260116_1652.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260116_1653.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260116_1727.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260116_1730.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260122_1129.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260122_1131.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260122_1145.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260122_1705.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260122_1739.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260122_2032.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260122_2037.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260126_1852.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260126_1853.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260126_1854.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260127_1610.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260127_1613.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260127_1654.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260128_1747.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260128_2028.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260129_1100.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260129_1207.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260129_1208.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260129_1337.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260130_1543.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260130_1546.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260130_1731.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260204_1639.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260204_1642.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260204_1647.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260204_1657.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260204_1708.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260204_1713.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260204_2102.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260204_2104.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260204_2117.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260205_1753.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260210_1447.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260210_1451.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260210_1458.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260210_1504.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260210_1508.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260210_1536.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260210_1606.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260210_1625.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260210_1626.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260210_1629.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260210_1639.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260303_1656.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260306_1635.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260306_1638.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260306_1711.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260309_1458.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260309_1459.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260309_1500.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260309_1501.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260309_1502.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260311_1436.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260311_1437.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260311_1453.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260311_1454.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260311_1503.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260311_1504.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260311_1614.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260311_1615.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260311_1709.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260311_1722.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260312_0854.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260312_1357.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260312_1404.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260312_1435.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260312_1438.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260312_1439.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260312_1453.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260312_1513.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260312_1514.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260312_1518.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260312_1615.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260312_1617.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260312_1652.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260312_1712.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260326_1617.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260326_1618.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260326_1634.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260326_1656.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260326_1658.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260326_1659.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260326_1708.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260326_1726.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260330_1057.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260331_0620.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260331_0638.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_20260331_0721.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_before_bounce_clean_20260326_172720.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_before_bounce_clean_20260330_110007.xlsx
+[2026-04-01 19:45:20]    D email_engine/backup/data_before_bounce_clean_20260331_063904.xlsx
+[2026-04-01 19:45:20]   ?? deploy/deploy_log.txt
+[2026-04-01 19:45:21] [OK] Committed: S14A: fix Container_Type matching + max_days_used init + route_debug format
+[2026-04-01 19:45:21] 
+[2026-04-01 19:45:21] [2/4] Pushing to GitHub...
+[2026-04-01 20:12:02] ============================================
+[2026-04-01 20:12:02]   NELSON FREIGHT COWORK DEPLOY
+[2026-04-01 20:12:02]   04/01/2026 20:12:02
+[2026-04-01 20:12:02] ============================================
+[2026-04-01 20:12:02] 
+[2026-04-01 20:12:02] [1/4] Checking git status...
+[2026-04-01 20:12:03] Changes detected:
+[2026-04-01 20:12:03]    M .gitignore
+[2026-04-01 20:12:03]    M CLAUDE.md
+[2026-04-01 20:12:03]    M claudekit-skills
+[2026-04-01 20:12:03]    M deploy/auto_deploy.bat
+[2026-04-01 20:12:03]    M deploy/cowork_deploy.ps1
+[2026-04-01 20:12:03]    M deploy/deploy_log.txt
+[2026-04-01 20:12:03]   ?? email_engine/backup.pst
+[2026-04-01 20:12:20] [OK] Committed: fix: update SSH key + auto_deploy path
+[2026-04-01 20:12:20] 
+[2026-04-01 20:12:20] [2/4] Pushing to GitHub...
+[2026-04-01 21:18:24] ============================================
+[2026-04-01 21:18:24]   NELSON FREIGHT COWORK DEPLOY
+[2026-04-01 21:18:24]   04/01/2026 21:18:24
+[2026-04-01 21:18:24] ============================================
+[2026-04-01 21:18:24] 
+[2026-04-01 21:18:24] [1/4] Checking git status...
+[2026-04-01 21:18:24] Changes detected:
+[2026-04-01 21:18:24]    M claudekit-skills
+[2026-04-01 21:18:24]    M deploy/deploy_log.txt
+[2026-04-01 21:18:24] [OK] Committed: webapp: full upgrade - React Query, dark mode, skeletons, CI/CD
+[2026-04-01 21:18:24] 
+[2026-04-01 21:18:24] [2/4] Pushing to GitHub...
+[2026-04-01 21:32:04] ============================================
+[2026-04-01 21:32:04]   NELSON FREIGHT COWORK DEPLOY
+[2026-04-01 21:32:04]   04/01/2026 21:32:04
+[2026-04-01 21:32:04] ============================================
+[2026-04-01 21:32:04] 
+[2026-04-01 21:32:04] [1/4] Checking git status...
+[2026-04-01 21:32:05] Changes detected:
+[2026-04-01 21:32:05]    M claudekit-skills
+[2026-04-01 21:32:05]    M deploy/deploy_log.txt
+[2026-04-01 21:32:05] [OK] Committed: webapp upgrade deployed
+[2026-04-01 21:32:05] 
+[2026-04-01 21:32:05] [2/4] Pushing to GitHub...

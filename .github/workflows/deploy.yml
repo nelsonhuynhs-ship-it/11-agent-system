@@ -1,0 +1,186 @@
+name: Nelson Auto-Deploy to VPS
+
+# ============================================================
+#   NELSON FREIGHT — CI/CD Pipeline v2
+#   Push len main → test tu dong → deploy VPS → Telegram
+#   Updated: 2026-04-01
+# ============================================================
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  VPS_HOST: 14.225.207.145
+  VPS_USER: root
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  # ----------------------------------------------------------
+  #  JOB 1: TEST - Kiem tra code truoc khi deploy (~1 phut)
+  # ----------------------------------------------------------
+  test:
+    name: "Kiem tra code"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install fastapi httpx pytest pytest-asyncio pydantic python-dotenv pandas openpyxl 2>/dev/null || true
+
+      - name: Check Python syntax
+        run: |
+          echo "Checking syntax..."
+          find api/ -name "*.py" -exec python3 -m py_compile {} \; && echo "OK: API files clean"
+          find email_engine/core/ -name "*.py" -exec python3 -m py_compile {} \; 2>/dev/null && echo "OK: email_engine clean" || true
+
+      - name: Run API tests
+        run: |
+          if [ -d "api/tests" ] && ls api/tests/*.py 2>/dev/null; then
+            cd api && python -m pytest tests/ -v --tb=short -q
+          else
+            echo "No tests yet - skipping"
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: webapp/package-lock.json
+
+      - name: WebApp type check + build
+        run: |
+          cd webapp
+          npm ci --ignore-scripts
+          npx tsc --noEmit && echo "OK: TypeScript clean"
+          npm run build && echo "OK: Next.js build clean"
+
+      - name: Notify test result
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            ICON="OK"; MSG="Code sach - bat dau deploy"
+          else
+            ICON="FAIL"; MSG="Code co loi - KHONG deploy"
+          fi
+          COMMIT=$(echo "${{ github.event.head_commit.message }}" | cut -c1-60)
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d text="${ICON} ${MSG} | ${COMMIT}" || true
+
+  # ----------------------------------------------------------
+  #  JOB 2: DEPLOY - Chi chay neu test pass
+  # ----------------------------------------------------------
+  deploy:
+    name: "Deploy VPS"
+    runs-on: ubuntu-latest
+    needs: test
+    if: success()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ env.VPS_HOST }}
+          username: ${{ env.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          timeout: 300s
+          script: |
+            set -e
+            echo "=== Nelson Deploy $(date '+%H:%M %d/%m/%Y') ==="
+
+            # 1. Pull latest code
+            REPO="/home/nelson/_repo_temp"
+            if [ ! -d "$REPO/.git" ]; then
+              git clone https://github.com/nelsonhuynhs-ship-it/FreightBrian.git "$REPO"
+            fi
+            cd "$REPO"
+            git fetch origin main
+            git reset --hard origin/main
+            echo "[OK] Code moi: $(git log -1 --pretty='%s')"
+
+            # 2. Detect changed areas
+            CHANGED=$(git diff HEAD~1 HEAD --name-only 2>/dev/null || echo "all")
+            API_CHANGED=false; WEBAPP_CHANGED=false; EMAIL_CHANGED=false
+            echo "$CHANGED" | grep -qE "^api/|^db/|^intelligence/" && API_CHANGED=true || true
+            echo "$CHANGED" | grep -qE "^webapp/src/"              && WEBAPP_CHANGED=true || true
+            echo "$CHANGED" | grep -qE "^email_engine/"            && EMAIL_CHANGED=true || true
+            [ "$CHANGED" = "all" ] && API_CHANGED=true && WEBAPP_CHANGED=true
+            echo "Scope: API=$API_CHANGED WebApp=$WEBAPP_CHANGED Email=$EMAIL_CHANGED"
+
+            # 3. Deploy API
+            if [ "$API_CHANGED" = "true" ]; then
+              echo "--- API deploy ---"
+              cp -r "$REPO/api/." /home/nelson/api/
+              cp -r "$REPO/db" /home/nelson/ 2>/dev/null || true
+              cp -r "$REPO/intelligence" /home/nelson/ 2>/dev/null || true
+              systemctl restart nelson-api
+              sleep 3
+              systemctl is-active nelson-api && echo "[OK] API up" || { echo "[FAIL] API down"; exit 1; }
+            fi
+
+            # 4. Deploy email_engine
+            if [ "$EMAIL_CHANGED" = "true" ]; then
+              cp -r "$REPO/email_engine/core/." /home/nelson/email_engine/core/ 2>/dev/null || true
+              echo "[OK] email_engine synced"
+            fi
+
+            # 5. Deploy WebApp
+            if [ "$WEBAPP_CHANGED" = "true" ]; then
+              echo "--- WebApp build ---"
+              cp -r "$REPO/webapp/src/." /home/nelson/webapp/src/
+              [ ! -f /home/nelson/webapp/.env.local ] && \
+                echo "NEXT_PUBLIC_API_URL=http://14.225.207.145:8100" > /home/nelson/webapp/.env.local
+              cd /home/nelson/webapp
+              npm run build 2>&1 | tail -8
+              systemctl restart nelson-webapp3003
+              sleep 3
+              systemctl is-active nelson-webapp3003 && echo "[OK] WebApp up" || echo "[WARN] WebApp issue"
+            fi
+
+            # 6. Health check
+            sleep 2
+            API_HTTP=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8100/api/health || echo "000")
+            WEB_HTTP=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3003/login 2>/dev/null || echo "000")
+            echo "Health: API=$API_HTTP WebApp=$WEB_HTTP"
+            if [ "$API_HTTP" != "200" ] && [ "$API_HTTP" != "307" ]; then
+              echo "[FAIL] API khong respond"
+              exit 1
+            fi
+            echo "=== Deploy xong $(date '+%H:%M') ==="
+
+      - name: Notify SUCCESS
+        if: success()
+        run: |
+          COMMIT=$(echo "${{ github.event.head_commit.message }}" | cut -c1-60)
+          ACTOR="${{ github.actor }}"
+          TIME=$(date '+%H:%M %d/%m/%Y')
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d text="Deploy XONG! | ${COMMIT} | ${ACTOR} | ${TIME} | API: http://14.225.207.145:8100" \
+            || true
+
+      - name: Notify FAILURE
+        if: failure()
+        run: |
+          COMMIT=$(echo "${{ github.event.head_commit.message }}" | cut -c1-60)
+          RUN="https://github.com/nelsonhuynhs-ship-it/FreightBrian/actions/runs/${{ github.run_id }}"
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d text="Deploy THAT BAI! | ${COMMIT} | Log: ${RUN}" \
+            || true

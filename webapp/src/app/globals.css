@@ -1,0 +1,342 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════
+   NELSON FREIGHT — Design System v2
+   Bright Minimalist · Inter · Premium SaaS
+   ═══════════════════════════════════════════════ */
+
+/* Dark mode variant: .dark on <html> */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  /* ── Core Palette (static) ──────────────────── */
+  --color-primary: #0C1B33;
+  --color-accent: #2563EB;
+  --color-accent-hover: #1D4ED8;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
+
+  /* ── Surfaces (light defaults) ──────────────── */
+  --color-background: #F8FAFC;
+  --color-surface: #FFFFFF;
+  --color-surface-hover: #F1F5F9;
+  --color-sidebar: #FFFFFF;
+  --color-border: #E2E8F0;
+  --color-border-strong: #CBD5E1;
+  --color-text: #0F172A;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94A3B8;
+  --color-accent-light: #DBEAFE;
+  --color-success-light: #D1FAE5;
+  --color-warning-light: #FEF3C7;
+  --color-danger-light: #FEE2E2;
+
+  /* ── Typography ──────────────────────────────── */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* ── Global Reset ───────────────────────────────── */
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-background);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.dark, .dark .bg-background {
+  background: #0B1120 !important;
+  color: #F1F5F9;
+}
+.dark .bg-surface, .dark .bg-sidebar {
+  background: #111827 !important;
+}
+.dark .bg-surface-hover {
+  background: #1F2937 !important;
+}
+.dark .text-text { color: #F1F5F9 !important; }
+.dark .text-text-secondary { color: #94A3B8 !important; }
+.dark .text-text-muted { color: #64748B !important; }
+.dark .border-border { border-color: #1F2937 !important; }
+
+/* ── Scrollbar (minimal) ────────────────────────── */
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 100px; }
+::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+/* ── Cards ──────────────────────────────────────── */
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+}
+.dark .card {
+  background: #111827;
+  border-color: #1F2937;
+}
+
+.card-hover {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  cursor: pointer;
+}
+.card-hover:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border-color: var(--color-border-strong);
+}
+
+/* ── KPI Accent Strips ─────────────────────────── */
+
+.kpi-blue   { border-left: 3px solid #2563EB; }
+.kpi-green  { border-left: 3px solid #10B981; }
+.kpi-amber  { border-left: 3px solid #F59E0B; }
+.kpi-red    { border-left: 3px solid #EF4444; }
+
+/* ── Primary Button ────────────────────────────── */
+
+.btn-primary {
+  background: var(--color-accent);
+  color: white;
+  font-weight: 600;
+  padding: 0.5rem 1.25rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.btn-primary:hover {
+  background: var(--color-accent-hover);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+}
+
+/* ── Ghost Button ──────────────────────────────── */
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+.btn-ghost:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+/* ── Sidebar ────────────────────────────────────── */
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+.sidebar-link:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+.sidebar-link-active {
+  color: var(--color-accent);
+  background: var(--color-accent-light);
+  font-weight: 600;
+}
+
+/* ── Status Badges ─────────────────────────────── */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 100px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.badge-success { background: var(--color-success-light); color: #065F46; }
+.badge-warning { background: var(--color-warning-light); color: #92400E; }
+.badge-danger  { background: var(--color-danger-light);  color: #991B1B; }
+.badge-info    { background: var(--color-accent-light);  color: #1E40AF; }
+.badge-neutral { background: #F1F5F9; color: #475569; }
+
+/* ── Table ──────────────────────────────────────── */
+
+.table-row {
+  border-bottom: 1px solid var(--color-border);
+  transition: background 0.15s ease;
+}
+.table-row:hover {
+  background: #F8FAFC;
+}
+
+/* ── Input ──────────────────────────────────────── */
+
+.input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: var(--color-text);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.input::placeholder { color: var(--color-text-muted); }
+.input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* ── Pulse animation ─────────────────────────── */
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* ── Select ────────────────────────────────────── */
+
+.select {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+.select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* ═══════════════════════════════════════════════
+   DARK MODE (auto via prefers-color-scheme)
+   ═══════════════════════════════════════════════ */
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --color-background: #0B1120;
+    --color-surface: #111827;
+    --color-surface-hover: #1F2937;
+    --color-sidebar: #111827;
+    --color-border: #1F2937;
+    --color-border-strong: #374151;
+    --color-text: #F1F5F9;
+    --color-text-secondary: #94A3B8;
+    --color-text-muted: #64748B;
+    --color-accent-light: rgba(37, 99, 235, 0.15);
+    --color-success-light: rgba(16, 185, 129, 0.15);
+    --color-warning-light: rgba(245, 158, 11, 0.15);
+    --color-danger-light: rgba(239, 68, 68, 0.15);
+    color-scheme: dark;
+  }
+}
+
+.dark .table-row:hover { background: #1F2937; }
+
+/* Dark overrides for component classes */
+.dark .sidebar-link { color: #94A3B8; }
+.dark .sidebar-link:hover { color: #F1F5F9; background: #1F2937; }
+.dark .sidebar-link-active { color: #2563EB; background: rgba(37, 99, 235, 0.15); }
+.dark .input, .dark .select { background: #1F2937; border-color: #374151; color: #F1F5F9; }
+.dark .input:focus, .dark .select:focus { border-color: #2563EB; }
+.dark .input::placeholder { color: #64748B; }
+.dark .btn-ghost:hover { background: #1F2937; color: #F1F5F9; }
+.dark .badge-success { background: rgba(16, 185, 129, 0.15); color: #34D399; }
+.dark .badge-warning { background: rgba(245, 158, 11, 0.15); color: #FBBF24; }
+.dark .badge-danger  { background: rgba(239, 68, 68, 0.15); color: #F87171; }
+.dark .badge-info    { background: rgba(37, 99, 235, 0.15); color: #60A5FA; }
+.dark .badge-neutral { background: #1F2937; color: #94A3B8; }
+.dark .table-row { border-bottom-color: #1F2937; }
+.dark ::-webkit-scrollbar-thumb { background: #374151; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #4B5563; }
+
+/* ═══════════════════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════════════════ */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in { animation: fade-in 0.2s ease-out; }
+.animate-slide-up { animation: slide-up 0.3s ease-out; }
+.animate-scale-in { animation: scale-in 0.2s ease-out; }
+
+/* Staggered children animation */
+.stagger-children > * {
+  animation: slide-up 0.3s ease-out both;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+
+/* ── Toast Notification ───────────────────────── */
+
+.toast {
+  position: fixed;
+  bottom: 5rem;
+  right: 1.5rem;
+  z-index: 100;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  animation: slide-up 0.3s ease-out;
+}
+.toast-success { background: var(--color-success); color: white; }
+.toast-error { background: var(--color-danger); color: white; }
+.toast-info { background: var(--color-accent); color: white; }
+
+/* ── Collapsible Sidebar ──────────────────────── */
+
+.sidebar-collapsed {
+  width: 64px !important;
+}
+.sidebar-collapsed .sidebar-label,
+.sidebar-collapsed .sidebar-group-label,
+.sidebar-collapsed .sidebar-footer-text {
+  display: none;
+}
+.sidebar-collapsed .sidebar-link {
+  justify-content: center;
+  padding: 0.5rem;
+}
+.sidebar-collapsed .sidebar-link svg {
+  margin: 0;
+}

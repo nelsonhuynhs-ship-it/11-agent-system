@@ -1,0 +1,3959 @@
+{
+  "generated_at": "2026-03-15T07:23:26.149947",
+  "total_emails": 179,
+  "customers": [
+    {
+      "customer_name": "SIRI",
+      "type": "FWD",
+      "shipment_count": 20,
+      "sla_hours": 4,
+      "stages_seen": [
+        "ATD",
+        "CHANGE_VESSEL",
+        "DN_SENT",
+        "DRAFT_BL_ISSUED",
+        "INVOICE_ISSUED"
+      ],
+      "carriers": [
+        "CMA CGM",
+        "ONE"
+      ],
+      "routes": [
+        "HPH-EL PASO, TX VIA LOS ANGELES, CA"
+      ],
+      "hbl_prefixes": [
+        "PELP"
+      ],
+      "senders": [
+        "accounting2@pudongprime.vn",
+        "ashley@pudongprime.vn",
+        "cs18@pudongprime.vn",
+        "hcm.service@sirilogistics.vn",
+        "isabel@pudongprime.vn"
+      ]
+    },
+    {
+      "customer_name": "HML",
+      "type": "FWD",
+      "shipment_count": 19,
+      "sla_hours": 4,
+      "stages_seen": [
+        "ATD",
+        "DN_SENT",
+        "DRAFT_BL_ISSUED",
+        "INVOICE_ISSUED",
+        "LOADED"
+      ],
+      "carriers": [
+        "HPL",
+        "ONE SOC",
+        "WHL"
+      ],
+      "routes": [
+        "HPH-DENVER, CO VIA OAKLAND, CA",
+        "HPH-LAX"
+      ],
+      "hbl_prefixes": [
+        "HANG",
+        "PDEN",
+        "PLAX"
+      ],
+      "senders": [
+        "accounting2@pudongprime.vn",
+        "accounting4@pudongprime.vn",
+        "cs18@pudongprime.vn",
+        "isabel@pudongprime.vn",
+        "jena@hml.com.vn",
+        "nelson@pudongprime.vn"
+      ]
+    },
+    {
+      "customer_name": "PANDA",
+      "type": "FWD",
+      "shipment_count": 20,
+      "sla_hours": 4,
+      "stages_seen": [
+        "ATD",
+        "DN_SENT",
+        "DRAFT_BL_ISSUED",
+        "INVOICE_ISSUED"
+      ],
+      "carriers": [
+        "HPL",
+        "ONE",
+        "ZIM"
+      ],
+      "routes": [
+        "HCM-NYC"
+      ],
+      "hbl_prefixes": [
+        "PCHS",
+        "PNYC",
+        "ZIMU"
+      ],
+      "senders": [
+        "cs18@pudongprime.vn",
+        "cs3@pudongprime.vn",
+        "eden.hoang@panda4u.com",
+        "isabel@pudongprime.vn",
+        "nelson@pudongprime.vn",
+        "zoe.nguyen@panda4u.com"
+      ]
+    },
+    {
+      "customer_name": "NAFOOD",
+      "type": "DIRECT",
+      "shipment_count": 20,
+      "sla_hours": 2,
+      "stages_seen": [
+        "ATD",
+        "DN_SENT",
+        "PAYMENT_CONFIRMED"
+      ],
+      "carriers": [
+        "EMC",
+        "MSC",
+        "ONE",
+        "WHL",
+        "YML"
+      ],
+      "routes": [
+        "HCM-ADELAIDE, AUS",
+        "HCM-ROTTERDAM TRANSIT SINGAPORE",
+        "HPH-ROTTERDAM TRANSIT SINGAPORE"
+      ],
+      "hbl_prefixes": [],
+      "senders": [
+        "accounting4@pudongprime.vn",
+        "grace@pudongprime.vn",
+        "huyenht@nafoods.com",
+        "isabel@pudongprime.vn",
+        "nelson@pudongprime.vn"
+      ]
+    },
+    {
+      "customer_name": "PT FOOD",
+      "type": "DIRECT",
+      "shipment_count": 20,
+      "sla_hours": 2,
+      "stages_seen": [
+        "ATD",
+        "DELAY_NOTICE",
+        "DN_SENT",
+        "DRAFT_BL_ISSUED",
+        "ETA_UPDATE",
+        "INVOICE_ISSUED",
+        "PAYMENT_CONFIRMED"
+      ],
+      "carriers": [
+        "EMC",
+        "HPL",
+        "ONE",
+        "YML"
+      ],
+      "routes": [
+        "HCM-HOUSTON, TX TRANSIT YANTIAN",
+        "HCM-LAX",
+        "HCM-OAKLAND"
+      ],
+      "hbl_prefixes": [
+        "PHOU",
+        "PLAX",
+        "POAK"
+      ],
+      "senders": [
+        "accounting2@pudongprime.vn",
+        "accounting4@pudongprime.vn",
+        "cs18@pudongprime.vn",
+        "export2.ptfood@gmail.com",
+        "isabel@pudongprime.vn",
+        "thaontxptfood@gmail.com"
+      ]
+    },
+    {
+      "customer_name": "VINARES",
+      "type": "DIRECT",
+      "shipment_count": 40,
+      "sla_hours": 2,
+      "stages_seen": [
+        "ATD",
+        "DELAY_NOTICE",
+        "DN_SENT",
+        "DRAFT_BL_ISSUED",
+        "INVOICE_ISSUED",
+        "PAYMENT_CONFIRMED"
+      ],
+      "carriers": [
+        "ONE SOC"
+      ],
+      "routes": [
+        "HPH-TORONTO"
+      ],
+      "hbl_prefixes": [
+        "PYTO"
+      ],
+      "senders": [
+        "accounting2@pudongprime.vn",
+        "accounting4@pudongprime.vn",
+        "cs18@pudongprime.vn",
+        "docs2@vinares.net",
+        "isabel@pudongprime.vn",
+        "jolie@pudongprime.vn",
+        "nelson@pudongprime.vn",
+        "tony@vinares.net"
+      ]
+    },
+    {
+      "customer_name": "HER HUI WOOD",
+      "type": "DIRECT",
+      "shipment_count": 20,
+      "sla_hours": 2,
+      "stages_seen": [
+        "ATD",
+        "DN_SENT",
+        "DRAFT_BL_ISSUED",
+        "INVOICE_ISSUED",
+        "PAYMENT_CONFIRMED"
+      ],
+      "carriers": [
+        "ONE"
+      ],
+      "routes": [],
+      "hbl_prefixes": [
+        "ESLV",
+        "PSEA"
+      ],
+      "senders": [
+        "accounting2@pudongprime.vn",
+        "accounting4@pudongprime.vn",
+        "cs18@pudongprime.vn",
+        "herhuixnk2@gmail.com",
+        "isabel@pudongprime.vn"
+      ]
+    },
+    {
+      "customer_name": "CREATIVE LIGHT",
+      "type": "DIRECT",
+      "shipment_count": 20,
+      "sla_hours": 2,
+      "stages_seen": [
+        "ETA_UPDATE",
+        "INVOICE_ISSUED",
+        "PAYMENT_CONFIRMED"
+      ],
+      "carriers": [
+        "ONE"
+      ],
+      "routes": [],
+      "hbl_prefixes": [
+        "PLAX"
+      ],
+      "senders": [
+        "alejandra@stonecandles.com",
+        "cs18@pudongprime.vn",
+        "cwop2@cowinshipping.com",
+        "isabel@pudongprime.vn",
+        "lucyli@cowinshipping.com",
+        "yovani@stonecandles.com"
+      ]
+    }
+  ],
+  "shipments": [
+    {
+      "shipment_id": "SGN3089986",
+      "hbl": [],
+      "bkg": [
+        "SGN3089986"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-EL PASO, TX VIA LOS ANGELES, CA",
+      "etd": "19MAR",
+      "customer": "SIRI",
+      "customer_type": "FWD",
+      "carrier": "CMA CGM",
+      "stages": [
+        "CHANGE_VESSEL"
+      ],
+      "risks": [
+        "MEDIUM:vessel change"
+      ],
+      "troubles": [],
+      "email_subject": "Re: VESSEL CHANGE NOTICE// SIRI LOG BKG  SGN3089986// HPH-EL PASO, TX VIA LOS AN",
+      "sender": "hcm.service@sirilogistics.vn",
+      "timestamp": "2026-03-13 14:47:39.482000+00:00"
+    },
+    {
+      "shipment_id": "PELP26030260",
+      "hbl": [
+        "PELP26030260"
+      ],
+      "bkg": [
+        "SGN3084097"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-EL PASO, TX VIA LOS ANGELES, CA",
+      "etd": "11MAR",
+      "customer": "SIRI",
+      "customer_type": "FWD",
+      "carrier": "CMA CGM",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT",
+        "INVOICE_ISSUED"
+      ],
+      "risks": [
+        "CRITICAL:urgent"
+      ],
+      "troubles": [],
+      "email_subject": "RE: DN //  ATD// DRAFT B/L#PELP26030260 // SIRI BKG SGN3084097 // HPH-EL PASO, T",
+      "sender": "accounting2@pudongprime.vn",
+      "timestamp": "2026-03-12 16:29:21.508000+00:00"
+    },
+    {
+      "shipment_id": "PELP26030260",
+      "hbl": [
+        "PELP26030260"
+      ],
+      "bkg": [
+        "SGN3084097"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-EL PASO, TX VIA LOS ANGELES, CA",
+      "etd": "11MAR",
+      "customer": "SIRI",
+      "customer_type": "FWD",
+      "carrier": "CMA CGM",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT",
+        "INVOICE_ISSUED"
+      ],
+      "risks": [
+        "CRITICAL:urgent"
+      ],
+      "troubles": [],
+      "email_subject": "RE: DN //  ATD// DRAFT B/L#PELP26030260 // SIRI BKG SGN3084097 // HPH-EL PASO, T",
+      "sender": "accounting2@pudongprime.vn",
+      "timestamp": "2026-03-12 16:20:07.130000+00:00"
+    },
+    {
+      "shipment_id": "PELP26030260",
+      "hbl": [
+        "PELP26030260"
+      ],
+      "bkg": [
+        "SGN3084097"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-EL PASO, TX VIA LOS ANGELES, CA",
+      "etd": "11MAR",
+      "customer": "SIRI",
+      "customer_type": "FWD",
+      "carrier": "CMA CGM",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT",
+        "INVOICE_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DN //  ATD// DRAFT B/L#PELP26030260 // SIRI BKG SGN3084097 // HPH-EL PASO, T",
+      "sender": "hcm.service@sirilogistics.vn",
+      "timestamp": "2026-03-12 16:10:01.255000+00:00"
+    },
+    {
+      "shipment_id": "PELP26030260",
+      "hbl": [
+        "PELP26030260"
+      ],
+      "bkg": [
+        "SGN3084097"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-EL PASO, TX VIA LOS ANGELES, CA",
+      "etd": "11MAR",
+      "customer": "SIRI",
+      "customer_type": "FWD",
+      "carrier": "CMA CGM",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT",
+        "INVOICE_ISSUED"
+      ],
+      "risks": [
+        "CRITICAL:urgent"
+      ],
+      "troubles": [],
+      "email_subject": "RE: DN //  ATD// DRAFT B/L#PELP26030260 // SIRI BKG SGN3084097 // HPH-EL PASO, T",
+      "sender": "accounting2@pudongprime.vn",
+      "timestamp": "2026-03-12 16:08:36.647000+00:00"
+    },
+    {
+      "shipment_id": "PELP26030260",
+      "hbl": [
+        "PELP26030260"
+      ],
+      "bkg": [
+        "SGN3084097"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-EL PASO, TX VIA LOS ANGELES, CA",
+      "etd": "11MAR",
+      "customer": "SIRI",
+      "customer_type": "FWD",
+      "carrier": "CMA CGM",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT",
+        "INVOICE_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DN //  ATD// DRAFT B/L#PELP26030260 // SIRI BKG SGN3084097 // HPH-EL PASO, T",
+      "sender": "hcm.service@sirilogistics.vn",
+      "timestamp": "2026-03-12 16:02:45.967000+00:00"
+    },
+    {
+      "shipment_id": "PELP26030260",
+      "hbl": [
+        "PELP26030260"
+      ],
+      "bkg": [
+        "SGN3084097"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-EL PASO, TX VIA LOS ANGELES, CA",
+      "etd": "11MAR",
+      "customer": "SIRI",
+      "customer_type": "FWD",
+      "carrier": "CMA CGM",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT",
+        "INVOICE_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "DN //  ATD// DRAFT B/L#PELP26030260 // SIRI BKG SGN3084097 // HPH-EL PASO, TX vi",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-03-11 15:58:48.044000+00:00"
+    },
+    {
+      "shipment_id": "PELP26030260",
+      "hbl": [
+        "PELP26030260"
+      ],
+      "bkg": [
+        "SGN3084097"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-EL PASO, TX VIA LOS ANGELES, CA",
+      "etd": "11MAR",
+      "customer": "SIRI",
+      "customer_type": "FWD",
+      "carrier": "CMA CGM",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: ATD// DRAFT B/L#PELP26030260 // SIRI BKG SGN3084097 // HPH-EL PASO, TX via L",
+      "sender": "hcm.service@sirilogistics.vn",
+      "timestamp": "2026-03-11 15:49:41.018000+00:00"
+    },
+    {
+      "shipment_id": "SGN3089986",
+      "hbl": [],
+      "bkg": [
+        "SGN3089986",
+        "UPDATED"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-EL PASO, TX VIA LOS ANGELES, CA",
+      "etd": "19MAR",
+      "customer": "SIRI",
+      "customer_type": "FWD",
+      "carrier": "CMA CGM",
+      "stages": [
+        "CHANGE_VESSEL"
+      ],
+      "risks": [
+        "MEDIUM:vessel change"
+      ],
+      "troubles": [],
+      "email_subject": "Re: VESSEL CHANGE NOTICE// SIRI LOG BKG  SGN3089986// HPH-EL PASO, TX VIA LOS AN",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2026-03-11 14:04:26.180000+00:00"
+    },
+    {
+      "shipment_id": "PELP26030260",
+      "hbl": [
+        "PELP26030260"
+      ],
+      "bkg": [
+        "SGN3084097"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-EL PASO, TX VIA LOS ANGELES, CA",
+      "etd": "11MAR",
+      "customer": "SIRI",
+      "customer_type": "FWD",
+      "carrier": "CMA CGM",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "Re: ATD// DRAFT B/L#PELP26030260 // SIRI BKG SGN3084097 // HPH-EL PASO, TX via L",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2026-03-11 11:45:42.392000+00:00"
+    },
+    {
+      "shipment_id": "SGN3089986",
+      "hbl": [],
+      "bkg": [
+        "SGN3089986"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-EL PASO, TX VIA LOS ANGELES, CA",
+      "etd": "19MAR",
+      "customer": "SIRI",
+      "customer_type": "FWD",
+      "carrier": "CMA CGM",
+      "stages": [
+        "CHANGE_VESSEL"
+      ],
+      "risks": [
+        "MEDIUM:vessel change"
+      ],
+      "troubles": [],
+      "email_subject": "Re: VESSEL CHANGE NOTICE// SIRI LOG BKG  SGN3089986// HPH-EL PASO, TX VIA LOS AN",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2026-03-11 08:46:06.200000+00:00"
+    },
+    {
+      "shipment_id": "PELP26030260",
+      "hbl": [
+        "PELP26030260"
+      ],
+      "bkg": [
+        "SGN3084097"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-EL PASO, TX VIA LOS ANGELES, CA",
+      "etd": "10MAR",
+      "customer": "SIRI",
+      "customer_type": "FWD",
+      "carrier": "CMA CGM",
+      "stages": [
+        "DRAFT_BL_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DRAFT B/L#PELP26030260 //  ADVANCE NOTICE// SIRI BKG SGN3084097 // HPH-EL PA",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-03-10 09:07:29.520000+00:00"
+    },
+    {
+      "shipment_id": "PELP26030260",
+      "hbl": [
+        "PELP26030260"
+      ],
+      "bkg": [
+        "SGN3084097"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-EL PASO, TX VIA LOS ANGELES, CA",
+      "etd": "10MAR",
+      "customer": "SIRI",
+      "customer_type": "FWD",
+      "carrier": "CMA CGM",
+      "stages": [
+        "DRAFT_BL_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DRAFT B/L#PELP26030260 //  ADVANCE NOTICE// SIRI BKG SGN3084097 // HPH-EL PA",
+      "sender": "hcm.service@sirilogistics.vn",
+      "timestamp": "2026-03-10 08:53:48.914000+00:00"
+    },
+    {
+      "shipment_id": "SGN3089986",
+      "hbl": [],
+      "bkg": [
+        "SGN3089986"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-EL PASO, TX VIA LOS ANGELES, CA",
+      "etd": "17MAR",
+      "customer": "SIRI",
+      "customer_type": "FWD",
+      "carrier": "CMA CGM",
+      "stages": [],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: SIRI LOG BKG  SGN3089986// HPH-EL PASO, TX VIA LOS ANGELES, CA // 2X20DC // ",
+      "sender": "ashley@pudongprime.vn",
+      "timestamp": "2026-03-09 16:54:14.802000+00:00"
+    },
+    {
+      "shipment_id": "PELP26030260",
+      "hbl": [
+        "PELP26030260"
+      ],
+      "bkg": [
+        "SGN3084097"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-EL PASO, TX VIA LOS ANGELES, CA",
+      "etd": "10MAR",
+      "customer": "SIRI",
+      "customer_type": "FWD",
+      "carrier": "CMA CGM",
+      "stages": [
+        "DRAFT_BL_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DRAFT B/L#PELP26030260 //  ADVANCE NOTICE// SIRI BKG SGN3084097 // HPH-EL PA",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-03-09 08:54:43.651000+00:00"
+    },
+    {
+      "shipment_id": "PELP26030260",
+      "hbl": [
+        "PELP26030260"
+      ],
+      "bkg": [
+        "SGN3084097"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-EL PASO, TX VIA LOS ANGELES, CA",
+      "etd": "10MAR",
+      "customer": "SIRI",
+      "customer_type": "FWD",
+      "carrier": "CMA CGM",
+      "stages": [
+        "DRAFT_BL_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DRAFT B/L#PELP26030260 //  ADVANCE NOTICE// SIRI BKG SGN3084097 // HPH-EL PA",
+      "sender": "hcm.service@sirilogistics.vn",
+      "timestamp": "2026-03-09 08:51:16.883000+00:00"
+    },
+    {
+      "shipment_id": "PELP26030260",
+      "hbl": [
+        "PELP26030260"
+      ],
+      "bkg": [
+        "SGN3084097"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-EL PASO, TX VIA LOS ANGELES, CA",
+      "etd": "10MAR",
+      "customer": "SIRI",
+      "customer_type": "FWD",
+      "carrier": "CMA CGM",
+      "stages": [
+        "DRAFT_BL_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "DRAFT B/L#PELP26030260 //  ADVANCE NOTICE// SIRI BKG SGN3084097 // HPH-EL PASO, ",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-03-06 17:50:43.979000+00:00"
+    },
+    {
+      "shipment_id": "SGN3089986",
+      "hbl": [],
+      "bkg": [
+        "SGN3089986"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-EL PASO, TX VIA LOS ANGELES, CA",
+      "etd": "17MAR",
+      "customer": "SIRI",
+      "customer_type": "FWD",
+      "carrier": "ONE",
+      "stages": [],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: SIRI LOG BKG  SGN3089986// HPH-EL PASO, TX VIA LOS ANGELES, CA // 2X20DC // ",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2026-03-06 12:44:18.700000+00:00"
+    },
+    {
+      "shipment_id": "SGN3084097",
+      "hbl": [],
+      "bkg": [
+        "SGN3084097"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-EL PASO, TX VIA LOS ANGELES, CA",
+      "etd": "10MAR",
+      "customer": "SIRI",
+      "customer_type": "FWD",
+      "carrier": "CMA CGM",
+      "stages": [
+        "DRAFT_BL_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: ADVANCE NOTICE// SIRI BKG SGN3084097 // HPH-EL PASO, TX via LOS ANGELES, CA/",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-03-06 10:12:18.209000+00:00"
+    },
+    {
+      "shipment_id": "SGN3084097",
+      "hbl": [],
+      "bkg": [
+        "SGN3084097"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-EL PASO, TX VIA LOS ANGELES, CA",
+      "etd": "10MAR",
+      "customer": "SIRI",
+      "customer_type": "FWD",
+      "carrier": "CMA CGM",
+      "stages": [],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: ADVANCE NOTICE// SIRI BKG SGN3084097 // HPH-EL PASO, TX via LOS ANGELES, CA/",
+      "sender": "hcm.service@sirilogistics.vn",
+      "timestamp": "2026-03-06 09:56:21.270000+00:00"
+    },
+    {
+      "shipment_id": "PDEN26020517",
+      "hbl": [
+        "PDEN26020517",
+        "HANG17369900"
+      ],
+      "bkg": [
+        "HANG17369900"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-DENVER, CO VIA OAKLAND, CA",
+      "etd": "27FEB",
+      "customer": "HML",
+      "customer_type": "FWD",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DN //  ATD// DRAFT B/L#PDEN26020517 //  HML BKG HANG17369900// HPH-DENVER, C",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-03-13 15:25:22.715000+00:00"
+    },
+    {
+      "shipment_id": "PDEN26020517",
+      "hbl": [
+        "PDEN26020517",
+        "HANG17369900"
+      ],
+      "bkg": [
+        "HANG17369900"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-DENVER, CO VIA OAKLAND, CA",
+      "etd": "27FEB",
+      "customer": "HML",
+      "customer_type": "FWD",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DN //  ATD// DRAFT B/L#PDEN26020517 //  HML BKG HANG17369900// HPH-DENVER, C",
+      "sender": "jena@hml.com.vn",
+      "timestamp": "2026-03-13 14:04:56.166000+00:00"
+    },
+    {
+      "shipment_id": "33171358",
+      "hbl": [],
+      "bkg": [
+        "33171358"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-LAX",
+      "etd": "20 SEP",
+      "customer": "HML",
+      "customer_type": "FWD",
+      "carrier": "HPL",
+      "stages": [
+        "INVOICE_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: PENDING DEM CHARGE //  B/L# PPLAX2409567 // SI/VGM : BKG 33171358 // HML // ",
+      "sender": "nelson@pudongprime.vn",
+      "timestamp": "2026-03-13 09:41:00+00:00"
+    },
+    {
+      "shipment_id": "33171358",
+      "hbl": [],
+      "bkg": [
+        "33171358"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-LAX",
+      "etd": "20 SEP",
+      "customer": "HML",
+      "customer_type": "FWD",
+      "carrier": "HPL",
+      "stages": [
+        "INVOICE_ISSUED"
+      ],
+      "risks": [
+        "CRITICAL:urgent"
+      ],
+      "troubles": [],
+      "email_subject": "RE: PENDING DEM CHARGE //  B/L# PPLAX2409567 // SI/VGM : BKG 33171358 // HML // ",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-03-12 17:21:01.446000+00:00"
+    },
+    {
+      "shipment_id": "PDEN26020517",
+      "hbl": [
+        "PDEN26020517",
+        "HANG17369900"
+      ],
+      "bkg": [
+        "HANG17369900"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-DENVER, CO VIA OAKLAND, CA",
+      "etd": "27FEB",
+      "customer": "HML",
+      "customer_type": "FWD",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DN //  ATD// DRAFT B/L#PDEN26020517 //  HML BKG HANG17369900// HPH-DENVER, C",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-03-09 14:50:50.483000+00:00"
+    },
+    {
+      "shipment_id": "PDEN26020517",
+      "hbl": [
+        "PDEN26020517",
+        "HANG17369900"
+      ],
+      "bkg": [
+        "HANG17369900"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-DENVER, CO VIA OAKLAND, CA",
+      "etd": "27FEB",
+      "customer": "HML",
+      "customer_type": "FWD",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DN //  ATD// DRAFT B/L#PDEN26020517 //  HML BKG HANG17369900// HPH-DENVER, C",
+      "sender": "jena@hml.com.vn",
+      "timestamp": "2026-03-09 14:35:36.483000+00:00"
+    },
+    {
+      "shipment_id": "33171358",
+      "hbl": [],
+      "bkg": [
+        "33171358"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-LAX",
+      "etd": "20 SEP",
+      "customer": "HML",
+      "customer_type": "FWD",
+      "carrier": "HPL",
+      "stages": [
+        "INVOICE_ISSUED"
+      ],
+      "risks": [
+        "CRITICAL:urgent"
+      ],
+      "troubles": [],
+      "email_subject": "RE: PENDING DEM CHARGE //  B/L# PPLAX2409567 // SI/VGM : BKG 33171358 // HML // ",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-03-06 22:51:58.193000+00:00"
+    },
+    {
+      "shipment_id": "PDEN26020517",
+      "hbl": [
+        "PDEN26020517",
+        "HANG17369900"
+      ],
+      "bkg": [
+        "HANG17369900"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-DENVER, CO VIA OAKLAND, CA",
+      "etd": "27FEB",
+      "customer": "HML",
+      "customer_type": "FWD",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [
+        "CRITICAL:urgent"
+      ],
+      "troubles": [],
+      "email_subject": "RE: DN //  ATD// DRAFT B/L#PDEN26020517 //  HML BKG HANG17369900// HPH-DENVER, C",
+      "sender": "accounting4@pudongprime.vn",
+      "timestamp": "2026-03-05 16:41:25.915000+00:00"
+    },
+    {
+      "shipment_id": "PDEN26020517",
+      "hbl": [
+        "PDEN26020517",
+        "HANG17369900"
+      ],
+      "bkg": [
+        "HANG17369900"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-DENVER, CO VIA OAKLAND, CA",
+      "etd": "27FEB",
+      "customer": "HML",
+      "customer_type": "FWD",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DN //  ATD// DRAFT B/L#PDEN26020517 //  HML BKG HANG17369900// HPH-DENVER, C",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-03-04 16:53:43.642000+00:00"
+    },
+    {
+      "shipment_id": "PLAX26010395",
+      "hbl": [
+        "PLAX26010395"
+      ],
+      "bkg": [
+        "040GX00501"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-LAX",
+      "etd": "19JAN",
+      "customer": "HML",
+      "customer_type": "FWD",
+      "carrier": "WHL",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DN //  ATD// DRAFT B/L#PLAX26010395 //  HML BKG 040GX00501 // HPH-LAX // 1X2",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-03-03 13:59:39.480000+00:00"
+    },
+    {
+      "shipment_id": "PLAX26010395",
+      "hbl": [
+        "PLAX26010395"
+      ],
+      "bkg": [
+        "040GX00501"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-LAX",
+      "etd": "19JAN",
+      "customer": "HML",
+      "customer_type": "FWD",
+      "carrier": "WHL",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DN //  ATD// DRAFT B/L#PLAX26010395 //  HML BKG 040GX00501 // HPH-LAX // 1X2",
+      "sender": "jena@hml.com.vn",
+      "timestamp": "2026-03-03 13:43:24.030000+00:00"
+    },
+    {
+      "shipment_id": "PLAX26010395",
+      "hbl": [
+        "PLAX26010395"
+      ],
+      "bkg": [
+        "040GX00501"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-LAX",
+      "etd": "19JAN",
+      "customer": "HML",
+      "customer_type": "FWD",
+      "carrier": "WHL",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [
+        "CRITICAL:asap"
+      ],
+      "troubles": [],
+      "email_subject": "RE: DN //  ATD// DRAFT B/L#PLAX26010395 //  HML BKG 040GX00501 // HPH-LAX // 1X2",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-03-03 11:38:34.054000+00:00"
+    },
+    {
+      "shipment_id": "33171358",
+      "hbl": [],
+      "bkg": [
+        "33171358"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-LAX",
+      "etd": "20 SEP",
+      "customer": "HML",
+      "customer_type": "FWD",
+      "carrier": "HPL",
+      "stages": [
+        "INVOICE_ISSUED"
+      ],
+      "risks": [
+        "CRITICAL:urgent"
+      ],
+      "troubles": [],
+      "email_subject": "RE: PENDING DEM CHARGE //  B/L# PPLAX2409567 // SI/VGM : BKG 33171358 // HML // ",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-03-02 17:53:22.934000+00:00"
+    },
+    {
+      "shipment_id": "33171358",
+      "hbl": [],
+      "bkg": [
+        "33171358"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-LAX",
+      "etd": "20 SEP",
+      "customer": "HML",
+      "customer_type": "FWD",
+      "carrier": "HPL",
+      "stages": [
+        "INVOICE_ISSUED"
+      ],
+      "risks": [
+        "CRITICAL:urgent"
+      ],
+      "troubles": [],
+      "email_subject": "RE: PENDING DEM CHARGE //  B/L# PPLAX2409567 // SI/VGM : BKG 33171358 // HML // ",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-02-27 19:26:00.491000+00:00"
+    },
+    {
+      "shipment_id": "PDEN26020517",
+      "hbl": [
+        "PDEN26020517",
+        "HANG17369900"
+      ],
+      "bkg": [
+        "HANG17369900"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-DENVER, CO VIA OAKLAND, CA",
+      "etd": "27FEB",
+      "customer": "HML",
+      "customer_type": "FWD",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT",
+        "INVOICE_ISSUED"
+      ],
+      "risks": [
+        "CRITICAL:urgent"
+      ],
+      "troubles": [],
+      "email_subject": "RE: DN //  ATD// DRAFT B/L#PDEN26020517 //  HML BKG HANG17369900// HPH-DENVER, C",
+      "sender": "accounting2@pudongprime.vn",
+      "timestamp": "2026-02-27 14:24:17.850000+00:00"
+    },
+    {
+      "shipment_id": "PDEN26020517",
+      "hbl": [
+        "PDEN26020517",
+        "HANG17369900"
+      ],
+      "bkg": [
+        "HANG17369900"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-DENVER, CO VIA OAKLAND, CA",
+      "etd": "27FEB",
+      "customer": "HML",
+      "customer_type": "FWD",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT",
+        "INVOICE_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DN //  ATD// DRAFT B/L#PDEN26020517 //  HML BKG HANG17369900// HPH-DENVER, C",
+      "sender": "jena@hml.com.vn",
+      "timestamp": "2026-02-27 10:14:53.477000+00:00"
+    },
+    {
+      "shipment_id": "PDEN26020517",
+      "hbl": [
+        "PDEN26020517",
+        "HANG17369900"
+      ],
+      "bkg": [
+        "HANG17369900"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-DENVER, CO VIA OAKLAND, CA",
+      "etd": "27FEB",
+      "customer": "HML",
+      "customer_type": "FWD",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT",
+        "INVOICE_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "DN //  ATD// DRAFT B/L#PDEN26020517 //  HML BKG HANG17369900// HPH-DENVER, CO VI",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-02-27 10:04:32.075000+00:00"
+    },
+    {
+      "shipment_id": "PDEN26020517",
+      "hbl": [
+        "PDEN26020517",
+        "HANG17369900"
+      ],
+      "bkg": [
+        "HANG17369900"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-DENVER, CO VIA OAKLAND, CA",
+      "etd": "27FEB",
+      "customer": "HML",
+      "customer_type": "FWD",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "LOADED",
+        "ATD"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "Re: ATD// DRAFT B/L#PDEN26020517 //  HML BKG HANG17369900// HPH-DENVER, CO VIA O",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2026-02-27 09:55:49.400000+00:00"
+    },
+    {
+      "shipment_id": "PDEN26020517",
+      "hbl": [
+        "PDEN26020517",
+        "HANG17369900"
+      ],
+      "bkg": [
+        "HANG17369900"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-DENVER, CO VIA OAKLAND, CA",
+      "etd": "26FEB",
+      "customer": "HML",
+      "customer_type": "FWD",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: NOTICE OF CHANGING VESSEL// DRAFT B/L#PDEN26020517 //  HML BKG HANG17369900/",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-02-25 11:54:04.010000+00:00"
+    },
+    {
+      "shipment_id": "PCHS26030364",
+      "hbl": [
+        "PCHS26030364",
+        "ZIMUHAI80201821"
+      ],
+      "bkg": [],
+      "container_type": "20DC",
+      "route": "",
+      "etd": "16 MAR",
+      "customer": "PANDA",
+      "customer_type": "FWD",
+      "carrier": "ZIM",
+      "stages": [
+        "DRAFT_BL_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DRAFT B/L#PCHS26030364 //  UPDATE COT- PANDA HN BOOKING REQUEST  ZIMUHAI8020",
+      "sender": "zoe.nguyen@panda4u.com",
+      "timestamp": "2026-03-11 16:58:58.651000+00:00"
+    },
+    {
+      "shipment_id": "PCHS26030364",
+      "hbl": [
+        "PCHS26030364",
+        "ZIMUHAI80201821"
+      ],
+      "bkg": [],
+      "container_type": "20DC",
+      "route": "",
+      "etd": "16 MAR",
+      "customer": "PANDA",
+      "customer_type": "FWD",
+      "carrier": "ZIM",
+      "stages": [
+        "DRAFT_BL_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DRAFT B/L#PCHS26030364 //  UPDATE COT- PANDA HN BOOKING REQUEST  ZIMUHAI8020",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-03-11 16:48:55.691000+00:00"
+    },
+    {
+      "shipment_id": "PCHS26030364",
+      "hbl": [
+        "PCHS26030364",
+        "ZIMUHAI80201821"
+      ],
+      "bkg": [],
+      "container_type": "20DC",
+      "route": "",
+      "etd": "16 MAR",
+      "customer": "PANDA",
+      "customer_type": "FWD",
+      "carrier": "ZIM",
+      "stages": [
+        "DRAFT_BL_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DRAFT B/L#PCHS26030364 //  UPDATE COT- PANDA HN BOOKING REQUEST  ZIMUHAI8020",
+      "sender": "zoe.nguyen@panda4u.com",
+      "timestamp": "2026-03-11 16:46:11.636000+00:00"
+    },
+    {
+      "shipment_id": "PCHS26030364",
+      "hbl": [
+        "PCHS26030364",
+        "ZIMUHAI80201821"
+      ],
+      "bkg": [],
+      "container_type": "20DC",
+      "route": "",
+      "etd": "16 MAR",
+      "customer": "PANDA",
+      "customer_type": "FWD",
+      "carrier": "ZIM",
+      "stages": [
+        "DRAFT_BL_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DRAFT B/L#PCHS26030364 //  UPDATE COT- PANDA HN BOOKING REQUEST  ZIMUHAI8020",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-03-11 16:34:07.488000+00:00"
+    },
+    {
+      "shipment_id": "PCHS26030364",
+      "hbl": [
+        "PCHS26030364",
+        "ZIMUHAI80201821"
+      ],
+      "bkg": [],
+      "container_type": "20DC",
+      "route": "",
+      "etd": "16 MAR",
+      "customer": "PANDA",
+      "customer_type": "FWD",
+      "carrier": "ZIM",
+      "stages": [
+        "DRAFT_BL_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "DRAFT B/L#PCHS26030364 //  UPDATE COT- PANDA HN BOOKING REQUEST  ZIMUHAI80201821",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-03-11 15:34:38.829000+00:00"
+    },
+    {
+      "shipment_id": "ZIMUHAI80201821",
+      "hbl": [
+        "ZIMUHAI80201821"
+      ],
+      "bkg": [],
+      "container_type": "20DC",
+      "route": "",
+      "etd": "16 MAR",
+      "customer": "PANDA",
+      "customer_type": "FWD",
+      "carrier": "ZIM",
+      "stages": [
+        "DRAFT_BL_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: UPDATE COT- PANDA HN BOOKING REQUEST  ZIMUHAI80201821  / HAI PHONG - CHARLES",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-03-11 14:43:21.291000+00:00"
+    },
+    {
+      "shipment_id": "ZIMUHAI80201821",
+      "hbl": [
+        "ZIMUHAI80201821"
+      ],
+      "bkg": [],
+      "container_type": "20DC",
+      "route": "",
+      "etd": "16 MAR",
+      "customer": "PANDA",
+      "customer_type": "FWD",
+      "carrier": "ZIM",
+      "stages": [],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: UPDATE COT- PANDA HN BOOKING REQUEST  ZIMUHAI80201821  / HAI PHONG - CHARLES",
+      "sender": "zoe.nguyen@panda4u.com",
+      "timestamp": "2026-03-11 14:37:00.334000+00:00"
+    },
+    {
+      "shipment_id": "ZIMUHAI80201821",
+      "hbl": [
+        "ZIMUHAI80201821"
+      ],
+      "bkg": [],
+      "container_type": "20DC",
+      "route": "",
+      "etd": "16 MAR",
+      "customer": "PANDA",
+      "customer_type": "FWD",
+      "carrier": "ZIM",
+      "stages": [],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: UPDATE COT- PANDA HN BOOKING REQUEST  ZIMUHAI80201821  / HAI PHONG - CHARLES",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-03-11 14:32:24.776000+00:00"
+    },
+    {
+      "shipment_id": "ZIMUHAI80201821",
+      "hbl": [
+        "ZIMUHAI80201821"
+      ],
+      "bkg": [],
+      "container_type": "20DC",
+      "route": "",
+      "etd": "16 MAR",
+      "customer": "PANDA",
+      "customer_type": "FWD",
+      "carrier": "ZIM",
+      "stages": [],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: UPDATE COT- PANDA HN BOOKING REQUEST  ZIMUHAI80201821  / HAI PHONG - CHARLES",
+      "sender": "zoe.nguyen@panda4u.com",
+      "timestamp": "2026-03-11 14:26:45.380000+00:00"
+    },
+    {
+      "shipment_id": "ZIMUHAI80201821",
+      "hbl": [
+        "ZIMUHAI80201821"
+      ],
+      "bkg": [],
+      "container_type": "20DC",
+      "route": "",
+      "etd": "16 MAR",
+      "customer": "PANDA",
+      "customer_type": "FWD",
+      "carrier": "ZIM",
+      "stages": [],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "Re: UPDATE COT- PANDA HN BOOKING REQUEST  ZIMUHAI80201821  / HAI PHONG - CHARLES",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2026-03-10 17:13:12.671000+00:00"
+    },
+    {
+      "shipment_id": "PNYC26010385",
+      "hbl": [
+        "PNYC26010385"
+      ],
+      "bkg": [
+        "12766472"
+      ],
+      "container_type": "40HC",
+      "route": "HCM-NYC",
+      "etd": "19 JAN",
+      "customer": "PANDA",
+      "customer_type": "FWD",
+      "carrier": "HPL",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DN //  ATD//DRAFT B/L#PNYC26010385 // PANDA HANOI BKG 12766472//HCM - NYC //",
+      "sender": "zoe.nguyen@panda4u.com",
+      "timestamp": "2026-03-05 08:16:45.468000+00:00"
+    },
+    {
+      "shipment_id": "PNYC26010385",
+      "hbl": [
+        "PNYC26010385"
+      ],
+      "bkg": [
+        "12766472"
+      ],
+      "container_type": "40HC",
+      "route": "HCM-NYC",
+      "etd": "19 JAN",
+      "customer": "PANDA",
+      "customer_type": "FWD",
+      "carrier": "HPL",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DN //  ATD//DRAFT B/L#PNYC26010385 // PANDA HANOI BKG 12766472//HCM - NYC //",
+      "sender": "zoe.nguyen@panda4u.com",
+      "timestamp": "2026-03-05 08:16:45.468000+00:00"
+    },
+    {
+      "shipment_id": "PNYC26010385",
+      "hbl": [
+        "PNYC26010385"
+      ],
+      "bkg": [
+        "12766472"
+      ],
+      "container_type": "40HC",
+      "route": "HCM-NYC",
+      "etd": "19 JAN",
+      "customer": "PANDA",
+      "customer_type": "FWD",
+      "carrier": "ONE",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DN //  ATD//DRAFT B/L#PNYC26010385 // PANDA HANOI BKG 12766472//HCM - NYC //",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-03-03 15:49:45.774000+00:00"
+    },
+    {
+      "shipment_id": "ZIMUHAI80201821",
+      "hbl": [
+        "ZIMUHAI80201821"
+      ],
+      "bkg": [],
+      "container_type": "20DC",
+      "route": "",
+      "etd": "16 MAR",
+      "customer": "PANDA",
+      "customer_type": "FWD",
+      "carrier": "ZIM",
+      "stages": [],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "Re: PANDA HN BOOKING REQUEST  ZIMUHAI80201821  / HAI PHONG - CHARLESTON / 1X20DC",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2026-03-03 13:53:54.585000+00:00"
+    },
+    {
+      "shipment_id": "ZIMUHAI80201821",
+      "hbl": [
+        "ZIMUHAI80201821"
+      ],
+      "bkg": [],
+      "container_type": "20DC",
+      "route": "",
+      "etd": "16 MAR",
+      "customer": "PANDA",
+      "customer_type": "FWD",
+      "carrier": "ONE",
+      "stages": [],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: PANDA HN BOOKING REQUEST  ZIMUHAI80201821  / HAI PHONG - CHARLESTON / 1X20DC",
+      "sender": "nelson@pudongprime.vn",
+      "timestamp": "2026-03-03 13:48:00+00:00"
+    },
+    {
+      "shipment_id": "ZIMUHAI80201821",
+      "hbl": [
+        "ZIMUHAI80201821"
+      ],
+      "bkg": [],
+      "container_type": "20DC",
+      "route": "",
+      "etd": "16 MAR",
+      "customer": "PANDA",
+      "customer_type": "FWD",
+      "carrier": "ZIM",
+      "stages": [],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: PANDA HN BOOKING REQUEST  ZIMUHAI80201821  / HAI PHONG - CHARLESTON / 1X20DC",
+      "sender": "cs3@pudongprime.vn",
+      "timestamp": "2026-03-03 11:47:12.076000+00:00"
+    },
+    {
+      "shipment_id": "NAFOOD",
+      "hbl": [],
+      "bkg": [
+        "NAFOOD",
+        "14870911"
+      ],
+      "container_type": "20RF",
+      "route": "HCM-ADELAIDE, AUS",
+      "etd": "23NOV",
+      "customer": "NAFOOD",
+      "customer_type": "DIRECT",
+      "carrier": "MSC",
+      "stages": [
+        "ATD",
+        "DN_SENT",
+        "PAYMENT_CONFIRMED"
+      ],
+      "risks": [
+        "CRITICAL:urgent",
+        "MEDIUM:update atd"
+      ],
+      "troubles": [],
+      "email_subject": "RE: DN //  UPDATE ATD//BKG NAFOOD EBKG14870911 // HCM-ADELAIDE, AUS // 1X20RF //",
+      "sender": "accounting4@pudongprime.vn",
+      "timestamp": "2026-01-08 09:45:42.680000+00:00"
+    },
+    {
+      "shipment_id": "NAFOOD",
+      "hbl": [],
+      "bkg": [
+        "NAFOOD",
+        "15039090"
+      ],
+      "container_type": "40RF",
+      "route": "HCM-ROTTERDAM TRANSIT SINGAPORE",
+      "etd": "8DEC",
+      "customer": "NAFOOD",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: PWC //BKG NAFOOD GROUP EBKG15039090// HCM-ROTTERDAM transit SINGAPORE // 1X4",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2025-12-29 09:29:58.157000+00:00"
+    },
+    {
+      "shipment_id": "NAFOOD",
+      "hbl": [],
+      "bkg": [
+        "NAFOOD",
+        "15039090"
+      ],
+      "container_type": "40RF",
+      "route": "HCM-ROTTERDAM TRANSIT SINGAPORE",
+      "etd": "8DEC",
+      "customer": "NAFOOD",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: PWC //BKG NAFOOD GROUP EBKG15039090// HCM-ROTTERDAM transit SINGAPORE // 1X4",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2025-12-29 09:29:19.235000+00:00"
+    },
+    {
+      "shipment_id": "NAFOOD",
+      "hbl": [],
+      "bkg": [
+        "NAFOOD",
+        "15039090"
+      ],
+      "container_type": "40RF",
+      "route": "HCM-ROTTERDAM TRANSIT SINGAPORE",
+      "etd": "8DEC",
+      "customer": "NAFOOD",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: PWC //BKG NAFOOD GROUP EBKG15039090// HCM-ROTTERDAM transit SINGAPORE // 1X4",
+      "sender": "grace@pudongprime.vn",
+      "timestamp": "2025-12-29 09:11:40.910000+00:00"
+    },
+    {
+      "shipment_id": "NAFOOD",
+      "hbl": [],
+      "bkg": [
+        "NAFOOD",
+        "15039090"
+      ],
+      "container_type": "40RF",
+      "route": "HCM-ROTTERDAM TRANSIT SINGAPORE",
+      "etd": "8DEC",
+      "customer": "NAFOOD",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "FW: PWC //BKG NAFOOD GROUP EBKG15039090// HCM-ROTTERDAM transit SINGAPORE // 1X4",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2025-12-29 09:02:37.196000+00:00"
+    },
+    {
+      "shipment_id": "NAFOOD",
+      "hbl": [],
+      "bkg": [
+        "NAFOOD",
+        "15039090"
+      ],
+      "container_type": "40RF",
+      "route": "HCM-ROTTERDAM TRANSIT SINGAPORE",
+      "etd": "8DEC",
+      "customer": "NAFOOD",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: PWC //BKG NAFOOD GROUP EBKG15039090// HCM-ROTTERDAM transit SINGAPORE // 1X4",
+      "sender": "huyenht@nafoods.com",
+      "timestamp": "2025-12-29 08:18:09.095000+00:00"
+    },
+    {
+      "shipment_id": "NAFOOD",
+      "hbl": [],
+      "bkg": [
+        "NAFOOD",
+        "14870911"
+      ],
+      "container_type": "20RF",
+      "route": "HCM-ADELAIDE, AUS",
+      "etd": "23NOV",
+      "customer": "NAFOOD",
+      "customer_type": "DIRECT",
+      "carrier": "MSC",
+      "stages": [
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [
+        "MEDIUM:update atd"
+      ],
+      "troubles": [],
+      "email_subject": "RE: DN //  UPDATE ATD//BKG NAFOOD EBKG14870911 // HCM-ADELAIDE, AUS // 1X20RF //",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2025-12-23 17:18:33.068000+00:00"
+    },
+    {
+      "shipment_id": "PHOU26010693",
+      "hbl": [
+        "PHOU26010693"
+      ],
+      "bkg": [],
+      "container_type": "40RF",
+      "route": "HCM-HOUSTON, TX TRANSIT YANTIAN",
+      "etd": "31JAN",
+      "customer": "PT FOOD",
+      "customer_type": "DIRECT",
+      "carrier": "HPL",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: CHANGE MV// DN // ATD// DRAFT B/L#PHOU26010693 // PT FOOD BOOKING 90098229 (",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-03-11 08:48:22.818000+00:00"
+    },
+    {
+      "shipment_id": "PHOU26010693",
+      "hbl": [
+        "PHOU26010693"
+      ],
+      "bkg": [],
+      "container_type": "40RF",
+      "route": "HCM-HOUSTON, TX TRANSIT YANTIAN",
+      "etd": "31JAN",
+      "customer": "PT FOOD",
+      "customer_type": "DIRECT",
+      "carrier": "HPL",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT",
+        "ETA_UPDATE"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: CHANGE MV// DN // ATD// DRAFT B/L#PHOU26010693 // PT FOOD BOOKING 90098229 (",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2026-03-11 07:55:11.604000+00:00"
+    },
+    {
+      "shipment_id": "PHOU26010693",
+      "hbl": [
+        "PHOU26010693"
+      ],
+      "bkg": [],
+      "container_type": "40RF",
+      "route": "HCM-HOUSTON, TX TRANSIT YANTIAN",
+      "etd": "31JAN",
+      "customer": "PT FOOD",
+      "customer_type": "DIRECT",
+      "carrier": "HPL",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT",
+        "ETA_UPDATE"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "Re: CHANGE MV// DN // ATD// DRAFT B/L#PHOU26010693 // PT FOOD BOOKING 90098229 (",
+      "sender": "thaontxptfood@gmail.com",
+      "timestamp": "2026-03-11 07:37:20.476000+00:00"
+    },
+    {
+      "shipment_id": "PHOU26010693",
+      "hbl": [
+        "PHOU26010693"
+      ],
+      "bkg": [],
+      "container_type": "40RF",
+      "route": "HCM-HOUSTON, TX TRANSIT YANTIAN",
+      "etd": "31JAN",
+      "customer": "PT FOOD",
+      "customer_type": "DIRECT",
+      "carrier": "HPL",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "Re: CHANGE MV// DN // ATD// DRAFT B/L#PHOU26010693 // PT FOOD BOOKING 90098229 (",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2026-03-04 13:53:52.688000+00:00"
+    },
+    {
+      "shipment_id": "POAK26020404",
+      "hbl": [
+        "POAK26020404"
+      ],
+      "bkg": [],
+      "container_type": "40RF",
+      "route": "HCM-OAKLAND",
+      "etd": "19FEB",
+      "customer": "PT FOOD",
+      "customer_type": "DIRECT",
+      "carrier": "YML",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [
+        "CRITICAL:poa"
+      ],
+      "troubles": [],
+      "email_subject": "RE: DN // ATD//DRAFT B/L#POAK26020404 // PT FOOD BOOKING W490499961// HCM-OAKLAN",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-02-26 15:12:56.807000+00:00"
+    },
+    {
+      "shipment_id": "PLAX26010692",
+      "hbl": [
+        "PLAX26010692"
+      ],
+      "bkg": [],
+      "container_type": "40HC",
+      "route": "HCM-LAX",
+      "etd": "2FEB",
+      "customer": "PT FOOD",
+      "customer_type": "DIRECT",
+      "carrier": "EMC",
+      "stages": [
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DN // PLAX26010692 // ATD// PT FOOD BOOKING 235600186438// HCM-LAX // 1X40HC",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-02-26 15:12:02.712000+00:00"
+    },
+    {
+      "shipment_id": "PLAX26010692",
+      "hbl": [
+        "PLAX26010692"
+      ],
+      "bkg": [],
+      "container_type": "40HC",
+      "route": "HCM-LAX",
+      "etd": "2FEB",
+      "customer": "PT FOOD",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "Re: DN // PLAX26010692 // ATD// PT FOOD BOOKING 235600186438// HCM-LAX // 1X40HC",
+      "sender": "export2.ptfood@gmail.com",
+      "timestamp": "2026-02-26 13:02:14.842000+00:00"
+    },
+    {
+      "shipment_id": "PLAX26010692",
+      "hbl": [
+        "PLAX26010692",
+        "POAK26020404"
+      ],
+      "bkg": [],
+      "container_type": "40HC",
+      "route": "HCM-LAX",
+      "etd": "2FEB",
+      "customer": "PT FOOD",
+      "customer_type": "DIRECT",
+      "carrier": "EMC",
+      "stages": [
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [
+        "CRITICAL:urgent",
+        "CRITICAL:poa"
+      ],
+      "troubles": [],
+      "email_subject": "RE: DN // PLAX26010692 // ATD// PT FOOD BOOKING 235600186438// HCM-LAX // 1X40HC",
+      "sender": "accounting4@pudongprime.vn",
+      "timestamp": "2026-02-26 11:17:45.066000+00:00"
+    },
+    {
+      "shipment_id": "PLAX26010692",
+      "hbl": [
+        "PLAX26010692"
+      ],
+      "bkg": [],
+      "container_type": "40HC",
+      "route": "HCM-LAX",
+      "etd": "2FEB",
+      "customer": "PT FOOD",
+      "customer_type": "DIRECT",
+      "carrier": "EMC",
+      "stages": [
+        "ATD",
+        "DN_SENT",
+        "INVOICE_ISSUED",
+        "PAYMENT_CONFIRMED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DN // PLAX26010692 // ATD// PT FOOD BOOKING 235600186438// HCM-LAX // 1X40HC",
+      "sender": "accounting4@pudongprime.vn",
+      "timestamp": "2026-02-25 17:23:29.349000+00:00"
+    },
+    {
+      "shipment_id": "POAK26020404",
+      "hbl": [
+        "POAK26020404"
+      ],
+      "bkg": [],
+      "container_type": "40RF",
+      "route": "HCM-OAKLAND",
+      "etd": "19FEB",
+      "customer": "PT FOOD",
+      "customer_type": "DIRECT",
+      "carrier": "YML",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT",
+        "INVOICE_ISSUED"
+      ],
+      "risks": [
+        "CRITICAL:urgent",
+        "CRITICAL:poa"
+      ],
+      "troubles": [],
+      "email_subject": "RE: DN // ATD//DRAFT B/L#POAK26020404 // PT FOOD BOOKING W490499961// HCM-OAKLAN",
+      "sender": "accounting2@pudongprime.vn",
+      "timestamp": "2026-02-24 11:45:01.173000+00:00"
+    },
+    {
+      "shipment_id": "POAK26020404",
+      "hbl": [
+        "POAK26020404"
+      ],
+      "bkg": [],
+      "container_type": "40RF",
+      "route": "HCM-OAKLAND",
+      "etd": "19FEB",
+      "customer": "PT FOOD",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT",
+        "INVOICE_ISSUED"
+      ],
+      "risks": [
+        "CRITICAL:poa"
+      ],
+      "troubles": [],
+      "email_subject": "Re: DN // ATD//DRAFT B/L#POAK26020404 // PT FOOD BOOKING W490499961// HCM-OAKLAN",
+      "sender": "export2.ptfood@gmail.com",
+      "timestamp": "2026-02-24 09:18:36.483000+00:00"
+    },
+    {
+      "shipment_id": "POAK26020404",
+      "hbl": [
+        "POAK26020404"
+      ],
+      "bkg": [],
+      "container_type": "40RF",
+      "route": "HCM-OAKLAND",
+      "etd": "19FEB",
+      "customer": "PT FOOD",
+      "customer_type": "DIRECT",
+      "carrier": "YML",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT",
+        "INVOICE_ISSUED"
+      ],
+      "risks": [
+        "CRITICAL:poa"
+      ],
+      "troubles": [],
+      "email_subject": "DN //  ATD//DRAFT B/L#POAK26020404 // PT FOOD BOOKING W490499961// HCM-OAKLAND /",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-02-23 11:46:33.503000+00:00"
+    },
+    {
+      "shipment_id": "POAK26020404",
+      "hbl": [
+        "POAK26020404"
+      ],
+      "bkg": [],
+      "container_type": "40RF",
+      "route": "HCM-OAKLAND",
+      "etd": "19FEB",
+      "customer": "PT FOOD",
+      "customer_type": "DIRECT",
+      "carrier": "YML",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD"
+      ],
+      "risks": [
+        "CRITICAL:poa"
+      ],
+      "troubles": [],
+      "email_subject": "Re: ATD//DRAFT B/L#POAK26020404 // PT FOOD BOOKING W490499961// HCM-OAKLAND // Y",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2026-02-23 10:28:51.065000+00:00"
+    },
+    {
+      "shipment_id": "POAK26020404",
+      "hbl": [
+        "POAK26020404"
+      ],
+      "bkg": [],
+      "container_type": "40RF",
+      "route": "HCM-OAKLAND",
+      "etd": "19FEB",
+      "customer": "PT FOOD",
+      "customer_type": "DIRECT",
+      "carrier": "YML",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DELAY_NOTICE"
+      ],
+      "risks": [
+        "CRITICAL:poa",
+        "HIGH:delay",
+        "HIGH:delay notice"
+      ],
+      "troubles": [
+        "delay"
+      ],
+      "email_subject": "Re: DELAY NOTICE//DRAFT B/L#POAK26020404 // PT FOOD BOOKING W490499961// HCM-OAK",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2026-02-12 16:21:19.892000+00:00"
+    },
+    {
+      "shipment_id": "POAK26020404",
+      "hbl": [
+        "POAK26020404"
+      ],
+      "bkg": [],
+      "container_type": "40RF",
+      "route": "HCM-OAKLAND",
+      "etd": "17FEB",
+      "customer": "PT FOOD",
+      "customer_type": "DIRECT",
+      "carrier": "YML",
+      "stages": [
+        "DRAFT_BL_ISSUED"
+      ],
+      "risks": [
+        "CRITICAL:poa",
+        "HIGH:amendment"
+      ],
+      "troubles": [
+        "amendment"
+      ],
+      "email_subject": "RE: RVS ETD//DRAFT B/L#POAK26020404 // PT FOOD BOOKING W490499961// HCM-OAKLAND ",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-02-12 09:11:37.286000+00:00"
+    },
+    {
+      "shipment_id": "POAK26020404",
+      "hbl": [
+        "POAK26020404"
+      ],
+      "bkg": [],
+      "container_type": "40RF",
+      "route": "HCM-OAKLAND",
+      "etd": "17FEB",
+      "customer": "PT FOOD",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [
+        "DRAFT_BL_ISSUED"
+      ],
+      "risks": [
+        "CRITICAL:poa"
+      ],
+      "troubles": [],
+      "email_subject": "Re: RVS ETD//DRAFT B/L#POAK26020404 // PT FOOD BOOKING W490499961// HCM-OAKLAND ",
+      "sender": "export2.ptfood@gmail.com",
+      "timestamp": "2026-02-12 09:06:03.043000+00:00"
+    },
+    {
+      "shipment_id": "POAK26020404",
+      "hbl": [
+        "POAK26020404"
+      ],
+      "bkg": [],
+      "container_type": "40RF",
+      "route": "HCM-OAKLAND",
+      "etd": "17FEB",
+      "customer": "PT FOOD",
+      "customer_type": "DIRECT",
+      "carrier": "YML",
+      "stages": [
+        "DRAFT_BL_ISSUED"
+      ],
+      "risks": [
+        "CRITICAL:poa"
+      ],
+      "troubles": [],
+      "email_subject": "RE: RVS ETD//DRAFT B/L#POAK26020404 // PT FOOD BOOKING W490499961// HCM-OAKLAND ",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-02-12 09:04:28.549000+00:00"
+    },
+    {
+      "shipment_id": "POAK26020404",
+      "hbl": [
+        "POAK26020404"
+      ],
+      "bkg": [],
+      "container_type": "40RF",
+      "route": "HCM-OAKLAND",
+      "etd": "17FEB",
+      "customer": "PT FOOD",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [
+        "DRAFT_BL_ISSUED"
+      ],
+      "risks": [
+        "CRITICAL:poa"
+      ],
+      "troubles": [],
+      "email_subject": "Re: RVS ETD//DRAFT B/L#POAK26020404 // PT FOOD BOOKING W490499961// HCM-OAKLAND ",
+      "sender": "export2.ptfood@gmail.com",
+      "timestamp": "2026-02-12 09:01:08.317000+00:00"
+    },
+    {
+      "shipment_id": "POAK26020404",
+      "hbl": [
+        "POAK26020404"
+      ],
+      "bkg": [],
+      "container_type": "40RF",
+      "route": "HCM-OAKLAND",
+      "etd": "17FEB",
+      "customer": "PT FOOD",
+      "customer_type": "DIRECT",
+      "carrier": "YML",
+      "stages": [
+        "DRAFT_BL_ISSUED"
+      ],
+      "risks": [
+        "CRITICAL:poa"
+      ],
+      "troubles": [],
+      "email_subject": "RE: RVS ETD//DRAFT B/L#POAK26020404 // PT FOOD BOOKING W490499961// HCM-OAKLAND ",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-02-11 18:31:11.559000+00:00"
+    },
+    {
+      "shipment_id": "POAK26020404",
+      "hbl": [
+        "POAK26020404"
+      ],
+      "bkg": [],
+      "container_type": "40RF",
+      "route": "HCM-OAKLAND",
+      "etd": "17FEB",
+      "customer": "PT FOOD",
+      "customer_type": "DIRECT",
+      "carrier": "YML",
+      "stages": [
+        "DRAFT_BL_ISSUED"
+      ],
+      "risks": [
+        "CRITICAL:poa"
+      ],
+      "troubles": [],
+      "email_subject": "Re: RVS ETD//DRAFT B/L#POAK26020404 // PT FOOD BOOKING W490499961// HCM-OAKLAND ",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2026-02-11 16:57:17.067000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DELAY_NOTICE"
+      ],
+      "risks": [
+        "HIGH:delay",
+        "HIGH:delay notice"
+      ],
+      "troubles": [
+        "delay"
+      ],
+      "email_subject": "RE: DRAFT B/L#PYTO26010027 // VINARES BKG HANFG2303400 // DELAY NOTICE ETD 3JAN/",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-01-07 09:39:15.509000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DELAY_NOTICE"
+      ],
+      "risks": [
+        "HIGH:delay",
+        "HIGH:delay notice"
+      ],
+      "troubles": [
+        "delay"
+      ],
+      "email_subject": "RE: DRAFT B/L#PYTO26010027 // VINARES BKG HANFG2303400 // DELAY NOTICE ETD 3JAN/",
+      "sender": "docs2@vinares.net",
+      "timestamp": "2026-01-06 16:28:38.216000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "ATD"
+      ],
+      "risks": [
+        "CRITICAL:urgent"
+      ],
+      "troubles": [],
+      "email_subject": "RE: DN// PYTO26010027 // ATD// VINARES BKG HANFG2303400 // HPH-TORONTO VIA VAN /",
+      "sender": "accounting4@pudongprime.vn",
+      "timestamp": "2026-01-06 16:06:16.033000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DELAY_NOTICE"
+      ],
+      "risks": [
+        "HIGH:delay",
+        "HIGH:delay notice"
+      ],
+      "troubles": [
+        "delay"
+      ],
+      "email_subject": "RE: DRAFT B/L#PYTO26010027 // VINARES BKG HANFG2303400 // DELAY NOTICE ETD 3JAN/",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-01-05 16:59:11.482000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "PAYMENT_CONFIRMED",
+        "DELAY_NOTICE"
+      ],
+      "risks": [
+        "HIGH:delay",
+        "HIGH:delay notice"
+      ],
+      "troubles": [
+        "delay"
+      ],
+      "email_subject": "Re: DRAFT B/L#PYTO26010027 // VINARES BKG HANFG2303400 // DELAY NOTICE ETD 3JAN/",
+      "sender": "jolie@pudongprime.vn",
+      "timestamp": "2026-01-05 16:47:07.189000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DELAY_NOTICE"
+      ],
+      "risks": [
+        "HIGH:delay",
+        "HIGH:delay notice"
+      ],
+      "troubles": [
+        "delay"
+      ],
+      "email_subject": "RE: DRAFT B/L#PYTO26010027 // VINARES BKG HANFG2303400 // DELAY NOTICE ETD 3JAN/",
+      "sender": "nelson@pudongprime.vn",
+      "timestamp": "2026-01-05 16:33:00+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "ATD",
+        "DN_SENT",
+        "INVOICE_ISSUED"
+      ],
+      "risks": [
+        "CRITICAL:urgent"
+      ],
+      "troubles": [],
+      "email_subject": "RE: DN// PYTO26010027 // ATD// VINARES BKG HANFG2303400 // HPH-TORONTO VIA VAN /",
+      "sender": "accounting2@pudongprime.vn",
+      "timestamp": "2026-01-05 14:03:08.003000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "ATD",
+        "INVOICE_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DN// PYTO26010027 // ATD// VINARES BKG HANFG2303400 // HPH-TORONTO VIA VAN /",
+      "sender": "tony@vinares.net",
+      "timestamp": "2026-01-05 11:19:00.967000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DELAY_NOTICE"
+      ],
+      "risks": [
+        "HIGH:delay",
+        "HIGH:delay notice"
+      ],
+      "troubles": [
+        "delay"
+      ],
+      "email_subject": "FW: DRAFT B/L#PYTO26010027 // VINARES BKG HANFG2303400 // DELAY NOTICE ETD 3JAN/",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-01-05 09:56:24.954000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DELAY_NOTICE"
+      ],
+      "risks": [
+        "HIGH:delay",
+        "HIGH:delay notice"
+      ],
+      "troubles": [
+        "delay"
+      ],
+      "email_subject": "RE: DRAFT B/L#PYTO26010027 // VINARES BKG HANFG2303400 // DELAY NOTICE ETD 3JAN/",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-01-05 09:54:56.837000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "ATD",
+        "DN_SENT",
+        "INVOICE_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "DN// PYTO26010027 // ATD// VINARES BKG HANFG2303400 // HPH-TORONTO VIA VAN // 2X",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-01-05 09:51:11.004000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DELAY_NOTICE"
+      ],
+      "risks": [
+        "HIGH:delay",
+        "HIGH:delay notice",
+        "MEDIUM:update atd"
+      ],
+      "troubles": [
+        "delay"
+      ],
+      "email_subject": "RE: DRAFT B/L#PYTO26010027 // VINARES BKG HANFG2303400 // DELAY NOTICE ETD 3JAN/",
+      "sender": "docs2@vinares.net",
+      "timestamp": "2026-01-05 09:33:09.974000+00:00"
+    },
+    {
+      "shipment_id": "HANFG2303400",
+      "hbl": [],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "ATD"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "Re: ATD// VINARES BKG HANFG2303400 // HPH-TORONTO VIA VAN // 2X20DC // ONE SOC /",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2026-01-05 06:39:04.110000+00:00"
+    },
+    {
+      "shipment_id": "HANFG2303400",
+      "hbl": [],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [],
+      "risks": [
+        "CRITICAL:urgent"
+      ],
+      "troubles": [],
+      "email_subject": "Re: URGENT // VINARES BKG HANFG2303400 // HPH-TORONTO VIA VAN // 2X20DC // ONE S",
+      "sender": "docs2@vinares.net",
+      "timestamp": "2025-12-29 19:43:45.847000+00:00"
+    },
+    {
+      "shipment_id": "HANFG2303400",
+      "hbl": [],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [],
+      "risks": [
+        "CRITICAL:urgent"
+      ],
+      "troubles": [],
+      "email_subject": "RE: URGENT // VINARES BKG HANFG2303400 // HPH-TORONTO VIA VAN // 2X20DC // ONE S",
+      "sender": "docs2@vinares.net",
+      "timestamp": "2025-12-29 17:12:28.777000+00:00"
+    },
+    {
+      "shipment_id": "HANFG2303400",
+      "hbl": [],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [],
+      "risks": [
+        "CRITICAL:urgent",
+        "CRITICAL:gấp"
+      ],
+      "troubles": [],
+      "email_subject": "RE: URGENT // VINARES BKG HANFG2303400 // HPH-TORONTO VIA VAN // 2X20DC // ONE S",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2025-12-29 16:56:01.221000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DRAFT B/L#PYTO26010027 // VINARES BKG HANFG2303400  // HPH-TORONTO VIA VAN /",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2025-12-29 16:52:35.720000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DRAFT B/L#PYTO26010027 // VINARES BKG HANFG2303400  // HPH-TORONTO VIA VAN /",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2025-12-29 16:19:44.136000+00:00"
+    },
+    {
+      "shipment_id": "HANFG2303400",
+      "hbl": [],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DELAY_NOTICE"
+      ],
+      "risks": [
+        "CRITICAL:gấp",
+        "HIGH:delay",
+        "HIGH:delay notice"
+      ],
+      "troubles": [
+        "delay"
+      ],
+      "email_subject": "RE: VINARES BKG HANFG2303400 // DELAY NOTICE ETD 3JAN//  HPH-TORONTO VIA VAN // ",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2025-12-29 15:43:28.561000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DELAY_NOTICE"
+      ],
+      "risks": [
+        "HIGH:delay",
+        "HIGH:delay notice"
+      ],
+      "troubles": [
+        "delay"
+      ],
+      "email_subject": "RE: DRAFT B/L#PYTO26010027 // VINARES BKG HANFG2303400 // DELAY NOTICE ETD 3JAN/",
+      "sender": "tony@vinares.net",
+      "timestamp": "2025-12-29 15:34:04.076000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DELAY_NOTICE"
+      ],
+      "risks": [
+        "HIGH:delay",
+        "HIGH:delay notice"
+      ],
+      "troubles": [
+        "delay"
+      ],
+      "email_subject": "RE: DRAFT B/L#PYTO26010027 // VINARES BKG HANFG2303400 // DELAY NOTICE ETD 3JAN/",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-01-07 09:39:15.509000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DELAY_NOTICE"
+      ],
+      "risks": [
+        "HIGH:delay",
+        "HIGH:delay notice"
+      ],
+      "troubles": [
+        "delay"
+      ],
+      "email_subject": "RE: DRAFT B/L#PYTO26010027 // VINARES BKG HANFG2303400 // DELAY NOTICE ETD 3JAN/",
+      "sender": "docs2@vinares.net",
+      "timestamp": "2026-01-06 16:28:38.216000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "ATD"
+      ],
+      "risks": [
+        "CRITICAL:urgent"
+      ],
+      "troubles": [],
+      "email_subject": "RE: DN// PYTO26010027 // ATD// VINARES BKG HANFG2303400 // HPH-TORONTO VIA VAN /",
+      "sender": "accounting4@pudongprime.vn",
+      "timestamp": "2026-01-06 16:06:16.033000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DELAY_NOTICE"
+      ],
+      "risks": [
+        "HIGH:delay",
+        "HIGH:delay notice"
+      ],
+      "troubles": [
+        "delay"
+      ],
+      "email_subject": "RE: DRAFT B/L#PYTO26010027 // VINARES BKG HANFG2303400 // DELAY NOTICE ETD 3JAN/",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-01-05 16:59:11.482000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "PAYMENT_CONFIRMED",
+        "DELAY_NOTICE"
+      ],
+      "risks": [
+        "HIGH:delay",
+        "HIGH:delay notice"
+      ],
+      "troubles": [
+        "delay"
+      ],
+      "email_subject": "Re: DRAFT B/L#PYTO26010027 // VINARES BKG HANFG2303400 // DELAY NOTICE ETD 3JAN/",
+      "sender": "jolie@pudongprime.vn",
+      "timestamp": "2026-01-05 16:47:07.189000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DELAY_NOTICE"
+      ],
+      "risks": [
+        "HIGH:delay",
+        "HIGH:delay notice"
+      ],
+      "troubles": [
+        "delay"
+      ],
+      "email_subject": "RE: DRAFT B/L#PYTO26010027 // VINARES BKG HANFG2303400 // DELAY NOTICE ETD 3JAN/",
+      "sender": "nelson@pudongprime.vn",
+      "timestamp": "2026-01-05 16:33:00+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "ATD",
+        "DN_SENT",
+        "INVOICE_ISSUED"
+      ],
+      "risks": [
+        "CRITICAL:urgent"
+      ],
+      "troubles": [],
+      "email_subject": "RE: DN// PYTO26010027 // ATD// VINARES BKG HANFG2303400 // HPH-TORONTO VIA VAN /",
+      "sender": "accounting2@pudongprime.vn",
+      "timestamp": "2026-01-05 14:03:08.003000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "ATD",
+        "INVOICE_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DN// PYTO26010027 // ATD// VINARES BKG HANFG2303400 // HPH-TORONTO VIA VAN /",
+      "sender": "tony@vinares.net",
+      "timestamp": "2026-01-05 11:19:00.967000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DELAY_NOTICE"
+      ],
+      "risks": [
+        "HIGH:delay",
+        "HIGH:delay notice"
+      ],
+      "troubles": [
+        "delay"
+      ],
+      "email_subject": "FW: DRAFT B/L#PYTO26010027 // VINARES BKG HANFG2303400 // DELAY NOTICE ETD 3JAN/",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-01-05 09:56:24.954000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DELAY_NOTICE"
+      ],
+      "risks": [
+        "HIGH:delay",
+        "HIGH:delay notice"
+      ],
+      "troubles": [
+        "delay"
+      ],
+      "email_subject": "RE: DRAFT B/L#PYTO26010027 // VINARES BKG HANFG2303400 // DELAY NOTICE ETD 3JAN/",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-01-05 09:54:56.837000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "ATD",
+        "DN_SENT",
+        "INVOICE_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "DN// PYTO26010027 // ATD// VINARES BKG HANFG2303400 // HPH-TORONTO VIA VAN // 2X",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-01-05 09:51:11.004000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DELAY_NOTICE"
+      ],
+      "risks": [
+        "HIGH:delay",
+        "HIGH:delay notice",
+        "MEDIUM:update atd"
+      ],
+      "troubles": [
+        "delay"
+      ],
+      "email_subject": "RE: DRAFT B/L#PYTO26010027 // VINARES BKG HANFG2303400 // DELAY NOTICE ETD 3JAN/",
+      "sender": "docs2@vinares.net",
+      "timestamp": "2026-01-05 09:33:09.974000+00:00"
+    },
+    {
+      "shipment_id": "HANFG2303400",
+      "hbl": [],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "ATD"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "Re: ATD// VINARES BKG HANFG2303400 // HPH-TORONTO VIA VAN // 2X20DC // ONE SOC /",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2026-01-05 06:39:04.110000+00:00"
+    },
+    {
+      "shipment_id": "HANFG2303400",
+      "hbl": [],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [],
+      "risks": [
+        "CRITICAL:urgent"
+      ],
+      "troubles": [],
+      "email_subject": "Re: URGENT // VINARES BKG HANFG2303400 // HPH-TORONTO VIA VAN // 2X20DC // ONE S",
+      "sender": "docs2@vinares.net",
+      "timestamp": "2025-12-29 19:43:45.847000+00:00"
+    },
+    {
+      "shipment_id": "HANFG2303400",
+      "hbl": [],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [],
+      "risks": [
+        "CRITICAL:urgent"
+      ],
+      "troubles": [],
+      "email_subject": "RE: URGENT // VINARES BKG HANFG2303400 // HPH-TORONTO VIA VAN // 2X20DC // ONE S",
+      "sender": "docs2@vinares.net",
+      "timestamp": "2025-12-29 17:12:28.777000+00:00"
+    },
+    {
+      "shipment_id": "HANFG2303400",
+      "hbl": [],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [],
+      "risks": [
+        "CRITICAL:urgent",
+        "CRITICAL:gấp"
+      ],
+      "troubles": [],
+      "email_subject": "RE: URGENT // VINARES BKG HANFG2303400 // HPH-TORONTO VIA VAN // 2X20DC // ONE S",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2025-12-29 16:56:01.221000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DRAFT B/L#PYTO26010027 // VINARES BKG HANFG2303400  // HPH-TORONTO VIA VAN /",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2025-12-29 16:52:35.720000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DRAFT B/L#PYTO26010027 // VINARES BKG HANFG2303400  // HPH-TORONTO VIA VAN /",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2025-12-29 16:19:44.136000+00:00"
+    },
+    {
+      "shipment_id": "HANFG2303400",
+      "hbl": [],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DELAY_NOTICE"
+      ],
+      "risks": [
+        "CRITICAL:gấp",
+        "HIGH:delay",
+        "HIGH:delay notice"
+      ],
+      "troubles": [
+        "delay"
+      ],
+      "email_subject": "RE: VINARES BKG HANFG2303400 // DELAY NOTICE ETD 3JAN//  HPH-TORONTO VIA VAN // ",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2025-12-29 15:43:28.561000+00:00"
+    },
+    {
+      "shipment_id": "PYTO26010027",
+      "hbl": [
+        "PYTO26010027"
+      ],
+      "bkg": [
+        "HANFG2303400"
+      ],
+      "container_type": "20DC",
+      "route": "HPH-TORONTO",
+      "etd": "3JAN",
+      "customer": "VINARES",
+      "customer_type": "DIRECT",
+      "carrier": "ONE SOC",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DELAY_NOTICE"
+      ],
+      "risks": [
+        "HIGH:delay",
+        "HIGH:delay notice"
+      ],
+      "troubles": [
+        "delay"
+      ],
+      "email_subject": "RE: DRAFT B/L#PYTO26010027 // VINARES BKG HANFG2303400 // DELAY NOTICE ETD 3JAN/",
+      "sender": "tony@vinares.net",
+      "timestamp": "2025-12-29 15:34:04.076000+00:00"
+    },
+    {
+      "shipment_id": "PSEA26020065",
+      "hbl": [
+        "PSEA26020065",
+        "ESLVNESAL003948"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "HER HUI WOOD",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "Re: ATD// DN // DRAFT B/L#PSEA26020065 // 26002- SI - ESLVNESAL003948",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-02-21 09:53:46.416000+00:00"
+    },
+    {
+      "shipment_id": "PSEA26020065",
+      "hbl": [
+        "PSEA26020065",
+        "ESLVNESAL003948"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "HER HUI WOOD",
+      "customer_type": "DIRECT",
+      "carrier": "",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "Re: ATD// DN // DRAFT B/L#PSEA26020065 // 26002- SI - ESLVNESAL003948",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-02-20 18:35:38.769000+00:00"
+    },
+    {
+      "shipment_id": "PSEA26020065",
+      "hbl": [
+        "PSEA26020065",
+        "ESLVNESAL003948"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "HER HUI WOOD",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "Re: ATD// DN // DRAFT B/L#PSEA26020065 // 26002- SI - ESLVNESAL003948",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-02-20 18:32:58.697000+00:00"
+    },
+    {
+      "shipment_id": "PSEA26020066",
+      "hbl": [
+        "PSEA26020066",
+        "ESLVNESAL003946"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "HER HUI WOOD",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "Re: ATD//DN // DRAFT B/L#PSEA26020066 / 26001- SI - ESLVNESAL003946",
+      "sender": "herhuixnk2@gmail.com",
+      "timestamp": "2026-02-19 16:49:22.783000+00:00"
+    },
+    {
+      "shipment_id": "PSEA26020065",
+      "hbl": [
+        "PSEA26020065",
+        "ESLVNESAL003948"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "HER HUI WOOD",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "Re: ATD// DN // DRAFT B/L#PSEA26020065 // 26002- SI - ESLVNESAL003948",
+      "sender": "herhuixnk2@gmail.com",
+      "timestamp": "2026-02-19 16:47:23.435000+00:00"
+    },
+    {
+      "shipment_id": "PSEA26020066",
+      "hbl": [
+        "PSEA26020066",
+        "ESLVNESAL003946"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "HER HUI WOOD",
+      "customer_type": "DIRECT",
+      "carrier": "",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: ATD//DN // DRAFT B/L#PSEA26020066 / 26001- SI - ESLVNESAL003946",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-02-12 15:29:05.541000+00:00"
+    },
+    {
+      "shipment_id": "PSEA26020065",
+      "hbl": [
+        "PSEA26020065",
+        "ESLVNESAL003948"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "HER HUI WOOD",
+      "customer_type": "DIRECT",
+      "carrier": "",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: ATD// DN // DRAFT B/L#PSEA26020065 // 26002- SI - ESLVNESAL003948",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-02-12 15:28:27.119000+00:00"
+    },
+    {
+      "shipment_id": "PSEA26020066",
+      "hbl": [
+        "PSEA26020066",
+        "ESLVNESAL003946"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "HER HUI WOOD",
+      "customer_type": "DIRECT",
+      "carrier": "",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: ATD//DN // DRAFT B/L#PSEA26020066 / 26001- SI - ESLVNESAL003946",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-02-11 21:38:20.192000+00:00"
+    },
+    {
+      "shipment_id": "PSEA26020065",
+      "hbl": [
+        "PSEA26020065",
+        "ESLVNESAL003948"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "HER HUI WOOD",
+      "customer_type": "DIRECT",
+      "carrier": "",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: ATD// DN // DRAFT B/L#PSEA26020065 // 26002- SI - ESLVNESAL003948",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-02-11 21:37:49.095000+00:00"
+    },
+    {
+      "shipment_id": "PSEA26020066",
+      "hbl": [
+        "PSEA26020066",
+        "ESLVNESAL003946"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "HER HUI WOOD",
+      "customer_type": "DIRECT",
+      "carrier": "",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "Re: ATD//DN // DRAFT B/L#PSEA26020066 / 26001- SI - ESLVNESAL003946",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2026-02-09 09:37:54.952000+00:00"
+    },
+    {
+      "shipment_id": "PSEA26020065",
+      "hbl": [
+        "PSEA26020065",
+        "ESLVNESAL003948"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "HER HUI WOOD",
+      "customer_type": "DIRECT",
+      "carrier": "",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "ATD",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "Re: ATD// DN // DRAFT B/L#PSEA26020065 // 26002- SI - ESLVNESAL003948",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2026-02-09 09:37:27.845000+00:00"
+    },
+    {
+      "shipment_id": "PSEA26020066",
+      "hbl": [
+        "PSEA26020066",
+        "PSEA26020065",
+        "ESLVNESAL003946"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "HER HUI WOOD",
+      "customer_type": "DIRECT",
+      "carrier": "",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DN_SENT",
+        "PAYMENT_CONFIRMED"
+      ],
+      "risks": [
+        "CRITICAL:urgent"
+      ],
+      "troubles": [],
+      "email_subject": "RE: DN // DRAFT B/L#PSEA26020066 / 26001- SI - ESLVNESAL003946",
+      "sender": "accounting4@pudongprime.vn",
+      "timestamp": "2026-02-05 16:47:05.902000+00:00"
+    },
+    {
+      "shipment_id": "PSEA26020066",
+      "hbl": [
+        "PSEA26020066",
+        "ESLVNESAL003946"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "HER HUI WOOD",
+      "customer_type": "DIRECT",
+      "carrier": "",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DN_SENT",
+        "INVOICE_ISSUED"
+      ],
+      "risks": [
+        "CRITICAL:urgent"
+      ],
+      "troubles": [],
+      "email_subject": "RE: DN // DRAFT B/L#PSEA26020066 / 26001- SI - ESLVNESAL003946",
+      "sender": "accounting2@pudongprime.vn",
+      "timestamp": "2026-02-04 15:22:30.311000+00:00"
+    },
+    {
+      "shipment_id": "PSEA26020065",
+      "hbl": [
+        "PSEA26020065",
+        "ESLVNESAL003948"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "HER HUI WOOD",
+      "customer_type": "DIRECT",
+      "carrier": "",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DN_SENT",
+        "INVOICE_ISSUED"
+      ],
+      "risks": [
+        "CRITICAL:urgent"
+      ],
+      "troubles": [],
+      "email_subject": "RE: DN // DRAFT B/L#PSEA26020065 // 26002- SI - ESLVNESAL003948",
+      "sender": "accounting2@pudongprime.vn",
+      "timestamp": "2026-02-04 15:22:26.633000+00:00"
+    },
+    {
+      "shipment_id": "PSEA26020066",
+      "hbl": [
+        "PSEA26020066",
+        "ESLVNESAL003946"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "HER HUI WOOD",
+      "customer_type": "DIRECT",
+      "carrier": "",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "Re: DN // DRAFT B/L#PSEA26020066 / 26001- SI - ESLVNESAL003946",
+      "sender": "herhuixnk2@gmail.com",
+      "timestamp": "2026-02-04 15:07:08.961000+00:00"
+    },
+    {
+      "shipment_id": "PSEA26020065",
+      "hbl": [
+        "PSEA26020065",
+        "ESLVNESAL003948"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "HER HUI WOOD",
+      "customer_type": "DIRECT",
+      "carrier": "",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "Re: DN // DRAFT B/L#PSEA26020065 // 26002- SI - ESLVNESAL003948",
+      "sender": "herhuixnk2@gmail.com",
+      "timestamp": "2026-02-04 15:06:59.812000+00:00"
+    },
+    {
+      "shipment_id": "PSEA26020066",
+      "hbl": [
+        "PSEA26020066",
+        "ESLVNESAL003946"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "HER HUI WOOD",
+      "customer_type": "DIRECT",
+      "carrier": "",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DN // DRAFT B/L#PSEA26020066 / 26001- SI - ESLVNESAL003946",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-02-04 14:48:08.970000+00:00"
+    },
+    {
+      "shipment_id": "PSEA26020065",
+      "hbl": [
+        "PSEA26020065",
+        "ESLVNESAL003948"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "HER HUI WOOD",
+      "customer_type": "DIRECT",
+      "carrier": "",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: DN // DRAFT B/L#PSEA26020065 // 26002- SI - ESLVNESAL003948",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-02-04 14:27:52.351000+00:00"
+    },
+    {
+      "shipment_id": "PSEA26020065",
+      "hbl": [
+        "PSEA26020065",
+        "ESLVNESAL003948"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "HER HUI WOOD",
+      "customer_type": "DIRECT",
+      "carrier": "",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "Re: DN // DRAFT B/L#PSEA26020065 // 26002- SI - ESLVNESAL003948",
+      "sender": "herhuixnk2@gmail.com",
+      "timestamp": "2026-02-04 14:12:27.540000+00:00"
+    },
+    {
+      "shipment_id": "PSEA26020066",
+      "hbl": [
+        "PSEA26020066",
+        "ESLVNESAL003946"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "HER HUI WOOD",
+      "customer_type": "DIRECT",
+      "carrier": "",
+      "stages": [
+        "DRAFT_BL_ISSUED",
+        "DN_SENT"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "Re: DN // DRAFT B/L#PSEA26020066 / 26001- SI - ESLVNESAL003946",
+      "sender": "herhuixnk2@gmail.com",
+      "timestamp": "2026-02-04 14:12:14.005000+00:00"
+    },
+    {
+      "shipment_id": "PLAX26020005",
+      "hbl": [
+        "PLAX26020005"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "CREATIVE LIGHT",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [
+        "INVOICE_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "REVISED INVOICE :  OI065674// Pre-alert Docs with: ONEYHANG10341600, PLAX2602000",
+      "sender": "lucyli@cowinshipping.com",
+      "timestamp": "2026-03-11 07:06:07.771000+00:00"
+    },
+    {
+      "shipment_id": "PLAX26020005",
+      "hbl": [
+        "PLAX26020005"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "CREATIVE LIGHT",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [
+        "INVOICE_ISSUED",
+        "PAYMENT_CONFIRMED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "INVOICE : Extra fee RE: AGENT// 7501 for OI065674// Pre-alert Docs with: ONEYHAN",
+      "sender": "lucyli@cowinshipping.com",
+      "timestamp": "2026-03-11 07:04:25.953000+00:00"
+    },
+    {
+      "shipment_id": "PLAX26020005",
+      "hbl": [
+        "PLAX26020005"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "CREATIVE LIGHT",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "Re: Extra fee RE: AGENT// 7501 for OI065674// Pre-alert Docs with: ONEYHANG10341",
+      "sender": "lucyli@cowinshipping.com",
+      "timestamp": "2026-03-11 06:54:54.233000+00:00"
+    },
+    {
+      "shipment_id": "PLAX26020005",
+      "hbl": [
+        "PLAX26020005"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "CREATIVE LIGHT",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "Re: Extra fee RE: AGENT// 7501 for OI065674// Pre-alert Docs with: ONEYHANG10341",
+      "sender": "lucyli@cowinshipping.com",
+      "timestamp": "2026-03-11 06:54:34.684000+00:00"
+    },
+    {
+      "shipment_id": "PLAX26020005",
+      "hbl": [
+        "PLAX26020005"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "CREATIVE LIGHT",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [],
+      "risks": [
+        "CRITICAL:asap"
+      ],
+      "troubles": [],
+      "email_subject": "Re: Extra fee RE: AGENT// 7501 for OI065674// Pre-alert Docs with: ONEYHANG10341",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2026-03-10 17:47:30.807000+00:00"
+    },
+    {
+      "shipment_id": "PLAX26020005",
+      "hbl": [
+        "PLAX26020005"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "CREATIVE LIGHT",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [
+        "INVOICE_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: Extra fee RE: AGENT// 7501 for OI065674// Pre-alert Docs with: ONEYHANG10341",
+      "sender": "cwop2@cowinshipping.com",
+      "timestamp": "2026-03-06 00:08:59.164000+00:00"
+    },
+    {
+      "shipment_id": "PLAX26020005",
+      "hbl": [
+        "PLAX26020005"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "CREATIVE LIGHT",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [
+        "INVOICE_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: Extra fee RE: AGENT// 7501 for OI065674// Pre-alert Docs with: ONEYHANG10341",
+      "sender": "cwop2@cowinshipping.com",
+      "timestamp": "2026-03-06 00:08:59.164000+00:00"
+    },
+    {
+      "shipment_id": "PLAX26020005",
+      "hbl": [
+        "PLAX26020005"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "CREATIVE LIGHT",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [
+        "INVOICE_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: Extra fee RE: AGENT// 7501 for OI065674// Pre-alert Docs with: ONEYHANG10341",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-03-05 09:42:37.388000+00:00"
+    },
+    {
+      "shipment_id": "PLAX26020005",
+      "hbl": [
+        "PLAX26020005"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "CREATIVE LIGHT",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [
+        "INVOICE_ISSUED"
+      ],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: Extra fee RE: AGENT// 7501 for OI065674// Pre-alert Docs with: ONEYHANG10341",
+      "sender": "isabel@pudongprime.vn",
+      "timestamp": "2026-03-05 09:42:37.388000+00:00"
+    },
+    {
+      "shipment_id": "PLAX26020005",
+      "hbl": [
+        "PLAX26020005"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "CREATIVE LIGHT",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: Extra fee RE: AGENT// 7501 for OI065674// Pre-alert Docs with: ONEYHANG10341",
+      "sender": "cwop2@cowinshipping.com",
+      "timestamp": "2026-03-05 00:08:10.558000+00:00"
+    },
+    {
+      "shipment_id": "PLAX26020005",
+      "hbl": [
+        "PLAX26020005"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "CREATIVE LIGHT",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "RE: Extra fee RE: AGENT// 7501 for OI065674// Pre-alert Docs with: ONEYHANG10341",
+      "sender": "cwop2@cowinshipping.com",
+      "timestamp": "2026-03-05 00:08:10.558000+00:00"
+    },
+    {
+      "shipment_id": "PLAX26020005",
+      "hbl": [
+        "PLAX26020005"
+      ],
+      "bkg": [],
+      "container_type": "",
+      "route": "",
+      "etd": "",
+      "customer": "CREATIVE LIGHT",
+      "customer_type": "DIRECT",
+      "carrier": "ONE",
+      "stages": [],
+      "risks": [],
+      "troubles": [],
+      "email_subject": "Re: Extra fee RE: AGENT// 7501 for OI065674// Pre-alert Docs with: ONEYHANG10341",
+      "sender": "cs18@pudongprime.vn",
+      "timestamp": "2026-03-04 18:15:32.906000+00:00"
+    }
+  ]
+}

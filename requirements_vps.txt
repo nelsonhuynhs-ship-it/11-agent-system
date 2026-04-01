@@ -1,0 +1,13 @@
+# Nelson Freight System — VPS Dependencies
+# Lightweight: no GUI, no pywin32, no Office deps
+python-telegram-bot==22.6
+google-genai
+pandas>=2.0
+openpyxl>=3.1
+APScheduler>=3.10
+pyarrow>=14.0
+fastapi>=0.110
+uvicorn[standard]>=0.27
+requests>=2.31
+aiohttp>=3.9
+python-dotenv>=1.0

@@ -1,0 +1,233 @@
+{
+  "_comment": "Customer Classification Rules ? Nelson own customers only",
+  "_updated": "2026-03-30",
+  "_logic": "Shipment belongs to Nelson only if NO mentee email is in participants. If any mentee is in To/CC -> that is mentee shipment, skip.",
+  "nelson_email": "nelson@pudongprime.vn",
+  "senior_emails": [
+    "nelson@pudongprime.vn",
+    "sunny@pudongprime.vn",
+    "jessie@pudongprime.vn",
+    "brian@pudongprime.vn"
+  ],
+  "mentee_emails": [
+    "johnny@pudongprime.vn",
+    "jennie@pudongprime.vn",
+    "blue@pudongprime.vn",
+    "lina@pudongprime.vn",
+    "otis@pudongprime.vn",
+    "jun@pudongprime.vn"
+  ],
+  "_ownership_rule": "If any mentee_email appears in email To/CC/From -> SKIP (mentee shipment). Only process if all participants are senior_emails.",
+  "customers": {
+    "WEST FOOD": {
+      "type": "DIRECT",
+      "priority": "KEY",
+      "sla_hours": 2,
+      "owner": "nelson",
+      "shipment_count": 1,
+      "seen_senders": [
+        "linh.nt@westfood.vn"
+      ],
+      "email_domains": [
+        "westfood.vn"
+      ],
+      "hbl_prefixes": [
+        "PNYC"
+      ],
+      "carrier_affinity": [],
+      "routes": [
+        "HCM-NYC"
+      ],
+      "notes": "Nelson's direct customer"
+    },
+    "SIRI": {
+      "type": "FWD",
+      "owner": "nelson",
+      "priority": "KEY",
+      "sla_hours": 2,
+      "keywords": [
+        "SIRI",
+        "SIRI LOG"
+      ],
+      "hbl_prefixes": [
+        "PELP"
+      ],
+      "bkg_prefixes": [
+        "SGN"
+      ],
+      "carrier_affinity": [
+        "CMA"
+      ],
+      "routes": [
+        "HPH-EL PASO",
+        "HPH-US"
+      ],
+      "notes": "Nelson FWD/Coload customer"
+    },
+    "HML": {
+      "type": "FWD",
+      "owner": "nelson",
+      "priority": "KEY",
+      "sla_hours": 2,
+      "keywords": [
+        "HML"
+      ],
+      "hbl_prefixes": [
+        "PDEN"
+      ],
+      "bkg_prefixes": [
+        "HANG"
+      ],
+      "carrier_affinity": [
+        "ONE SOC"
+      ],
+      "routes": [
+        "HPH-DENVER",
+        "HPH-KANSAS",
+        "HPH-EL PASO"
+      ],
+      "notes": "Nelson FWD/Coload customer"
+    },
+    "PANDA": {
+      "type": "FWD",
+      "owner": "nelson",
+      "priority": "KEY",
+      "sla_hours": 2,
+      "keywords": [
+        "PANDA",
+        "PANDA GROUP",
+        "PANDA HN",
+        "PANDA BN",
+        "PANDA HCM"
+      ],
+      "email_domains": [
+        "panda4u.com"
+      ],
+      "hbl_prefixes": [
+        "PHOU",
+        "PNYC",
+        "PCHS",
+        "PLAX"
+      ],
+      "carrier_affinity": [
+        "ZIM",
+        "HPL",
+        "ONE"
+      ],
+      "routes": [
+        "HCM-US",
+        "HPH-US"
+      ],
+      "notes": "Nelson FWD/Coload customer ? both HCM and Hanoi offices"
+    },
+    "Nafood": {
+      "type": "DIRECT",
+      "owner": "nelson",
+      "priority": "KEY",
+      "sla_hours": 2,
+      "keywords": [
+        "NAFOOD",
+        "Nafood"
+      ],
+      "email_domains": [
+        "nafood.com"
+      ],
+      "bkg_prefixes": [
+        "EBKG"
+      ],
+      "carrier_affinity": [
+        "MSC"
+      ],
+      "routes": [
+        "HCM-AUS"
+      ],
+      "notes": "Nelson direct customer ? reefer cargo to Australia"
+    },
+    "VINARES": {
+      "type": "DIRECT",
+      "owner": "nelson",
+      "priority": "KEY",
+      "sla_hours": 2,
+      "keywords": [
+        "VINARES"
+      ],
+      "hbl_prefixes": [
+        "PYTO"
+      ],
+      "bkg_prefixes": [
+        "HANFG"
+      ],
+      "carrier_affinity": [
+        "ONE SOC"
+      ],
+      "routes": [
+        "HPH-TORONTO",
+        "HPH-VANCOUVER"
+      ],
+      "notes": "Nelson direct customer ? Canada routes"
+    },
+    "PT FOOD": {
+      "type": "DIRECT",
+      "owner": "nelson",
+      "priority": "KEY",
+      "sla_hours": 2,
+      "keywords": [
+        "PT FOOD",
+        "PTFOOD"
+      ],
+      "hbl_prefixes": [
+        "PHOU"
+      ],
+      "routes": [
+        "HCM-HOU"
+      ],
+      "notes": "Nelson direct customer"
+    },
+    "ALPHA": {
+      "type": "DIRECT",
+      "priority": "KEY",
+      "sla_hours": 2,
+      "shipment_count": 0,
+      "seen_senders": [],
+      "keywords": [
+        "alpha"
+      ],
+      "notes": "Mentee Johnny customer - HCM routes",
+      "owner": "mentee:johnny"
+    },
+    "MP GLOBAL": {
+      "type": "DIRECT",
+      "priority": "KEY",
+      "sla_hours": 2,
+      "shipment_count": 0,
+      "seen_senders": [],
+      "keywords": [
+        "mp global"
+      ],
+      "notes": "Mentee Johnny customer - Omaha route",
+      "owner": "mentee:johnny"
+    }
+  },
+  "detection_rules": {
+    "FWD": {
+      "keywords": [
+        "siri",
+        "hml",
+        "panda",
+        "panda group",
+        "panda hn"
+      ]
+    },
+    "DIRECT": {
+      "keywords": [
+        "west food",
+        "westfood",
+        "nafood",
+        "pt food",
+        "vinares",
+        "west food",
+        "westfood"
+      ]
+    }
+  }
+}

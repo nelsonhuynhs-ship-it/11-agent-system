@@ -1,0 +1,924 @@
+{
+  "carrier": "ONE",
+  "carrier_full_name": "Ocean Network Express",
+  "updated": "2024-04-10",
+  "source_files": [
+    "ONE Cargo Weight Guideline - UPDATED 2024 04 10.xlsx",
+    "OWS CHARGE.jpg"
+  ],
+  "contracts": {
+    "FAK": {
+      "source": "FAK file",
+      "group_code_required": true,
+      "note": "Standard FAK pricing"
+    },
+    "SOC": {
+      "source": "FAK file",
+      "group_code_required": true,
+      "puc_applies": true,
+      "note": "Shipper's Own Container — PUC surcharge applies"
+    },
+    "SHORT_TERM": {
+      "source": "FAK file",
+      "group_code_required": true,
+      "note": "Short-term contract pricing"
+    },
+    "SPECIAL_RATE": {
+      "source": "Special Rate file",
+      "group_code_required": true,
+      "note": "Separately negotiated rates"
+    }
+  },
+  "gross_weight": {
+    "US": {
+      "on_dock_rail_cy": {
+        "description": "Any Rail On-dock CY cargo via US gateports",
+        "dock_type": "ON-DOCK",
+        "movement": "Rail (direct from port to rail ramp)",
+        "limits_mt": {
+          "20GP": 21.6,
+          "40GP": 26.5,
+          "40HQ": 26.5,
+          "45HQ": 25.7,
+          "20RF": 25.9,
+          "40RF": 24.6
+        },
+        "limits_lbs": {
+          "20GP": 47800,
+          "40GP": 58400,
+          "40HQ": 58400,
+          "45HQ": 56700,
+          "20RF": 57200,
+          "40RF": 54300
+        },
+        "exceptions": [
+          "USNYC05 to/from USEZA61 adheres to off-dock weight limits"
+        ]
+      },
+      "off_dock_rail_truck_cy": {
+        "description": "Any RAIL CY cargo involves truck move(s) — Rubbertire I/C",
+        "dock_type": "OFF-DOCK",
+        "movement": "Rail + Truck (container moved by truck between ramps)",
+        "limits_mt": {
+          "20GP": 17.78,
+          "40GP": 19.96,
+          "40HQ": 19.96,
+          "45HQ": 19.82,
+          "20RF": 19.1,
+          "40RF": 17.83
+        },
+        "limits_lbs": {
+          "20GP": 39200,
+          "40GP": 44000,
+          "40HQ": 44000,
+          "45HQ": 43700,
+          "20RF": 42100,
+          "40RF": 39300
+        },
+        "note": "Cities marked * in rail routing = truck move involved"
+      },
+      "port_local_cy": {
+        "description": "Any local CY cargo via all gateports",
+        "dock_type": "PORT",
+        "movement": "Port local pickup/delivery",
+        "limits_mt": {
+          "note": "Per BOX SPEC — shipper/consignee responsible for legal transport"
+        }
+      }
+    },
+    "CA": {
+      "on_dock_rail_cy": {
+        "description": "Any Rail On-dock CY cargo via Canadian gateports",
+        "dock_type": "ON-DOCK",
+        "movement": "Rail (direct from port to rail ramp)",
+        "limits_mt": {
+          "20GP": 22.7,
+          "40GP": 27.2,
+          "40HQ": 27.2,
+          "45HQ": 27.2,
+          "20RF": 27.2,
+          "40RF": 27.2
+        },
+        "limits_lbs": {
+          "20GP": 50100,
+          "40GP": 60000,
+          "40HQ": 60000,
+          "45HQ": 60000,
+          "20RF": 60000,
+          "40RF": 60000
+        }
+      }
+    }
+  },
+  "ows_charges": {
+    "CA": {
+      "charge_code": "HEA",
+      "charge_name": "Heavy Weight Additional",
+      "effective_date": "2025-11-07",
+      "currency": "USD",
+      "pay_term": "Ocean Freight",
+      "amounts": {
+        "20GP": 565,
+        "40GP": 700,
+        "40HQ": 700,
+        "45HQ": 700
+      },
+      "thresholds_mt": {
+        "on_dock_rail": {
+          "20GP": 21.73,
+          "40GP": 27.21,
+          "40HQ": 27.21,
+          "45HQ": 27.21
+        },
+        "off_dock_rail_truck": {
+          "20GP": 17.8,
+          "40GP": 19.97,
+          "40HQ": 19.97,
+          "45HQ": 18.98
+        }
+      },
+      "note": "HEA applies when cargo weight exceeds threshold for the dock type"
+    },
+    "US": {
+      "charge_code": "AGW/HEA",
+      "note": "Check ONE website for current US overweight charges — varies by route"
+    }
+  },
+  "rail_routing": {
+    "WC_import": {
+      "USLAX01": {
+        "terminal": "YTI",
+        "services": [
+          "FP1",
+          "PS3",
+          "AL5",
+          "MAREX"
+        ],
+        "on_dock_hubs": [
+          "Atlanta",
+          "Charleston*",
+          "Charlotte",
+          "Chicago",
+          "Cincinnati",
+          "Cleveland",
+          "Columbus",
+          "Dallas",
+          "Denver",
+          "Detroit",
+          "El Paso",
+          "New York(Croxton)*",
+          "Georgetown",
+          "Houston",
+          "Huntsville",
+          "Jacksonville*",
+          "Kansas City",
+          "Louisville",
+          "Memphis",
+          "Norfolk*",
+          "Savannah*",
+          "St. Louis"
+        ],
+        "off_dock_hubs": [
+          "Denver",
+          "New Orleans",
+          "Omaha",
+          "Salt Lake City",
+          "San Antonio",
+          "Laredo (SAT)",
+          "Marysville (COL)",
+          "Milwaukee (CHI)",
+          "Nashville (MEM)"
+        ]
+      },
+      "USLAX03": {
+        "terminal": "APMT",
+        "services": [
+          "CP8"
+        ],
+        "on_dock_hubs": [
+          "Atlanta",
+          "Cincinnati",
+          "Cleveland",
+          "Columbus",
+          "Detroit",
+          "Louisville"
+        ],
+        "off_dock_hubs": [
+          "Atlanta",
+          "Cincinnati",
+          "Cleveland",
+          "Columbus",
+          "Detroit",
+          "Louisville"
+        ]
+      },
+      "USLAX04": {
+        "terminal": "Fenix",
+        "services": [
+          "CP1"
+        ],
+        "on_dock_hubs": [
+          "Memphis (BNSF)",
+          "Kansas City (BNSF)"
+        ],
+        "off_dock_hubs": []
+      },
+      "USLAX06": {
+        "terminal": "Trapac",
+        "services": [
+          "PS7"
+        ],
+        "on_dock_hubs": [
+          "Atlanta",
+          "Charleston*",
+          "Charlotte",
+          "Chicago",
+          "Cincinnati",
+          "Cleveland",
+          "Columbus",
+          "Dallas",
+          "Detroit",
+          "New York(Croxton)*",
+          "Georgetown",
+          "Huntsville",
+          "Jacksonville*",
+          "Kansas City*",
+          "Louisville",
+          "Memphis",
+          "Norfolk*",
+          "Savannah*",
+          "St. Louis"
+        ],
+        "off_dock_hubs": [
+          "Denver",
+          "El Paso",
+          "Houston",
+          "New Orleans",
+          "Omaha",
+          "Salt Lake City",
+          "San Antonio",
+          "Laredo (SAT)",
+          "Marysville (COL)",
+          "Milwaukee (CHI)",
+          "Nashville (MEM)"
+        ]
+      },
+      "USLAX08": {
+        "terminal": "WBCT",
+        "services": [
+          "PS4",
+          "PS5",
+          "PS6"
+        ],
+        "on_dock_hubs": [
+          "Atlanta",
+          "Charleston*",
+          "Charlotte",
+          "Chicago",
+          "Cincinnati",
+          "Cleveland",
+          "Columbus",
+          "Dallas",
+          "Detroit",
+          "New York(Croxton)*",
+          "Georgetown",
+          "Houston",
+          "Huntsville",
+          "Jacksonville*",
+          "Kansas City",
+          "Louisville",
+          "Memphis",
+          "Norfolk*",
+          "Savannah*",
+          "St. Louis"
+        ],
+        "off_dock_hubs": [
+          "Denver",
+          "El Paso",
+          "New Orleans",
+          "Omaha",
+          "Salt Lake City",
+          "San Antonio",
+          "Laredo (SAT)",
+          "Marysville (COL)",
+          "Milwaukee (CHI)",
+          "Nashville (MEM)"
+        ]
+      },
+      "USLGB02": {
+        "terminal": "ITS",
+        "services": [],
+        "on_dock_hubs": [
+          "Atlanta",
+          "Charleston*",
+          "Charlotte",
+          "Chicago",
+          "Cincinnati",
+          "Cleveland",
+          "Columbus",
+          "Dallas",
+          "Detroit",
+          "New York(Croxton)*",
+          "Georgetown",
+          "Houston",
+          "Huntsville",
+          "Jacksonville*",
+          "Kansas City",
+          "Louisville",
+          "Memphis",
+          "Miami*",
+          "Norfolk*",
+          "Savannah*",
+          "St. Louis"
+        ],
+        "off_dock_hubs": [
+          "Denver",
+          "El Paso",
+          "New Orleans",
+          "Omaha",
+          "Salt Lake City",
+          "San Antonio",
+          "Laredo (SAT)",
+          "Marysville (COL)",
+          "Milwaukee (CHI)",
+          "Nashville (MEM)"
+        ]
+      },
+      "USLGB05": {
+        "terminal": "TTI",
+        "services": [
+          "CP8"
+        ],
+        "on_dock_hubs": [
+          "Atlanta",
+          "Charleston*",
+          "Charlotte",
+          "Chicago",
+          "Cincinnati (CSX)",
+          "Cleveland (CSX)",
+          "Columbus (CSX)",
+          "Dallas",
+          "Detroit (CSX)",
+          "New York(Croxton)*",
+          "Georgetown",
+          "Huntsville",
+          "Jacksonville*",
+          "Kansas City",
+          "Louisville (CSX)",
+          "Memphis",
+          "Norfolk*",
+          "Savannah*",
+          "St. Louis"
+        ],
+        "off_dock_hubs": [
+          "Denver",
+          "El Paso",
+          "Houston",
+          "New Orleans",
+          "Omaha",
+          "Salt Lake City",
+          "San Antonio",
+          "Laredo (SAT)",
+          "Marysville (COL)",
+          "Milwaukee (CHI)",
+          "Nashville (MEM)"
+        ]
+      },
+      "USTIW02": {
+        "terminal": "WUT",
+        "services": [
+          "PN1",
+          "PN4"
+        ],
+        "on_dock_hubs": [
+          "Atlanta",
+          "Baltimore*",
+          "Charleston*",
+          "Charlotte*",
+          "Chicago",
+          "Cincinnati",
+          "Cleveland",
+          "Columbus",
+          "Detroit",
+          "Georgetown",
+          "Huntsville*",
+          "Kansas City",
+          "Louisville",
+          "Memphis",
+          "Minneapolis",
+          "New York(Croxton)*",
+          "Norfolk*",
+          "Omaha",
+          "Portland",
+          "Savannah",
+          "St. Louis"
+        ],
+        "off_dock_hubs": [
+          "Marysville (COL)",
+          "Milwaukee (CHI)",
+          "Nashville (MEM)"
+        ]
+      },
+      "USTIW05": {
+        "terminal": "Husky",
+        "services": [
+          "PN2"
+        ],
+        "on_dock_hubs": [
+          "Atlanta",
+          "Baltimore*",
+          "Charleston*",
+          "Charlotte*",
+          "Chicago",
+          "Cincinnati",
+          "Cleveland",
+          "Columbus",
+          "Detroit",
+          "Georgetown",
+          "Huntsville*",
+          "Kansas City",
+          "Louisville",
+          "Memphis",
+          "Minneapolis",
+          "New York(Croxton)*",
+          "Norfolk*",
+          "Omaha",
+          "Portland",
+          "Savannah",
+          "St. Louis"
+        ],
+        "off_dock_hubs": [
+          "Marysville (COL)",
+          "Milwaukee (CHI)",
+          "Nashville (MEM)"
+        ]
+      },
+      "CAVAN01": {
+        "terminal": "Deltaport",
+        "services": [
+          "PN1",
+          "PN2"
+        ],
+        "on_dock_hubs": [
+          "Calgary",
+          "Chicago (Harvey)",
+          "Cleveland",
+          "Columbus",
+          "Detroit",
+          "Edmonton",
+          "Indianapolis (Rail Direct)",
+          "Memphis",
+          "Minneapolis (CP)",
+          "Montreal",
+          "Regina",
+          "Saskatoon",
+          "Toronto",
+          "Winnipeg"
+        ],
+        "off_dock_hubs": [
+          "Nashville (MEM)"
+        ]
+      },
+      "CAVAN03": {
+        "terminal": "Centerm",
+        "services": [
+          "PN4"
+        ],
+        "on_dock_hubs": [
+          "Chicago (Harvey)",
+          "Detroit",
+          "Memphis",
+          "Montreal",
+          "Toronto"
+        ],
+        "off_dock_hubs": []
+      },
+      "CAPRR01": {
+        "terminal": "FCT",
+        "services": [
+          "PN4"
+        ],
+        "on_dock_hubs": [
+          "Calgary",
+          "Chicago (Harvey)",
+          "Detroit",
+          "Edmonton",
+          "Montreal",
+          "Memphis",
+          "Saskatoon",
+          "Toronto",
+          "Winnipeg",
+          "Cleveland",
+          "Columbus"
+        ],
+        "off_dock_hubs": []
+      },
+      "USOAK01": {
+        "terminal": "OICT",
+        "services": [
+          "CP3",
+          "CP8",
+          "PS6",
+          "PS7"
+        ],
+        "on_dock_hubs": [],
+        "off_dock_hubs": [
+          "Denver",
+          "Salt Lake City"
+        ]
+      },
+      "USOAK08": {
+        "terminal": "Trapac OAK",
+        "services": [
+          "FP1",
+          "PS3",
+          "PS4",
+          "PS5",
+          "AL5"
+        ],
+        "on_dock_hubs": [],
+        "off_dock_hubs": [
+          "Denver",
+          "Salt Lake City"
+        ]
+      },
+      "USSEA01": {
+        "terminal": "T18",
+        "services": [
+          "PN3"
+        ],
+        "on_dock_hubs": [],
+        "off_dock_hubs": [
+          "Chicago",
+          "Atlanta",
+          "Baltimore*",
+          "Cincinnati*",
+          "Cleveland*",
+          "Columbus*",
+          "Detroit*",
+          "Georgetown*",
+          "Kansas City",
+          "Memphis",
+          "Minneapolis",
+          "New York(Croxton)*",
+          "Norfolk*",
+          "Omaha",
+          "Pittsburgh*",
+          "Portland",
+          "St. Louis",
+          "Marysville (COL)",
+          "Milwaukee (CHI)",
+          "Nashville (MEM)"
+        ]
+      }
+    },
+    "EC_import": {
+      "CAHAL01": {
+        "terminal": "Ceres",
+        "services": [
+          "AL5"
+        ],
+        "on_dock_hubs": [
+          "Calgary",
+          "Chicago",
+          "Detroit",
+          "Duluth",
+          "Edmonton",
+          "Indianapolis",
+          "Montreal",
+          "Toronto",
+          "Winnipeg"
+        ],
+        "off_dock_hubs": []
+      },
+      "CAHAL02": {
+        "terminal": "Halterm",
+        "services": [
+          "EC5"
+        ],
+        "on_dock_hubs": [
+          "Calgary",
+          "Chicago",
+          "Detroit",
+          "Duluth",
+          "Edmonton",
+          "Indianapolis",
+          "Montreal",
+          "Toronto",
+          "Winnipeg"
+        ],
+        "off_dock_hubs": []
+      },
+      "USNYC01": {
+        "terminal": "GCT Bayonne",
+        "services": [
+          "EC1",
+          "EC4",
+          "EC5"
+        ],
+        "on_dock_hubs": [
+          "Boston",
+          "Chicago",
+          "Cincinnati",
+          "Cleveland",
+          "Columbus",
+          "Detroit",
+          "Kansas City (CSX/CPKC)",
+          "Pittsburgh",
+          "St. Louis"
+        ],
+        "off_dock_hubs": [
+          "Buffalo",
+          "Indianapolis (CSX)",
+          "Montreal",
+          "Toronto"
+        ]
+      },
+      "USNYC05": {
+        "terminal": "Maher",
+        "services": [
+          "AL2",
+          "AL6",
+          "IEX",
+          "EMA"
+        ],
+        "on_dock_hubs": [
+          "Boston",
+          "Buffalo",
+          "Chicago",
+          "Cincinnati",
+          "Cleveland",
+          "Columbus",
+          "Detroit",
+          "Kansas City (CSX/CPKC)",
+          "Long Beach*",
+          "Minneapolis",
+          "Montreal",
+          "Oakland*",
+          "Omaha*",
+          "Pittsburgh",
+          "Portland*",
+          "Seattle*",
+          "St. Louis"
+        ],
+        "off_dock_hubs": [
+          "Indianapolis (CSX)"
+        ]
+      },
+      "USORF01": {
+        "terminal": "NIT",
+        "services": [
+          "AL2",
+          "AL3",
+          "AL6",
+          "EC1",
+          "EC2",
+          "EC4",
+          "EC5",
+          "EMA"
+        ],
+        "on_dock_hubs": [
+          "Chicago",
+          "Cincinnati",
+          "Cleveland",
+          "Columbus",
+          "Detroit",
+          "Front Royal",
+          "Greensboro",
+          "Kansas City (NS)",
+          "Long Beach*",
+          "Louisville",
+          "Oakland*",
+          "Omaha*",
+          "Portland",
+          "Seattle",
+          "St.Louis"
+        ],
+        "off_dock_hubs": []
+      },
+      "USORF03": {
+        "terminal": "VIG",
+        "services": [
+          "IEX"
+        ],
+        "on_dock_hubs": [
+          "Chicago",
+          "Cincinnati",
+          "Cleveland",
+          "Columbus",
+          "Detroit",
+          "Front Royal",
+          "Greensboro",
+          "Kansas City",
+          "Louisville",
+          "St. Louis"
+        ],
+        "off_dock_hubs": []
+      },
+      "USSAV01": {
+        "terminal": "GCT",
+        "services": [
+          "EC1",
+          "EC2",
+          "EC4",
+          "EC5",
+          "AL3",
+          "AL6",
+          "EMA"
+        ],
+        "on_dock_hubs": [
+          "Appalachian Regional Port",
+          "Atlanta",
+          "Birmingham",
+          "Charlotte",
+          "Dallas",
+          "Huntsville",
+          "Jacksonville",
+          "Memphis",
+          "Miami",
+          "Nashville",
+          "New Orleans",
+          "Tampa"
+        ],
+        "off_dock_hubs": []
+      },
+      "USMSY01 & USMSY03": {
+        "terminal": "PAG & NOT",
+        "services": [
+          "ANSG"
+        ],
+        "on_dock_hubs": [
+          "Chicago",
+          "Dallas",
+          "Detroit",
+          "Memphis",
+          "Montreal",
+          "Toronto"
+        ],
+        "off_dock_hubs": [
+          "Charleston"
+        ]
+      },
+      "USHOU01": {
+        "terminal": "Barbours Cut",
+        "services": [
+          "AL4",
+          "ANSG",
+          "CX5"
+        ],
+        "on_dock_hubs": [
+          "Chicago",
+          "Dallas (BNSF)",
+          "Denver (BNSF)",
+          "Denver (UP)",
+          "El Paso",
+          "Kansas City",
+          "Laredo",
+          "Long Beach",
+          "Memphis",
+          "Oakland",
+          "Salt Lake City"
+        ],
+        "off_dock_hubs": [
+          "Chicago",
+          "El Paso",
+          "Memphis",
+          "Long Beach",
+          "Salt Lake City",
+          "St. Louis",
+          "USHOU61",
+          "Kansas City"
+        ]
+      },
+      "USHOU05": {
+        "terminal": "Bayport",
+        "services": [
+          "EC6"
+        ],
+        "on_dock_hubs": [
+          "Chicago",
+          "Denver",
+          "El Paso",
+          "Kansas City",
+          "Laredo",
+          "Long Beach",
+          "Memphis",
+          "Oakland",
+          "Salt Lake City"
+        ],
+        "off_dock_hubs": []
+      },
+      "USILM01": {
+        "terminal": "NCSPA",
+        "services": [
+          "EC2"
+        ],
+        "on_dock_hubs": [
+          "Charlotte"
+        ],
+        "off_dock_hubs": []
+      },
+      "USCHS01": {
+        "terminal": "WWT",
+        "services": [
+          "AL3",
+          "EC1",
+          "EC2",
+          "EC4"
+        ],
+        "on_dock_hubs": [],
+        "off_dock_hubs": [
+          "Atlanta",
+          "Charlotte",
+          "Dallas",
+          "Greer",
+          "Huntsville",
+          "Memphis",
+          "New Orleans",
+          "USCHS61",
+          "Dillon",
+          "Jacksonville",
+          "Nashville"
+        ]
+      },
+      "USJAX02": {
+        "terminal": "Trapac",
+        "services": [
+          "EC5"
+        ],
+        "on_dock_hubs": [],
+        "off_dock_hubs": [
+          "Atlanta",
+          "Tampa",
+          "USJAX62",
+          "Miami"
+        ]
+      },
+      "USJAX03": {
+        "terminal": "SSA",
+        "services": [
+          "EC5"
+        ],
+        "on_dock_hubs": [],
+        "off_dock_hubs": [
+          "Atlanta",
+          "USJAX62",
+          "Miami"
+        ]
+      }
+    },
+    "routing_rules": {
+      "asterisk_meaning": "Cities marked with * involve truck move (Rubbertire I/C) → apply OFF-DOCK weight limits",
+      "on_dock_weight": "Cities WITHOUT * → apply ON-DOCK weight limits",
+      "off_dock_weight": "Cities WITH * → apply OFF-DOCK weight limits"
+    }
+  },
+  "soc_compliance": {
+    "scope": "Southeast Asia (VN, TH, PH, MY, ID) & China",
+    "updated": "2026-03",
+    "container_requirements": {
+      "age_limit": {
+        "rule": "Container > 5 years (from manufacturing date on CSC plate) MUST have valid ACEP inspection label",
+        "acep_label": {
+          "size_cm": "7.5 x 3.5",
+          "format": "Decal sticker",
+          "placement": "Directly on CSC plate in ACEP section",
+          "next_inspection": "Max 2.5 years from current inspection date",
+          "typical_validity": "1 year from container pickup date",
+          "example": "Container picked up 03/03/2026 → ACEP label shows 'Mar.2027' (punch hole per IMO standard)"
+        }
+      },
+      "original_condition": "No modifications allowed since original manufacturing",
+      "cargo_type": "Non-DG (Dangerous Goods) ONLY",
+      "prefix_restriction": "Container prefix must NOT be in ONE's banned prefix list (or alliance partners' banned list)"
+    },
+    "booking_process": {
+      "step_1": "Obtain container number",
+      "step_2": "Customer provides full container photos (all sides) for ONE system registration",
+      "deadlines": {
+        "direct_services": "At least 2 working days BEFORE SI cut-off",
+        "transit_services": "At least 2 working days BEFORE CY cut-off"
+      },
+      "rejection_warning": "If conditions not met → ONE REJECTS shipment. All incurred costs will NOT be resolved."
+    },
+    "acep_support": {
+      "option_1": "Outsource operator — contact Log Team (Ms. Liana) for case-by-case pricing",
+      "option_2": "SOC Team provides ACEP labels if customer handles application themselves"
+    },
+    "customer_owned_container": {
+      "requirements": [
+        "Container must have valid inspection within deadline + ACEP label on CSC plate",
+        "Container must have valid inspection certificate per IMO standards",
+        "Full container photos must be provided (all angles)"
+      ]
+    },
+    "checklist_before_booking": [
+      "Container age < 5 years OR valid ACEP label present",
+      "No structural modifications on container",
+      "Cargo is Non-DG",
+      "Prefix not in banned list",
+      "Full container photos taken and submitted",
+      "Submitted at least 2 working days before SI/CY cut-off"
+    ]
+  }
+}

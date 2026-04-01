@@ -1,0 +1,407 @@
+{
+  "quotes": {
+    "Q-20260314-001": {
+      "quote_id": "Q-20260314-001",
+      "customer": "HML",
+      "service_type": "CY-CY",
+      "pol": "HPH",
+      "pod": "USTAC",
+      "place": "TACOMA",
+      "routing": "HPH-TACOMA",
+      "carriers": [
+        {
+          "carrier": "CMA",
+          "badge": "",
+          "containers": {
+            "20GP": {
+              "ocean_freight": 1500.0,
+              "markup": 150.0,
+              "sell_rate": 1650.0
+            },
+            "40HQ": {
+              "ocean_freight": 2926.0,
+              "markup": 150.0,
+              "sell_rate": 3076.0
+            }
+          }
+        },
+        {
+          "carrier": "YML",
+          "badge": "SOC",
+          "containers": {
+            "20GP": {
+              "ocean_freight": 1450.0,
+              "markup": 150.0,
+              "sell_rate": 1600.0
+            },
+            "40HQ": {
+              "ocean_freight": 3107.0,
+              "markup": 150.0,
+              "sell_rate": 3257.0
+            }
+          }
+        },
+        {
+          "carrier": "ONE",
+          "badge": "SOC",
+          "containers": {
+            "20GP": {
+              "ocean_freight": 1600.0,
+              "markup": 150.0,
+              "sell_rate": 1750.0
+            },
+            "40HQ": {
+              "ocean_freight": 3250.0,
+              "markup": 150.0,
+              "sell_rate": 3400.0
+            }
+          }
+        }
+      ],
+      "markup_mode": "global",
+      "global_markup": 150.0,
+      "optional_charges": [
+        {
+          "description": "Trucking",
+          "amount": 450,
+          "currency": "USD"
+        }
+      ],
+      "charges_total": 450.0,
+      "transit": "28 days",
+      "freetime": "21d",
+      "validity": "01 Mar-31 Mar",
+      "eff": "",
+      "exp": "",
+      "status": "CONVERTED",
+      "version": 1,
+      "parent_quote_id": null,
+      "win_probability": null,
+      "price_alerts": [],
+      "created_at": "2026-03-14T14:17:28.767383",
+      "updated_at": "2026-03-14T14:17:34.868089",
+      "converted_shipment_id": "S-20260314-001",
+      "best_sell_rate": 1600.0,
+      "best_buy_rate": 1450.0,
+      "best_margin": 150.0,
+      "carrier_count": 3,
+      "container_count": 2
+    },
+    "Q-20260314-002": {
+      "quote_id": "Q-20260314-002",
+      "customer": "HML",
+      "service_type": "CY-CY",
+      "pol": "HPH",
+      "pod": "USTAC",
+      "place": "TACOMA",
+      "routing": "HPH-TACOMA",
+      "carriers": [
+        {
+          "carrier": "CMA",
+          "badge": "",
+          "containers": {
+            "20GP": {
+              "ocean_freight": 1500.0,
+              "markup": 150.0,
+              "sell_rate": 1650.0
+            },
+            "40HQ": {
+              "ocean_freight": 2926.0,
+              "markup": 150.0,
+              "sell_rate": 3076.0
+            }
+          }
+        },
+        {
+          "carrier": "YML",
+          "badge": "SOC",
+          "containers": {
+            "20GP": {
+              "ocean_freight": 1450.0,
+              "markup": 150.0,
+              "sell_rate": 1600.0
+            },
+            "40HQ": {
+              "ocean_freight": 3107.0,
+              "markup": 150.0,
+              "sell_rate": 3257.0
+            }
+          }
+        },
+        {
+          "carrier": "ONE",
+          "badge": "SOC",
+          "containers": {
+            "20GP": {
+              "ocean_freight": 1600.0,
+              "markup": 150.0,
+              "sell_rate": 1750.0
+            },
+            "40HQ": {
+              "ocean_freight": 3250.0,
+              "markup": 150.0,
+              "sell_rate": 3400.0
+            }
+          }
+        }
+      ],
+      "markup_mode": "global",
+      "global_markup": 150.0,
+      "optional_charges": [
+        {
+          "description": "Trucking",
+          "amount": 450,
+          "currency": "USD"
+        }
+      ],
+      "charges_total": 450.0,
+      "transit": "28 days",
+      "freetime": "21d",
+      "validity": "01 Mar-31 Mar",
+      "eff": "",
+      "exp": "",
+      "status": "CONVERTED",
+      "version": 2,
+      "parent_quote_id": "Q-20260314-001",
+      "win_probability": null,
+      "price_alerts": [],
+      "created_at": "2026-03-14T14:17:38.992499",
+      "updated_at": "2026-03-14T14:32:21.951975",
+      "converted_shipment_id": "S-20260314-002",
+      "best_sell_rate": 1600.0,
+      "best_buy_rate": 1450.0,
+      "best_margin": 150.0,
+      "carrier_count": 3,
+      "container_count": 2
+    },
+    "Q-20260314-003": {
+      "quote_id": "Q-20260314-003",
+      "customer": "",
+      "service_type": "CY-CY",
+      "pol": "HPH",
+      "pod": "SAVANNAH, GA",
+      "place": "SAVANNAH, GA",
+      "routing": "SAVANNAH, GA (SAVANNAH)",
+      "carriers": [
+        {
+          "carrier": "CMA",
+          "badge": "SOC",
+          "containers": {
+            "20GP": {
+              "ocean_freight": 1658.0,
+              "markup": 500.0,
+              "sell_rate": 2158.0
+            },
+            "40GP": {
+              "ocean_freight": 2078.0,
+              "markup": 500.0,
+              "sell_rate": 2578.0
+            },
+            "40HQ": {
+              "ocean_freight": 2078.0,
+              "markup": 500.0,
+              "sell_rate": 2578.0
+            }
+          }
+        },
+        {
+          "carrier": "ONE",
+          "badge": "SOC",
+          "containers": {
+            "20GP": {
+              "ocean_freight": 1840.0,
+              "markup": 500.0,
+              "sell_rate": 2340.0
+            },
+            "40GP": {
+              "ocean_freight": 2250.0,
+              "markup": 500.0,
+              "sell_rate": 2750.0
+            },
+            "40HQ": {
+              "ocean_freight": 2250.0,
+              "markup": 500.0,
+              "sell_rate": 2750.0
+            }
+          }
+        }
+      ],
+      "markup_mode": "global",
+      "global_markup": 500.0,
+      "optional_charges": [],
+      "charges_total": 0,
+      "transit": "",
+      "freetime": "",
+      "validity": "01 Mar–14 Mar",
+      "eff": "",
+      "exp": "",
+      "status": "REJECTED",
+      "version": 1,
+      "parent_quote_id": null,
+      "win_probability": null,
+      "price_alerts": [],
+      "created_at": "2026-03-14T14:43:53.960635",
+      "updated_at": "2026-03-14T14:44:39.472590",
+      "converted_shipment_id": null,
+      "best_sell_rate": 2158.0,
+      "best_buy_rate": 1658.0,
+      "best_margin": 500.0,
+      "carrier_count": 2,
+      "container_count": 3
+    },
+    "Q-20260314-004": {
+      "quote_id": "Q-20260314-004",
+      "customer": "HER HUI WOOD",
+      "service_type": "CY-CY",
+      "pol": "HPH",
+      "pod": "TACOMA, WA",
+      "place": "TACOMA, WA",
+      "routing": "TACOMA, WA (TACOMA)",
+      "carriers": [
+        {
+          "carrier": "COSCO",
+          "badge": "",
+          "containers": {
+            "20GP": {
+              "ocean_freight": 1403.0,
+              "markup": 0.0,
+              "sell_rate": 1403.0
+            },
+            "40GP": {
+              "ocean_freight": 1743.0,
+              "markup": 0.0,
+              "sell_rate": 1743.0
+            }
+          }
+        },
+        {
+          "carrier": "YML",
+          "badge": "",
+          "containers": {
+            "20GP": {
+              "ocean_freight": 1406.0,
+              "markup": 0.0,
+              "sell_rate": 1406.0
+            },
+            "40GP": {
+              "ocean_freight": 1491.0,
+              "markup": 0.0,
+              "sell_rate": 1491.0
+            }
+          }
+        }
+      ],
+      "markup_mode": "global",
+      "global_markup": 0.0,
+      "optional_charges": [],
+      "charges_total": 0,
+      "transit": "",
+      "freetime": "",
+      "validity": "01 Mar–14 Mar",
+      "eff": "",
+      "exp": "",
+      "status": "CONVERTED",
+      "version": 1,
+      "parent_quote_id": null,
+      "win_probability": null,
+      "price_alerts": [],
+      "created_at": "2026-03-14T14:55:26.915042",
+      "updated_at": "2026-03-14T14:55:37.946725",
+      "converted_shipment_id": "S-20260314-003",
+      "best_sell_rate": 1403.0,
+      "best_buy_rate": 1403.0,
+      "best_margin": 0.0,
+      "carrier_count": 2,
+      "container_count": 2
+    },
+    "Q-20260314-005": {
+      "quote_id": "Q-20260314-005",
+      "customer": "VINARES",
+      "service_type": "CY-CY",
+      "pol": "HCM",
+      "pod": "",
+      "place": "NEW YORK",
+      "routing": "",
+      "carriers": [
+        {
+          "carrier": "ONE",
+          "badge": "SOC",
+          "containers": {
+            "40HQ": {
+              "ocean_freight": 2095.0,
+              "markup": 0.0,
+              "sell_rate": 2095.0
+            }
+          }
+        }
+      ],
+      "markup_mode": "global",
+      "global_markup": 0.0,
+      "optional_charges": [],
+      "charges_total": 0,
+      "transit": "",
+      "freetime": "",
+      "validity": "",
+      "eff": "",
+      "exp": "",
+      "status": "CONVERTED",
+      "version": 1,
+      "parent_quote_id": null,
+      "win_probability": null,
+      "price_alerts": [],
+      "created_at": "2026-03-14T17:10:53.569741",
+      "updated_at": "2026-03-14T21:54:11.463274",
+      "converted_shipment_id": "S-20260314-004",
+      "best_sell_rate": 2095.0,
+      "best_buy_rate": 2095.0,
+      "best_margin": 0.0,
+      "carrier_count": 1,
+      "container_count": 1
+    },
+    "Q-20260314-006": {
+      "quote_id": "Q-20260314-006",
+      "customer": "",
+      "service_type": "CY-CY",
+      "pol": "HPH",
+      "pod": "LAX-LGB",
+      "place": "LAX/LGB",
+      "routing": "LAX/LGB (LAX-LGB)",
+      "carriers": [
+        {
+          "carrier": "YML",
+          "badge": "SOC",
+          "containers": {
+            "20GP": {
+              "ocean_freight": 1101.0,
+              "markup": 100.0,
+              "sell_rate": 1201.0
+            }
+          }
+        }
+      ],
+      "markup_mode": "global",
+      "global_markup": 100.0,
+      "optional_charges": [],
+      "charges_total": 0,
+      "transit": "",
+      "freetime": "",
+      "validity": "01 Mar–14 Mar",
+      "eff": "",
+      "exp": "",
+      "status": "CONVERTED",
+      "version": 1,
+      "parent_quote_id": null,
+      "win_probability": null,
+      "price_alerts": [],
+      "created_at": "2026-03-14T22:34:30.197918",
+      "updated_at": "2026-03-14T22:34:48.702417",
+      "converted_shipment_id": "S-20260314-005",
+      "best_sell_rate": 1201.0,
+      "best_buy_rate": 1101.0,
+      "best_margin": 100.0,
+      "carrier_count": 1,
+      "container_count": 1
+    }
+  },
+  "counter": 6
+}

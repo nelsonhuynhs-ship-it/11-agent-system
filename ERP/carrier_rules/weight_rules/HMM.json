@@ -1,0 +1,35 @@
+{
+  "carrier": "HMM",
+  "carrier_full_name": "HMM (Hyundai Merchant Marine)",
+  "updated": "2024",
+  "source_files": [
+    "HMM USCA Rail Weight limitation Guideline (Ver.1).xlsx"
+  ],
+  "gross_weight": {
+    "US": {
+      "routing_available": true,
+      "routes": {
+        "via_lalb": "Detailed per-destination limits (DC, RF, SR types)",
+        "via_nyc": "Detailed per-destination limits (DC, RF types)",
+        "via_other_us": "Detailed per-destination limits (DC, RF, RD types)"
+      },
+      "note": "HMM has 22 detailed sheets with per-destination, per-container-type limits"
+    },
+    "CA": {
+      "routing_available": true,
+      "routes": {
+        "via_ca_terminals": "Detailed per-destination limits (DC, RF types)"
+      }
+    }
+  },
+  "special_equipment": {
+    "available": true,
+    "types": [
+      "Flexi-tanks",
+      "Tanks",
+      "Flat Rack",
+      "Open Top",
+      "SR (Super Rack)"
+    ]
+  }
+}

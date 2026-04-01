@@ -1,0 +1,42 @@
+{
+  "carrier": "HPL",
+  "carrier_full_name": "Hapag-Lloyd",
+  "updated": "2024",
+  "source_files": [
+    "HPL Canada_Intermodal_Weights.xlsx",
+    "HPL RNA_Inland-Overweight_Guide.pdf"
+  ],
+  "gross_weight": {
+    "CA": {
+      "via_halifax_cn_rail": {
+        "description": "Import via Halifax CN Rail to Canada/US inland",
+        "standard_limits_kgs": {
+          "20GP": 21727,
+          "40GP": 27216,
+          "40HQ": 27216
+        },
+        "overweight_range_kgs": {
+          "20GP": "21,728 - 24,947",
+          "40GP": "27,217 - 29,484",
+          "40HQ": "27,217 - 29,484"
+        },
+        "destinations": [
+          "Montreal",
+          "Toronto",
+          "Winnipeg",
+          "Saskatoon",
+          "Calgary",
+          "Edmonton",
+          "Vancouver",
+          "Chicago",
+          "Detroit",
+          "Indianapolis"
+        ],
+        "note": "OW surcharge applies for weights in overweight range"
+      }
+    },
+    "US": {
+      "note": "Refer to HPL RNA Inland-Overweight Guide PDF for US weight limits"
+    }
+  }
+}

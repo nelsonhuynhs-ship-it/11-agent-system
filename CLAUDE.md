@@ -1,0 +1,228 @@
+# CLAUDE.md — Nelson Freight AI System
+Last updated: 2026-04-01 (claudekit skill map integrated)
+
+## Language
+**LUÔN trả lời bằng tiếng Việt** — mọi giải thích, phân tích, hướng dẫn đều dùng tiếng Việt. Code/command vẫn viết bằng tiếng Anh như bình thường.
+
+## Me
+**Nelson Huynh** — Owner, Nelson Freight (NVOCC). Vietnam→USA/Canada freight forwarding.
+Email: nelsonhuynhs@gmail.com | Company: nelson@pudongprime.vn
+
+## People
+| Who | Role | Contact |
+|-----|------|---------|
+| **Nelson** | Owner/Boss — tôi | nelsonhuynhs@gmail.com |
+| **Johnny** | Mentee | johnny@pudongprime.vn |
+| **Jennie** | Mentee | jennie@pudongprime.vn |
+| **Blue** | Mentee | blue@pudongprime.vn |
+| **Lina** | Mentee | lina@pudongprime.vn |
+| **Otis** | Mentee | otis@pudongprime.vn |
+| **Jun** | Mentee | jun@pudongprime.vn |
+
+→ Full profiles: memory/people/ | Customer details: memory/context/customers.md
+
+## Terms & Acronyms
+| Term | Meaning |
+|------|---------|
+| **NVOCC** | Non-Vessel Operating Common Carrier |
+| **CNEE** | Consignee (người nhận hàng bên Mỹ/Canada) |
+| **POL** | Port of Loading (HPH=Hải Phòng, HCM=Hồ Chí Minh) |
+| **POD** | Port of Discharge (USLGB=Long Beach, USLAX=Los Angeles…) |
+| **40HQ / 20GP** | Container types (40ft High Cube / 20ft General Purpose) |
+| **markup** | Phí cộng thêm vào giá carrier (USD/cont) |
+| **Campaign** | Nhóm CNEE theo ngành hàng (CANDLE, FURNITURE, FLOORING…) |
+| **Parquet** | File dữ liệu giá (~6.6M rows) — Cleaned_Master_History.parquet |
+| **DuckDB** | Query engine, 28x nhanh hơn Pandas |
+| **Rate & Send** | Tool gửi email giá hàng loạt trên WebApp |
+| **SEQ** | Email sequence — follow-up theo bước (Step 0→1→2…) |
+| **Cooldown** | Thời gian chờ giữa 2 lần gửi email cho cùng 1 CNEE |
+| **S14A/B/C/D** | Sprint 14A/B/C/D — các phase nâng cấp Email Tool |
+| **SENTINEL** | Module giám sát anomaly trong N.E.L.S.O.N |
+| **ORACLE** | Module dự báo giá trong N.E.L.S.O.N |
+| **HPH** | Hải Phòng (port code) |
+| **HCM** | Hồ Chí Minh (port code) |
+| **VPS** | Server tại IP 14.225.207.145 |
+
+→ Full glossary: memory/glossary.md
+
+## Active Projects
+| Project | Status | File |
+|---------|--------|------|
+| **S14A** | 🔨 IN PROGRESS — Fix rate query + freshness badge | api/routers/email_rate_router.py |
+| **S14B** | ⏳ NEXT — Email History + Follow-up Dashboard | webapp/dashboard/email-history |
+| **S14C** | ⏳ PLANNED — Price Delta + Smart Compose | email_rate_router.py |
+| **S14D** | ⏳ PLANNED — Bulk Send Intelligence | email_rate_router.py |
+| **VPS Deploy S13** | ⏳ BLOCKED (SSH issue) | deploy/auto_deploy.bat |
+| **JWT Middleware** | ⏳ PENDING | api/ |
+| **Mentee Dashboard** | ⏳ PENDING | webapp/dashboard/ |
+
+→ Full roadmap: WEBAPP_UPGRADE_ROADMAP.md | memory/projects/
+
+## System Overview
+Nelson Freight NVOCC — Vietnam→USA/Canada freight forwarding.
+Repo: github.com/nelsonhuynhs-ship-it/FreightBrian.git
+
+## Architecture
+- FastAPI port 8100 (VPS) — 15 routers, DAL pattern via data_access.py
+- Next.js port 3003 (VPS) — 9 pages + login, Cloudflare Tunnel HTTPS
+- TelegramBot v5 — runs on VPS (NOT local)
+- Parquet ~6.6M rows — ALWAYS filter last 30 days only (fallback 60d→90d nếu empty)
+- DuckDB engine — 28.6x faster than Pandas
+
+## VPS
+IP: 14.225.207.145
+Services: nelson-api (8100), nelson-webapp3003 (3003)
+DO NOT TOUCH: ports 3000+3001 (TraSuaPOS Docker)
+Deploy: git pull → cp files → npm build → systemctl restart
+
+## Machine Roles
+- PC Home: ALL Claude/Cowork development (WebApp + email_engine + API)
+- Laptop VP: Chatbot runtime only (bot_v5, Telegram) — NO Claude Code
+- Both: same GitHub repo
+
+## SSH
+HOME PC: C:\Users\ADMIN\.ssh\id_nelson_vps
+Laptop VP: id_ed25519 (working as of 2026-03-24)
+VPS SSH config: Host nelson-vps → 14.225.207.145
+
+## Deploy (Cowork Auto-Deploy)
+⚠ Cowork KHÔNG SSH trực tiếp được (network blocked) — dùng PowerShell script thay thế.
+
+**Cách em deploy:**
+```powershell
+# Full deploy (API + WebApp):
+powershell -ExecutionPolicy Bypass -File "C:\Users\ADMIN\Documents\2. Areas\PricingSystem\Engine_test\deploy\cowork_deploy.ps1" -Message "S14A: mô tả thay đổi"
+
+# Chỉ restart API (nhanh, sau khi sửa Python):
+powershell -ExecutionPolicy Bypass -File "...\cowork_deploy.ps1" -ApiOnly -Message "fix: ..."
+
+# Chỉ rebuild WebApp (sau khi sửa Next.js):
+powershell -ExecutionPolicy Bypass -File "...\cowork_deploy.ps1" -WebOnly -Message "ui: ..."
+
+# Test không deploy thật:
+powershell -ExecutionPolicy Bypass -File "...\cowork_deploy.ps1" -DryRun
+```
+
+**VPS script (cài 1 lần):** `/home/nelson/deploy.sh` ← copy từ `deploy/vps_deploy_full.sh`
+**Log deploy:** `deploy/deploy_log.txt`
+**Flow:** Code edit → git commit+push → SSH VPS → git pull → restart services → health check
+
+## Workspace Root (PC Home)
+C:\Users\ADMIN\Documents\2. Areas\PricingSystem\Engine_test\
+(Previously D:\NELSON\ — fully migrated to C: for Claude/Cowork compatibility)
+
+## Key Files
+| File | Purpose |
+|------|---------|
+| email_engine/data/cnee_master.xlsx | 5,316 CNEE prospects, 23 campaigns |
+| email_engine/logs/email_log.csv | 585 rows — send history |
+| email_engine/logs/followup_alerts.csv | Follow-up alerts từ scanner |
+| email_engine/data/customer_rules.json | Nelson's direct customers + mentee rules |
+| api/routers/email_rate_router.py | Rate & Send API (Sprint 13+14) |
+| webapp/src/app/dashboard/rate-send/page.tsx | Rate & Send WebApp UI |
+| db/duckdb_engine.py | DuckDB query engine |
+| Pricing_Engine/data/Cleaned_Master_History.parquet | Rate data ~6.6M rows |
+| deploy/auto_deploy.bat | VPS deploy script |
+| memory/ | Memory system — glossary, people, projects |
+
+## Rules (NEVER VIOLATE)
+- ALL files under C:\Users\ADMIN\Documents\2. Areas\ — C:\tmp FORBIDDEN
+- Backup before edit, never delete files
+- Parquet: filter last 30 days (fallback 60d→90d auto nếu empty)
+- API: use DuckDB via FreightDB, never raw Pandas read_parquet in new code
+- Ports 3000/3001: never touch (TraSuaPOS)
+- email_engine/ send = Office 365 SMTP (not Outlook COM)
+
+## SMTP Config
+SMTP_HOST=smtp.office365.com | SMTP_PORT=587
+Files: email_engine/.env + api/.env
+
+## Email Campaigns (cnee_master.xlsx)
+| Campaign | Prospects | Notes |
+|----------|-----------|-------|
+| FLOORING | 1,057 | Largest |
+| FURNITURE | 745 | |
+| PLASTIC | 590 | |
+| MALAYSIA | 562 | |
+| CANDLE | 495 | Active campaign |
+| + 18 more | ~867 | See memory/context/campaigns.md |
+
+Total: 5,316 prospects | Sent: 4,198 | Not Sent: 1,118
+
+## Auto-Load Skills (ALWAYS READ AT SESSION START)
+> **Rule:** Mỗi session Cowork mới, em PHẢI: (1) đọc CLAUDE.md + memory files, (2) đọc skill phù hợp theo task type bên dưới — KHÔNG chờ anh nhắc.
+
+### 🔁 Core Memory (load mỗi session — BẮT BUỘC)
+```
+Engine_test/CLAUDE.md                                        ← đang đọc ✅
+Engine_test/memory/glossary.md                               ← terms & acronyms
+Engine_test/memory/projects/sprint-14-email-tool.md          ← sprint status
+Engine_test/memory/context/system-architecture.md            ← infra & deploy
+```
+
+### 🛠 Skill Map — Load theo task type (ĐỌC TRƯỚC KHI LÀM)
+
+#### 🐍 Backend / API / Python
+| Task | Skill path |
+|------|-----------|
+| FastAPI router, DuckDB query, email engine | `claudekit-skills/.claude/skills/backend-development/SKILL.md` |
+| Debug lỗi Python / API / logic | `claudekit-skills/.claude/skills/debugging/SKILL.md` |
+| Database schema, query optimization | `claudekit-skills/.claude/skills/databases/SKILL.md` |
+
+#### 🌐 Frontend / WebApp
+| Task | Skill path |
+|------|-----------|
+| Next.js page, App Router, RSC, data fetching | `claudekit-skills/.claude/skills/web-frameworks/SKILL.md` + `.claude/skills/next-best-practices/SKILL.md` |
+| UI component, dashboard design, Tailwind | `claudekit-skills/.claude/skills/ui-styling/SKILL.md` + `.claude/skills/ui-ux-pro-max/SKILL.md` |
+| Frontend React/TypeScript patterns | `claudekit-skills/.claude/skills/frontend-development/SKILL.md` |
+| Test WebApp trên localhost (Playwright) | `claudekit-skills/.claude/skills/web-testing/SKILL.md` |
+
+#### 🚀 Deploy / DevOps
+| Task | Skill path |
+|------|-----------|
+| Deploy VPS, Docker, systemctl | `claudekit-skills/.claude/skills/devops/SKILL.md` |
+| CI/CD, GitHub Actions | `claudekit-skills/.claude/skills/devops/SKILL.md` |
+| *(Cowork deploy script)* | `deploy/cowork_deploy.ps1` — xem Deploy section |
+
+#### 🧠 Planning / Architecture
+| Task | Skill path |
+|------|-----------|
+| Brainstorm sprint, lên kế hoạch | `.claude/skills/brainstorm-upgrade/SKILL.md` |
+| Context engineering, memory system | `claudekit-skills/.claude/skills/context-engineering/SKILL.md` |
+| System design / ADR | `claudekit-skills/.claude/skills/backend-development/SKILL.md` |
+
+#### 📄 Document / File
+| Task | Skill path |
+|------|-----------|
+| Tạo file Word (.docx) | `.claude/skills/docx/SKILL.md` |
+| Tạo file Excel (.xlsx) | `.claude/skills/xlsx/SKILL.md` |
+| Tạo file PDF | `.claude/skills/pdf/SKILL.md` |
+| Tạo slide PowerPoint (.pptx) | `.claude/skills/pptx/SKILL.md` |
+| Tạo scheduled task / cron job | `.claude/skills/schedule/SKILL.md` |
+| Tìm / cài thêm skill mới | `.claude/skills/find-skills/SKILL.md` |
+
+### 📂 Base paths
+```
+Claudekit skills : Engine_test/claudekit-skills/.claude/skills/[skill-name]/SKILL.md
+Cowork skills   : /sessions/.../mnt/.claude/skills/[skill-name]/SKILL.md
+```
+
+### ⚡ Quick-load command (anh paste 1 dòng này vào đầu mỗi session)
+```
+FreightBrian session: [mô tả task hôm nay — VD: "S14A fix fallback", "build email history page", "debug API lỗi 500"]
+```
+→ Em tự đọc CLAUDE.md + memory + load đúng skill theo task, không hỏi lại.
+
+---
+
+## Sprint Status (2026-04-01)
+✅ S1–S4, N.E.L.S.O.N v2.0, Intelligence Pipeline, Auto-Rate, Knowledge Parquet
+✅ S13 Rate & Send API + WebApp
+✅ email_engine/ in Git
+✅ S14 Campaign CNEE tab (bulk send 50)
+🔨 S14A — Rate fallback + freshness (IN PROGRESS)
+⏳ S14B — Email History + Follow-up Dashboard
+⏳ S14C — Price Delta + Smart Compose
+⏳ S14D — Bulk Send Intelligence + Cooldown
+⏳ VPS Deploy S13 (SSH issue blocking)
+⏳ JWT middleware, Mentee dashboard, Carrier Scorecard

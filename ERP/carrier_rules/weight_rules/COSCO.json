@@ -1,0 +1,142 @@
+{
+  "carrier": "COSCO",
+  "carrier_full_name": "COSCO Shipping Lines",
+  "updated": "2024-04-28",
+  "source_files": [
+    "COSCO Weight Limit(20240428).xlsx"
+  ],
+  "gross_weight": {
+    "US": {
+      "base_port_cy": {
+        "description": "Port-to-port cargo at base port CY",
+        "limits_kgs": {
+          "20GP": "Max Payload",
+          "40GP": "Max Payload",
+          "40HQ": "Max Payload",
+          "45GP": "Max Payload"
+        },
+        "ows_charge": "OWP USD100/UNIT if 20GP > 19,976 KGS"
+      },
+      "ipi_via_wc": {
+        "description": "IPI to Inland CY via US West Coast",
+        "limits_kgs": {
+          "20GP": 19976,
+          "40GP": 19976,
+          "40HQ": 19976,
+          "45GP": 19976
+        },
+        "ows_charge": "OWR USD200/20GP if net weight 17,252 < W ≤ 19,976 KGS"
+      },
+      "ipi_via_tacoma": {
+        "description": "IPI to Inland CY via Tacoma (on-dock EB)",
+        "limits_kgs": {
+          "20GP": 21500,
+          "40GP": 25000,
+          "40HQ": 25000,
+          "45GP": 25000
+        },
+        "ows_charge": "OWR USD200/20GP if net weight 17,252 < W ≤ 21,500 KGS"
+      },
+      "ipi_via_prr": {
+        "description": "IPI to Inland CY via Prince Rupert",
+        "limits_kgs": {
+          "20GP": 21700,
+          "40GP": 27000,
+          "40HQ": 27000,
+          "45GP": 27000
+        },
+        "note": "Exceeding 21,700 KGS requires carrier approval"
+      },
+      "ipi_via_van": {
+        "description": "IPI to Inland CY via Vancouver (OPNW/EPNW)",
+        "limits_kgs": {
+          "20GP": 21700,
+          "40GP": 27000,
+          "40HQ": 27000,
+          "45GP": 27000
+        },
+        "ows_charge": "OWP USD100/UNIT if 20GP > 19,976 KGS"
+      },
+      "ripi_via_ec": {
+        "description": "RIPI to Inland CY via NYC/SAV/ORF/MOB",
+        "limits_kgs": {
+          "20GP": 21500,
+          "40GP": 25000,
+          "40HQ": 25000,
+          "45GP": 25000
+        },
+        "ows_charge": "OWR USD200/20GP if net weight 17,252 < W"
+      },
+      "ripi_via_hou": {
+        "description": "RIPI to Inland CY via Houston",
+        "limits_kgs": {
+          "20GP": 19976,
+          "40GP": 19976,
+          "40HQ": 19976,
+          "45GP": 19976
+        },
+        "ows_charge": "OWR USD200/20GP if net weight 17,252 < W"
+      },
+      "ripi_via_hal": {
+        "description": "RIPI to Inland CY via Halifax",
+        "limits_kgs": {
+          "20GP": 21700,
+          "40GP": 27000,
+          "40HQ": 27000,
+          "45GP": 27000
+        },
+        "note": "Exceeding 21,700 KGS requires carrier approval"
+      },
+      "door_delivery": {
+        "description": "Door delivery cargo",
+        "limits_kgs": {
+          "20GP": 19976,
+          "40GP": 19976,
+          "40HQ": 19976,
+          "45GP": 19976
+        },
+        "ows_charge": "OWR USD200/20GP if net weight 17,252 < W"
+      }
+    }
+  },
+  "ows_charges": {
+    "US": {
+      "owc_truck": {
+        "amount": 250,
+        "currency": "USD",
+        "per": "unit",
+        "mode": "CY via Truck"
+      },
+      "owc_door_truck": {
+        "amount": 250,
+        "currency": "USD",
+        "per": "unit",
+        "mode": "Door via Truck"
+      },
+      "owr_cy_rail": {
+        "amount": 200,
+        "currency": "USD",
+        "per": "unit",
+        "mode": "CY via Rail"
+      },
+      "owr_door_truck_rail": {
+        "amount": 450,
+        "currency": "USD",
+        "per": "unit",
+        "mode": "Door via Truck+Rail"
+      },
+      "owr_cy_rail_heavy": {
+        "amount": 450,
+        "currency": "USD",
+        "per": "unit",
+        "mode": "CY via Rail (transload)"
+      },
+      "port_to_port": {
+        "amount": 0,
+        "note": "No OWS for port-to-port cargo"
+      },
+      "threshold_20gp_kgs": 17252,
+      "note": "OWC = inland via Truck, OWR = inland via Rail"
+    }
+  }
+}

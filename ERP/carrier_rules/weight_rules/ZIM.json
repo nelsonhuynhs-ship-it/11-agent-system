@@ -1,0 +1,67 @@
+{
+  "carrier": "ZIM",
+  "carrier_full_name": "ZIM Integrated Shipping",
+  "updated": "2024",
+  "source_files": [
+    "OWS ZIM.xlsx"
+  ],
+  "gross_weight": {
+    "US": {
+      "ipi_all_inland_via_uslax": {
+        "description": "Rail weight limitation ex USLAX to ALL IPI inland locations — maximum allowable",
+        "applies_to": "All inland destinations via USLAX IPI",
+        "limits_lbs": {
+          "20GP": 38000,
+          "40GP": 44000,
+          "40HQ": 44000
+        },
+        "limits_kgs": {
+          "20GP": 17237,
+          "40GP": 19958,
+          "40HQ": 19958
+        }
+      }
+    }
+  },
+  "ows_charges": {
+    "US": {
+      "tier_1": {
+        "charge": 200,
+        "currency": "USD",
+        "per": "20GP",
+        "condition": "Net weight between 17,252 KGS and 19,958 KGS"
+      },
+      "tier_2": {
+        "charge": 350,
+        "currency": "USD",
+        "per": "20GP",
+        "condition": "Net weight over 19,958 KGS"
+      },
+      "note": "Per service contract terms"
+    },
+    "CA_via_vancouver_prr": {
+      "cn_rail_ows": {
+        "20GP": {
+          "charge": 600,
+          "condition": "Net weight 21,727-24,948 KGS"
+        },
+        "40GP_45GP": {
+          "charge": 390,
+          "condition": "Net weight 27,216-29,484 KGS"
+        }
+      }
+    },
+    "CA_via_halifax": {
+      "cn_rail_ows": {
+        "20GP": {
+          "charge": 390,
+          "condition": "Net weight 21,727-24,948 KGS"
+        },
+        "40GP_45GP": {
+          "charge": 390,
+          "condition": "Net weight 27,216-29,484 KGS"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,323 @@
+{
+    "_description": "PIPELINE PROCESSING RULES — Fixed Configuration v2.0",
+    "_version": "2.0.0",
+    "_locked_date": "2026-03-08",
+    "_purpose": "Single source of truth for all carrier/contract-specific transformations in the pricing pipeline",
+    "pipeline_stages": {
+        "0_convert_pricing": "convert_pricing.py — Converts raw Origin files to V4-compatible format",
+        "1_master_loader": "master_loader_v2.py — Reads source xlsx → melts to parquet",
+        "2_create_master": "create_master_dashboard.py — Reads parquet → normalizes → MasterFullPricing.xlsx"
+    },
+    "stage_1_master_loader": {
+        "puc_stripping": {
+            "description": "Strip embedded PUC from SOC base charge rows before parquet save",
+            "target_carriers": [
+                "CMA",
+                "ONE",
+                "YML"
+            ],
+            "target_charges": [
+                "Base Ocean Freight",
+                "Total Ocean Freight",
+                "BASIC O/F",
+                "ALL IN COST"
+            ],
+            "condition": "Note contains 'SOC'",
+            "action": "Amount = max(0, Amount - PUC_value)",
+            "puc_source": "PUC_SOC.xlsx"
+        },
+        "reefer_container_rename": {
+            "target_carriers": [
+                "ONE",
+                "COSCO"
+            ],
+            "condition": "Commodity contains 'REEFER'",
+            "action": {
+                "20-type": "20RF",
+                "40-type": "40RF"
+            }
+        },
+        "container_type_normalize": {
+            "20'": "20GP",
+            "40'": "40GP",
+            "40'HC": "40HQ",
+            "45'HQ": "45'HQ",
+            "40NOR": "40NOR"
+        }
+    },
+    "stage_2_normalize_commodity": {
+        "_note": "All rules applied in normalize_text_data(). Order matters — universal rules run first.",
+        "UNIVERSAL": {
+            "FAK (Including/Incl) + Garment": "FAK INCL GARMENT",
+            "FAK (Excluding/Excl) + Garment": "FAK EXCL GARMENT"
+        },
+        "COSCO": {
+            "Garments/Textile/Consol (no FAK)": "GARMENT"
+        },
+        "ONE": {
+            "REEFER (any)": "REEFER FAK",
+            "FAK: TPE1 - FAK Straight (Excluding...)": "FAK: TPE1",
+            "SHORT TERM GDSM (GENERAL DEPARTMENT...)": "SHORT TERM GDSM",
+            "GARMENT (any suffix)": "GARMENT",
+            "Group SOC: xxxxxx": "S1– TPE9 – Group SOC"
+        },
+        "YML": {
+            "GROUP A : FAK (NON-HAZ, EXCLUDING REEFER/SHIPS/...)": "GROUP A : FAK",
+            "FAK (NON-HAZ, EXCLUDING...) without GROUP": "FAK",
+            "SHIPS/ BOATS/ VEHICLES/ CARS": "VEHICLES/CARS"
+        },
+        "CMA": {
+            "subject to Panama surcharge": "PANAMA SURCHG",
+            "direct service": "DIRECT SVC"
+        },
+        "EMC": {
+            "RATE 1 - GENERAL CARGO, STRAIGHT OR MIXED...": "RATE 1"
+        },
+        "ZIM": {
+            "Subject to OWS for 20GP": "OWS 20GP",
+            "FAK including garment": "FAK INCL GARMENT (via universal rule)"
+        },
+        "HPL": {
+            "FAK INCLUDING GARMENT": "FAK INCL GARMENT (via universal rule)"
+        },
+        "MSC": {
+            "FAK (Including Garment)": "FAK INCL GARMENT (via universal rule)"
+        },
+        "WHL": {
+            "FAK INCLUDING GARMENT": "FAK INCL GARMENT (via universal rule)"
+        }
+    },
+    "stage_2_normalize_notes": {
+        "_note": "All rules applied in normalize_notes(). Now carrier-aware. Priority: ZIM → EMC → COSCO → MSC → CMA → SOC/Routing → keep as-is.",
+        "ZIM": {
+            "Z7S": "Z7S",
+            "Z7S + OWS inclusive": "Z7S OWS INCL",
+            "Z7S + subject to OWS": "Z7S OWS EXTRA",
+            "ZXB": "ZXB",
+            "ZXB + OWS inclusive": "ZXB OWS INCL",
+            "ZXB + subject to OWS": "ZXB OWS EXTRA",
+            "ZEX": "ZEX",
+            "OWS catch-all (no ZIM keyword)": "ZIM OWS INCL or ZIM OWS EXTRA",
+            "ows_warning": "If 'UP TO X tons' and X < 22 → append [!OWS<22T:Xt]",
+            "HS codes in Note": "KEEP AS-IS (apply price by HS code)"
+        },
+        "EMC": {
+            "TRF PCTF + STF via CMEP": "via CMEP PCTF/STF",
+            "TRF PCTF + STF (no CMEP)": "PCTF/STF SURCHG",
+            "PCS or SUEZ via CMEP": "via CMEP PCS/SUEZ",
+            "PCS or SUEZ (no CMEP)": "PCS/SUEZ",
+            "via CMEP only": "via CMEP"
+        },
+        "COSCO": {
+            "M/V CMA CGM NILE / POINTE-NOIRE": "NILE/P-NOIRE",
+            "only via OPNW service": "via OPNW"
+        },
+        "MSC": {
+            "America/Empire/Amberjack/Emerald/Elephant/Santana/Lion": "AMR/EMP/AMB/EMR/ELE/SAN/LION [ref:SvcGroup1]",
+            "other service not Liberty": "non-Liberty",
+            "Sentosa/Pearl Service": "Sentosa/Pearl",
+            "LONE STAR / PELICAN": "LONE STAR/PELICAN",
+            "on Chinook": "on Chinook",
+            "Chinook": "Chinook"
+        },
+        "CMA": {
+            "service : SAX CS DEVELOPMENT": "SAX CS",
+            "service : TWS EVER MAX": "TWS EVER",
+            "rule": "Split on ':', keep first 2 words after colon"
+        },
+        "ALL_CARRIERS_SOC_ROUTING": {
+            "SOC + YANTIAN/KAOHSIUNG/HONG KONG/SINGAPORE/SHANGHAI": "SOC TRANSIT",
+            "SOC + CAI MEP": "SOC Cai Mep (EC3)",
+            "SOC + DIRECT/HPH/HAIPHONG": "SOC DIRECT",
+            "YANTIAN/KAOHSIUNG/HONG KONG/SINGAPORE/SHANGHAI (no SOC)": "TRANSIT",
+            "CAI MEP (no SOC)": "Cai Mep (EC3)",
+            "DIRECT/HPH/HAIPHONG (no SOC)": "DIRECT"
+        }
+    },
+    "stage_2_source_shortening": {
+        "FAK + version regex": "FAK {DD}{MMM} NO.{N} (e.g. FAK 06MAR NO.3)",
+        "contains FAK (no version)": "FAK",
+        "contains SCFI": "SCFI",
+        "contains OCR": "OCR",
+        "contains SPECIAL": "SPECIAL RATE",
+        "contains FIX": "FIX",
+        "other": "first 15 characters"
+    },
+    "stage_2_one_group_codes": {
+        "description": "Auto-populate 'Group Rate' for ONE carrier. Priority-based matching: first match wins.",
+        "region_logic": "POD starts with 'CA' (not 'CAI') → CANADA, else → USA",
+        "output_format": "CODE | LABEL",
+        "rules": [
+            {
+                "priority": 1,
+                "contract_type": "FIX",
+                "pod_region": "*",
+                "commodity_keywords": "GARMENT",
+                "note_keywords": "*",
+                "group_code": "990117",
+                "group_label": "GARMENT, NOS"
+            },
+            {
+                "priority": 2,
+                "contract_type": "FIX",
+                "pod_region": "*",
+                "commodity_keywords": "*",
+                "note_keywords": "*",
+                "group_code": "990104",
+                "group_label": "GDSGM"
+            },
+            {
+                "priority": 3,
+                "contract_type": "FAK",
+                "pod_region": "*",
+                "commodity_keywords": "REEFER,FROZEN",
+                "note_keywords": "*",
+                "group_code": "1",
+                "group_label": "Group REF FAK - Frozen"
+            },
+            {
+                "priority": 4,
+                "contract_type": "FAK",
+                "pod_region": "*",
+                "commodity_keywords": "REEFER,CHILLED,FRESH",
+                "note_keywords": "*",
+                "group_code": "2",
+                "group_label": "Group REF FAK - Chilled or Fresh"
+            },
+            {
+                "priority": 5,
+                "contract_type": "FAK",
+                "pod_region": "*",
+                "commodity_keywords": "TANK,HAZARD,CHEMICAL,HAZ",
+                "note_keywords": "*",
+                "group_code": "990302",
+                "group_label": "GROUP SOC TANK - Chemical HAZ"
+            },
+            {
+                "priority": 6,
+                "contract_type": "FAK",
+                "pod_region": "*",
+                "commodity_keywords": "GDSM SOC,NAC GROUP,GDSM SOC(NAC)",
+                "note_keywords": "SOC,SOC DIRECT,SOC TRANSIT",
+                "group_code": "990104",
+                "group_label": "GDSM SOC (NAC GROUP)"
+            },
+            {
+                "priority": 7,
+                "contract_type": "FAK",
+                "pod_region": "*",
+                "commodity_keywords": "SHORT TERM GDSM,GDSM STRAIGHT",
+                "note_keywords": "*",
+                "group_code": "990154",
+                "group_label": "GDSM STRAIGHT (SHORT TERM)"
+            },
+            {
+                "priority": 8,
+                "contract_type": "FAK",
+                "pod_region": "*",
+                "commodity_keywords": "GARMENT",
+                "note_keywords": "SOC,SOC DIRECT,SOC TRANSIT,SOC Cai Mep,SOC EC4",
+                "group_code": "990117",
+                "group_label": "TPE10 - Group SOC Big 4: Garments"
+            },
+            {
+                "priority": 9,
+                "contract_type": "FAK",
+                "pod_region": "*",
+                "commodity_keywords": "SOC,S1,TPE9",
+                "note_keywords": "SOC,SOC DIRECT,SOC TRANSIT,SOC Cai Mep,SOC EC4",
+                "group_code": "990132",
+                "group_label": "S1-TPE9 - Group SOC Big 4"
+            },
+            {
+                "priority": 10,
+                "contract_type": "FAK",
+                "pod_region": "CANADA",
+                "commodity_keywords": "GARMENT",
+                "note_keywords": "*",
+                "group_code": "990117",
+                "group_label": "TPE3 - Canada - GARMENT"
+            },
+            {
+                "priority": 11,
+                "contract_type": "FAK",
+                "pod_region": "CANADA",
+                "commodity_keywords": "*",
+                "note_keywords": "*",
+                "group_code": "990131|990132",
+                "group_label": "TPE3 Canada SINGLE (990131) | TPE3 Canada CONSOL/MIXED (990132)"
+            },
+            {
+                "priority": 12,
+                "contract_type": "FAK",
+                "pod_region": "USA",
+                "commodity_keywords": "*",
+                "note_keywords": "*",
+                "group_code": "990146",
+                "group_label": "TPE1 - FAK & GARMENT"
+            }
+        ]
+    },
+    "stage_2_charge_mapping": {
+        "EMF": "EIC/GFS/BAF/FDI",
+        "DLF": "PCS",
+        "ISPS": "ISPS/LSF/CMC",
+        "COMMISSION": "HANDLING FEE FOR CARRIER",
+        "BASIC O/F": "BASIC O/F",
+        "ALL IN COST": "BASIC O/F",
+        "Base Ocean Freight": "BASIC O/F"
+    },
+    "stage_2_port_mapping": {
+        "source": "Port_Code_Mapping_Final.xlsx",
+        "applies_to": [
+            "POL",
+            "POD"
+        ]
+    },
+    "stage_2_master_sheet": {
+        "columns": [
+            "POL",
+            "POD",
+            "Place",
+            "Carrier",
+            "Commodity",
+            "Eff",
+            "Exp",
+            "Note",
+            "Source",
+            "20GP",
+            "40GP",
+            "40HQ",
+            "45HQ",
+            "40NOR",
+            "20RF",
+            "40RF"
+        ],
+        "soc_puc_formula": "=clean_base + IFERROR(VLOOKUP(normalized_place, PUC!$A:$E, col, FALSE), 0)",
+        "date_format": "DD-MMM"
+    },
+    "stage_0_convert_pricing": {
+        "scfi": {
+            "source_sheet": "RATE TABLE",
+            "default_pol": "HCM",
+            "transforms": {
+                "ADD": "POL = 'HCM'",
+                "SWAP": "Destination → PlaceOfDelivery, via PORT → POD",
+                "DROP": [
+                    "via (WC/EC)",
+                    "HLCU Offer"
+                ]
+            }
+        },
+        "special_rate": {
+            "output_column_order": "Must match V4_FINAL_CHECK_FIX_ONE_SPECIAL RATE.csv",
+            "pol_mapping": {
+                "VUT": "HCM",
+                "SGN": "HCM",
+                "VNSGN": "HCM",
+                "HPH": "HPH",
+                "VNHPH": "HPH"
+            }
+        }
+    }
+}

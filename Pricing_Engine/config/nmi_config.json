@@ -1,0 +1,25 @@
+{
+    "thresholds": {
+        "drop_alert_usd": 150,
+        "drop_alert_pct": 3.0,
+        "spike_alert_usd": 200,
+        "spike_alert_pct": 5.0,
+        "stale_quote_days": 3,
+        "auto_expire_days": 7,
+        "min_days_before_etd": 7
+    },
+    "parquet_path": "data/Cleaned_Master_History.parquet",
+    "erp_path": "../ERP/data/ERP_Master.xlsm",
+    "charge_filter": "Total Ocean Freight",
+    "container_priority": ["20GP", "40GP", "40HQ"],
+    "telegram": {
+        "enabled": true,
+        "bot_token_env": "TELEGRAM_BOT_TOKEN",
+        "chat_id_env": "TELEGRAM_CHAT_ID"
+    },
+    "schedule": {
+        "monday": "08:30",
+        "tue_fri": "09:00"
+    },
+    "log_file": "data/nmi_alerts.log"
+}

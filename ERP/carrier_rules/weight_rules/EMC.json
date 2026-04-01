@@ -1,0 +1,21 @@
+{
+  "carrier": "EMC",
+  "carrier_full_name": "Evergreen Marine Corporation",
+  "updated": "2024",
+  "source_files": [
+    "EMC OWS.txt"
+  ],
+  "gross_weight": {
+    "US": {
+      "base_port": {
+        "note": "Follow booking note for base port limits"
+      },
+      "inland": {
+        "note": "Check case by case with salesline for inland weight limits"
+      }
+    }
+  },
+  "ows_charges": {
+    "note": "No fixed OWS schedule — check case-by-case with EMC salesline"
+  }
+}

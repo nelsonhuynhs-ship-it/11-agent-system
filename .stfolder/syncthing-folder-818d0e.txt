@@ -1,0 +1,5 @@
+# This directory is a Syncthing folder marker.
+# Do not delete.
+
+folderID: Nelson
+created: 2026-04-01T07:39:20+07:00

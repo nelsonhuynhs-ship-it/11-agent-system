@@ -1,0 +1,149 @@
+{
+    "_version": "2.0",
+    "_description": "Booking Request Email Rules — Standardized template for all carriers",
+    "_usage": "VBA MarkQuoteWin reads these rules via BasicCost_Lookup + hardcoded logic",
+
+    "greeting": {
+        "text": "Dear Mira Cus Team/Pudong,",
+        "_note": "Fixed greeting. Change 'Mira' if customer service contact changes"
+    },
+
+    "sender": {
+        "name": "NELSON",
+        "_note": "Sender name appended to email subject"
+    },
+
+    "subject_format": {
+        "template": "{customer} BOOKING | {pol}-{place} VIA {pod} | {qty}X{cont} | {carrier_display} | {sender} | {vessel_voy}",
+        "_note": "vessel_voy is blank for now (future: vessel name + voyage)",
+        "_example": "ACB BOOKING | HCM-CHICAGO VIA USLAX | 2X40HC | ONE SOC | NELSON |"
+    },
+
+    "contract_display": {
+        "DRY": "{contract}",
+        "REEFER": "REEFER {contract}",
+        "_note": "S/C number from Basic Cost. DRY = number only, REEFER = prefix 'REEFER'"
+    },
+
+    "group_rate": {
+        "always_show": true,
+        "label": "Group rate for USCA only (based on pricing's rate, if any)",
+        "if_empty": "N/A",
+        "_note": "Always show. Currently file only covers US/CA routes"
+    },
+
+    "nac": {
+        "always_show": true,
+        "default_text": "Actual NAC",
+        "if_empty": "N/A",
+        "_note": "Always show NAC line"
+    },
+
+    "pol_config": {
+        "HCM": {
+            "pol_full_name": "HO CHI MINH, VN",
+            "show_mt_pickup": true,
+            "mt_pickup": "ICD TANAMEXCO",
+            "full_return": "ICD TANAMEXCO",
+            "default_gw": "20 TONS"
+        },
+        "HPH": {
+            "pol_full_name": "HAI PHONG, VN",
+            "show_mt_pickup": false,
+            "default_gw": "17 TONS"
+        },
+        "DAD": {
+            "pol_full_name": "DA NANG, VN",
+            "show_mt_pickup": false,
+            "default_gw": "17 TONS"
+        },
+        "UIH": {
+            "pol_full_name": "QUI NHON, VN",
+            "show_mt_pickup": false,
+            "default_gw": "17 TONS"
+        },
+        "VUT": {
+            "pol_full_name": "VUNG TAU, VN",
+            "show_mt_pickup": true,
+            "mt_pickup": "ICD TANAMEXCO",
+            "full_return": "ICD TANAMEXCO",
+            "default_gw": "20 TONS"
+        }
+    },
+
+    "gw_limit": {
+        "_note": "Future: link to GW Limit per carrier per container type. For now use pol_config.default_gw",
+        "source": "pol_config"
+    },
+
+    "stuffing_place": "WAREHOUSE",
+
+    "special_remark": {
+        "text": "HOT SHIPMENT, CONT SACH TOT",
+        "_note": "Fixed for all carriers & all POL"
+    },
+
+    "reefer_section": {
+        "show_only_for_reefer": true,
+        "temperature": "-18°C",
+        "ventilation": "CLOSED",
+        "humidity": "NO",
+        "_note": "Only shown when container is 20RF or 40RF"
+    },
+
+    "closing": {
+        "text": "With warmest regards,",
+        "_note": "Same for all carriers (DRY and REEFER)"
+    },
+
+    "carrier_specific_rules": {
+        "CMA": {
+            "payment_term": "PREPAID",
+            "_note": "CMA requires Payment Term line"
+        },
+        "_default": {
+            "_note": "No extra fields for other carriers"
+        }
+    },
+
+    "container_category": {
+        "20GP": "DRY",
+        "40GP": "DRY",
+        "40HQ": "DRY",
+        "45HQ": "DRY",
+        "40NOR": "DRY",
+        "20RF": "REEFER",
+        "40RF": "REEFER"
+    },
+
+    "container_display": {
+        "20GP": "20DC",
+        "40GP": "40DC",
+        "40HQ": "40HC",
+        "45HQ": "45HC",
+        "40NOR": "40NOR",
+        "20RF": "20RF",
+        "40RF": "40RF",
+        "_note": "Display codes used in email (40HQ → 40HC)"
+    },
+
+    "cost_breakdown": {
+        "always_per_one_container": true,
+        "format": "BKG: S/C={contract} | Group={group_rate}\nCOST: {charges}\nHDL FEE: ${hdl}",
+        "charge_groups_order": [
+            {"short": "O/F", "column_prefix": "BASIC O/F"},
+            {"short": "ARB", "column_prefix": "ARB/OLF"},
+            {"short": "ISPS", "column_prefix": "ISPS/LSF/CMC"},
+            {"short": "PSS/PUC", "column_prefix": "PSS/PUC"},
+            {"short": "OCS/LSS", "column_prefix": "OCS/LSS/EFF/ITC/GFS/ SOC COST HDL FEE"},
+            {"short": "PCS/ACS", "column_prefix": "PCS/ACS/AGS"},
+            {"short": "GRI", "column_prefix": "GRI"},
+            {"short": "EIC/BAF", "column_prefix": "EIC/GFS/BAF/FDI"},
+            {"short": "WHA/BCO", "column_prefix": "WHA/BCO/BCD/CFC/EIC"},
+            {"short": "GARMENT", "column_prefix": "GARMENT ADD ON"},
+            {"short": "PREMIUM", "column_prefix": "PREMIUM ADD ON/HDL FEE US FOR SOC"}
+        ],
+        "hdl_column_prefix": "HANDLING FEE FOR CARRIER",
+        "_note": "Only show charges > 0. Cost is always per 1 container regardless of quantity"
+    }
+}

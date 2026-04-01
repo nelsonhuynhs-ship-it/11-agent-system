@@ -1,0 +1,71 @@
+{
+  "_comment": "Unified Outlook Scanner — 4 jobs, 1 schedule. Edit to enable/disable jobs or change patterns.",
+  "schedule": {
+    "start_time": "09:00",
+    "end_time": "17:30",
+    "interval_minutes": 30
+  },
+  "jobs": {
+    "mentee_classification": {
+      "enabled": true,
+      "description": "Team Sunny email routing + CC compliance",
+      "timeout_seconds": 120,
+      "notify_on_error": true
+    },
+    "pricing_import": {
+      "enabled": true,
+      "description": "Scan Harry pricing emails, download, import Parquet",
+      "timeout_seconds": 300,
+      "notify_on_error": true,
+      "import_days": 1,
+      "senders": [
+        "pricing@pudongprime.vn",
+        "socvn@pudongprime.vn"
+      ],
+      "surcharge_capture": {
+        "enabled": true,
+        "description": "Auto-capture surcharge/policy updates from carriers",
+        "patterns": [
+          "Bunker.*Fuel.*Surcharge",
+          "Surcharge\\s+Update",
+          "ADVISORY",
+          "Rate\\s+Notice",
+          "GRI|General Rate Increase",
+          "PSS|Peak Season Surcharge",
+          "EBS|Emergency Bunker",
+          "BAF|Bunker Adjustment",
+          "CAF|Currency Adjustment",
+          "LSS|Low Sulphur Surcharge",
+          "THC.*increase|THC.*change",
+          "Carrier.*Policy.*Change",
+          "Service.*Change|Schedule.*Change",
+          "Congestion.*Surcharge",
+          "War.*Risk|Piracy",
+          "Equipment.*Imbalance"
+        ],
+        "save_attachments": true,
+        "save_body_as_knowledge": true
+      }
+    },
+    "shipment_brain": {
+      "enabled": true,
+      "description": "Track shipment lifecycle from emails",
+      "timeout_seconds": 180,
+      "notify_on_error": true
+    },
+    "knowledge_ingest": {
+      "enabled": true,
+      "description": "Email JSONs + outlook .msg to per-customer knowledge Parquet",
+      "timeout_seconds": 180,
+      "notify_on_error": true,
+      "auto_cleanup_processed": true,
+      "per_customer_parquet": true
+    }
+  },
+  "notifications": {
+    "telegram_enabled": true,
+    "summary_after_scan": true,
+    "alert_on_surcharge": true,
+    "alert_on_new_rates": true
+  }
+}
