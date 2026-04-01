@@ -107,7 +107,7 @@ jobs:
             # 1. Pull latest code
             REPO="/home/nelson/_repo_temp"
             if [ ! -d "$REPO/.git" ]; then
-              git clone https://github.com/nelsonhuynhs-ship-it/FreightBrian.git "$REPO"
+              git clone https://github.com/nelsonhuynhs-ship-it/FrieghtBrian.git "$REPO"
             fi
             cd "$REPO"
             git fetch origin main
@@ -179,7 +179,7 @@ jobs:
         if: failure()
         run: |
           COMMIT=$(echo "${{ github.event.head_commit.message }}" | cut -c1-60)
-          RUN="https://github.com/nelsonhuynhs-ship-it/FreightBrian/actions/runs/${{ github.run_id }}"
+          RUN="https://github.com/nelsonhuynhs-ship-it/FrieghtBrian/actions/runs/${{ github.run_id }}"
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
             -d text="Deploy THAT BAI! | ${COMMIT} | Log: ${RUN}" \
