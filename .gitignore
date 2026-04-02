@@ -34,13 +34,9 @@ api/data/
 api/email_data/
 ERP/data/
 
-# ── ERP local modules ────────────────────────────
-ERP/core/
-ERP/crm/
-ERP/jobs/
-ERP/quotes/
-ERP/vba/
-ERP/ERP_SYSTEM_GUIDE.md
+# ── ERP data only (code modules are tracked) ─────
+ERP/data/
+ERP/quotes/output/
 
 # Archive
 _archive/
