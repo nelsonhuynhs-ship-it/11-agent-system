@@ -36,18 +36,23 @@ if not log.handlers:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)-5s | %(message)s",
                         datefmt="%H:%M:%S")
 
-# ── Paths ─────────────────────────────────────────────────────────────────────
+# ── Paths (via shared.paths — OneDrive data) ─────────────────────────────────
 SCRIPT_DIR = Path(__file__).parent
-DATA_DIR = SCRIPT_DIR / "data"
+_repo_root = str(SCRIPT_DIR.parent)
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
+from shared import paths as sp
+
+DATA_DIR = sp.PRICING_DATA
 INCOMING_DIR = DATA_DIR / "incoming"
 PROCESSED_DIR = DATA_DIR / "processed"
 KNOWLEDGE_DIR = DATA_DIR / "knowledge"
-PARQUET_FILE = DATA_DIR / "Cleaned_Master_History.parquet"
+PARQUET_FILE = sp.PARQUET_FILE
 PUC_SOC_FILE = DATA_DIR / "PUC_SOC.xlsx"
 
 # Related system paths
-ERP_REFRESH_SCRIPT = SCRIPT_DIR.parent / "ERP" / "core" / "refresh.py"
-TELEGRAM_CONFIG = SCRIPT_DIR.parent / "TelegramBot" / "config.py"
+ERP_REFRESH_SCRIPT = sp.CODE_DIR / "ERP" / "core" / "refresh.py"
+TELEGRAM_CONFIG = sp.BOT_CODE / "config.py"
 
 # Ensure dirs exist
 for d in [INCOMING_DIR, PROCESSED_DIR, KNOWLEDGE_DIR]:

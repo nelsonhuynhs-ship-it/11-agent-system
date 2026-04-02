@@ -23,20 +23,20 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
-# ── Paths ─────────────────────────────────────────────────────────────
+# ── Paths (via shared.paths — OneDrive data) ─────────────────────────
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-ERP_BASE_DIR = os.path.dirname(SCRIPT_DIR)  # ERP/
-ENGINE_DIR = os.path.normpath(os.path.join(ERP_BASE_DIR, '..'))  # Engine_test/
-PE_DIR = os.path.join(ENGINE_DIR, 'Pricing_Engine')  # Pricing_Engine/
-DATA_DIR = os.path.join(PE_DIR, "data")
-ERP_DIR = os.path.join(ERP_BASE_DIR, "data")
-PARQUET_FILE = os.path.join(DATA_DIR, "Cleaned_Master_History.parquet")
-ERP_FILE = os.path.join(ERP_DIR, "ERP_Master.xlsm")
-PORT_MAP_FILE = os.path.join(DATA_DIR, "Port_Code_Mapping_Final.xlsx")
-PUC_SOC_FILE = os.path.join(DATA_DIR, "PUC_SOC.xlsx")
-CONFIG_FILE = os.path.join(PE_DIR, 'config', 'pipeline_rules.json')
+_repo_root = os.path.normpath(os.path.join(SCRIPT_DIR, '..', '..'))
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
+from shared import paths as sp
 
-SHEET_NAME = "📊 Pricing Dashboard"
+PARQUET_FILE = str(sp.PARQUET_FILE)
+ERP_FILE = str(sp.ERP_DATA / "ERP_Master.xlsm")
+PORT_MAP_FILE = str(sp.PORT_MAP)
+PUC_SOC_FILE = str(sp.PRICING_DATA / "PUC_SOC.xlsx")
+CONFIG_FILE = str(sp.PRICING_CODE / 'config' / 'pipeline_rules.json')
+
+SHEET_NAME = "Pricing Dashboard"
 MARKUP_STORE = "Markup_Store"
 
 # ── ERP Layout Constants ──────────────────────────────────────────────
@@ -106,7 +106,7 @@ COL_FIRST_PRICE = 10
 # ══════════════════════════════════════════════════════════════════════
 
 # Import normalization functions from create_master_dashboard (in PE/scripts)
-PE_SCRIPTS_DIR = os.path.join(PE_DIR, 'scripts')
+PE_SCRIPTS_DIR = str(sp.PRICING_CODE / 'scripts')
 if PE_SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, PE_SCRIPTS_DIR)
 from create_master_dashboard import (
@@ -212,10 +212,12 @@ def load_and_process_parquet():
     }
     ref_sheet_data = {}
     fak_file = None
-    for f in os.listdir(DATA_DIR):
-        if f.endswith('.xlsx') and 'FAK' in f.upper() and not f.startswith('~$'):
-            fak_file = os.path.join(DATA_DIR, f)
-            break
+    rate_tables_dir = str(sp.RATE_TABLES_DIR)
+    if os.path.isdir(rate_tables_dir):
+        for f in os.listdir(rate_tables_dir):
+            if f.endswith('.xlsx') and 'FAK' in f.upper() and not f.startswith('~$'):
+                fak_file = os.path.join(rate_tables_dir, f)
+                break
     if fak_file:
         try:
             fak_xls = pd.ExcelFile(fak_file)
@@ -228,9 +230,9 @@ def load_and_process_parquet():
 
     # ── Version info ──
     EXCLUDE = ['PUC_SOC', 'Port_Code', 'Schedule', 'Master']
-    raw_files = sorted([f for f in os.listdir(DATA_DIR)
+    raw_files = sorted([f for f in os.listdir(rate_tables_dir)
                         if f.endswith('.xlsx') and not f.startswith('~$')
-                        and not any(e in f for e in EXCLUDE)])
+                        and not any(e in f for e in EXCLUDE)]) if os.path.isdir(rate_tables_dir) else []
     fak_version = 'N/A'
     for rf in raw_files:
         if 'FAK' in rf.upper():
@@ -917,7 +919,7 @@ def write_to_erp(df_master, df_history_wide, df_puc, ref_sheet_data, version_row
     # ── Re-inject customUI (openpyxl strips it on save) ──
     try:
         from customui_utils import ensure_customui
-        customui_xml = os.path.join(ERP_BASE_DIR, "vba", "CustomUI_ERP.xml")
+        customui_xml = os.path.join(str(sp.CODE_DIR / "ERP"), "vba", "CustomUI_ERP.xml")
         result = ensure_customui(ERP_FILE, customui_xml_path=customui_xml)
         if result.get("already_ok"):
             print("   🎗️  CustomUI: already intact")
