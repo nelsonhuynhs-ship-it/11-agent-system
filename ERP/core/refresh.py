@@ -122,11 +122,25 @@ def load_and_process_parquet():
     print(f"{'='*60}")
 
     if not os.path.exists(PARQUET_FILE):
-        print(f"❌ Parquet not found: {PARQUET_FILE}")
+        print(f"  Parquet not found: {PARQUET_FILE}")
         sys.exit(1)
 
-    df_all = pd.read_parquet(PARQUET_FILE)
-    print(f"[1/6] Parquet loaded: {len(df_all):,} rows")
+    # ── Pre-filter via DuckDB (fast, low RAM) instead of loading 6.6M rows ──
+    ERP_LOOKBACK_DAYS = 15
+    try:
+        import duckdb
+        cutoff_date = pd.Timestamp(_dt.date.today()) - pd.Timedelta(days=ERP_LOOKBACK_DAYS)
+        cutoff_str = cutoff_date.strftime('%Y-%m-%d')
+        query = f"""
+            SELECT * FROM read_parquet('{PARQUET_FILE}')
+            WHERE Eff >= '{cutoff_str}' OR Exp >= '{cutoff_str}'
+        """
+        df_all = duckdb.query(query).df()
+        print(f"[1/6] Parquet filtered via DuckDB: {len(df_all):,} rows (last {ERP_LOOKBACK_DAYS} days)")
+    except ImportError:
+        # Fallback: load full parquet if DuckDB not available
+        df_all = pd.read_parquet(PARQUET_FILE)
+        print(f"[1/6] Parquet loaded (full): {len(df_all):,} rows")
 
     # Normalize
     port_map = load_mapping_files()
@@ -148,9 +162,9 @@ def load_and_process_parquet():
     df_all = normalize_notes(df_all)
     df_all['Source'] = df_all['Source'].apply(shorten_source_file)
 
-    # ── Master Sheet (Base Ocean Freight, 30-day filter) ──
+    # ── Master Sheet (Base Ocean Freight, 15-day filter) ──
     print("[2/6] Creating Master pivot...")
-    cutoff_date = pd.Timestamp(_dt.date.today()) - pd.Timedelta(days=30)
+    cutoff_date = pd.Timestamp(_dt.date.today()) - pd.Timedelta(days=ERP_LOOKBACK_DAYS)
     df_current = df_all[df_all['Rate_Type'].isin(['FAK', 'SCFI', 'FIX', 'SPECIAL', 'OCR'])].copy()
     df_current['Exp'] = pd.to_datetime(df_current['Exp'], errors='coerce')
     df_current = df_current[df_current['Exp'] >= cutoff_date]
