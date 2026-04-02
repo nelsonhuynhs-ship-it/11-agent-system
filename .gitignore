@@ -1,6 +1,7 @@
 # ═══════════════════════════════════════════
 # Nelson Freight System — .gitignore
-# Updated 2026-03-24 (repo cleanup)
+# Updated 2026-04-02 (code/data separation)
+# Data → OneDrive/NelsonData, Runtime → NelsonLocal
 # ═══════════════════════════════════════════
 
 # Secrets
@@ -9,42 +10,40 @@
 .env.production
 *.local_backup
 
-# Data files (too large for GitHub)
+# ── DATA FILES (all in OneDrive now) ──────────────
 *.parquet
+*.xlsx
 *.xlsm
+*.csv
 *.db
 *.msg
-TelegramBot/data/
+*.pst
+
+# ── Data directories ─────────────────────────────
+email_engine/data/
+email_engine/data_panjiva/
+email_engine/logs/
+email_engine/backup/
+email_engine/assets/
 Pricing_Engine/data/
 Pricing_Engine/Backup_parquet/
 Pricing_Engine/OCR_Input/
+Pricing_Engine/Mapping/
+TelegramBot/data/
+api/data/
+api/email_data/
+ERP/data/
 
-# ============================================
-# LOCAL-ONLY folders (removed from Git 2026-03-24)
-# ============================================
-
-# Email engine — sensitive files only (code now tracked in Git)
-email_engine/.env
-email_engine/data/*.parquet
-email_engine/data/shipment_state.json
-email_engine/data/knowledge_db/
-email_engine/logs/
-email_engine/backup/
-email_engine/core/__pycache__/
-email_engine/gui/__pycache__/
-email_engine/**/__pycache__/
-
-# Archive (historical snapshots)
-_archive/
-
-# ERP local modules (need .xlsm)
+# ── ERP local modules ────────────────────────────
 ERP/core/
 ERP/crm/
 ERP/jobs/
 ERP/quotes/
 ERP/vba/
-ERP/data/
 ERP/ERP_SYSTEM_GUIDE.md
+
+# Archive
+_archive/
 
 # Business files
 SALES PROFIT*.xlsx

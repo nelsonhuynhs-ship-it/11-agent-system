@@ -25,12 +25,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from data_access import dal
 
 # DuckDB engine
-_ENGINE_TEST_DIR = Path(__file__).parent.parent.parent  # Engine_test/
-sys.path.insert(0, str(_ENGINE_TEST_DIR))
+_ENGINE_TEST_DIR = Path(__file__).parent.parent.parent  # Engine_test/ (kept for sys.path)
+if str(_ENGINE_TEST_DIR) not in sys.path:
+    sys.path.insert(0, str(_ENGINE_TEST_DIR))
+from shared import paths as _sp
 from db.duckdb_engine import FreightDB
 
 # ── FreightDB Singleton ──────────────────────────────────────────────────────
-_PARQUET_PATH = _ENGINE_TEST_DIR / "Pricing_Engine" / "data" / "Cleaned_Master_History.parquet"
+_PARQUET_PATH = _sp.PARQUET_FILE
 freight_db = FreightDB(_PARQUET_PATH)
 
 router = APIRouter(prefix="/api/pricing", tags=["Pricing"])

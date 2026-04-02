@@ -16,19 +16,24 @@ Usage:
 """
 
 import logging
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
 
+# Ensure repo root in sys.path for shared imports
+_repo_root = str(Path(__file__).parent.parent)
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
+from shared import paths as sp
+
 log = logging.getLogger(__name__)
 
-ROOT = Path(__file__).parent.parent
-
-# Parquet data sources (try active first, then backup)
+# Parquet data sources (OneDrive primary, old repo path as backup)
 PARQUET_PATHS = [
-    ROOT / "Pricing_Engine" / "data" / "Cleaned_Master_History.parquet",
-    ROOT / "Pricing_Engine" / "Backup_parquet" / "Cleaned_Master_History.parquet",
+    sp.PARQUET_FILE,
+    sp.CODE_DIR / "Pricing_Engine" / "Backup_parquet" / "Cleaned_Master_History.parquet",
 ]
 
 

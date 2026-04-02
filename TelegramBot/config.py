@@ -23,15 +23,21 @@ FALLBACK_MODEL  = os.environ.get("FALLBACK_MODEL", "gemini-3.1-flash-lite-previe
 MAX_RPM = int(os.environ.get("MAX_RPM", "5"))
 MAX_RPD = int(os.environ.get("MAX_RPD", "20"))
 
-# ── Paths (relative — works on both Windows + Linux) ──
-BASE_DIR           = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PRICING_ENGINE_DIR = os.path.join(BASE_DIR, "Pricing_Engine")
-ERP_DIR            = os.path.join(BASE_DIR, "ERP")
-MASTER_FILE        = os.path.join(PRICING_ENGINE_DIR, "data", "MasterFullPricing.xlsx")
-ERP_FILE           = os.path.join(ERP_DIR, "data", "ERP_Master.xlsm")
-DB_FILE            = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "freight_bot.db")
-LOG_DIR            = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+# ── Paths (via shared.paths — OneDrive data, local runtime) ──
+import sys
+_repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
+from shared import paths as sp
+
+BASE_DIR           = str(sp.CODE_DIR)
+PRICING_ENGINE_DIR = str(sp.PRICING_CODE)
+ERP_DIR            = str(sp.CODE_DIR / "ERP")
+MASTER_FILE        = str(sp.PRICING_DATA / "MasterFullPricing.xlsx")
+ERP_FILE           = str(sp.ERP_DATA / "ERP_Master.xlsm")
+DB_FILE            = str(sp.BOT_DATA / "freight_bot.db")
+LOG_DIR            = str(sp.BOT_LOG_DIR)
 
 # ── Ensure dirs exist ─────────────────────────────
-os.makedirs(os.path.join(os.path.dirname(os.path.abspath(__file__)), "data"), exist_ok=True)
+os.makedirs(str(sp.BOT_DATA), exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)

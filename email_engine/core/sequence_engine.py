@@ -27,23 +27,26 @@ from pathlib import Path
 import pandas as pd
 
 # =========================================================
-# CONFIG
+# CONFIG (paths via shared.paths — OneDrive data, local runtime)
 # =========================================================
-BASE_DIR     = Path(__file__).parent
-PROJECT_ROOT = BASE_DIR.parent
-LOG_DIR      = PROJECT_ROOT / "logs"
-CONFIG_FILE  = PROJECT_ROOT / "data/config.xlsx"
-PROFILE_PDF  = PROJECT_ROOT / "assets/PUDONG PRIME PROFILE.pdf"
-LOGO_PNG     = PROJECT_ROOT / "assets/logo.png"
+_repo_root = str(Path(__file__).parent.parent.parent)
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
+from shared import paths as sp
 
-CNEE_MASTER    = PROJECT_ROOT / "data" / "cnee_master.xlsx"
-CONTACT_MASTER = PROJECT_ROOT / "data" / "contact_master.xlsx"
-SHIPPER_MASTER = PROJECT_ROOT / "data" / "shipper_master.xlsx"
+LOG_DIR      = sp.EMAIL_LOG_DIR
+CONFIG_FILE  = sp.CONFIG_XLSX
+PROFILE_PDF  = sp.COMPANY_PDF
+LOGO_PNG     = sp.LOGO_FILE
 
-EMAIL_LOG_FILE   = PROJECT_ROOT / "logs" / "email_log.csv"
-KNOWLEDGE_FILE   = PROJECT_ROOT / "logs" / "email_knowledge.csv"
+CNEE_MASTER    = sp.CNEE_MASTER
+CONTACT_MASTER = sp.CONTACT_MASTER
+SHIPPER_MASTER = sp.SHIPPER_MASTER
 
-LOG_DIR.mkdir(exist_ok=True)
+EMAIL_LOG_FILE   = sp.EMAIL_LOG
+KNOWLEDGE_FILE   = sp.EMAIL_LOG_DIR / "email_knowledge.csv"
+
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 # Sequence timing
 SEQ_STEP2_DELAY = 4   # days after step 1

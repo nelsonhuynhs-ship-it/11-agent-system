@@ -20,6 +20,9 @@ from config import cfg
 from data_access import dal
 from event_bus import bus
 
+# shared.paths available via config.py (already adds repo root to sys.path)
+from shared import paths as _sp
+
 router = APIRouter(prefix="/api/health", tags=["Health"])
 log = logging.getLogger("nelson.health")
 
@@ -145,8 +148,8 @@ def deep_health():
     fs_checks = {}
     files_to_check = {
         "parquet": cfg.PARQUET_FILE,
-        "quotes": Path(__file__).parent.parent / "data" / "quotes.json",
-        "events_log": Path(__file__).parent.parent / "data" / "events.jsonl",
+        "quotes": _sp.QUOTES_FILE,
+        "events_log": _sp.EVENTS_FILE,
     }
     for name, path in files_to_check.items():
         try:

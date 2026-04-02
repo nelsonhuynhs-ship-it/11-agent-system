@@ -31,10 +31,15 @@ from pydantic import BaseModel
 log = logging.getLogger("nelson.latest_rates")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-_ENGINE_TEST = Path(__file__).parent.parent.parent
-_PARQUET_FILE = _ENGINE_TEST / "Pricing_Engine" / "data" / "Cleaned_Master_History.parquet"
-_CUSTOMER_RULES = _ENGINE_TEST / "email_engine" / "data" / "customer_rules.json"
-_PORT_MAP_FILE = _ENGINE_TEST / "email_engine" / "data" / "Port_Code_Mapping_Final.xlsx"
+import sys as _sys
+_ENGINE_TEST = Path(__file__).parent.parent.parent  # Engine_test/ (kept for sys.path)
+if str(_ENGINE_TEST) not in _sys.path:
+    _sys.path.insert(0, str(_ENGINE_TEST))
+from shared import paths as _sp
+
+_PARQUET_FILE = _sp.PARQUET_FILE
+_CUSTOMER_RULES = _sp.CUSTOMER_RULES
+_PORT_MAP_FILE = _sp.PORT_MAP
 
 router = APIRouter(prefix="/api/rates/latest", tags=["Latest Rates"])
 
@@ -84,9 +89,8 @@ def _load_port_map():
         return _port_map
 
     import pandas as pd
-    # Try email_engine path first, then Pricing_Engine path
-    for path in [_PORT_MAP_FILE,
-                 _ENGINE_TEST / "Pricing_Engine" / "data" / "Port_Code_Mapping_Final.xlsx"]:
+    # Try primary path (shared.paths), no legacy fallback needed
+    for path in [_PORT_MAP_FILE]:
         if path.exists():
             df = pd.read_excel(path)
             df.columns = df.columns.str.strip()

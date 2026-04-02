@@ -26,14 +26,20 @@ from pydantic import BaseModel
 log = logging.getLogger("nelson.auto_quote")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-_ENGINE_TEST = Path(__file__).parent.parent.parent  # Engine_test/
-_EMAIL_ENGINE = _ENGINE_TEST / "email_engine"
+_ENGINE_TEST = Path(__file__).parent.parent.parent  # Engine_test/ (kept for sys.path)
+if str(_ENGINE_TEST) not in sys.path:
+    sys.path.insert(0, str(_ENGINE_TEST))
+from shared import paths as _sp
+
+_EMAIL_ENGINE = _sp.EMAIL_CODE
 _CORE_DIR = _EMAIL_ENGINE / "core"
-_DATA_DIR = _EMAIL_ENGINE / "data"
+_DATA_DIR = _sp.EMAIL_DATA
 
 # Add email_engine/core to path for auto_rate_builder import
-sys.path.insert(0, str(_CORE_DIR))
-sys.path.insert(0, str(_EMAIL_ENGINE))
+if str(_CORE_DIR) not in sys.path:
+    sys.path.insert(0, str(_CORE_DIR))
+if str(_EMAIL_ENGINE) not in sys.path:
+    sys.path.insert(0, str(_EMAIL_ENGINE))
 
 router = APIRouter(prefix="/api/auto-quote", tags=["Auto Quote Email"])
 
@@ -364,8 +370,8 @@ def send_auto_quotes(req: SendRequest):
         subject = req.subject_override or f"{base_subject} // {suffix} WEEK {week}"
 
         # Profile PDF attachment
-        profile_pdf = _EMAIL_ENGINE / "assets" / "PUDONG PRIME PROFILE.pdf"
-        logo_png = _EMAIL_ENGINE / "assets" / "logo.png"
+        profile_pdf = _sp.COMPANY_PDF
+        logo_png = _sp.LOGO_FILE
 
         sent = 0
         failed = []
@@ -404,8 +410,8 @@ def send_auto_quotes(req: SendRequest):
 
         # Log to CSV
         import csv
-        log_file = _EMAIL_ENGINE / "logs" / "email_log.csv"
-        log_file.parent.mkdir(exist_ok=True)
+        log_file = _sp.EMAIL_LOG
+        log_file.parent.mkdir(parents=True, exist_ok=True)
         log_exists = log_file.exists()
         with open(log_file, "a", newline="", encoding="utf-8") as f:
             w = csv.writer(f)

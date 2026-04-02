@@ -38,9 +38,15 @@ jobs:
           pip install fastapi httpx pytest pytest-asyncio pydantic python-dotenv pandas openpyxl 2>/dev/null || true
 
       - name: Check Python syntax
+        env:
+          NELSON_DATA_DIR: /tmp/nelson-data
+          NELSON_LOCAL_DIR: /tmp/nelson-local
+          NELSON_MACHINE: vps
         run: |
           echo "Checking syntax..."
+          mkdir -p /tmp/nelson-data/pricing /tmp/nelson-data/email /tmp/nelson-data/assets /tmp/nelson-data/bot /tmp/nelson-local/logs /tmp/nelson-local/runtime
           find api/ -name "*.py" -exec python3 -m py_compile {} \; && echo "OK: API files clean"
+          find shared/ -name "*.py" -exec python3 -m py_compile {} \; && echo "OK: shared clean"
           find email_engine/core/ -name "*.py" -exec python3 -m py_compile {} \; 2>/dev/null && echo "OK: email_engine clean" || true
 
       - name: Run API tests
@@ -104,56 +110,70 @@ jobs:
             set -e
             echo "=== Nelson Deploy $(date '+%H:%M %d/%m/%Y') ==="
 
+            # ── Layout: /opt/nelson/{code,data,local,sync} ──
+            CODE="/opt/nelson/code"
+            DATA="/opt/nelson/data"
+            LOCAL="/opt/nelson/local"
+
+            # 0. Ensure directories exist
+            mkdir -p "$CODE" "$DATA" "$LOCAL/logs" "$LOCAL/runtime"
+
             # 1. Pull latest code
-            REPO="/home/nelson/_repo_temp"
-            if [ ! -d "$REPO/.git" ]; then
-              git clone https://github.com/nelsonhuynhs-ship-it/FrieghtBrian.git "$REPO"
+            if [ ! -d "$CODE/.git" ]; then
+              git clone https://github.com/nelsonhuynhs-ship-it/FrieghtBrian.git "$CODE"
             fi
-            cd "$REPO"
+            cd "$CODE"
             git fetch origin main
             git reset --hard origin/main
             echo "[OK] Code moi: $(git log -1 --pretty='%s')"
 
             # 2. Detect changed areas
             CHANGED=$(git diff HEAD~1 HEAD --name-only 2>/dev/null || echo "all")
-            API_CHANGED=false; WEBAPP_CHANGED=false; EMAIL_CHANGED=false
-            echo "$CHANGED" | grep -qE "^api/|^db/|^intelligence/" && API_CHANGED=true || true
-            echo "$CHANGED" | grep -qE "^webapp/src/"              && WEBAPP_CHANGED=true || true
-            echo "$CHANGED" | grep -qE "^email_engine/"            && EMAIL_CHANGED=true || true
+            API_CHANGED=false; WEBAPP_CHANGED=false; EMAIL_CHANGED=false; SHARED_CHANGED=false
+            echo "$CHANGED" | grep -qE "^api/|^db/|^intelligence/|^shared/" && API_CHANGED=true || true
+            echo "$CHANGED" | grep -qE "^webapp/src/"                       && WEBAPP_CHANGED=true || true
+            echo "$CHANGED" | grep -qE "^email_engine/"                     && EMAIL_CHANGED=true || true
+            echo "$CHANGED" | grep -qE "^shared/"                           && SHARED_CHANGED=true || true
             [ "$CHANGED" = "all" ] && API_CHANGED=true && WEBAPP_CHANGED=true
-            echo "Scope: API=$API_CHANGED WebApp=$WEBAPP_CHANGED Email=$EMAIL_CHANGED"
+            echo "Scope: API=$API_CHANGED WebApp=$WEBAPP_CHANGED Email=$EMAIL_CHANGED Shared=$SHARED_CHANGED"
 
-            # 3. Deploy API
+            # 3. Export env vars for shared.paths
+            export NELSON_DATA_DIR="$DATA"
+            export NELSON_LOCAL_DIR="$LOCAL"
+            export NELSON_CODE_DIR="$CODE"
+            export NELSON_MACHINE="vps"
+
+            # 4. Deploy API
             if [ "$API_CHANGED" = "true" ]; then
               echo "--- API deploy ---"
-              cp -r "$REPO/api/." /home/nelson/api/
-              cp -r "$REPO/db" /home/nelson/ 2>/dev/null || true
-              cp -r "$REPO/intelligence" /home/nelson/ 2>/dev/null || true
               systemctl restart nelson-api
               sleep 3
               systemctl is-active nelson-api && echo "[OK] API up" || { echo "[FAIL] API down"; exit 1; }
             fi
 
-            # 4. Deploy email_engine
+            # 5. Deploy email_engine (code only, data via rclone)
             if [ "$EMAIL_CHANGED" = "true" ]; then
-              cp -r "$REPO/email_engine/core/." /home/nelson/email_engine/core/ 2>/dev/null || true
-              echo "[OK] email_engine synced"
+              echo "[OK] email_engine code updated via git pull"
             fi
 
-            # 5. Deploy WebApp
+            # 6. Deploy WebApp
             if [ "$WEBAPP_CHANGED" = "true" ]; then
               echo "--- WebApp build ---"
-              cp -r "$REPO/webapp/src/." /home/nelson/webapp/src/
-              [ ! -f /home/nelson/webapp/.env.local ] && \
-                echo "NEXT_PUBLIC_API_URL=http://14.225.207.145:8100" > /home/nelson/webapp/.env.local
-              cd /home/nelson/webapp
+              cd "$CODE/webapp"
+              [ ! -f .env.local ] && \
+                echo "NEXT_PUBLIC_API_URL=http://14.225.207.145:8100" > .env.local
               npm run build 2>&1 | tail -8
               systemctl restart nelson-webapp3003
               sleep 3
               systemctl is-active nelson-webapp3003 && echo "[OK] WebApp up" || echo "[WARN] WebApp issue"
             fi
 
-            # 6. Health check
+            # 7. Trigger data sync (rclone)
+            if [ -f /opt/nelson/sync/rclone-data.sh ]; then
+              /opt/nelson/sync/rclone-data.sh 2>&1 | tail -3 || echo "[WARN] rclone sync failed"
+            fi
+
+            # 8. Health check
             sleep 2
             API_HTTP=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8100/api/health || echo "000")
             WEB_HTTP=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3003/login 2>/dev/null || echo "000")

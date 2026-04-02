@@ -11,43 +11,44 @@ Usage:
     key = cfg.API_KEY
 """
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+
+# Ensure repo root is in sys.path for shared imports
+_repo_root = str(Path(__file__).parent.parent)
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
+
+from shared import paths as sp
 
 
 @dataclass
 class Config:
     """Application configuration from environment variables."""
 
-    # ── Paths ─────────────────────────────────────────────────────────────
-    BASE_DIR: Path = field(default_factory=lambda: Path(os.environ.get(
-        "NELSON_BASE_DIR",
-        str(Path(__file__).parent.parent)  # Engine_test/
-    )))
+    # ── Paths (delegated to shared.paths) ─────────────────────────────────
+    BASE_DIR: Path = field(default_factory=lambda: sp.CODE_DIR)
 
     @property
     def API_DIR(self) -> Path:
-        return self.BASE_DIR / "api"
+        return sp.API_DIR
 
     @property
     def PRICING_DIR(self) -> Path:
-        return self.BASE_DIR / "Pricing_Engine"
+        return sp.PRICING_CODE
 
     @property
     def BOT_DIR(self) -> Path:
-        return self.BASE_DIR / "TelegramBot"
+        return sp.BOT_CODE
 
     @property
     def EMAIL_DIR(self) -> Path:
-        path = Path(os.environ.get("EMAIL_ENGINE_DIR", ""))
-        if path.exists():
-            return path
-        fallback = Path(r"D:\NELSON\email_engine")
-        return fallback if fallback.exists() else self.BASE_DIR.parent.parent.parent / "email_engine"
+        return sp.EMAIL_CODE
 
     @property
     def PARQUET_FILE(self) -> Path:
-        return self.PRICING_DIR / "data" / "Cleaned_Master_History.parquet"
+        return sp.PARQUET_FILE
 
     # ── Database ──────────────────────────────────────────────────────────
     DATABASE_URL: str = field(default_factory=lambda: os.environ.get("DATABASE_URL", ""))

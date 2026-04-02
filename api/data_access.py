@@ -31,30 +31,32 @@ import pandas as pd
 log = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────────────────────────────────────
-# PATHS (configurable via env vars)
+# PATHS — resolved via shared.paths (centralized)
 # ──────────────────────────────────────────────────────────────────────────────
-BASE_DIR     = Path(os.environ.get("NELSON_BASE_DIR",
-                    str(Path(__file__).parent.parent)))  # Engine_test/
-PRICING_DIR  = BASE_DIR / "Pricing_Engine"
-BOT_DIR      = BASE_DIR / "TelegramBot"
-EMAIL_DIR    = Path(os.environ.get("EMAIL_ENGINE_DIR",
-                    str(Path(__file__).parent.parent.parent.parent / "email_engine")))
-if not EMAIL_DIR.exists():
-    EMAIL_DIR = Path(r"D:\NELSON\email_engine")
+import sys as _sys
+_repo_root = str(Path(__file__).parent.parent)
+if _repo_root not in _sys.path:
+    _sys.path.insert(0, _repo_root)
+from shared import paths as _sp
 
-PARQUET_FILE   = PRICING_DIR / "data" / "Cleaned_Master_History.parquet"
-CARRIER_RULES  = PRICING_DIR / "data" / "carrier_rules.json"
-CARRIER_TIPS   = BOT_DIR / "carrier_tips.json"
+BASE_DIR       = _sp.CODE_DIR
+PRICING_DIR    = _sp.PRICING_CODE
+BOT_DIR        = _sp.BOT_CODE
+EMAIL_DIR      = _sp.EMAIL_CODE
+
+PARQUET_FILE   = _sp.PARQUET_FILE
+CARRIER_RULES  = _sp.CARRIER_RULES
+CARRIER_TIPS   = _sp.CARRIER_TIPS
 SQLITE_DB      = BOT_DIR / "data" / "freight_bot.db"
 
-QUOTES_FILE    = Path(__file__).parent / "data" / "quotes.json"
-SHIPMENT_STATE = EMAIL_DIR / "shipment_state.json"
-CUSTOMER_RULES = EMAIL_DIR / "customer_rules.json"
-TEAM_RULES     = EMAIL_DIR / "rules.json"
+QUOTES_FILE    = _sp.QUOTES_FILE
+SHIPMENT_STATE = _sp.SHIPMENT_STATE
+CUSTOMER_RULES = _sp.CUSTOMER_RULES
+TEAM_RULES     = _sp.TEAM_RULES
 DATASET_DIR    = EMAIL_DIR / "datasets"
 
-# Ensure data dir exists
-(Path(__file__).parent / "data").mkdir(exist_ok=True)
+# Ensure runtime dir exists (QUOTES_FILE lives in LOCAL_DIR/runtime/)
+_sp.QUOTES_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 
 # ==============================================================================

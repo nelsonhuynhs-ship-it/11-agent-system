@@ -41,15 +41,20 @@ from pydantic import BaseModel
 
 log = logging.getLogger("nelson.email_rate")
 
-# ── Paths ──────────────────────────────────────────────────────────────────────
-_ENGINE_TEST    = Path(__file__).parent.parent.parent
-_PARQUET_FILE   = _ENGINE_TEST / "Pricing_Engine" / "data" / "Cleaned_Master_History.parquet"
-_CUSTOMER_RULES = _ENGINE_TEST / "email_engine" / "data" / "customer_rules.json"
-_PORT_MAP_FILE  = _ENGINE_TEST / "email_engine" / "data" / "Port_Code_Mapping_Final.xlsx"
-_CONFIG_XLSX    = _ENGINE_TEST / "email_engine" / "data" / "config.xlsx"
-_CNEE_MASTER    = _ENGINE_TEST / "email_engine" / "data" / "cnee_master.xlsx"
-_EMAIL_LOG      = _ENGINE_TEST / "email_engine" / "logs" / "email_log.csv"
-_COMPANY_PDF    = _ENGINE_TEST / "email_engine" / "assets" / "PUDONG PRIME PROFILE.pdf"
+# ── Paths (resolved via shared.paths — OneDrive data, local runtime) ──────────
+import sys as _sys
+_repo_root = str(Path(__file__).parent.parent.parent)
+if _repo_root not in _sys.path:
+    _sys.path.insert(0, _repo_root)
+from shared import paths as _sp
+
+_PARQUET_FILE   = _sp.PARQUET_FILE
+_CUSTOMER_RULES = _sp.CUSTOMER_RULES
+_PORT_MAP_FILE  = _sp.PORT_MAP
+_CONFIG_XLSX    = _sp.CONFIG_XLSX
+_CNEE_MASTER    = _sp.CNEE_MASTER
+_EMAIL_LOG      = _sp.EMAIL_LOG
+_COMPANY_PDF    = _sp.COMPANY_PDF
 
 router = APIRouter(prefix="/api/email-rate", tags=["Email Rate"])
 
@@ -59,10 +64,6 @@ _freight_db = None
 def _get_db():
     global _freight_db
     if _freight_db is None:
-        sys_path = str(_ENGINE_TEST)
-        import sys
-        if sys_path not in sys.path:
-            sys.path.insert(0, sys_path)
         from db.duckdb_engine import FreightDB
         _freight_db = FreightDB(_PARQUET_FILE)
     return _freight_db

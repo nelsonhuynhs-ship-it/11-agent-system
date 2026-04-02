@@ -29,19 +29,22 @@ from pathlib import Path
 import pandas as pd
 
 # =========================================================
-# CONFIG
+# CONFIG (paths via shared.paths — OneDrive data, local runtime)
 # =========================================================
-BASE_DIR       = Path(__file__).parent
-PROJECT_ROOT = BASE_DIR.parent
-PANJIVA_DIR    = PROJECT_ROOT / "data_panjiva"
-LOG_DIR        = PROJECT_ROOT / "logs"
-KNOWLEDGE_FILE = PROJECT_ROOT / "logs" / "email_knowledge.csv"
-EMAIL_LOG_FILE = PROJECT_ROOT / "logs" / "email_log.csv"
-DATA_FILE      = PROJECT_ROOT / "data.xlsx"
+_repo_root = str(Path(__file__).parent.parent.parent)
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
+from shared import paths as sp
 
-OUT_CNEE       = PROJECT_ROOT / "data" / "cnee_master.xlsx"
-OUT_CONTACT    = PROJECT_ROOT / "data" / "contact_master.xlsx"
-OUT_SHIPPER    = PROJECT_ROOT / "data" / "shipper_master.xlsx"
+PANJIVA_DIR    = sp.PANJIVA_DIR
+LOG_DIR        = sp.EMAIL_LOG_DIR
+KNOWLEDGE_FILE = sp.EMAIL_LOG_DIR / "email_knowledge.csv"
+EMAIL_LOG_FILE = sp.EMAIL_LOG
+DATA_FILE      = sp.EMAIL_CODE / "data.xlsx"
+
+OUT_CNEE       = sp.CNEE_MASTER
+OUT_CONTACT    = sp.CONTACT_MASTER
+OUT_SHIPPER    = sp.SHIPPER_MASTER
 
 # Shipment sheet name variants (try in order)
 SHIPMENT_SHEETS = ["US Imports Shipments", "US Imports Consignee Shipments"]

@@ -14,7 +14,9 @@ Auth: API key via X-API-Key header (Phase 1)
 from __future__ import annotations
 
 import os
+import sys
 from datetime import date
+from pathlib import Path
 from typing import Optional
 
 import pandas as pd
@@ -23,6 +25,12 @@ from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 
 from data_access import dal
+
+# ── Paths ─────────────────────────────────────────────────────────────────────
+_ENGINE_TEST_DIR = Path(__file__).parent.parent.parent  # Engine_test/ (kept for sys.path)
+if str(_ENGINE_TEST_DIR) not in sys.path:
+    sys.path.insert(0, str(_ENGINE_TEST_DIR))
+from shared import paths as _sp
 
 router = APIRouter(prefix="/api/erp", tags=["ERP"])
 
@@ -358,11 +366,9 @@ async def erp_import_rates(
     - FIX SOC HPL: applies PUC_SOC correction (same as FAK SOC)
     - Surcharge/Advisory emails → saved as knowledge items
     """
-    import sys
-    sys.path.insert(0, str(
-        dal._base_dir.parent / "Pricing_Engine" if hasattr(dal, '_base_dir')
-        else "D:\\NELSON\\2. Areas\\PricingSystem\\Engine_test\\Pricing_Engine"
-    ))
+    pricing_engine_dir = str(_sp.PRICING_CODE)
+    if pricing_engine_dir not in sys.path:
+        sys.path.insert(0, pricing_engine_dir)
 
     try:
         from rate_importer import run_full_import, classify_and_import
@@ -469,7 +475,6 @@ class QuickQuoteRequest(BaseModel):
 @router.post("/quick-quote")
 async def erp_quick_quote(req: QuickQuoteRequest, _auth=Security(_verify_erp_key)):
     """One-click quote generation from ERP ribbon. Logs to Quote_History."""
-    from pathlib import Path
     from datetime import datetime
 
     sell = req.sell_rate or (req.buy_rate + req.markup)
@@ -477,7 +482,7 @@ async def erp_quick_quote(req: QuickQuoteRequest, _auth=Security(_verify_erp_key
     margin_pct = (profit / sell * 100) if sell > 0 else 0
     quote_id = f"Q{datetime.now().strftime('%y%m%d%H%M%S')}"
 
-    quote_log = Path(__file__).parent.parent.parent / "ERP" / "data" / "Quote_History.xlsx"
+    quote_log = _sp.ERP_DATA / "Quote_History.xlsx"
     try:
         existing = pd.read_excel(quote_log) if quote_log.exists() else pd.DataFrame()
         new_row = pd.DataFrame([{
@@ -512,10 +517,9 @@ async def erp_requote_alerts(
     _auth=Security(_verify_erp_key),
 ):
     """Compare pending quotes vs current rates. Alert when delta > threshold."""
-    from pathlib import Path
     from datetime import datetime
 
-    quote_log = Path(__file__).parent.parent.parent / "ERP" / "data" / "Quote_History.xlsx"
+    quote_log = _sp.ERP_DATA / "Quote_History.xlsx"
     if not quote_log.exists():
         return {"alerts": [], "total": 0}
 
