@@ -26,6 +26,7 @@ import csv
 import smtplib
 import ssl
 import os
+import uuid
 from datetime import datetime, date
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -769,75 +770,35 @@ def send_rate_email(req: SendRequest):
     if not req.to_email:
         raise HTTPException(status_code=400, detail="to_email is required")
 
-    # SMTP config from environment
-    smtp_host = os.getenv("SMTP_HOST", "smtp.office365.com")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user = os.getenv("SMTP_USER", "")
-    smtp_pass = os.getenv("SMTP_PASS", "")
+    # ── Queue for Outlook COM (no SMTP needed) ──
+    queue = _load_queue()
+    item = {
+        "id": str(uuid.uuid4())[:8],
+        "to": req.to_email,
+        "cc": req.cc_emails,
+        "subject": preview["subject"],
+        "html_body": preview["html"],
+        "company": "",
+        "campaign_id": "",
+        "attach_pdf": True,
+        "status": "pending",
+        "queued_at": datetime.now().isoformat(),
+        "sent_at": None,
+    }
+    queue.append(item)
+    _save_queue(queue)
+    log.info("Email queued for %s | subject: %s | id: %s", req.to_email, preview["subject"], item["id"])
 
-    if not smtp_user or not smtp_pass:
-        raise HTTPException(
-            status_code=500,
-            detail="SMTP not configured. Set SMTP_USER and SMTP_PASS in .env"
-        )
-
-    cfg      = _load_config()
-    from_name = cfg.get("from_name", "Nelson Freight")
-
-    # Build MIME message with attachment support
-    msg = MIMEMultipart("mixed")
-    msg["Subject"] = preview["subject"]
-    msg["From"]    = f"{from_name} <{smtp_user}>"
-    msg["To"]      = req.to_email
-    if req.cc_emails:
-        msg["Cc"]  = ", ".join(req.cc_emails)
-
-    # HTML body
-    msg.attach(MIMEText(preview["html"], "html", "utf-8"))
-
-    # Attach company profile PDF if available
-    if _COMPANY_PDF.exists():
-        try:
-            with open(_COMPANY_PDF, "rb") as pdf_file:
-                pdf_part = MIMEBase("application", "pdf")
-                pdf_part.set_payload(pdf_file.read())
-                encoders.encode_base64(pdf_part)
-                pdf_part.add_header(
-                    "Content-Disposition",
-                    f"attachment; filename=\"Pudong Prime - Company Profile.pdf\""
-                )
-                msg.attach(pdf_part)
-        except Exception as e:
-            log.warning("Could not attach company PDF: %s", e)
-
-    # Send
-    all_recipients = [req.to_email] + req.cc_emails
-    try:
-        context = ssl.create_default_context()
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.ehlo()
-            server.starttls(context=context)
-            server.login(smtp_user, smtp_pass)
-            server.sendmail(smtp_user, all_recipients, msg.as_string())
-
-        log.info("Email sent to %s | subject: %s", req.to_email, preview["subject"])
-        return {
-            "status":     "sent",
-            "to":         req.to_email,
-            "cc":         req.cc_emails,
-            "subject":    preview["subject"],
-            "rows_sent":  preview["row_count"],
-            "timestamp":  datetime.now().isoformat(),
-        }
-
-    except smtplib.SMTPAuthenticationError:
-        raise HTTPException(status_code=401, detail="SMTP authentication failed. Check SMTP_USER/SMTP_PASS.")
-    except smtplib.SMTPException as e:
-        log.error("SMTP error: %s", e)
-        raise HTTPException(status_code=500, detail=f"SMTP error: {e}")
-    except Exception as e:
-        log.error("Send failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Send failed: {e}")
+    return {
+        "status":     "queued",
+        "queue_id":   item["id"],
+        "to":         req.to_email,
+        "cc":         req.cc_emails,
+        "subject":    preview["subject"],
+        "rows_sent":  preview["row_count"],
+        "timestamp":  datetime.now().isoformat(),
+        "message":    "Email queued — Outlook agent will send shortly",
+    }
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1274,74 +1235,38 @@ def campaign_send(req: CampaignSendRequest):
     if not req.email:
         raise HTTPException(status_code=400, detail="email is required")
 
-    # SMTP
-    smtp_host = os.getenv("SMTP_HOST", "smtp.office365.com")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user = os.getenv("SMTP_USER", "")
-    smtp_pass = os.getenv("SMTP_PASS", "")
+    # ── Queue for Outlook COM (no SMTP needed) ──
+    queue = _load_queue()
+    item = {
+        "id": str(uuid.uuid4())[:8],
+        "to": req.email,
+        "cc": req.cc_emails,
+        "subject": preview["subject"],
+        "html_body": preview["html"],
+        "company": req.company,
+        "campaign_id": req.campaign_id,
+        "attach_pdf": True,
+        "status": "pending",
+        "queued_at": datetime.now().isoformat(),
+        "sent_at": None,
+    }
+    queue.append(item)
+    _save_queue(queue)
+    log.info("Campaign email queued for %s (%s) | id: %s", req.email, req.company, item["id"])
 
-    if not smtp_user or not smtp_pass:
-        raise HTTPException(status_code=500, detail="SMTP not configured. Set SMTP_USER and SMTP_PASS in .env")
-
-    cfg = _load_config()
-    from_name = cfg.get("from_name", "Nelson Freight")
-
-    msg = MIMEMultipart("mixed")
-    msg["Subject"] = preview["subject"]
-    msg["From"]    = f"{from_name} <{smtp_user}>"
-    msg["To"]      = req.email
-    if req.cc_emails:
-        msg["Cc"] = ", ".join(req.cc_emails)
-
-    msg.attach(MIMEText(preview["html"], "html", "utf-8"))
-
-    # Attach company profile PDF
-    if _COMPANY_PDF.exists():
-        try:
-            with open(_COMPANY_PDF, "rb") as pdf_file:
-                pdf_part = MIMEBase("application", "pdf")
-                pdf_part.set_payload(pdf_file.read())
-                encoders.encode_base64(pdf_part)
-                pdf_part.add_header("Content-Disposition", 'attachment; filename="Pudong Prime - Company Profile.pdf"')
-                msg.attach(pdf_part)
-        except Exception as e:
-            log.warning("Could not attach company PDF: %s", e)
-
-    all_recipients = [req.email] + req.cc_emails
-    try:
-        context = ssl.create_default_context()
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.ehlo()
-            server.starttls(context=context)
-            server.login(smtp_user, smtp_pass)
-            server.sendmail(smtp_user, all_recipients, msg.as_string())
-
-        log.info("Campaign email sent to %s (%s) | campaign: %s", req.email, req.company, req.campaign_id)
-
-        # Log the send
-        _log_campaign_send(req.email, req.company, req.campaign_id, preview["subject"], "sent", preview["row_count"])
-
-        return {
-            "status":      "sent",
-            "to":          req.email,
-            "company":     req.company,
-            "cc":          req.cc_emails,
-            "subject":     preview["subject"],
-            "rows_sent":   preview["row_count"],
-            "campaign_id": req.campaign_id,
-            "template":    req.template,
-            "timestamp":   datetime.now().isoformat(),
-        }
-
-    except smtplib.SMTPAuthenticationError:
-        _log_campaign_send(req.email, req.company, req.campaign_id, preview["subject"], "auth_failed", 0)
-        raise HTTPException(status_code=401, detail="SMTP authentication failed.")
-    except smtplib.SMTPException as e:
-        _log_campaign_send(req.email, req.company, req.campaign_id, preview["subject"], f"smtp_error: {e}", 0)
-        raise HTTPException(status_code=500, detail=f"SMTP error: {e}")
-    except Exception as e:
-        _log_campaign_send(req.email, req.company, req.campaign_id, preview["subject"], f"failed: {e}", 0)
-        raise HTTPException(status_code=500, detail=f"Send failed: {e}")
+    return {
+        "status":      "queued",
+        "queue_id":    item["id"],
+        "to":          req.email,
+        "company":     req.company,
+        "cc":          req.cc_emails,
+        "subject":     preview["subject"],
+        "rows_sent":   preview["row_count"],
+        "campaign_id": req.campaign_id,
+        "template":    req.template,
+        "timestamp":   datetime.now().isoformat(),
+        "message":     "Email queued — Outlook agent will send shortly",
+    }
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1463,3 +1388,107 @@ def campaign_bulk_send(req: CampaignBulkSendRequest):
         "errors":    errors,
         "timestamp": datetime.now().isoformat(),
     }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ── EMAIL QUEUE — Outlook COM Integration ─────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# WebApp queues emails here → Local agent polls → Sends via Outlook COM
+# No SMTP Auth needed. No IT Admin approval needed.
+
+_QUEUE_FILE = _ENGINE_TEST / "email_engine" / "data" / "email_queue.json"
+
+def _load_queue() -> list:
+    if not _QUEUE_FILE.exists():
+        return []
+    try:
+        with open(_QUEUE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+def _save_queue(queue: list):
+    _QUEUE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(_QUEUE_FILE, "w", encoding="utf-8") as f:
+        json.dump(queue, f, ensure_ascii=False, indent=2)
+
+
+class QueueEmailRequest(BaseModel):
+    to_email: str
+    cc_emails: List[str] = []
+    subject: str
+    html_body: str
+    company: str = ""
+    campaign_id: str = ""
+    attach_pdf: bool = True
+
+
+@router.post("/queue/add")
+def queue_add_email(req: QueueEmailRequest):
+    """Add email to queue — local Outlook agent will pick it up and send."""
+    queue = _load_queue()
+    item = {
+        "id": str(uuid.uuid4())[:8],
+        "to": req.to_email,
+        "cc": req.cc_emails,
+        "subject": req.subject,
+        "html_body": req.html_body,
+        "company": req.company,
+        "campaign_id": req.campaign_id,
+        "attach_pdf": req.attach_pdf,
+        "status": "pending",
+        "queued_at": datetime.now().isoformat(),
+        "sent_at": None,
+    }
+    queue.append(item)
+    _save_queue(queue)
+    return {"status": "queued", "id": item["id"], "position": len([q for q in queue if q["status"] == "pending"])}
+
+
+@router.get("/queue/pending")
+def queue_get_pending():
+    """Get all pending emails — called by local Outlook agent."""
+    queue = _load_queue()
+    pending = [q for q in queue if q["status"] == "pending"]
+    return {"count": len(pending), "emails": pending}
+
+
+@router.post("/queue/mark-sent/{email_id}")
+def queue_mark_sent(email_id: str):
+    """Mark email as sent — called by local agent after Outlook send."""
+    queue = _load_queue()
+    for item in queue:
+        if item["id"] == email_id:
+            item["status"] = "sent"
+            item["sent_at"] = datetime.now().isoformat()
+            _save_queue(queue)
+            # Also log to email_log.csv
+            _log_campaign_send(
+                item["to"], item.get("company", ""), item.get("campaign_id", ""),
+                item["subject"], "sent", 0
+            )
+            return {"status": "ok", "id": email_id}
+    raise HTTPException(status_code=404, detail=f"Email {email_id} not found in queue")
+
+
+@router.post("/queue/mark-failed/{email_id}")
+def queue_mark_failed(email_id: str, error: str = "unknown"):
+    """Mark email as failed — called by local agent on error."""
+    queue = _load_queue()
+    for item in queue:
+        if item["id"] == email_id:
+            item["status"] = "failed"
+            item["error"] = error
+            item["sent_at"] = datetime.now().isoformat()
+            _save_queue(queue)
+            return {"status": "ok", "id": email_id}
+    raise HTTPException(status_code=404, detail=f"Email {email_id} not found in queue")
+
+
+@router.get("/queue/history")
+def queue_history(limit: int = 50):
+    """Get recent email queue history (all statuses)."""
+    queue = _load_queue()
+    # Most recent first
+    queue.sort(key=lambda x: x.get("queued_at", ""), reverse=True)
+    return {"total": len(queue), "emails": queue[:limit]}

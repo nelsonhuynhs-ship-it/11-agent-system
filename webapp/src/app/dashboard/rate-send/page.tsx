@@ -202,7 +202,7 @@ function CampaignTab() {
         campaign_id:  selected.campaign_id,
         cc_emails:    ccList,
       });
-      setSendResult({ ok: true, msg: `Sent to ${selected.email} (${selected.company})` });
+      setSendResult({ ok: true, msg: `Queued for ${selected.email} (${selected.company}) — Outlook agent will send shortly` });
       setPreview(null);
       loadProspects();
     } catch (e: unknown) {
@@ -811,7 +811,7 @@ function QuickSendTab() {
         to_email: form.toEmail,
         cc_emails: ccList,
       });
-      setSendResult({ ok: true, msg: `Sent to ${form.toEmail}` });
+      setSendResult({ ok: true, msg: `Queued for ${form.toEmail} — Outlook agent will send shortly` });
       setPreview(null);
     } catch (e: unknown) {
       setSendResult({ ok: false, msg: e instanceof Error ? e.message : "Send failed" });
