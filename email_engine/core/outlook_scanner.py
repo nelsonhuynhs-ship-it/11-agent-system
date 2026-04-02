@@ -34,13 +34,16 @@ from pathlib import Path
 from typing import Optional
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-SCRIPT_DIR   = Path(__file__).parent
-PROJECT_ROOT = SCRIPT_DIR.parent
-RULES_FILE   = SCRIPT_DIR / "scanner_rules.json"
-LOG_FILE     = SCRIPT_DIR / "outlook_scanner.log"
+SCRIPT_DIR = Path(__file__).parent
+RULES_FILE = SCRIPT_DIR / "scanner_rules.json"
 
-# Rate importer lives in Pricing_Engine (sibling of email_engine)
-PRICING_ENGINE = PROJECT_ROOT.parent / "Pricing_Engine"
+_repo_root = str(Path(__file__).parent.parent.parent)
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
+from shared import paths as sp
+
+LOG_FILE       = sp.EMAIL_LOG_DIR / "outlook_scanner.log"
+PRICING_ENGINE = sp.PRICING_CODE
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 _fmt = logging.Formatter("[%(asctime)s] %(levelname)-8s %(message)s",

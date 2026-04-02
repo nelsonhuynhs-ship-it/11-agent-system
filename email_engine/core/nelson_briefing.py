@@ -18,11 +18,15 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
+_repo_root = str(Path(__file__).parent.parent.parent)
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
+from shared import paths as sp
+
 log = logging.getLogger(__name__)
 
-PROJECT_ROOT = Path(__file__).parent.parent
-DB_PATH      = PROJECT_ROOT / 'logs' / 'shipments.db'
-OUTPUT_DIR   = PROJECT_ROOT / 'logs'
+DB_PATH    = sp.EMAIL_LOG_DIR / 'shipments.db'
+OUTPUT_DIR = sp.EMAIL_LOG_DIR
 
 
 def generate():

@@ -19,10 +19,13 @@ from datetime import datetime, timedelta
 from pathlib import Path
 import httpx
 
-BASE_DIR   = Path(__file__).parent
-PROJECT_ROOT = BASE_DIR.parent
-STATE_FILE = PROJECT_ROOT / "data" / "shipment_state.json"
-LOG_FILE   = BASE_DIR / "ops_briefing.log"
+_repo_root = str(Path(__file__).parent.parent.parent)
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
+from shared import paths as sp
+
+STATE_FILE = sp.SHIPMENT_STATE
+LOG_FILE   = sp.EMAIL_LOG_DIR / "ops_briefing.log"
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 TELEGRAM_CHAT  = os.environ.get("TELEGRAM_CHAT_ID", "")

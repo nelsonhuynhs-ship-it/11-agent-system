@@ -21,16 +21,20 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-PROJECT_ROOT = Path(__file__).parent.parent
-OUTLOOK_DIR  = PROJECT_ROOT / 'outlook'
-DB_PATH      = PROJECT_ROOT / 'logs' / 'shipments.db'
-PARQUET_DIR  = PROJECT_ROOT / 'logs' / 'parquet'
+_repo_root = str(Path(__file__).parent.parent.parent)
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
+from shared import paths as sp
+
+OUTLOOK_DIR   = sp.EMAIL_CODE / 'outlook'
+DB_PATH       = sp.EMAIL_LOG_DIR / 'shipments.db'
+PARQUET_DIR   = sp.EMAIL_LOG_DIR / 'parquet'
 MSG_KEEP_DAYS = 7
 
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
-LOG_FILE = PROJECT_ROOT / 'logs' / 'data_collector.log'
+LOG_FILE = sp.EMAIL_LOG_DIR / 'data_collector.log'
 
 _fmt = logging.Formatter(
     "[%(asctime)s] %(levelname)-8s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
