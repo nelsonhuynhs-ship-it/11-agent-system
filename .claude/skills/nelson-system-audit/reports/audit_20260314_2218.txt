@@ -1,0 +1,571 @@
+╔══════════════════════════════════════════════════════════╗
+║    NELSON FREIGHT — FULL SYSTEM AUDIT REPORT            ║
+║    Generated: 2026-03-14 22:18                            ║
+╚══════════════════════════════════════════════════════════╝
+
+
+════════════════════════════════════════════════════════════
+  NELSON FREIGHT — ARCHITECTURE HEALTH REPORT
+════════════════════════════════════════════════════════════
+  Date: 2026-03-14 22:18
+  Architecture Score: 4.7 / 10.0
+════════════════════════════════════════════════════════════
+
+  LAYER SCORES
+  ────────────────────────────────────────
+  Data Layer            0.0 ░░░░░░░░░░  (11 findings)
+  API Layer             5.0 █████░░░░░  (8 findings)
+  Service Layer         8.0 ████████░░  (4 findings)
+  Client Isolation      0.0 ░░░░░░░░░░  (29 findings)
+  Event System         10.0 ██████████
+  Security              6.5 ██████░░░░  (3 findings)
+
+  FINDINGS
+  ────────────────────────────────────────
+  🔴 [CRITICAL] JSON file 'quotes.json' used as database
+     Written by: api\data_access.py
+     💡 Migrate quotes.json to PostgreSQL table
+
+  🔴 [CRITICAL] JSON file 'shipment_state.json' used as database
+     Written by: api\data_access.py, api\email_event_engine.py, api\server.py, ..\..\..\email_engine\shipment_brain.py
+     💡 Migrate shipment_state.json to PostgreSQL table
+
+  🔴 [CRITICAL] JSON file 'outlook_dataset.json' used as database
+     Written by: api\email_event_engine.py, api\email_scanner.py, api\server.py, ..\..\..\email_engine\scan_outlook_folders.py, ..\..\..\email_engine\_parse_msg_files.py
+     💡 Migrate outlook_dataset.json to PostgreSQL table
+
+  🔴 [CRITICAL] JSON file 'sync_state.json' used as database
+     Written by: api\email_event_engine.py
+     💡 Migrate sync_state.json to PostgreSQL table
+
+  🔴 [CRITICAL] Race condition: 4 writers for shipment_state.json
+     Writers: ..\..\..\email_engine\shipment_brain.py, api\data_access.py, api\email_event_engine.py, api\server.py
+     💡 Migrate to PostgreSQL with proper transactions
+
+  🔴 [CRITICAL] Bot reads data directly: bot.py
+     Line 1303: wb = openpyxl.load_workbook(ERP_FILE, keep_vba=True)
+     📁 TelegramBot/bot.py:1303
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: bot.py
+     Line 1379: wb = openpyxl.load_workbook(ERP_FILE, read_only=True, keep_vba=True)
+     📁 TelegramBot/bot.py:1379
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: bot.py
+     Line 1444: wb = openpyxl.load_workbook(ERP_FILE, read_only=True, keep_vba=True)
+     📁 TelegramBot/bot.py:1444
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: bot.py
+     Line 1500: wb = openpyxl.load_workbook(ERP_FILE, read_only=True, keep_vba=True)
+     📁 TelegramBot/bot.py:1500
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: bot_v4.py
+     Line 98: df = pd.read_parquet(PARQUET_FILE)
+     📁 TelegramBot/bot_v4.py:98
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: bot_v4.py
+     Line 128: _carrier_rules = json.load(f)
+     📁 TelegramBot/bot_v4.py:128
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: bot_v4.py
+     Line 951: wb = openpyxl.load_workbook(ERP_FILE, keep_vba=True)
+     📁 TelegramBot/bot_v4.py:951
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: bot_v4.py
+     Line 1015: wb = openpyxl.load_workbook(ERP_FILE, read_only=True, keep_vba=True)
+     📁 TelegramBot/bot_v4.py:1015
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: bot_v4.py
+     Line 1070: wb = openpyxl.load_workbook(ERP_FILE, read_only=True, keep_vba=True)
+     📁 TelegramBot/bot_v4.py:1070
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: bot_v4.py
+     Line 1113: wb = openpyxl.load_workbook(ERP_FILE, read_only=True, keep_vba=True)
+     📁 TelegramBot/bot_v4.py:1113
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: bot_v5.py
+     Line 1125: wb = openpyxl.load_workbook(ERP_FILE, keep_vba=True)
+     📁 TelegramBot/bot_v5.py:1125
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: bot_v5.py
+     Line 1189: wb = openpyxl.load_workbook(ERP_FILE, read_only=True, keep_vba=True)
+     📁 TelegramBot/bot_v5.py:1189
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: bot_v5.py
+     Line 1244: wb = openpyxl.load_workbook(ERP_FILE, read_only=True, keep_vba=True)
+     📁 TelegramBot/bot_v5.py:1244
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: bot_v5.py
+     Line 1287: wb = openpyxl.load_workbook(ERP_FILE, read_only=True, keep_vba=True)
+     📁 TelegramBot/bot_v5.py:1287
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: email_analytics.py
+     Line 5: Analytics functions that aggregate shipment_state.json + Parquet datas
+     📁 TelegramBot/email_analytics.py:5
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: email_analytics.py
+     Line 39: STATE_FILE      = EMAIL_ENGINE / "shipment_state.json"
+     📁 TelegramBot/email_analytics.py:39
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: email_analytics.py
+     Line 69: log.warning("[Analytics] shipment_state.json not found")
+     📁 TelegramBot/email_analytics.py:69
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: email_analytics.py
+     Line 72: return json.load(f)
+     📁 TelegramBot/email_analytics.py:72
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: erp_reader.py
+     Line 33: wb = openpyxl.load_workbook(ERP_FILE, keep_vba=True, read_only=True)
+     📁 TelegramBot/erp_reader.py:33
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: erp_writer.py
+     Line 93: wb = openpyxl.load_workbook(ERP_FILE, keep_vba=True)
+     📁 TelegramBot/erp_writer.py:93
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: erp_writer.py
+     Line 188: wb = openpyxl.load_workbook(ERP_FILE, keep_vba=True)
+     📁 TelegramBot/erp_writer.py:188
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: intelligence_features.py
+     Line 149: 2. Fallback: analyze shipment_state.json directly
+     📁 TelegramBot/intelligence_features.py:149
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: intelligence_features.py
+     Line 747: df = pd.read_parquet(str(mm_path))
+     📁 TelegramBot/intelligence_features.py:747
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: markup_engine.py
+     Line 50: wb = openpyxl.load_workbook(erp_file, keep_vba=True, read_only=True)
+     📁 TelegramBot/markup_engine.py:50
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: query_engine.py
+     Line 58: df = pd.read_parquet(PARQUET_FILE)
+     📁 TelegramBot/query_engine.py:58
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: query_engine.py
+     Line 91: _carrier_rules = json.load(f)
+     📁 TelegramBot/query_engine.py:91
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Bot reads data directly: quote_formatter.py
+     Line 30: data = json.load(f)
+     📁 TelegramBot/quote_formatter.py:30
+     💡 Replace with API call via api_client.py
+
+  🔴 [CRITICAL] Hardcoded secret value
+     Line 2: BOT_TOKEN = "8697753100:AAF0HVN0VxK-ilyz_GUdE_JOCSr3D3QCFys"...
+     📁 TelegramBot\config.py:2
+     💡 Move to .env file and use os.environ.get()
+
+  🔴 [CRITICAL] Hardcoded secret value
+     Line 5: GEMINI_API_KEY = "AIzaSyA1gxWxufQeWmnlFSEz_0FNzC2pjG0xvUc"...
+     📁 TelegramBot\config.py:5
+     💡 Move to .env file and use os.environ.get()
+
+  🟡 [HIGH] server.py is monolith (1,301 lines)
+     Target: <300 lines. Currently 1,301 lines with all endpoints in 1 file.
+     📁 api/server.py
+     💡 Split into APIRouter modules: rate_router, quote_router, shipment_router, etc.
+
+  🟡 [HIGH] Inconsistent cache TTLs — phantom data risk
+     Cache TTLs differ significantly: Bot/query_engine.py: 3600s, API/server.py: 600s
+     💡 Use single cache via API, or align TTLs
+
+  🟡 [HIGH] ERP script reads Parquet directly: refresh_erp_parquet.py
+     Should use API endpoint /api/rates/matrix instead
+     📁 ERP\scripts\refresh_erp_parquet.py
+     💡 Create erp_api_bridge.py that calls API instead of reading files
+
+  🟡 [HIGH] 38 endpoints without authentication
+     No Depends(get_current_user) pattern found
+     💡 Add auth dependency to all non-public endpoints
+
+  🟢 [MEDIUM] Hardcoded filesystem path
+     Line 43: EMAIL_DIR = Path(r"D:\NELSON\email_engine")
+     📁 api\data_access.py:43
+     💡 Use os.environ or .env config
+
+  🟢 [MEDIUM] Hardcoded filesystem path
+     Line 35: ORIGINAL_DATASET = Path(r"D:\NELSON\email_engine\outlook_dataset.json")
+     📁 api\email_event_engine.py:35
+     💡 Use os.environ or .env config
+
+  🟢 [MEDIUM] Hardcoded filesystem path
+     Line 38: SHIPMENT_STATE = Path(r"D:\NELSON\email_engine\shipment_state.json")
+     📁 api\email_event_engine.py:38
+     💡 Use os.environ or .env config
+
+  🟢 [MEDIUM] Hardcoded filesystem path
+     Line 43: ORIGINAL_EMAIL_ENGINE = Path(r"D:\NELSON\email_engine")
+     📁 api\email_scanner.py:43
+     💡 Use os.environ or .env config
+
+  🟢 [MEDIUM] Hardcoded filesystem path
+     Line 72: EMAIL_DIR = Path(r"D:\NELSON\email_engine")
+     📁 api\server.py:72
+     💡 Use os.environ or .env config
+
+  🟢 [MEDIUM] Hardcoded filesystem path
+     Line 38: EMAIL_ENGINE    = Path(r"D:\NELSON\email_engine")
+     📁 TelegramBot\email_analytics.py:38
+     💡 Use os.environ or .env config
+
+  🟢 [MEDIUM] email_event_engine.py exceeds 500 line limit (549 lines)
+     Large files are harder to maintain and test
+     📁 api\email_event_engine.py
+     💡 Consider splitting into smaller modules
+
+  🟢 [MEDIUM] server.py exceeds 300 line limit (1301 lines)
+     Large files are harder to maintain and test
+     📁 api\server.py
+     💡 Consider splitting into smaller modules
+
+  🟢 [MEDIUM] create_erp_preview.py exceeds 500 line limit (656 lines)
+     Large files are harder to maintain and test
+     📁 ERP\scripts\create_erp_preview.py
+     💡 Consider splitting into smaller modules
+
+  🟢 [MEDIUM] refresh_erp_data.py exceeds 500 line limit (797 lines)
+     Large files are harder to maintain and test
+     📁 ERP\scripts\refresh_erp_data.py
+     💡 Consider splitting into smaller modules
+
+  🟢 [MEDIUM] refresh_erp_data_v5_ARCHIVE.py exceeds 500 line limit (796 lines)
+     Large files are harder to maintain and test
+     📁 ERP\scripts\refresh_erp_data_v5_ARCHIVE.py
+     💡 Consider splitting into smaller modules
+
+  🟢 [MEDIUM] refresh_erp_parquet.py exceeds 500 line limit (868 lines)
+     Large files are harder to maintain and test
+     📁 ERP\scripts\refresh_erp_parquet.py
+     💡 Consider splitting into smaller modules
+
+  🟢 [MEDIUM] Insufficient error handling in API (18 try blocks for 39 endpoints)
+     Less than 50% of endpoints have try/except
+     📁 api/server.py
+     💡 Add try/except with proper HTTPException responses to all endpoints
+
+  🟢 [MEDIUM] God function: sync_email_dataset() is 162 lines
+     Functions >100 lines are hard to test and maintain
+     📁 api\email_event_engine.py:340
+     💡 Split into smaller helper functions
+
+  🟢 [MEDIUM] God function: calc_win_probability() is 101 lines
+     Functions >100 lines are hard to test and maintain
+     📁 api\quote_intelligence.py:52
+     💡 Split into smaller helper functions
+
+  🟢 [MEDIUM] God function: convert_to_shipment() is 102 lines
+     Functions >100 lines are hard to test and maintain
+     📁 api\quote_store.py:229
+     💡 Split into smaller helper functions
+
+  🟢 [MEDIUM] God function: get_rates_matrix() is 124 lines
+     Functions >100 lines are hard to test and maintain
+     📁 api\server.py:567
+     💡 Split into smaller helper functions
+
+════════════════════════════════════════════════════════════
+  Conclusion: 🔴 Significant architecture drift detected
+════════════════════════════════════════════════════════════
+
+════════════════════════════════════════════════════════════
+  NELSON FREIGHT — ARCHITECTURE DRIFT REPORT
+════════════════════════════════════════════════════════════
+  Date: 2026-03-14 22:18
+  Total Drifts: 48
+  Critical: 38 | High: 3 | Medium: 7
+════════════════════════════════════════════════════════════
+
+  [CLIENT ISOLATION]
+  ────────────────────────────────────────
+  🔴 Bot reading Excel directly
+     📁 TelegramBot\bot.py:1303
+     💡 Replace with API call via api_client.py
+  🔴 Bot reading Excel directly
+     📁 TelegramBot\bot.py:1379
+     💡 Replace with API call via api_client.py
+  🔴 Bot reading Excel directly
+     📁 TelegramBot\bot.py:1444
+     💡 Replace with API call via api_client.py
+  🔴 Bot reading Excel directly
+     📁 TelegramBot\bot.py:1500
+     💡 Replace with API call via api_client.py
+  🔴 Bot loading Parquet directly
+     📁 TelegramBot\bot_v4.py:98
+     💡 Replace with API call via api_client.py
+  🔴 Bot loading JSON file directly
+     📁 TelegramBot\bot_v4.py:128
+     💡 Replace with API call via api_client.py
+  🔴 Bot reading Excel directly
+     📁 TelegramBot\bot_v4.py:951
+     💡 Replace with API call via api_client.py
+  🔴 Bot reading Excel directly
+     📁 TelegramBot\bot_v4.py:1015
+     💡 Replace with API call via api_client.py
+  🔴 Bot reading Excel directly
+     📁 TelegramBot\bot_v4.py:1070
+     💡 Replace with API call via api_client.py
+  🔴 Bot reading Excel directly
+     📁 TelegramBot\bot_v4.py:1113
+     💡 Replace with API call via api_client.py
+  🔴 Bot reading Excel directly
+     📁 TelegramBot\bot_v5.py:1125
+     💡 Replace with API call via api_client.py
+  🔴 Bot reading Excel directly
+     📁 TelegramBot\bot_v5.py:1189
+     💡 Replace with API call via api_client.py
+  🔴 Bot reading Excel directly
+     📁 TelegramBot\bot_v5.py:1244
+     💡 Replace with API call via api_client.py
+  🔴 Bot reading Excel directly
+     📁 TelegramBot\bot_v5.py:1287
+     💡 Replace with API call via api_client.py
+  🔴 Bot referencing shipment_state.json
+     📁 TelegramBot\email_analytics.py:5
+     💡 Replace with API call via api_client.py
+  🔴 Bot referencing shipment_state.json
+     📁 TelegramBot\email_analytics.py:39
+     💡 Replace with API call via api_client.py
+  🔴 Bot referencing shipment_state.json
+     📁 TelegramBot\email_analytics.py:69
+     💡 Replace with API call via api_client.py
+  🔴 Bot loading JSON file directly
+     📁 TelegramBot\email_analytics.py:72
+     💡 Replace with API call via api_client.py
+  🔴 Bot reading Excel directly
+     📁 TelegramBot\erp_reader.py:33
+     💡 Replace with API call via api_client.py
+  🔴 Bot reading Excel directly
+     📁 TelegramBot\erp_writer.py:93
+     💡 Replace with API call via api_client.py
+  🔴 Bot reading Excel directly
+     📁 TelegramBot\erp_writer.py:188
+     💡 Replace with API call via api_client.py
+  🔴 Bot referencing shipment_state.json
+     📁 TelegramBot\intelligence_features.py:149
+     💡 Replace with API call via api_client.py
+  🔴 Bot loading Parquet directly
+     📁 TelegramBot\intelligence_features.py:747
+     💡 Replace with API call via api_client.py
+  🔴 Bot reading Excel directly
+     📁 TelegramBot\markup_engine.py:50
+     💡 Replace with API call via api_client.py
+  🔴 Bot loading Parquet directly
+     📁 TelegramBot\query_engine.py:58
+     💡 Replace with API call via api_client.py
+  🔴 Bot loading JSON file directly
+     📁 TelegramBot\query_engine.py:91
+     💡 Replace with API call via api_client.py
+  🔴 Bot loading JSON file directly
+     📁 TelegramBot\quote_formatter.py:30
+     💡 Replace with API call via api_client.py
+
+  [CONFIGURATION]
+  ────────────────────────────────────────
+  🟢 Hardcoded path: EMAIL_DIR = Path(r"D:\NELSON\email_engine")
+     📁 api\data_access.py:43
+     💡 Use os.environ or .env config
+  🟢 Hardcoded path: ORIGINAL_DATASET = Path(r"D:\NELSON\email_engine\outlook_dat
+     📁 api\email_event_engine.py:35
+     💡 Use os.environ or .env config
+  🟢 Hardcoded path: SHIPMENT_STATE = Path(r"D:\NELSON\email_engine\shipment_stat
+     📁 api\email_event_engine.py:38
+     💡 Use os.environ or .env config
+  🟢 Hardcoded path: ORIGINAL_EMAIL_ENGINE = Path(r"D:\NELSON\email_engine")
+     📁 api\email_scanner.py:43
+     💡 Use os.environ or .env config
+  🟢 Hardcoded path: EMAIL_DIR = Path(r"D:\NELSON\email_engine")
+     📁 api\server.py:72
+     💡 Use os.environ or .env config
+  🟢 Hardcoded path: EMAIL_ENGINE    = Path(r"D:\NELSON\email_engine")
+     📁 TelegramBot\email_analytics.py:38
+     💡 Use os.environ or .env config
+  🟢 Hardcoded path: EMAIL_ENGINE  = Path(r"D:\NELSON\email_engine")
+     📁 ..\..\..\email_engine\backfill_parquet.py:23
+     💡 Use os.environ or .env config
+
+  [DATA LAYER]
+  ────────────────────────────────────────
+  🔴 Writes to JSON database: quotes.json
+     📁 api\data_access.py
+     💡 Migrate quotes.json to PostgreSQL
+  🔴 Writes to JSON database: shipment_state.json
+     📁 api\data_access.py
+     💡 Migrate shipment_state.json to PostgreSQL
+  🔴 Writes to JSON database: shipment_state.json
+     📁 api\email_event_engine.py
+     💡 Migrate shipment_state.json to PostgreSQL
+  🔴 Writes to JSON database: shipment_state.json
+     📁 api\server.py
+     💡 Migrate shipment_state.json to PostgreSQL
+  🔴 Writes to JSON database: shipment_state.json
+     📁 ..\..\..\email_engine\shipment_brain.py
+     💡 Migrate shipment_state.json to PostgreSQL
+  🔴 Writes to JSON database: outlook_dataset.json
+     📁 api\email_event_engine.py
+     💡 Migrate outlook_dataset.json to PostgreSQL
+  🔴 Writes to JSON database: outlook_dataset.json
+     📁 api\email_scanner.py
+     💡 Migrate outlook_dataset.json to PostgreSQL
+  🔴 Writes to JSON database: outlook_dataset.json
+     📁 api\server.py
+     💡 Migrate outlook_dataset.json to PostgreSQL
+  🔴 Writes to JSON database: outlook_dataset.json
+     📁 ..\..\..\email_engine\scan_outlook_folders.py
+     💡 Migrate outlook_dataset.json to PostgreSQL
+  🔴 Writes to JSON database: outlook_dataset.json
+     📁 ..\..\..\email_engine\_parse_msg_files.py
+     💡 Migrate outlook_dataset.json to PostgreSQL
+  🔴 Writes to JSON database: sync_state.json
+     📁 api\email_event_engine.py
+     💡 Migrate sync_state.json to PostgreSQL
+
+  [DUPLICATION]
+  ────────────────────────────────────────
+  🟡 Duplicate function 'get_kpi' across: api\data_access.py, api\server.py, api\routers\dashboard_router.py
+     📁 api\data_access.py
+     💡 Extract shared logic into a common module or use API calls
+  🟡 Duplicate function 'get_quote_stats' across: api\quote_store.py, TelegramBot\erp_reader.py
+     📁 api\quote_store.py
+     💡 Extract shared logic into a common module or use API calls
+  🟡 Duplicate function 'status' across: api\services\notification.py, api\workers\email_worker.py, api\workers\evaluator_worker.py
+     📁 api\services\notification.py
+     💡 Extract shared logic into a common module or use API calls
+
+
+════════════════════════════════════════════════════════════
+  NELSON FREIGHT — TECHNICAL DEBT REPORT
+════════════════════════════════════════════════════════════
+  Date: 2026-03-14 22:18
+  Total Debt Items: 17
+  Debt Score: 10.0 / 10 (lower is better)
+════════════════════════════════════════════════════════════
+
+  🔴 CRITICAL (2 items)
+  ────────────────────────────────────────
+    • JSON database still in use: shipment_state.json
+      Size: 271,176 bytes at D:\NELSON\email_engine\shipment_state.json
+      📁 D:\NELSON\email_engine\shipment_state.json
+      💡 Migrate to PostgreSQL table
+    • JSON database still in use: outlook_dataset.json
+      Size: 706,015 bytes at D:\NELSON\email_engine\outlook_dataset.json
+      📁 D:\NELSON\email_engine\outlook_dataset.json
+      💡 Migrate to PostgreSQL table
+
+  🟡 HIGH (4 items)
+  ────────────────────────────────────────
+    • server.py: 1,301 lines (limit: 500)
+      Large files increase maintenance cost and merge conflicts
+      📁 api\server.py
+      💡 Split into focused modules with clear responsibilities
+    • bot.py: 1,703 lines (limit: 500)
+      Large files increase maintenance cost and merge conflicts
+      📁 TelegramBot\bot.py
+      💡 Split into focused modules with clear responsibilities
+    • bot_v4.py: 1,311 lines (limit: 500)
+      Large files increase maintenance cost and merge conflicts
+      📁 TelegramBot\bot_v4.py
+      💡 Split into focused modules with clear responsibilities
+    • JSON database still in use: quotes.json
+      Size: 9,678 bytes at api\data\quotes.json
+      📁 D:\NELSON\2. Areas\PricingSystem\Engine_test\api\data\quotes.json
+      💡 Migrate to PostgreSQL table
+
+  🟢 MEDIUM (11 items)
+  ────────────────────────────────────────
+    • email_event_engine.py: 549 lines (limit: 500)
+      Large files increase maintenance cost and merge conflicts
+      📁 api\email_event_engine.py
+      💡 Split into focused modules with clear responsibilities
+    • email_analytics.py: 578 lines (limit: 500)
+      Large files increase maintenance cost and merge conflicts
+      📁 TelegramBot\email_analytics.py
+      💡 Split into focused modules with clear responsibilities
+    • intelligence_features.py: 854 lines (limit: 500)
+      Large files increase maintenance cost and merge conflicts
+      📁 TelegramBot\intelligence_features.py
+      💡 Split into focused modules with clear responsibilities
+    • create_erp_preview.py: 656 lines (limit: 500)
+      Large files increase maintenance cost and merge conflicts
+      📁 ERP\scripts\create_erp_preview.py
+      💡 Split into focused modules with clear responsibilities
+    • refresh_erp_data.py: 797 lines (limit: 500)
+      Large files increase maintenance cost and merge conflicts
+      📁 ERP\scripts\refresh_erp_data.py
+      💡 Split into focused modules with clear responsibilities
+    • refresh_erp_data_v5_ARCHIVE.py: 796 lines (limit: 500)
+      Large files increase maintenance cost and merge conflicts
+      📁 ERP\scripts\refresh_erp_data_v5_ARCHIVE.py
+      💡 Split into focused modules with clear responsibilities
+    • refresh_erp_parquet.py: 868 lines (limit: 500)
+      Large files increase maintenance cost and merge conflicts
+      📁 ERP\scripts\refresh_erp_parquet.py
+      💡 Split into focused modules with clear responsibilities
+    • No test file for quote_store.py
+      Critical module without automated tests
+      📁 api/quote_store.py
+      💡 Create test_quote_store.py with basic CRUD/logic tests
+    • No test file for quote_intelligence.py
+      Critical module without automated tests
+      📁 api/quote_intelligence.py
+      💡 Create test_quote_intelligence.py with basic CRUD/logic tests
+    • No test file for email_event_engine.py
+      Critical module without automated tests
+      📁 api/email_event_engine.py
+      💡 Create test_email_event_engine.py with basic CRUD/logic tests
+    • No test file for email_scanner.py
+      Critical module without automated tests
+      📁 api/email_scanner.py
+      💡 Create test_email_scanner.py with basic CRUD/logic tests
+
+
+════════════════════════════════════════════════════════════
+  NELSON FREIGHT — SYSTEM SELF-EVALUATION
+════════════════════════════════════════════════════════════
+  Date: 2026-03-14T22:18:11
+  Architecture Score:  4.7 / 10
+  Performance Score:   0.0 / 10
+  Reliability Score:   8.8 / 10
+════════════════════════════════════════════════════════════
+
+  HEALTH CHECKS
+  ────────────────────────────────────────
+  ✅ API Server           2443ms (2443ms)
+  ✅ WebApp               142ms (142ms)
+  ✅ Parquet Data         Updated 1d ago
+  ✅ Shipment State       2 entries, 265KB
+  ✅ Quotes Data          5 quotes
+  ⚠️ Email Dataset        689KB, 29h old
+  ✅ SQLite DB            8 tables: customer_rules, sqlite_sequence, commissions, shipment_events, price_snapshots
+  ✅ ERP File             7.4MB, modified 13-Mar 07:43
+
+  Passed: 7/8
+
+
+⏱️ Audit completed in 3.3 seconds
