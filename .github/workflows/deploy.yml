@@ -144,9 +144,13 @@ jobs:
             export NELSON_CODE_DIR="$CODE"
             export NELSON_MACHINE="vps"
 
-            # 4. Install Python deps (API needs openpyxl, pandas, etc.)
+            # 4. Install Python deps
             echo "--- Python deps ---"
-            pip3 install pandas openpyxl fastapi uvicorn python-dotenv duckdb httpx 2>&1 | tail -3 || true
+            if [ -f "$CODE/api/venv/bin/pip" ]; then
+              "$CODE/api/venv/bin/pip" install pandas openpyxl duckdb httpx 2>&1 | tail -3 || true
+            else
+              pip3 install --break-system-packages pandas openpyxl duckdb httpx 2>&1 | tail -3 || true
+            fi
 
             # 5. Deploy API
             echo "--- API deploy ---"
