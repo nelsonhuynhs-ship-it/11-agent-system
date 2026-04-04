@@ -59,10 +59,9 @@ _MOCK_BASE = {
 
 
 def _get_conn() -> sqlite3.Connection:
-    """Get SQLite connection with WAL mode for concurrent access."""
-    conn = sqlite3.connect(SPOT_DB, timeout=10)
-    conn.execute("PRAGMA journal_mode=WAL")
-    return conn
+    """Get SQLite connection with WAL mode via shared module."""
+    from shared.db_connect import get_db
+    return get_db(SPOT_DB, row_factory=False)
 
 
 # ── Mock Data ─────────────────────────────────────────────────

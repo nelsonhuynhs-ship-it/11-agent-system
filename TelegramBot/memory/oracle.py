@@ -32,7 +32,8 @@ class Oracle:
         self._init_db()
 
     def _conn(self):
-        return sqlite3.connect(self.db_path)
+        from shared.db_connect import get_db
+        return get_db(self.db_path)
 
     def _init_db(self):
         with self._conn() as c:

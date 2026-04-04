@@ -1,85 +1,158 @@
-name: Sync Data to VPS
+name: VPS Data Health Check
+
+# ============================================================
+#   NELSON FREIGHT — Daily VPS Data Health Check
+#   Verify rclone synced data is fresh + API healthy
+#   Data flows: OneDrive → rclone (every 15min) → VPS
+#   NOTE: Data does NOT go through GitHub — OneDrive only
+# ============================================================
 
 on:
-  workflow_dispatch:
+  schedule:
+    - cron: '0 23 * * *'  # 6:00 AM Vietnam (UTC+7) daily
+  workflow_dispatch:       # Manual trigger
 
 jobs:
-  sync:
+  health-check:
     runs-on: ubuntu-latest
     steps:
-      - name: Sync all data files to VPS
+      - name: Check VPS data freshness + API health
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: 14.225.207.145
           username: root
           password: ${{ secrets.VPS_PASSWORD }}
-          timeout: 180s
+          timeout: 120s
           script: |
             set -e
-            echo "=== Data Sync $(date '+%H:%M') ==="
+            echo "=== VPS Data Health Check $(date '+%H:%M %d/%m/%Y') ==="
 
-            TOKEN="${{ secrets.GH_DEPLOY_TOKEN }}"
-            REPO="nelsonhuynhs-ship-it/FrieghtBrian"
-            TAG="data-sync-v1"
+            ISSUES=""
 
-            # Get all release assets
-            ASSETS=$(curl -sL \
-              -H "Authorization: token $TOKEN" \
-              "https://api.github.com/repos/$REPO/releases/tags/$TAG" \
-              | python3 -c "
-            import sys, json
-            data = json.load(sys.stdin)
-            for a in data.get('assets', []):
-                print(f\"{a['name']}|{a['url']}\")
-            ")
+            # ── 1. Check rclone sync status ────────────────────
+            echo ""
+            echo "--- rclone Sync Status ---"
+            FAIL_COUNT=$(cat /opt/nelson/sync/fail_count 2>/dev/null || echo "unknown")
+            LAST_OK=$(cat /opt/nelson/sync/last_success 2>/dev/null || echo "never")
+            echo "  Fail count: $FAIL_COUNT"
+            echo "  Last success: $LAST_OK"
 
-            # Download each asset to correct directory
-            for line in $ASSETS; do
-              NAME=$(echo "$line" | cut -d'|' -f1)
-              URL=$(echo "$line" | cut -d'|' -f2)
+            if [ "$FAIL_COUNT" != "0" ] && [ "$FAIL_COUNT" != "unknown" ]; then
+              ISSUES="${ISSUES}rclone fail count: ${FAIL_COUNT}\n"
+            fi
 
-              case "$NAME" in
-                *_slim.parquet)
-                  # Slim parquet → rename to standard name for API
-                  DIR="/opt/nelson/data/pricing"
-                  mkdir -p "$DIR"
-                  echo "Downloading $NAME → $DIR/Cleaned_Master_History.parquet"
-                  curl -sL \
-                    -H "Authorization: token $TOKEN" \
-                    -H "Accept: application/octet-stream" \
-                    -o "$DIR/Cleaned_Master_History.parquet" \
-                    "$URL"
-                  ls -la "$DIR/Cleaned_Master_History.parquet"
-                  continue
-                  ;;
-                *.parquet)
-                  DIR="/opt/nelson/data/pricing"
-                  ;;
-                *cnee*|*shipper*|*contact*)
-                  DIR="/opt/nelson/data/email"
-                  ;;
-                *)
-                  DIR="/opt/nelson/data"
-                  ;;
-              esac
+            # Check if rclone cron exists
+            if crontab -l 2>/dev/null | grep -q "rclone-data.sh"; then
+              echo "  Cron: active"
+            else
+              echo "  Cron: MISSING!"
+              ISSUES="${ISSUES}rclone cron not found\n"
+            fi
 
-              mkdir -p "$DIR"
-              echo "Downloading $NAME → $DIR/"
-              curl -sL \
-                -H "Authorization: token $TOKEN" \
-                -H "Accept: application/octet-stream" \
-                -o "$DIR/$NAME" \
-                "$URL"
-              ls -la "$DIR/$NAME"
+            # ── 2. Check critical data files ───────────────────
+            echo ""
+            echo "--- Data Files ---"
+
+            check_file() {
+              local FILE="$1"
+              local NAME="$2"
+              local MIN_SIZE="$3"
+              if [ -f "$FILE" ]; then
+                SIZE=$(stat -c%s "$FILE" 2>/dev/null || echo 0)
+                AGE_HOURS=$(( ($(date +%s) - $(stat -c%Y "$FILE" 2>/dev/null || echo 0)) / 3600 ))
+                SIZE_HR=$(numfmt --to=iec "$SIZE" 2>/dev/null || echo "${SIZE}B")
+                echo "  $NAME: ${SIZE_HR}, ${AGE_HOURS}h old"
+                if [ "$SIZE" -lt "$MIN_SIZE" ]; then
+                  ISSUES="${ISSUES}${NAME} too small (${SIZE_HR})\n"
+                fi
+                if [ "$AGE_HOURS" -gt 48 ]; then
+                  ISSUES="${ISSUES}${NAME} stale (${AGE_HOURS}h old)\n"
+                fi
+              else
+                echo "  $NAME: MISSING!"
+                ISSUES="${ISSUES}${NAME} missing\n"
+              fi
+            }
+
+            check_file "/opt/nelson/data/pricing/Cleaned_Master_History.parquet" "Parquet" 100000
+            check_file "/opt/nelson/data/email/cnee_master.xlsx" "CNEE Master" 10000
+            check_file "/opt/nelson/data/pricing/carrier_rules.json" "Carrier Rules" 100
+
+            # ── 3. Docker container status ─────────────────────
+            echo ""
+            echo "--- Docker Containers ---"
+            docker ps --format "  {{.Names}}: {{.Status}}" 2>/dev/null || echo "  Docker not running!"
+
+            if ! docker ps --format "{{.Names}}" | grep -q "nelson-api"; then
+              ISSUES="${ISSUES}nelson-api container not running\n"
+            fi
+
+            # ── 4. API health check with retry ─────────────────
+            echo ""
+            echo "--- API Health ---"
+            API_OK=false
+            for i in 1 2 3; do
+              HTTP=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8100/api/health 2>/dev/null || echo "000")
+              if [ "$HTTP" = "200" ] || [ "$HTTP" = "307" ]; then
+                API_OK=true
+                echo "  API: OK (HTTP $HTTP)"
+                break
+              fi
+              echo "  Attempt $i: HTTP $HTTP"
+              sleep 3
             done
 
-            echo "=== Restarting API ==="
-            cd /opt/nelson/code
-            docker compose restart nelson-api
-            sleep 8
+            if [ "$API_OK" = false ]; then
+              ISSUES="${ISSUES}API not responding\n"
+              echo "  Trying restart..."
+              cd /opt/nelson/code && docker compose restart nelson-api 2>/dev/null || true
+              sleep 8
+              HTTP=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8100/api/health 2>/dev/null || echo "000")
+              if [ "$HTTP" = "200" ] || [ "$HTTP" = "307" ]; then
+                echo "  API recovered after restart"
+                ISSUES="${ISSUES}(API recovered after restart)\n"
+              else
+                echo "  API still down after restart!"
+              fi
+            fi
 
-            # Health check
-            API=$(curl -s http://localhost:8100/api/health | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','fail'))" 2>/dev/null || echo "fail")
-            TIERS=$(curl -s http://localhost:8100/api/email-rate/campaign/tier-stats | python3 -c "import sys,json; print(json.load(sys.stdin).get('total',0))" 2>/dev/null || echo "0")
-            echo "Health: API=$API | CNEE=$TIERS contacts"
-            echo "=== Sync Done ==="
+            # ── 5. WebApp health ───────────────────────────────
+            WEB_HTTP=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3003 2>/dev/null || echo "000")
+            echo "  WebApp: HTTP $WEB_HTTP"
+            if [ "$WEB_HTTP" != "200" ] && [ "$WEB_HTTP" != "307" ]; then
+              ISSUES="${ISSUES}WebApp not responding (HTTP ${WEB_HTTP})\n"
+            fi
+
+            # ── 6. Disk space ──────────────────────────────────
+            echo ""
+            echo "--- Disk Space ---"
+            DISK_USED=$(df /opt/nelson/data | tail -1 | awk '{print $5}' | tr -d '%')
+            echo "  /opt/nelson: ${DISK_USED}% used"
+            if [ "$DISK_USED" -gt 85 ]; then
+              ISSUES="${ISSUES}Disk ${DISK_USED}% full\n"
+            fi
+
+            # ── Summary ────────────────────────────────────────
+            echo ""
+            if [ -z "$ISSUES" ]; then
+              echo "=== ALL OK ==="
+            else
+              echo "=== ISSUES FOUND ==="
+              echo -e "$ISSUES"
+              # Don't exit 1 — let notification handle it
+            fi
+
+      - name: Notify Success
+        if: success()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d text="VPS Health OK | $(date -u '+%d/%m %H:%M UTC')" || true
+
+      - name: Notify Failure
+        if: failure()
+        run: |
+          RUN="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d text="VPS Health FAIL! Check: $RUN" || true

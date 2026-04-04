@@ -44,7 +44,8 @@ def generate():
         log.error("Database not found at %s — run data_collector.py first.", DB_PATH)
         return None
 
-    conn = sqlite3.connect(str(DB_PATH))
+    from shared.db_connect import get_db
+    conn = get_db(DB_PATH, readonly=True)
     today_str = datetime.now().strftime('%Y-%m-%d')
     week_ago  = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
 

@@ -243,8 +243,8 @@ class Sentinel:
                 return "", data
 
             yesterday = (datetime.now() - timedelta(hours=24)).isoformat()
-            with sqlite3.connect(db_path) as c:
-                c.row_factory = sqlite3.Row
+            from shared.db_connect import get_db
+            with get_db(db_path, readonly=True) as c:
                 rows = c.execute("""
                     SELECT alert_type, risk_level, customer_name,
                            alert_reason, shipment_key
@@ -292,7 +292,7 @@ class Sentinel:
 
             if mentee_ids:
                 # Check specific mentees
-                with sqlite3.connect(oracle_db) as c:
+                with get_db(oracle_db, readonly=True) as c:
                     for uid in mentee_ids:
                         row = c.execute(
                             "SELECT COUNT(*) FROM conversations "

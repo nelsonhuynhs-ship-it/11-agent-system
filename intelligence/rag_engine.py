@@ -91,7 +91,8 @@ class RAGEngine:
             return
         count = 0
         try:
-            with sqlite3.connect(ORACLE_DB) as c:
+            from shared.db_connect import get_db
+            with get_db(ORACLE_DB, readonly=True) as c:
                 rows = c.execute(
                     "SELECT id, user_id, role, content, ts "
                     "FROM conversations ORDER BY ts DESC LIMIT ?",

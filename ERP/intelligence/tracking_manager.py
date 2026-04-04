@@ -59,11 +59,9 @@ STATUS_ORDER = list(STATUS_MAP.keys())
 
 
 def _get_conn() -> sqlite3.Connection:
-    """Get SQLite connection with WAL mode."""
-    conn = sqlite3.connect(TRACKING_DB, timeout=10)
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.row_factory = sqlite3.Row
-    return conn
+    """Get SQLite connection with WAL mode via shared module."""
+    from shared.db_connect import get_db
+    return get_db(TRACKING_DB)
 
 
 # ── Container CRUD ────────────────────────────────────────────
