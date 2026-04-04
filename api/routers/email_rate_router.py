@@ -856,6 +856,15 @@ def _load_cnee() -> pd.DataFrame:
     if "PIC" in df.columns and "CNEE_PIC" not in df.columns:
         df["CNEE_PIC"] = df["PIC"]
 
+    # v2 compat: derive ALREADY_SENT from SEND_COUNT if column missing
+    if "ALREADY_SENT" not in df.columns:
+        if "SEND_COUNT" in df.columns:
+            df["ALREADY_SENT"] = df["SEND_COUNT"].apply(
+                lambda x: "Y" if pd.to_numeric(x, errors="coerce") and pd.to_numeric(x, errors="coerce") > 0 else "N"
+            )
+        else:
+            df["ALREADY_SENT"] = "N"
+
     _cnee_cache = df
     return _cnee_cache
 
