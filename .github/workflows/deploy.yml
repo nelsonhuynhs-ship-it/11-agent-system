@@ -132,14 +132,17 @@ jobs:
             git reset --hard origin/main
             echo "[OK] Code moi: $(git log -1 --pretty='%s')"
 
-            # 2. Detect changed areas
+            # 2. Detect changed areas (empty diff = force full deploy)
             CHANGED=$(git diff HEAD~1 HEAD --name-only 2>/dev/null || echo "all")
             API_CHANGED=false; WEBAPP_CHANGED=false; EMAIL_CHANGED=false; SHARED_CHANGED=false
-            echo "$CHANGED" | grep -qE "^api/|^db/|^intelligence/|^shared/" && API_CHANGED=true || true
-            echo "$CHANGED" | grep -qE "^webapp/src/"                       && WEBAPP_CHANGED=true || true
-            echo "$CHANGED" | grep -qE "^email_engine/"                     && EMAIL_CHANGED=true || true
-            echo "$CHANGED" | grep -qE "^shared/"                           && SHARED_CHANGED=true || true
-            [ "$CHANGED" = "all" ] && API_CHANGED=true && WEBAPP_CHANGED=true
+            if [ -z "$CHANGED" ] || [ "$CHANGED" = "all" ]; then
+              API_CHANGED=true; WEBAPP_CHANGED=true
+            else
+              echo "$CHANGED" | grep -qE "^api/|^db/|^intelligence/|^shared/" && API_CHANGED=true || true
+              echo "$CHANGED" | grep -qE "^webapp/src/"                       && WEBAPP_CHANGED=true || true
+              echo "$CHANGED" | grep -qE "^email_engine/"                     && EMAIL_CHANGED=true || true
+              echo "$CHANGED" | grep -qE "^shared/"                           && SHARED_CHANGED=true || true
+            fi
             echo "Scope: API=$API_CHANGED WebApp=$WEBAPP_CHANGED Email=$EMAIL_CHANGED Shared=$SHARED_CHANGED"
 
             # 3. Export env vars for shared.paths
