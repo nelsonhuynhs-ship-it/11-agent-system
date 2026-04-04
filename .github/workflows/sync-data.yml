@@ -19,11 +19,17 @@ jobs:
             mkdir -p /opt/nelson/data/email
             cd /opt/nelson/data/email
             
-            # Download from GitHub Release (direct URL, -L follows redirect)
-            curl -sL -H "Authorization: token ${{ secrets.GH_DEPLOY_TOKEN }}" \
+            # Download from GitHub Release via API (private repo needs token)
+            ASSET_URL=$(curl -sL \
+              -H "Authorization: token ${{ secrets.GH_DEPLOY_TOKEN }}" \
+              "https://api.github.com/repos/nelsonhuynhs-ship-it/FrieghtBrian/releases/tags/data-sync-v1" \
+              | grep -o '"url": "https://api.github.com/repos/.*/assets/[0-9]*"' | head -1 | cut -d'"' -f4)
+            echo "Asset API URL: $ASSET_URL"
+            curl -sL \
+              -H "Authorization: token ${{ secrets.GH_DEPLOY_TOKEN }}" \
               -H "Accept: application/octet-stream" \
               -o cnee_master_v2.xlsx \
-              "https://github.com/nelsonhuynhs-ship-it/FrieghtBrian/releases/download/data-sync-v1/cnee_master_v2.xlsx"
+              "$ASSET_URL"
             
             ls -la cnee_master_v2.xlsx
             echo "Data synced OK"
