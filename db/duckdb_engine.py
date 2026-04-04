@@ -50,9 +50,9 @@ class FreightDB:
     def __init__(self, parquet_path: str | Path):
         self._path = Path(parquet_path)
         if not self._path.exists():
-            raise FileNotFoundError(f"Parquet file not found: {self._path}")
+            log.warning("Parquet file not found: %s — FreightDB queries will return empty", self._path)
         self._parquet = self._path.as_posix()
-        log.info("FreightDB initialized: %s", self._parquet)
+        log.info("FreightDB initialized: %s (exists=%s)", self._parquet, self._path.exists())
 
     def _connect(self) -> duckdb.DuckDBPyConnection:
         """Create a fresh connection (thread-safe)."""
