@@ -10,7 +10,22 @@ import {
   CampaignProspect,
   CampaignStats,
   CampaignBulkSendResponse,
+  TierStats,
 } from "@/lib/api";
+
+const TIER_COLORS: Record<string, string> = {
+  VIP: "bg-pink-500/15 text-pink-400",
+  HOT: "bg-red-500/15 text-red-400",
+  WARM_A: "bg-yellow-500/15 text-yellow-400",
+  WARM_B: "bg-blue-500/15 text-blue-400",
+  COOL: "bg-green-500/15 text-green-400",
+  PARK: "bg-gray-500/15 text-gray-400",
+};
+
+const TIER_LABELS: Record<string, string> = {
+  VIP: "VIP", HOT: "HOT", WARM_A: "WARM-A",
+  WARM_B: "WARM-B", COOL: "COOL", PARK: "PARK",
+};
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const DEFAULT_DESTS =
@@ -75,8 +90,12 @@ function CampaignTab() {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
+  // Tier stats
+  const [tierStats, setTierStats] = useState<TierStats | null>(null);
+
   // Filters
   const [selectedCampaign, setSelectedCampaign] = useState("");
+  const [selectedTier, setSelectedTier] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [sentFilter, setSentFilter] = useState("not_sent");
   const [currentPage, setCurrentPage] = useState(1);
@@ -109,6 +128,7 @@ function CampaignTab() {
   // Load stats on mount
   useEffect(() => {
     campaignApi.stats().then(setStats).catch(() => {});
+    campaignApi.tierStats().then(setTierStats).catch(() => {});
   }, []);
 
   // Load prospects
@@ -119,6 +139,7 @@ function CampaignTab() {
         campaign: selectedCampaign,
         search: searchQuery,
         sent_status: sentFilter,
+        tier: selectedTier,
         page: currentPage,
         page_size: 50,
       });
@@ -131,7 +152,7 @@ function CampaignTab() {
     } finally {
       setLoading(null);
     }
-  }, [selectedCampaign, searchQuery, sentFilter, currentPage]);
+  }, [selectedCampaign, searchQuery, sentFilter, selectedTier, currentPage]);
 
   useEffect(() => { loadProspects(); }, [loadProspects]);
 
@@ -272,6 +293,36 @@ function CampaignTab() {
         </div>
       )}
 
+      {/* Tier Stats Bar */}
+      {tierStats && tierStats.total > 0 && (
+        <div className="card p-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-semibold text-text-muted mr-1">Tiers:</span>
+            {["VIP", "HOT", "WARM_A", "WARM_B", "COOL", "PARK"].map((t) => {
+              const count = tierStats.tiers[t] || 0;
+              if (!count) return null;
+              const isActive = selectedTier === t;
+              return (
+                <button
+                  key={t}
+                  onClick={() => { setSelectedTier(isActive ? "" : t); setCurrentPage(1); }}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all border ${
+                    isActive
+                      ? "border-primary bg-primary/20 text-primary"
+                      : `border-transparent ${TIER_COLORS[t] || "bg-gray-500/10 text-gray-400"}`
+                  }`}
+                >
+                  {TIER_LABELS[t] || t} {count.toLocaleString()}
+                </button>
+              );
+            })}
+            <span className="ml-auto text-xs text-green-400 font-semibold">
+              {tierStats.send_now_ready.toLocaleString()} ready to send
+            </span>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
         {/* ── LEFT: Prospect List (3 cols) ─────────────────────────── */}
         <div className="xl:col-span-3 space-y-3">
@@ -390,10 +441,11 @@ function CampaignTab() {
                         title="Select all on this page"
                       />
                     </th>
+                    <th className="text-center px-2 py-2 text-xs font-semibold text-text-muted w-16">Tier</th>
                     <th className="text-left px-3 py-2 text-xs font-semibold text-text-muted">Company</th>
                     <th className="text-left px-3 py-2 text-xs font-semibold text-text-muted">Email</th>
                     <th className="text-left px-3 py-2 text-xs font-semibold text-text-muted hidden sm:table-cell">Campaign</th>
-                    <th className="text-center px-3 py-2 text-xs font-semibold text-text-muted hidden md:table-cell">Shipments</th>
+                    <th className="text-center px-3 py-2 text-xs font-semibold text-text-muted hidden md:table-cell">Score</th>
                     <th className="text-center px-3 py-2 text-xs font-semibold text-text-muted">Status</th>
                   </tr>
                 </thead>
@@ -422,9 +474,16 @@ function CampaignTab() {
                             onChange={() => toggleCheck(p.email)}
                           />
                         </td>
+                        <td className="px-2 py-2 text-center cursor-pointer" onClick={() => selectProspect(p)}>
+                          {p.tier && (
+                            <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${TIER_COLORS[p.tier] || "bg-gray-500/10 text-gray-400"}`}>
+                              {TIER_LABELS[p.tier] || p.tier}
+                            </span>
+                          )}
+                        </td>
                         <td className="px-3 py-2 cursor-pointer" onClick={() => selectProspect(p)}>
                           <div className="font-medium text-text text-xs">{p.company}</div>
-                          {p.pic && <div className="text-[11px] text-text-muted">{p.pic}</div>}
+                          {p.pic && p.pic !== "nan" && <div className="text-[11px] text-text-muted">{p.pic}</div>}
                         </td>
                         <td className="px-3 py-2 text-xs text-text-muted max-w-[200px] truncate cursor-pointer" onClick={() => selectProspect(p)}>{p.email}</td>
                         <td className="px-3 py-2 text-xs text-text-muted hidden sm:table-cell cursor-pointer" onClick={() => selectProspect(p)}>
@@ -433,7 +492,7 @@ function CampaignTab() {
                           </span>
                         </td>
                         <td className="px-3 py-2 text-center text-xs text-text-muted hidden md:table-cell cursor-pointer" onClick={() => selectProspect(p)}>
-                          {p.total_shipment}
+                          {p.priority_score || p.total_shipment}
                         </td>
                         <td className="px-3 py-2 text-center cursor-pointer" onClick={() => selectProspect(p)}>
                           {p.already_sent === "Y" ? (

@@ -151,7 +151,8 @@ SHIPMENT_STATE = EMAIL_DATA / "shipment_state.json"
 SHIPMENT_PATTERNS = EMAIL_DATA / "shipment_patterns.yaml"
 CUSTOMER_FINAL = EMAIL_DATA / "customer_final.xlsx"
 REPLACEMENT_LEADS = EMAIL_DATA / "replacement_leads.xlsx"
-PANJIVA_DIR = EMAIL_DATA / "panjiva"
+PANJIVA_DIR   = EMAIL_DATA / "panjiva"
+DATA_LOC_DIR  = DATA_DIR / "Data Loc"
 
 
 # ── Assets (OneDrive) ────────────────────────────────────────────────────────

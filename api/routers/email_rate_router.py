@@ -53,6 +53,7 @@ _CUSTOMER_RULES = _sp.CUSTOMER_RULES
 _PORT_MAP_FILE  = _sp.PORT_MAP
 _CONFIG_XLSX    = _sp.CONFIG_XLSX
 _CNEE_MASTER    = _sp.CNEE_MASTER
+_CNEE_MASTER_V2 = _sp.EMAIL_DATA / "cnee_master_v2.xlsx"
 _EMAIL_LOG      = _sp.EMAIL_LOG
 _COMPANY_PDF    = _sp.COMPANY_PDF
 
@@ -829,19 +830,32 @@ def _load_sent_emails() -> set:
 
 
 def _load_cnee() -> pd.DataFrame:
-    """Load CNEE master database (cached)."""
+    """Load CNEE master database (cached). Prefers v2 (tiered) over v1."""
     global _cnee_cache
     if _cnee_cache is not None:
         return _cnee_cache
-    if not _CNEE_MASTER.exists():
-        log.warning("cnee_master.xlsx not found at %s", _CNEE_MASTER)
+
+    # Prefer v2 (has TIER, GREETING, PIC, PRIORITY_SCORE columns)
+    source = _CNEE_MASTER_V2 if _CNEE_MASTER_V2.exists() else _CNEE_MASTER
+    if not source.exists():
+        log.warning("cnee_master not found at %s", source)
         return pd.DataFrame()
-    df = pd.read_excel(_CNEE_MASTER)
+
+    log.info("Loading CNEE from %s", source.name)
+    df = pd.read_excel(source)
     df.columns = df.columns.str.strip()
-    # Normalize
-    for col in ["EMAIL", "COMPANY", "CNEE_PIC", "POL", "DESTINATION", "CAMPAIGN_ID", "ALREADY_SENT"]:
+
+    # Normalize standard columns
+    for col in ["EMAIL", "COMPANY", "PIC", "CNEE_PIC", "POL", "DESTINATION",
+                "CAMPAIGN_ID", "ALREADY_SENT", "TIER", "ACTION", "GREETING",
+                "REPLY_STATUS"]:
         if col in df.columns:
             df[col] = df[col].fillna("").astype(str).str.strip()
+
+    # Map v2 PIC → CNEE_PIC for backward compat
+    if "PIC" in df.columns and "CNEE_PIC" not in df.columns:
+        df["CNEE_PIC"] = df["PIC"]
+
     _cnee_cache = df
     return _cnee_cache
 
@@ -1029,23 +1043,31 @@ def get_campaign_prospects(
     campaign: str = Query("", description="Filter by campaign ID"),
     search: str = Query("", description="Search company or email"),
     sent_status: str = Query("all", description="all | sent | not_sent"),
+    tier: str = Query("", description="Filter by tier: VIP,HOT,WARM_A,WARM_B,COOL,PARK"),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=10, le=200),
 ):
-    """Return CNEE prospects with filtering and pagination."""
+    """Return CNEE prospects with filtering, tier support, and pagination."""
     df = _load_cnee()
     if df.empty:
-        return {"prospects": [], "total": 0, "campaigns": [], "page": 1, "page_size": page_size}
+        return {"prospects": [], "total": 0, "campaigns": [], "tiers": [], "page": 1, "page_size": page_size}
 
     # Merge actual sent status from email_log.csv (source of truth)
     df = _merge_sent_status(df)
 
-    # Available campaigns
+    # Available campaigns and tiers
     campaigns = sorted(df["CAMPAIGN_ID"].unique().tolist()) if "CAMPAIGN_ID" in df.columns else []
+    tiers = sorted(df["TIER"].unique().tolist()) if "TIER" in df.columns else []
 
     # Filter by campaign
     if campaign:
         df = df[df["CAMPAIGN_ID"].str.upper() == campaign.upper()]
+
+    # Filter by tier (v2)
+    if tier:
+        tier_list = [t.strip().upper() for t in tier.split(",")]
+        if "TIER" in df.columns:
+            df = df[df["TIER"].str.upper().isin(tier_list)]
 
     # Filter by sent status
     if sent_status == "sent":
@@ -1071,7 +1093,8 @@ def get_campaign_prospects(
         prospects.append({
             "email":        str(row.get("EMAIL", "")),
             "company":      str(row.get("COMPANY", "")),
-            "pic":          str(row.get("CNEE_PIC", "")),
+            "pic":          str(row.get("CNEE_PIC", "") or row.get("PIC", "")),
+            "greeting":     str(row.get("GREETING", "")),
             "pol":          str(row.get("POL", "HPH")),
             "destination":  str(row.get("DESTINATION", "")),
             "carrier":      str(row.get("CARRIER", "")),
@@ -1080,12 +1103,19 @@ def get_campaign_prospects(
             "already_sent": str(row.get("ALREADY_SENT", "N")),
             "last_sent":    str(row.get("LAST_SENT_DATE", "")),
             "email_quality": int(row.get("EMAIL_QUALITY_SCORE", 0)) if pd.notna(row.get("EMAIL_QUALITY_SCORE")) else 0,
+            # v2 tier fields
+            "tier":          str(row.get("TIER", "")),
+            "action":        str(row.get("ACTION", "")),
+            "priority_score": int(row.get("PRIORITY_SCORE", 0)) if pd.notna(row.get("PRIORITY_SCORE")) else 0,
+            "reply_status":  str(row.get("REPLY_STATUS", "")),
+            "send_count":    int(row.get("SEND_COUNT", 0)) if pd.notna(row.get("SEND_COUNT")) else 0,
         })
 
     return {
         "prospects": prospects,
         "total": total,
         "campaigns": campaigns,
+        "tiers": tiers,
         "page": page,
         "page_size": page_size,
         "total_pages": (total + page_size - 1) // page_size,
@@ -1126,6 +1156,47 @@ def get_campaign_stats():
         "sent": sent,
         "not_sent": not_sent,
         "campaigns": campaign_stats,
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 6b. GET /api/email-rate/campaign/tier-stats (v2)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/campaign/tier-stats")
+def get_campaign_tier_stats():
+    """Tier-based statistics from cnee_master_v2."""
+    df = _load_cnee()
+    if df.empty or "TIER" not in df.columns:
+        return {"tiers": {}, "actions": {}, "reply_stats": {}, "total": 0, "send_now_ready": 0}
+
+    total = len(df)
+
+    # Tier distribution
+    tiers = {}
+    for t, grp in df.groupby("TIER"):
+        tiers[str(t)] = len(grp)
+
+    # Action distribution
+    actions = {}
+    if "ACTION" in df.columns:
+        for a, grp in df.groupby("ACTION"):
+            actions[str(a)] = len(grp)
+
+    # Reply stats
+    reply_stats = {}
+    if "REPLY_STATUS" in df.columns:
+        for r, grp in df.groupby("REPLY_STATUS"):
+            reply_stats[str(r)] = len(grp)
+
+    send_now = actions.get("SEND_NOW", 0)
+
+    return {
+        "tiers": tiers,
+        "actions": actions,
+        "reply_stats": reply_stats,
+        "total": total,
+        "send_now_ready": send_now,
     }
 
 

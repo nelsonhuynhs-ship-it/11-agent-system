@@ -162,6 +162,7 @@ export interface CampaignProspect {
   email: string;
   company: string;
   pic: string;
+  greeting: string;
   pol: string;
   destination: string;
   carrier: string;
@@ -170,15 +171,30 @@ export interface CampaignProspect {
   already_sent: string;
   last_sent: string;
   email_quality: number;
+  // v2 tier fields
+  tier: string;
+  action: string;
+  priority_score: number;
+  reply_status: string;
+  send_count: number;
 }
 
 export interface CampaignProspectsResponse {
   prospects: CampaignProspect[];
   total: number;
   campaigns: string[];
+  tiers: string[];
   page: number;
   page_size: number;
   total_pages: number;
+}
+
+export interface TierStats {
+  tiers: Record<string, number>;
+  actions: Record<string, number>;
+  reply_stats: Record<string, number>;
+  total: number;
+  send_now_ready: number;
 }
 
 export interface CampaignStats {
@@ -248,6 +264,7 @@ export const campaignApi = {
     campaign?: string;
     search?: string;
     sent_status?: string;
+    tier?: string;
     page?: number;
     page_size?: number;
   } = {}) => {
@@ -255,6 +272,7 @@ export const campaignApi = {
     if (params.campaign) qs.set('campaign', params.campaign);
     if (params.search) qs.set('search', params.search);
     if (params.sent_status) qs.set('sent_status', params.sent_status);
+    if (params.tier) qs.set('tier', params.tier);
     if (params.page) qs.set('page', String(params.page));
     if (params.page_size) qs.set('page_size', String(params.page_size));
     return fetchAPI<CampaignProspectsResponse>(`/api/email-rate/campaign/prospects?${qs}`);
@@ -262,6 +280,9 @@ export const campaignApi = {
 
   stats: () =>
     fetchAPI<CampaignStats>('/api/email-rate/campaign/stats'),
+
+  tierStats: () =>
+    fetchAPI<TierStats>('/api/email-rate/campaign/tier-stats'),
 
   preview: (req: CampaignPreviewRequest) =>
     fetchAPI<PreviewResponse & { template: string }>('/api/email-rate/campaign/preview', {
