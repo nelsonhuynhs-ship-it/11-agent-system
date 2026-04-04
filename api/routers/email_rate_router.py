@@ -108,16 +108,16 @@ def _load_config() -> dict:
     if _config_cache is not None:
         return _config_cache
     defaults = {
-        "from_name": "Nelson Freight",
+        "from_name": "Nelson Huynh - Pudong Prime",
         "from_email": os.getenv("SMTP_USER", ""),
         "SUBJECTTEMPLATES": "Plan Ahead | Asia–US Ocean Freight This Week | What Importers Need to Know | Asia to US/CA Freight Outlook | This Week | Rates & Space Visibility | Your Weekly Asia–US Freight Brief | Current Ocean Freight Levels | Asia Export to USA | Weekly Planning View",
         "SUBJECTSUFFIX": "NELSON",
         "PREHEADER": "A concise view of current rates, capacity, and near-term planning conditions | Key insights to support your Asia–US freight decisions this week",
         "SIGNATURE": "",
-        "INTROTEXT": "Pls find the best rate update below:",
-        "CLOSINGTEXT": "Please do not hesitate to contact us for further clarification.",
-        "intro_default": "Dear {pic},\n\nPlease find below our latest ocean freight rates for your reference.",
-        "closing_default": "Please do not hesitate to contact us.\n\nBest regards,\nNelson",
+        "INTROTEXT": "In response to recent transport & capacity constraints, we are publishing updated pricing for key partners on the Vietnam to U.S. trade.",
+        "CLOSINGTEXT": "Have the right advice at the right stage and the opportunity daily capitalise, nothing is not a strategic option.\n\nLet's look at your volumes for routing and service reliability.",
+        "intro_default": "Dear {pic},\n\nIn response to recent transport & capacity constraints, we are publishing updated pricing for key partners on the Vietnam to U.S. trade.",
+        "closing_default": "Have the right advice at the right stage and the opportunity daily capitalise, nothing is not a strategic option.\n\nLet's look at your volumes for routing and service reliability.\n\nBest regards,\nNelson",
     }
     if not _CONFIG_XLSX.exists():
         _config_cache = defaults
@@ -462,7 +462,7 @@ def _build_html_table(rows: list[dict], days_used: int = 30) -> tuple[str, bool,
         '<p style="font-size:10px;color:#888;margin-top:8px;">'
         '<span style="display:inline-block;width:12px;height:12px;background:#e8f5e9;'
         'border:1px solid #c8e6c9;border-radius:2px;vertical-align:middle;margin-right:4px;"></span>'
-        ' Best price per route | Rates subject to GRI/PSS/Local Charges | Valid at time of quotation</p>'
+        ' Best price per route | All-in rates (incl. PSS/GRI) | Subject to local charges at origin</p>'
     )
 
     # Never block — let Nelson preview and decide. Show warning only.
@@ -916,13 +916,19 @@ def _build_professional_html(rows: list[dict], intro_html: str, closing_html: st
 <body style="font-family:Calibri,Arial,sans-serif; font-size:13px; color:#222; max-width:900px; margin:0 auto; padding:16px;">
 {preheader}
 {intro_html}
-<br>
+
+<div style="margin:16px 0;">
 {table_html}
-<br>
+</div>
+
+<div style="margin:14px 0;padding:10px 14px;background:#f8f9fa;border-left:3px solid #1a3a5c;font-size:11.5px;color:#444;line-height:1.6;">
+<strong>STRATEGIC VALUE ADD-ONS:</strong><br>
+&bull; <strong>Supply Chain Security:</strong> Pudong Prime is <span style="color:#c0392b;font-weight:700;">CTPAT Certified</span> &ndash; ensuring compliance and faster clearance.<br>
+&bull; <strong>Cost Optimization:</strong> USD 65 POD Fee is <span style="text-decoration:underline;font-weight:700;">WAIVED</span> for the first trial shipment.<br>
+&bull; <strong>Coverage:</strong> Vietnam &bull; China &bull; Thailand &bull; Cambodia &rarr; USA &amp; Canada
+</div>
+
 {closing_html}
-<br>
-<hr style="border:none;border-top:1px solid #ddd;margin:16px 0;">
-{signature}
 </body></html>"""
 
     # ── Professional Template v2 — Region-grouped, Nelson branding ──
