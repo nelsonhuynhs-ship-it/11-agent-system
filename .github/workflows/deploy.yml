@@ -136,7 +136,7 @@ jobs:
             # Simple and reliable — restart is cheap (< 5 seconds)
             API_CHANGED=true
             WEBAPP_CHANGED=true
-            echo "Scope: API=$API_CHANGED WebApp=$WEBAPP_CHANGED Email=$EMAIL_CHANGED Shared=$SHARED_CHANGED"
+            echo "Scope: API=$API_CHANGED WebApp=$WEBAPP_CHANGED"
 
             # 3. Export env vars for shared.paths
             export NELSON_DATA_DIR="$DATA"
@@ -164,7 +164,6 @@ jobs:
             systemctl restart nelson-webapp3003
             sleep 3
             systemctl is-active nelson-webapp3003 && echo "[OK] WebApp up" || echo "[WARN] WebApp issue"
-            fi
 
             # 7. Trigger data sync (rclone)
             if [ -f /opt/nelson/sync/rclone-data.sh ]; then
