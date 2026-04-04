@@ -144,29 +144,26 @@ jobs:
             export NELSON_CODE_DIR="$CODE"
             export NELSON_MACHINE="vps"
 
-            # 4. Deploy API
-            if [ "$API_CHANGED" = "true" ]; then
-              echo "--- API deploy ---"
-              systemctl restart nelson-api
-              sleep 3
-              systemctl is-active nelson-api && echo "[OK] API up" || { echo "[FAIL] API down"; exit 1; }
-            fi
+            # 4. Install Python deps (API needs openpyxl, pandas, etc.)
+            echo "--- Python deps ---"
+            pip3 install pandas openpyxl fastapi uvicorn python-dotenv duckdb httpx 2>&1 | tail -3 || true
 
-            # 5. Deploy email_engine (code only, data via rclone)
-            if [ "$EMAIL_CHANGED" = "true" ]; then
-              echo "[OK] email_engine code updated via git pull"
-            fi
+            # 5. Deploy API
+            echo "--- API deploy ---"
+            systemctl restart nelson-api
+            sleep 3
+            systemctl is-active nelson-api && echo "[OK] API up" || { echo "[FAIL] API down"; journalctl -u nelson-api --no-pager -n 20; exit 1; }
 
             # 6. Deploy WebApp
-            if [ "$WEBAPP_CHANGED" = "true" ]; then
-              echo "--- WebApp build ---"
-              cd "$CODE/webapp"
-              [ ! -f .env.local ] && \
-                echo "NEXT_PUBLIC_API_URL=http://14.225.207.145:8100" > .env.local
-              npm run build 2>&1 | tail -8
-              systemctl restart nelson-webapp3003
-              sleep 3
-              systemctl is-active nelson-webapp3003 && echo "[OK] WebApp up" || echo "[WARN] WebApp issue"
+            echo "--- WebApp build ---"
+            cd "$CODE/webapp"
+            [ ! -f .env.local ] && \
+              echo "NEXT_PUBLIC_API_URL=http://14.225.207.145:8100" > .env.local
+            npm ci --ignore-scripts 2>&1 | tail -3
+            npm run build 2>&1 | tail -8
+            systemctl restart nelson-webapp3003
+            sleep 3
+            systemctl is-active nelson-webapp3003 && echo "[OK] WebApp up" || echo "[WARN] WebApp issue"
             fi
 
             # 7. Trigger data sync (rclone)
