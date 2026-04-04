@@ -179,7 +179,7 @@ def get_rates_breakdown(
     con = freight_db._connect()
     try:
         conditions = [
-            freight_db._date_filter(90),
+            freight_db._date_filter(90, require_valid=False),
             "Amount > 0",
             f"UPPER(TRIM(POL)) = UPPER('{pol}')",
         ]
@@ -338,7 +338,7 @@ def get_rates_matrix(
             FROM read_parquet('{freight_db._parquet}')
             WHERE UPPER(TRIM(POL)) = UPPER(?)
               AND Container_Type IN ({ct_placeholders})
-              AND {freight_db._date_filter(90)}
+              AND {freight_db._date_filter(90, require_valid=False)}
               AND Amount > 0
         """
         params = [pol] + ct_list
