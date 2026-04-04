@@ -101,11 +101,14 @@ jobs:
 
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          GH_TOKEN: ${{ secrets.GH_DEPLOY_TOKEN }}
         with:
           host: ${{ env.VPS_HOST }}
           username: ${{ env.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           timeout: 300s
+          envs: GH_TOKEN
           script: |
             set -e
             echo "=== Nelson Deploy $(date '+%H:%M %d/%m/%Y') ==="
@@ -118,11 +121,13 @@ jobs:
             # 0. Ensure directories exist
             mkdir -p "$CODE" "$DATA" "$LOCAL/logs" "$LOCAL/runtime"
 
-            # 1. Pull latest code
+            # 1. Pull latest code (use token for private repo auth)
+            REPO_URL="https://${GH_TOKEN}@github.com/nelsonhuynhs-ship-it/FrieghtBrian.git"
             if [ ! -d "$CODE/.git" ]; then
-              git clone https://github.com/nelsonhuynhs-ship-it/FrieghtBrian.git "$CODE"
+              git clone "$REPO_URL" "$CODE"
             fi
             cd "$CODE"
+            git remote set-url origin "$REPO_URL"
             git fetch origin main
             git reset --hard origin/main
             echo "[OK] Code moi: $(git log -1 --pretty='%s')"
