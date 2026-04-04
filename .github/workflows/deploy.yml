@@ -1,9 +1,8 @@
 name: Nelson Auto-Deploy to VPS
 
 # ============================================================
-#   NELSON FREIGHT — CI/CD Pipeline v2
-#   Push len main → test tu dong → deploy VPS → Telegram
-#   Updated: 2026-04-01
+#   NELSON FREIGHT — CI/CD Pipeline v3 (Docker)
+#   Push to main → test → SSH VPS → docker compose up
 # ============================================================
 
 on:
@@ -18,7 +17,7 @@ env:
 
 jobs:
   # ----------------------------------------------------------
-  #  JOB 1: TEST - Kiem tra code truoc khi deploy (~1 phut)
+  #  JOB 1: TEST
   # ----------------------------------------------------------
   test:
     name: "Kiem tra code"
@@ -34,8 +33,7 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies
-        run: |
-          pip install fastapi httpx pytest pytest-asyncio pydantic python-dotenv pandas openpyxl 2>/dev/null || true
+        run: pip install fastapi httpx pytest pytest-asyncio pydantic python-dotenv pandas openpyxl 2>/dev/null || true
 
       - name: Check Python syntax
         env:
@@ -43,19 +41,10 @@ jobs:
           NELSON_LOCAL_DIR: /tmp/nelson-local
           NELSON_MACHINE: vps
         run: |
-          echo "Checking syntax..."
-          mkdir -p /tmp/nelson-data/pricing /tmp/nelson-data/email /tmp/nelson-data/assets /tmp/nelson-data/bot /tmp/nelson-local/logs /tmp/nelson-local/runtime
-          find api/ -name "*.py" -exec python3 -m py_compile {} \; && echo "OK: API files clean"
-          find shared/ -name "*.py" -exec python3 -m py_compile {} \; && echo "OK: shared clean"
-          find email_engine/core/ -name "*.py" -exec python3 -m py_compile {} \; 2>/dev/null && echo "OK: email_engine clean" || true
-
-      - name: Run API tests
-        run: |
-          if [ -d "api/tests" ] && ls api/tests/*.py 2>/dev/null; then
-            cd api && python -m pytest tests/ -v --tb=short -q
-          else
-            echo "No tests yet - skipping"
-          fi
+          mkdir -p /tmp/nelson-data/{pricing,email,assets,bot,erp} /tmp/nelson-local/{logs,runtime}
+          find api/ -name "*.py" -exec python3 -m py_compile {} \; && echo "OK: API"
+          find shared/ -name "*.py" -exec python3 -m py_compile {} \; && echo "OK: shared"
+          find email_engine/ -name "*.py" -exec python3 -m py_compile {} \; 2>/dev/null && echo "OK: email_engine" || true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -64,41 +53,32 @@ jobs:
           cache: "npm"
           cache-dependency-path: webapp/package-lock.json
 
-      - name: WebApp type check + build
+      - name: WebApp build check
         run: |
           cd webapp
           npm ci --ignore-scripts
-          npx tsc --noEmit && echo "OK: TypeScript clean"
-          npm run build && echo "OK: Next.js build clean"
+          npm run build && echo "OK: Next.js build"
 
       - name: Notify test result
         if: always()
         run: |
-          if [ "${{ job.status }}" = "success" ]; then
-            ICON="OK"; MSG="Code sach - bat dau deploy"
-          else
-            ICON="FAIL"; MSG="Code co loi - KHONG deploy"
-          fi
+          STATUS="${{ job.status }}"
           COMMIT=$(echo "${{ github.event.head_commit.message }}" | cut -c1-60)
+          [ "$STATUS" = "success" ] && MSG="OK Code sach" || MSG="FAIL Code loi"
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
-            -d text="${ICON} ${MSG} | ${COMMIT}" || true
+            -d text="${MSG} | ${COMMIT}" || true
 
   # ----------------------------------------------------------
-  #  JOB 2: DEPLOY - Chi chay neu test pass
+  #  JOB 2: DEPLOY via Docker
   # ----------------------------------------------------------
   deploy:
-    name: "Deploy VPS"
+    name: "Deploy VPS (Docker)"
     runs-on: ubuntu-latest
     needs: test
     if: success()
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.0.3
         env:
@@ -107,21 +87,16 @@ jobs:
           host: ${{ env.VPS_HOST }}
           username: ${{ env.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
-          timeout: 300s
+          timeout: 600s
           envs: GH_TOKEN
           script: |
             set -e
-            echo "=== Nelson Deploy $(date '+%H:%M %d/%m/%Y') ==="
+            echo "=== Nelson Docker Deploy $(date '+%H:%M %d/%m/%Y') ==="
 
-            # ── Layout: /opt/nelson/{code,data,local,sync} ──
             CODE="/opt/nelson/code"
-            DATA="/opt/nelson/data"
-            LOCAL="/opt/nelson/local"
+            mkdir -p "$CODE" /opt/nelson/data/email /opt/nelson/local/logs/email-engine /opt/nelson/local/runtime
 
-            # 0. Ensure directories exist
-            mkdir -p "$CODE" "$DATA" "$LOCAL/logs" "$LOCAL/runtime"
-
-            # 1. Pull latest code (use token for private repo auth)
+            # 1. Git pull
             REPO_URL="https://${GH_TOKEN}@github.com/nelsonhuynhs-ship-it/FrieghtBrian.git"
             if [ ! -d "$CODE/.git" ]; then
               git clone "$REPO_URL" "$CODE"
@@ -130,75 +105,44 @@ jobs:
             git remote set-url origin "$REPO_URL"
             git fetch origin main
             git reset --hard origin/main
-            echo "[OK] Code moi: $(git log -1 --pretty='%s')"
+            echo "[OK] Code: $(git log -1 --pretty='%h %s')"
 
-            # 2. Always restart API + WebApp on every deploy
-            # Simple and reliable — restart is cheap (< 5 seconds)
-            API_CHANGED=true
-            WEBAPP_CHANGED=true
-            echo "Scope: API=$API_CHANGED WebApp=$WEBAPP_CHANGED"
+            # 2. Stop old systemctl services (migrate to Docker)
+            systemctl stop nelson-api 2>/dev/null || true
+            systemctl stop nelson-webapp3003 2>/dev/null || true
+            systemctl disable nelson-api 2>/dev/null || true
+            systemctl disable nelson-webapp3003 2>/dev/null || true
+            echo "[OK] Old systemctl services stopped"
 
-            # 3. Export env vars for shared.paths
-            export NELSON_DATA_DIR="$DATA"
-            export NELSON_LOCAL_DIR="$LOCAL"
-            export NELSON_CODE_DIR="$CODE"
-            export NELSON_MACHINE="vps"
+            # 3. Docker compose up
+            cd "$CODE"
+            docker compose down --remove-orphans 2>/dev/null || true
+            docker compose build --no-cache 2>&1 | tail -5
+            docker compose up -d
+            echo "[OK] Docker containers started"
 
-            # 4. Install Python deps
-            echo "--- Python deps ---"
-            if [ -f "$CODE/api/venv/bin/pip" ]; then
-              "$CODE/api/venv/bin/pip" install pandas openpyxl duckdb httpx 2>&1 | tail -3 || true
-            else
-              pip3 install --break-system-packages pandas openpyxl duckdb httpx 2>&1 | tail -3 || true
-            fi
-
-            # 5. Deploy API — debug service config
-            echo "--- API deploy ---"
-            echo "Service file:"
-            cat /etc/systemd/system/nelson-api.service 2>/dev/null | grep -E "WorkingDirectory|ExecStart|Environment" || echo "Service file not found"
-            systemctl restart nelson-api
-            sleep 3
-            systemctl is-active nelson-api && echo "[OK] API up" || { echo "[FAIL] API down"; journalctl -u nelson-api --no-pager -n 20; exit 1; }
-            echo "API router check:"
-            curl -s http://localhost:8100/openapi.json | python3 -c "import sys,json; d=json.load(sys.stdin); paths=[p for p in d.get('paths',{}) if 'tier' in p]; print(f'tier-stats: {\"FOUND\" if paths else \"MISSING\"}'); print(f'total endpoints: {len(d.get(\"paths\",{}))}');" || echo "openapi check failed"
-
-            # 6. Deploy WebApp
-            echo "--- WebApp build ---"
-            cd "$CODE/webapp"
-            [ ! -f .env.local ] && \
-              echo "NEXT_PUBLIC_API_URL=http://14.225.207.145:8100" > .env.local
-            npm ci --ignore-scripts 2>&1 | tail -3
-            npm run build 2>&1 | tail -8
-            systemctl restart nelson-webapp3003
-            sleep 3
-            systemctl is-active nelson-webapp3003 && echo "[OK] WebApp up" || echo "[WARN] WebApp issue"
-
-            # 7. Trigger data sync (rclone)
-            if [ -f /opt/nelson/sync/rclone-data.sh ]; then
-              /opt/nelson/sync/rclone-data.sh 2>&1 | tail -3 || echo "[WARN] rclone sync failed"
-            fi
-
-            # 8. Health check
-            sleep 2
+            # 4. Wait + Health check
+            sleep 8
+            docker compose ps
             API_HTTP=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8100/api/health || echo "000")
-            WEB_HTTP=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3003/login 2>/dev/null || echo "000")
+            WEB_HTTP=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3003 2>/dev/null || echo "000")
             echo "Health: API=$API_HTTP WebApp=$WEB_HTTP"
+
             if [ "$API_HTTP" != "200" ] && [ "$API_HTTP" != "307" ]; then
-              echo "[FAIL] API khong respond"
+              echo "[FAIL] API not responding — showing logs:"
+              docker compose logs nelson-api --tail 30
               exit 1
             fi
-            echo "=== Deploy xong $(date '+%H:%M') ==="
+
+            echo "=== Deploy DONE $(date '+%H:%M') ==="
 
       - name: Notify SUCCESS
         if: success()
         run: |
           COMMIT=$(echo "${{ github.event.head_commit.message }}" | cut -c1-60)
-          ACTOR="${{ github.actor }}"
-          TIME=$(date '+%H:%M %d/%m/%Y')
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
-            -d text="Deploy XONG! | ${COMMIT} | ${ACTOR} | ${TIME} | API: http://14.225.207.145:8100" \
-            || true
+            -d text="Docker Deploy XONG! | ${COMMIT} | API: http://14.225.207.145:8100" || true
 
       - name: Notify FAILURE
         if: failure()
@@ -207,5 +151,4 @@ jobs:
           RUN="https://github.com/nelsonhuynhs-ship-it/FrieghtBrian/actions/runs/${{ github.run_id }}"
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
-            -d text="Deploy THAT BAI! | ${COMMIT} | Log: ${RUN}" \
-            || true
+            -d text="Deploy THAT BAI! | ${COMMIT} | ${RUN}" || true

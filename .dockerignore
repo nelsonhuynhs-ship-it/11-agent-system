@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.claude
+plans
+docs
+deploy
+TelegramBot
+Pricing_Engine/data
+*.parquet
+*.pyc
+__pycache__
+.env
+.env.local
+*.log

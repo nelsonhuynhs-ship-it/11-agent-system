@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  nelson-api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: nelson-api
+    ports:
+      - "8100:8100"
+    volumes:
+      - /opt/nelson/data:/data:ro
+      - /opt/nelson/local:/local
+    environment:
+      - NELSON_MACHINE=vps
+      - NELSON_DATA_DIR=/data
+      - NELSON_LOCAL_DIR=/local
+    restart: unless-stopped
+
+  nelson-webapp:
+    build:
+      context: .
+      dockerfile: webapp/Dockerfile
+    container_name: nelson-webapp
+    ports:
+      - "3003:3003"
+    environment:
+      - PORT=3003
+      - HOSTNAME=0.0.0.0
+    depends_on:
+      - nelson-api
+    restart: unless-stopped

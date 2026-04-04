@@ -102,16 +102,16 @@ Write-Log ""
 Write-Log "[4/4] Deploying on VPS..." "Yellow"
 
 if ($ApiOnly) {
-    $cmd = "cd /opt/nelson/code && git pull origin main 2>&1 && sudo systemctl restart nelson-api && echo 'API_RESTARTED'"
+    $cmd = "cd /opt/nelson/code && git pull origin main 2>&1 && docker compose build nelson-api && docker compose up -d nelson-api && echo 'API_RESTARTED'"
     $expect = "API_RESTARTED"
 } elseif ($WebOnly) {
-    $cmd = "cd /opt/nelson/code && git pull origin main 2>&1 && cd webapp && npm run build 2>&1 && sudo systemctl restart nelson-webapp3003 && echo 'WEBAPP_REBUILT'"
+    $cmd = "cd /opt/nelson/code && git pull origin main 2>&1 && docker compose build nelson-webapp && docker compose up -d nelson-webapp && echo 'WEBAPP_REBUILT'"
     $expect = "WEBAPP_REBUILT"
 } elseif ($NoRestart) {
     $cmd = "cd /opt/nelson/code && git pull origin main 2>&1 && echo 'CODE_PULLED'"
     $expect = "CODE_PULLED"
 } else {
-    $cmd = "cd /opt/nelson/code && git pull origin main 2>&1 && sudo systemctl restart nelson-api && echo 'API_OK' && cd webapp && npm run build 2>&1 && sudo systemctl restart nelson-webapp3003 && echo 'DEPLOY_COMPLETE'"
+    $cmd = "cd /opt/nelson/code && git pull origin main 2>&1 && docker compose build --no-cache && docker compose up -d && echo 'DEPLOY_COMPLETE'"
     $expect = "DEPLOY_COMPLETE"
 }
 
