@@ -58,10 +58,15 @@ class FreightDB:
         """Create a fresh connection (thread-safe)."""
         return duckdb.connect()
 
-    def _date_filter(self, days: int) -> str:
-        """Build safe date filter clause."""
+    def _date_filter(self, days: int, require_valid: bool = True) -> str:
+        """Build safe date filter clause.
+        require_valid=True: also filter Exp >= today (only non-expired rates).
+        """
         d = _safe_days(days)
-        return f"Eff >= CURRENT_DATE - INTERVAL '{d}' DAY"
+        eff_clause = f"Eff >= CURRENT_DATE - INTERVAL '{d}' DAY"
+        if require_valid:
+            return f"({eff_clause} AND (Exp IS NULL OR Exp >= CURRENT_DATE))"
+        return eff_clause
 
     # ──────────────────────────────────────────────────────────────────────
     # 1. query_rates
