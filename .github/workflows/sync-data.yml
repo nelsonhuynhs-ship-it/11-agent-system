@@ -39,6 +39,19 @@ jobs:
               URL=$(echo "$line" | cut -d'|' -f2)
 
               case "$NAME" in
+                *_slim.parquet)
+                  # Slim parquet → rename to standard name for API
+                  DIR="/opt/nelson/data/pricing"
+                  mkdir -p "$DIR"
+                  echo "Downloading $NAME → $DIR/Cleaned_Master_History.parquet"
+                  curl -sL \
+                    -H "Authorization: token $TOKEN" \
+                    -H "Accept: application/octet-stream" \
+                    -o "$DIR/Cleaned_Master_History.parquet" \
+                    "$URL"
+                  ls -la "$DIR/Cleaned_Master_History.parquet"
+                  continue
+                  ;;
                 *.parquet)
                   DIR="/opt/nelson/data/pricing"
                   ;;
