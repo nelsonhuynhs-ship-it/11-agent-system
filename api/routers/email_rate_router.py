@@ -1468,7 +1468,7 @@ def campaign_bulk_send(req: CampaignBulkSendRequest):
 # WebApp queues emails here → Local agent polls → Sends via Outlook COM
 # No SMTP Auth needed. No IT Admin approval needed.
 
-_QUEUE_FILE = _ENGINE_TEST / "email_engine" / "data" / "email_queue.json"
+_QUEUE_FILE = Path(_repo_root) / "email_engine" / "data" / "email_queue.json"
 
 def _load_queue() -> list:
     if not _QUEUE_FILE.exists():
