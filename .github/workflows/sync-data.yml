@@ -7,36 +7,66 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Download data to VPS
+      - name: Sync all data files to VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: 14.225.207.145
           username: root
           password: ${{ secrets.VPS_PASSWORD }}
-          timeout: 120s
+          timeout: 180s
           script: |
             set -e
-            mkdir -p /opt/nelson/data/email
-            cd /opt/nelson/data/email
-            
-            # Download from GitHub Release via API (private repo needs token)
-            ASSET_URL=$(curl -sL \
-              -H "Authorization: token ${{ secrets.GH_DEPLOY_TOKEN }}" \
-              "https://api.github.com/repos/nelsonhuynhs-ship-it/FrieghtBrian/releases/tags/data-sync-v1" \
-              | grep -o '"url": "https://api.github.com/repos/.*/assets/[0-9]*"' | head -1 | cut -d'"' -f4)
-            echo "Asset API URL: $ASSET_URL"
-            curl -sL \
-              -H "Authorization: token ${{ secrets.GH_DEPLOY_TOKEN }}" \
-              -H "Accept: application/octet-stream" \
-              -o cnee_master_v2.xlsx \
-              "$ASSET_URL"
-            
-            ls -la cnee_master_v2.xlsx
-            echo "Data synced OK"
-            
-            # Restart API to pick up new data
+            echo "=== Data Sync $(date '+%H:%M') ==="
+
+            TOKEN="${{ secrets.GH_DEPLOY_TOKEN }}"
+            REPO="nelsonhuynhs-ship-it/FrieghtBrian"
+            TAG="data-sync-v1"
+
+            # Get all release assets
+            ASSETS=$(curl -sL \
+              -H "Authorization: token $TOKEN" \
+              "https://api.github.com/repos/$REPO/releases/tags/$TAG" \
+              | python3 -c "
+            import sys, json
+            data = json.load(sys.stdin)
+            for a in data.get('assets', []):
+                print(f\"{a['name']}|{a['url']}\")
+            ")
+
+            # Download each asset to correct directory
+            for line in $ASSETS; do
+              NAME=$(echo "$line" | cut -d'|' -f1)
+              URL=$(echo "$line" | cut -d'|' -f2)
+
+              case "$NAME" in
+                *.parquet)
+                  DIR="/opt/nelson/data/pricing"
+                  ;;
+                *cnee*|*shipper*|*contact*)
+                  DIR="/opt/nelson/data/email"
+                  ;;
+                *)
+                  DIR="/opt/nelson/data"
+                  ;;
+              esac
+
+              mkdir -p "$DIR"
+              echo "Downloading $NAME → $DIR/"
+              curl -sL \
+                -H "Authorization: token $TOKEN" \
+                -H "Accept: application/octet-stream" \
+                -o "$DIR/$NAME" \
+                "$URL"
+              ls -la "$DIR/$NAME"
+            done
+
+            echo "=== Restarting API ==="
             cd /opt/nelson/code
             docker compose restart nelson-api
-            sleep 5
-            curl -s http://localhost:8100/api/email-rate/campaign/tier-stats | head -1
-            echo "API restarted with new data"
+            sleep 8
+
+            # Health check
+            API=$(curl -s http://localhost:8100/api/health | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','fail'))" 2>/dev/null || echo "fail")
+            TIERS=$(curl -s http://localhost:8100/api/email-rate/campaign/tier-stats | python3 -c "import sys,json; print(json.load(sys.stdin).get('total',0))" 2>/dev/null || echo "0")
+            echo "Health: API=$API | CNEE=$TIERS contacts"
+            echo "=== Sync Done ==="
