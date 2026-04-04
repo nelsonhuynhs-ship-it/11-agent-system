@@ -1,0 +1,36 @@
+name: Sync Data to VPS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download data to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 14.225.207.145
+          username: root
+          password: ${{ secrets.VPS_PASSWORD }}
+          timeout: 120s
+          script: |
+            set -e
+            mkdir -p /opt/nelson/data/email
+            cd /opt/nelson/data/email
+            
+            # Download from GitHub Release
+            curl -sL -H "Authorization: token ${{ secrets.GH_DEPLOY_TOKEN }}" \
+              "https://api.github.com/repos/nelsonhuynhs-ship-it/FrieghtBrian/releases/tags/data-sync-v1" \
+              | grep browser_download_url | head -1 | cut -d'"' -f4 \
+              | xargs curl -sL -o cnee_master_v2.xlsx
+            
+            ls -la cnee_master_v2.xlsx
+            echo "Data synced OK"
+            
+            # Restart API to pick up new data
+            cd /opt/nelson/code
+            docker compose restart nelson-api
+            sleep 5
+            curl -s http://localhost:8100/api/email-rate/campaign/tier-stats | head -1
+            echo "API restarted with new data"
