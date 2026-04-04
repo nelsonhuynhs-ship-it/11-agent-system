@@ -27,6 +27,7 @@ services:
     environment:
       - PORT=3003
       - HOSTNAME=0.0.0.0
+      - USERS=nelson:nelson2024:admin,johnny:johnny2024:mentee,jennie:jennie2024:mentee
     depends_on:
       - nelson-api
     restart: unless-stopped
