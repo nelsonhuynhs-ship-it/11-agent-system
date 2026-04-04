@@ -13,6 +13,7 @@ import logging.handlers
 import re
 import shutil
 import sqlite3
+from shared.db_connect import get_db
 import sys
 import uuid
 from datetime import datetime, timedelta
@@ -70,7 +71,7 @@ class DataCollector:
     # ------------------------------------------------------------------
     def init_db(self):
         """Create all SQLite tables."""
-        conn = sqlite3.connect(str(DB_PATH))
+        conn = get_db(DB_PATH)
         c = conn.cursor()
 
         # TABLE 1: email_events — append-only raw log
@@ -311,7 +312,7 @@ class DataCollector:
         log.info("Found %d .msg files to process.", len(to_scan))
 
         # Process each .msg file
-        conn = sqlite3.connect(str(DB_PATH))
+        conn = get_db(DB_PATH)
 
         for msg_file, folder_context, member_owner in to_scan:
             try:
@@ -664,7 +665,7 @@ class DataCollector:
             return
 
         PARQUET_DIR.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(str(DB_PATH))
+        conn = get_db(DB_PATH, readonly=True)
         today = datetime.now().strftime('%Y%m%d')
 
         tables = ['email_events', 'shipments', 'sales_replies',

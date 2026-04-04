@@ -180,8 +180,8 @@ class EmailIntel:
             return []
 
         try:
-            with sqlite3.connect(EMAIL_DB) as c:
-                c.row_factory = sqlite3.Row
+            from shared.db_connect import get_db
+            with get_db(EMAIL_DB, readonly=True) as c:
                 rows = c.execute("""
                     SELECT sender, subject, body, customer_name
                     FROM emails

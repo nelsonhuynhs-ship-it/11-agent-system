@@ -113,7 +113,8 @@ def run_test():
         print("  ❌ Database not found!")
         return
 
-    conn = sqlite3.connect(str(DB_PATH))
+    from shared.db_connect import get_db
+    conn = get_db(DB_PATH, readonly=True)
 
     # email_events
     total_events = conn.execute("SELECT COUNT(*) FROM email_events").fetchone()[0]

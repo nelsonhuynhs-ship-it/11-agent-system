@@ -31,7 +31,8 @@ def init_kpi(db_file: str):
 
 
 def _conn():
-    return sqlite3.connect(DB_FILE)
+    from shared.db_connect import get_db
+    return get_db(DB_FILE)
 
 
 def _ensure_table():

@@ -8,11 +8,9 @@ from config import DB_FILE
 
 
 def get_db():
-    """Get database connection with row factory."""
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    return conn
+    """Get database connection with WAL + busy_timeout via shared module."""
+    from shared.db_connect import get_db as _get_db
+    return _get_db(DB_FILE)
 
 
 def init_db():

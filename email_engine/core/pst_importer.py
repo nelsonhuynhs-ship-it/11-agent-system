@@ -390,7 +390,8 @@ def import_pst(
     ]}
 
     # DB setup
-    conn = sqlite3.connect(str(DB_PATH))
+    from shared.db_connect import get_db
+    conn = get_db(DB_PATH)
     ensure_maybe_table(conn)
     ai_batch = []
 

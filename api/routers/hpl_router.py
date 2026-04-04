@@ -220,7 +220,8 @@ async def hpl_status():
         db_path = os.path.join(_data_dir, db_name)
         if os.path.exists(db_path):
             try:
-                conn = sqlite3.connect(db_path)
+                from shared.db_connect import get_db
+                conn = get_db(db_path, readonly=True)
                 if "spot" in db_name:
                     count = conn.execute("SELECT COUNT(*) FROM spot_rates").fetchone()[0]
                     latest = conn.execute(
