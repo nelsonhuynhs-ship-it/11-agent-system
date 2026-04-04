@@ -152,11 +152,15 @@ jobs:
               pip3 install --break-system-packages pandas openpyxl duckdb httpx 2>&1 | tail -3 || true
             fi
 
-            # 5. Deploy API
+            # 5. Deploy API — debug service config
             echo "--- API deploy ---"
+            echo "Service file:"
+            cat /etc/systemd/system/nelson-api.service 2>/dev/null | grep -E "WorkingDirectory|ExecStart|Environment" || echo "Service file not found"
             systemctl restart nelson-api
             sleep 3
             systemctl is-active nelson-api && echo "[OK] API up" || { echo "[FAIL] API down"; journalctl -u nelson-api --no-pager -n 20; exit 1; }
+            echo "API router check:"
+            curl -s http://localhost:8100/openapi.json | python3 -c "import sys,json; d=json.load(sys.stdin); paths=[p for p in d.get('paths',{}) if 'tier' in p]; print(f'tier-stats: {\"FOUND\" if paths else \"MISSING\"}'); print(f'total endpoints: {len(d.get(\"paths\",{}))}');" || echo "openapi check failed"
 
             # 6. Deploy WebApp
             echo "--- WebApp build ---"
