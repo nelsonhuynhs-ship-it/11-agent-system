@@ -19,11 +19,11 @@ jobs:
             mkdir -p /opt/nelson/data/email
             cd /opt/nelson/data/email
             
-            # Download from GitHub Release
+            # Download from GitHub Release (direct URL, -L follows redirect)
             curl -sL -H "Authorization: token ${{ secrets.GH_DEPLOY_TOKEN }}" \
-              "https://api.github.com/repos/nelsonhuynhs-ship-it/FrieghtBrian/releases/tags/data-sync-v1" \
-              | grep browser_download_url | head -1 | cut -d'"' -f4 \
-              | xargs curl -sL -o cnee_master_v2.xlsx
+              -H "Accept: application/octet-stream" \
+              -o cnee_master_v2.xlsx \
+              "https://github.com/nelsonhuynhs-ship-it/FrieghtBrian/releases/download/data-sync-v1/cnee_master_v2.xlsx"
             
             ls -la cnee_master_v2.xlsx
             echo "Data synced OK"
