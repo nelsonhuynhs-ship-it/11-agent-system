@@ -327,7 +327,7 @@ def get_rates_matrix(
     """Carrier x Container comparison matrix with surcharge breakdown + market envelope."""
     # DuckDB: load ALL charge types for breakdown
     ct_list = DRY_CONTAINERS if mode.upper() == "DRY" else REEFER_CONTAINERS
-    ct_filter = "','".join(ct_list)
+    ct_placeholders = ",".join(["?" for _ in ct_list])
 
     con = freight_db._connect()
     try:
@@ -337,11 +337,11 @@ def get_rates_matrix(
                    Contract, Charge_Name
             FROM read_parquet('{freight_db._parquet}')
             WHERE UPPER(TRIM(POL)) = UPPER(?)
-              AND Container_Type IN ('{ct_filter}')
+              AND Container_Type IN ({ct_placeholders})
               AND {freight_db._date_filter(90)}
               AND Amount > 0
         """
-        params = [pol]
+        params = [pol] + ct_list
         df_full = con.execute(sql, params).fetchdf()
     finally:
         con.close()
