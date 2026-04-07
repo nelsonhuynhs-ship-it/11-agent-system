@@ -29,9 +29,15 @@ log = logging.getLogger("auto_rate_builder")
 # ── Paths ─────────────────────────────────────────────────────────────────────
 BASE_DIR        = Path(__file__).parent           # email_engine/core
 PROJECT_ROOT    = BASE_DIR.parent                 # email_engine/
-ENGINE_TEST     = PROJECT_ROOT.parent             # Engine_test/
-PARQUET_FILE    = ENGINE_TEST / "Pricing_Engine" / "data" / "Cleaned_Master_History.parquet"
-PORT_MAP_FILE   = PROJECT_ROOT / "data" / "Port_Code_Mapping_Final.xlsx"
+
+try:
+    from shared.paths import PARQUET_FILE, PORT_MAP as PORT_MAP_FILE
+except ImportError:
+    # Fallback for environments without shared.paths (should not happen in normal use)
+    ENGINE_TEST   = PROJECT_ROOT.parent
+    PARQUET_FILE  = ENGINE_TEST / "Pricing_Engine" / "data" / "Cleaned_Master_History.parquet"
+    PORT_MAP_FILE = PROJECT_ROOT / "data" / "Port_Code_Mapping_Final.xlsx"
+
 MARKUP_MIN      = 20   # minimum markup per container per route
 
 
@@ -511,6 +517,8 @@ def build_rate_table_for_customer(
                 "carrier":    str(rate_row["carrier"]),
                 "rate_20":    sell_20,
                 "rate_40":    sell_40,
+                "eff":        rate_row.get("eff"),
+                "exp":        rate_row.get("exp"),
             })
             detail_carriers.append(str(rate_row["carrier"]))
 
