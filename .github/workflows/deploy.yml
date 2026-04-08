@@ -116,6 +116,7 @@ jobs:
 
             # 3. Docker compose up
             cd "$CODE"
+            docker rm -f nelson-api nelson-webapp 2>/dev/null || true
             docker compose down --remove-orphans 2>/dev/null || true
             docker compose build --no-cache 2>&1 | tail -5
             docker compose up -d
@@ -124,7 +125,7 @@ jobs:
             # 4. Wait + Health check
             sleep 8
             docker compose ps
-            API_HTTP=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8100/api/health || echo "000")
+            API_HTTP=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8100/ || echo "000")
             WEB_HTTP=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3003 2>/dev/null || echo "000")
             echo "Health: API=$API_HTTP WebApp=$WEB_HTTP"
 
