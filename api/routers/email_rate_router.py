@@ -195,7 +195,6 @@ def _get_signature(cfg: dict) -> str:
     <p style="margin:2px 0;font-size:11px;">Web-site: <a href="https://www.pudongprime.vn/vi" style="color:#2563EB;">https://www.pudongprime.vn/vi</a></p>
     <p style="margin:2px 0;font-size:11px;">Office: Vietnam | China | USA</p>
     <p style="margin:6px 0 0;font-weight:700;">JC TRANS ID: 155843</p>
-    <p style="margin:0;font-weight:700;">FMC OTI License: 024060</p>
   </td>
 </tr>
 <tr><td colspan="2" style="padding-top:8px;border-top:1px solid #ddd;font-size:10px;color:#999;font-style:italic;">
@@ -957,18 +956,7 @@ def _build_professional_html(rows: list[dict], intro_html: str, closing_html: st
 </head>
 <body>
 <div class="wrapper">
-  <!-- Header -->
-  <div class="header">
-    <table width="100%" cellpadding="0" cellspacing="0"><tr>
-      <td>
-        <h1 style="color:#fff;margin:0;font-size:17px;font-weight:700;">Nelson Freight — NVOCC</h1>
-        <p style="color:#a8c8e8;margin:3px 0 0;font-size:10.5px;">Vietnam &rarr; USA &amp; Canada | FMC OTI License: 024060</p>
-      </td>
-      <td style="text-align:right;">
-        <span style="color:#f0a500;font-size:12px;font-weight:700;">WEEK {iso_week}</span>
-      </td>
-    </tr></table>
-  </div>
+  <!-- Header removed per Nelson's request -->
 
   {preheader}
 
@@ -976,10 +964,7 @@ def _build_professional_html(rows: list[dict], intro_html: str, closing_html: st
   <div class="body">
     {intro_html}
 
-    <!-- Validity bar -->
-    <div class="validity-bar">
-      <strong>Rate validity:</strong> As of {validity_date} — Subject to GRI/PSS/Local Charges &amp; space availability
-    </div>
+    <!-- Validity bar removed per Nelson's request -->
 
     <!-- Rate Tables (grouped by region) -->
     <div class="rate-section">
