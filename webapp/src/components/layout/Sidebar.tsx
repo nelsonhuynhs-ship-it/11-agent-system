@@ -26,6 +26,9 @@ const NAV_ITEMS = [
     label: "TOOLS",
     items: [
       { name: "Rate & Send", href: "/dashboard/rate-send", icon: SendRateIcon },
+      { name: "Data Explorer", href: "/dashboard/data-explorer", icon: TableIcon },
+      { name: "Email Campaign", href: "/dashboard/email-campaign", icon: MailCampaignIcon },
+      { name: "Email Log", href: "/dashboard/email-log", icon: MailLogIcon },
       { name: "AI Assistant", href: "/dashboard/ai", icon: SparkleIcon },
       { name: "Reports", href: "/dashboard/reports", icon: ChartIcon },
     ],
@@ -265,6 +268,41 @@ function SendRateIcon({ className }: { className?: string }) {
       <path d="M14 2v6h6" />
       <path d="M8 13h8" /><path d="M8 17h4" />
       <path d="M15 17l2 2 4-4" />
+    </svg>
+  );
+}
+
+function TableIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"
+      strokeLinejoin="round" className={className}>
+      <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M3 9h18" /><path d="M3 15h18" /><path d="M9 3v18" />
+    </svg>
+  );
+}
+
+function MailCampaignIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"
+      strokeLinejoin="round" className={className}>
+      <rect width="20" height="16" x="2" y="4" rx="2" />
+      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+      <path d="M16 19h6" /><path d="M19 16l3 3-3 3" />
+    </svg>
+  );
+}
+
+function MailLogIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"
+      strokeLinejoin="round" className={className}>
+      <rect width="20" height="16" x="2" y="4" rx="2" />
+      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+      <path d="M16 16h6" /><path d="M16 19h4" />
     </svg>
   );
 }

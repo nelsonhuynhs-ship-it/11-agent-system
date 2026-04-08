@@ -123,6 +123,8 @@ from routers.reports_router import router as reports_router
 from routers.pricing_router import router as pricing_router
 from routers.job_router import router as job_router
 from routers.email_rate_router import router as email_rate_router  # Sprint 13
+from routers.data_router import router as data_router              # Email platform data
+from routers.email_queue_router import router as email_queue_router  # Worker bridge
 
 app.include_router(rate_router)
 app.include_router(quote_router)
@@ -138,6 +140,8 @@ app.include_router(reports_router)
 app.include_router(pricing_router)
 app.include_router(job_router)
 app.include_router(email_rate_router)
+app.include_router(data_router)
+app.include_router(email_queue_router)
 
 # ── Event Bus ─────────────────────────────────────────────────────────────────
 from event_bus import bus
