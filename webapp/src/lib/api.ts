@@ -303,4 +303,108 @@ export const campaignApi = {
     }),
 };
 
+// ── Data Explorer API (S14B) ─────────────────────────────────
+
+export interface CneeRow {
+  email: string;
+  company: string;
+  pic: string;
+  campaign_id: string;
+  country: string;
+  already_sent: string;
+  last_sent: string | null;
+  send_count: number;
+  tier: string;
+  email_quality: number;
+}
+
+export interface CneeListResponse {
+  rows: CneeRow[];
+  total: number;
+  filtered: number;
+  page: number;
+  limit: number;
+  total_pages: number;
+}
+
+export interface EmailLogRow {
+  id: number;
+  email: string;
+  company: string;
+  subject: string;
+  campaign_id: string;
+  status: 'pending' | 'sending' | 'sent' | 'failed';
+  sent_at: string | null;
+  error: string | null;
+  created_at: string;
+}
+
+export interface EmailLogResponse {
+  rows: EmailLogRow[];
+  total: number;
+  page: number;
+  limit: number;
+  total_pages: number;
+  stats: {
+    total_sent: number;
+    total_failed: number;
+    total_pending: number;
+    bounce_rate: number;
+  };
+}
+
+export interface QueueResponse {
+  queued: number;
+  message: string;
+}
+
+export const dataApi = {
+  cneeList: (params: {
+    page?: number;
+    limit?: number;
+    campaign?: string;
+    status?: string;
+    country?: string;
+    search?: string;
+  } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.page) qs.set('page', String(params.page));
+    if (params.limit) qs.set('limit', String(params.limit));
+    if (params.campaign) qs.set('campaign', params.campaign);
+    if (params.status) qs.set('status', params.status);
+    if (params.country) qs.set('country', params.country);
+    if (params.search) qs.set('search', params.search);
+    return fetchAPI<CneeListResponse>(`/api/data/cnee?${qs}`);
+  },
+
+  emailLog: (params: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    campaign?: string;
+    date_from?: string;
+    date_to?: string;
+  } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.page) qs.set('page', String(params.page));
+    if (params.limit) qs.set('limit', String(params.limit));
+    if (params.status) qs.set('status', params.status);
+    if (params.campaign) qs.set('campaign', params.campaign);
+    if (params.date_from) qs.set('date_from', params.date_from);
+    if (params.date_to) qs.set('date_to', params.date_to);
+    return fetchAPI<EmailLogResponse>(`/api/data/email-log?${qs}`);
+  },
+
+  queueEmails: (payload: {
+    emails: string[];
+    campaign_id: string;
+    markup?: number;
+    template?: string;
+  }) =>
+    fetchAPI<QueueResponse>('/api/email/queue', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+};
+
 export default api;
