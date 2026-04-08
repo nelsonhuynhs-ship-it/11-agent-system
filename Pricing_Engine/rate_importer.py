@@ -48,7 +48,28 @@ INCOMING_DIR = DATA_DIR / "incoming"
 PROCESSED_DIR = DATA_DIR / "processed"
 KNOWLEDGE_DIR = DATA_DIR / "knowledge"
 PARQUET_FILE = sp.PARQUET_FILE
-PUC_SOC_FILE = DATA_DIR / "PUC_SOC.xlsx"
+RATE_TABLES_DIR = DATA_DIR / "rate-tables"
+
+def _find_puc_file() -> Path:
+    """Auto-detect latest PUC file. Searches for PUC_SOC.xlsx or PUC {MONTH} {YEAR}.xlsx."""
+    # Prefer explicit PUC_SOC.xlsx
+    legacy = DATA_DIR / "PUC_SOC.xlsx"
+    if legacy.exists():
+        return legacy
+    # Search for PUC {month} {year}.xlsx pattern in both root and rate-tables
+    import glob
+    candidates = []
+    for d in [DATA_DIR, RATE_TABLES_DIR]:
+        candidates.extend(d.glob("PUC*.xlsx"))
+    # Sort by modified time, newest first
+    candidates = [f for f in candidates if "PUC_SOC" not in f.name]
+    candidates.sort(key=lambda f: f.stat().st_mtime, reverse=True)
+    if candidates:
+        log.info("Auto-detected PUC file: %s", candidates[0].name)
+        return candidates[0]
+    return legacy  # fallback even if missing
+
+PUC_SOC_FILE = _find_puc_file()
 
 # Related system paths
 ERP_REFRESH_SCRIPT = sp.CODE_DIR / "ERP" / "core" / "refresh.py"

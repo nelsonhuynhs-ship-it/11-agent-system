@@ -82,6 +82,138 @@ def mark_failed(job_id: str, error: str) -> None:
     )
 
 
+# ── Bounce & Reply Scanner ───────────────────────────────────────────────────
+BOUNCE_SCAN_DELAY = 300  # 5 min after batch — let bounces arrive
+SCAN_LOG_FILE = REPO_ROOT / "tools" / "goclaw" / "logs" / "bounce-scan.jsonl"
+
+# Patterns for classification
+_BOUNCE_SUBJECTS = [
+    "undeliverable", "delivery has failed", "mail delivery subsystem",
+    "returned mail", "delivery status notification", "failure notice",
+    "mailer-daemon", "postmaster",
+]
+_AUTOREPLY_SUBJECTS = [
+    "out of office", "automatic reply", "auto-reply", "autoreply",
+    "ooo", "vacation", "away from", "on leave", "i am currently out",
+]
+
+
+def _classify_email(subject: str, sender: str) -> str:
+    """Classify inbox email: bounce / auto-reply / human-reply."""
+    subj_lower = (subject or "").lower()
+    sender_lower = (sender or "").lower()
+
+    if any(p in subj_lower or p in sender_lower for p in _BOUNCE_SUBJECTS):
+        return "bounce"
+    if any(p in subj_lower for p in _AUTOREPLY_SUBJECTS):
+        return "auto-reply"
+    return "human-reply"
+
+
+def _extract_bounced_email(body: str) -> str:
+    """Try to extract the original recipient from bounce message body."""
+    import re
+    # Common patterns: "user@domain.com" or <user@domain.com>
+    match = re.search(r'[\w.+-]+@[\w-]+\.[\w.-]+', body or "")
+    return match.group(0).lower() if match else ""
+
+
+def _already_logged(email: str, classification: str) -> bool:
+    """Check if this email+classification combo was already logged (dedupe)."""
+    if not SCAN_LOG_FILE.exists():
+        return False
+    import json
+    try:
+        with open(SCAN_LOG_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                entry = json.loads(line.strip())
+                if entry.get("email") == email and entry.get("type") == classification:
+                    return True
+    except Exception:
+        pass
+    return False
+
+
+def _log_scan_result(email: str, classification: str, subject: str, sender: str):
+    """Append scan result to JSONL log (one line per entry)."""
+    import json
+    SCAN_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "email": email,
+        "type": classification,
+        "subject": subject[:100],
+        "sender": sender,
+        "scanned_at": datetime.now().isoformat(),
+    }
+    with open(SCAN_LOG_FILE, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
+def scan_inbox_bounces(outlook) -> dict:
+    """
+    Scan Outlook Inbox for bounces and replies to our campaign emails.
+    Classifies as: bounce, auto-reply, human-reply.
+    Deletes bounce emails after logging. Dedupes by email+type.
+    Returns summary dict.
+    """
+    try:
+        ns = outlook.GetNamespace("MAPI")
+        inbox = ns.GetDefaultFolder(6)  # 6 = olFolderInbox
+    except Exception as e:
+        log.warning("Cannot access Inbox: %s", e)
+        return {"error": str(e)}
+
+    stats = {"bounce": 0, "auto-reply": 0, "human-reply": 0, "skipped": 0, "deleted": 0}
+    to_delete = []
+
+    # Scan last 100 emails (most recent first)
+    messages = inbox.Items
+    messages.Sort("[ReceivedTime]", True)
+
+    count = 0
+    for msg in messages:
+        if count >= 100:
+            break
+        count += 1
+
+        try:
+            subject = str(getattr(msg, "Subject", "") or "")
+            sender = str(getattr(msg, "SenderEmailAddress", "") or "")
+            body = str(getattr(msg, "Body", "") or "")[:2000]
+
+            classification = _classify_email(subject, sender)
+            bounced_email = _extract_bounced_email(body) if classification == "bounce" else ""
+
+            log_email = bounced_email or sender
+
+            if _already_logged(log_email, classification):
+                stats["skipped"] += 1
+                continue
+
+            _log_scan_result(log_email, classification, subject, sender)
+            stats[classification] += 1
+
+            # Delete bounce emails from Inbox (clean up)
+            if classification == "bounce":
+                to_delete.append(msg)
+
+        except Exception as e:
+            log.debug("Skip message scan: %s", e)
+
+    # Delete bounces (reverse order to avoid index shift)
+    for msg in reversed(to_delete):
+        try:
+            msg.Delete()
+            stats["deleted"] += 1
+        except Exception:
+            pass
+
+    log.info("Inbox scan: bounce=%d auto-reply=%d human-reply=%d deleted=%d skipped=%d",
+             stats["bounce"], stats["auto-reply"], stats["human-reply"],
+             stats["deleted"], stats["skipped"])
+    return stats
+
+
 # ── Core send with retry ──────────────────────────────────────────────────────
 
 def send_with_retry(outlook, job: dict) -> tuple[bool, str]:
@@ -164,6 +296,23 @@ def main() -> None:
                         f"(session total: {session_sent})"
                     )
                     notify(summary)
+
+                # After sending, check if queue is now empty → trigger bounce scan
+                try:
+                    remaining = fetch_pending()
+                except Exception:
+                    remaining = []
+
+                if sent > 0 and not remaining:
+                    log.info("Queue empty — waiting %ds then scanning inbox for bounces...", BOUNCE_SCAN_DELAY)
+                    time.sleep(BOUNCE_SCAN_DELAY)
+                    scan_stats = scan_inbox_bounces(outlook)
+                    scan_msg = (
+                        f"[Bounce Scan] bounce={scan_stats.get('bounce',0)} "
+                        f"auto-reply={scan_stats.get('auto-reply',0)} "
+                        f"human-reply={scan_stats.get('human-reply',0)}"
+                    )
+                    notify(scan_msg)
 
             except requests.exceptions.ConnectionError:
                 consecutive_net_errors += 1
