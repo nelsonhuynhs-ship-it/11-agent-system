@@ -49,6 +49,33 @@ async def lifespan(app: FastAPI):
             log.warning("Evaluator worker not started: %s", e)
 
     log.info("All workers started ✓")
+
+    # Pre-warm DuckDB so first user request is fast (cold start fix)
+    try:
+        from routers.email_rate_router import _get_db
+        db = _get_db()
+        db.con.execute("SELECT 1").fetchone()
+        log.info("DuckDB pre-warmed ✓")
+    except Exception as e:
+        log.warning("DuckDB pre-warm skipped: %s", e)
+
+    # Auto-reset stuck email queue jobs (sending > 10 min)
+    try:
+        from database.connection import execute_sync, is_postgres_configured
+        if is_postgres_configured():
+            result = execute_sync(
+                """
+                UPDATE email_queue SET status='pending', picked_at=NULL
+                WHERE status='sending'
+                  AND picked_at < NOW() - interval '10 minutes'
+                RETURNING id
+                """
+            )
+            if result:
+                log.info("Auto-reset %d stuck email queue job(s) ✓", len(result))
+    except Exception as e:
+        log.warning("Stuck job reset skipped: %s", e)
+
     yield
 
     # Shutdown

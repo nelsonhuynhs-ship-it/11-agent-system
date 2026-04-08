@@ -227,3 +227,21 @@ def queue_status():
         "oldest_pending_seconds": oldest_pending_sec,
         "stuck_jobs": stuck,
     }
+
+
+@router.post("/queue/reset-stuck")
+def reset_stuck_jobs():
+    """Reset jobs stuck in 'sending' state for more than 10 minutes back to pending."""
+    _require_pg()
+
+    rows = execute_sync(
+        """
+        UPDATE email_queue SET status='pending', picked_at=NULL
+        WHERE status='sending'
+          AND picked_at < NOW() - interval '10 minutes'
+        RETURNING id
+        """
+    )
+    reset_count = len(rows) if rows else 0
+    log.info("Manually reset %d stuck job(s)", reset_count)
+    return {"reset": reset_count, "message": f"Reset {reset_count} stuck job(s) to pending"}
