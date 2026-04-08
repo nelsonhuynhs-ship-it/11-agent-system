@@ -15,6 +15,10 @@ services:
       - NELSON_MACHINE=vps
       - NELSON_DATA_DIR=/data
       - NELSON_LOCAL_DIR=/local
+      - DATABASE_URL=postgresql://goclaw:goclaw_nelson_2026@goclaw-postgres:5432/goclaw
+    networks:
+      - default
+      - goclaw-net
     restart: unless-stopped
 
   nelson-webapp:
@@ -31,3 +35,7 @@ services:
     depends_on:
       - nelson-api
     restart: unless-stopped
+
+networks:
+  goclaw-net:
+    external: true
