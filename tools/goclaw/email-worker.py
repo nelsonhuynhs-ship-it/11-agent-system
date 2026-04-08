@@ -67,7 +67,7 @@ def fetch_pending() -> list[dict]:
     resp = requests.get(f"{API_BASE}/api/email/queue/pending", timeout=10)
     resp.raise_for_status()
     data = resp.json()
-    return data.get("emails", data) if isinstance(data, dict) else data
+    return data.get("jobs", []) if isinstance(data, dict) else data
 
 
 def mark_complete(job_id: str) -> None:
@@ -77,7 +77,7 @@ def mark_complete(job_id: str) -> None:
 def mark_failed(job_id: str, error: str) -> None:
     requests.post(
         f"{API_BASE}/api/email/queue/{job_id}/fail",
-        json={"error": error[:500]},
+        json={"error_message": error[:500]},
         timeout=10,
     )
 

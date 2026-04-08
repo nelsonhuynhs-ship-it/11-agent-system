@@ -39,6 +39,8 @@ import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
+from database.connection import execute_sync, is_postgres_configured
+
 log = logging.getLogger("nelson.email_rate")
 
 # ── Paths (resolved via shared.paths — OneDrive data, local runtime) ──────────
@@ -1322,28 +1324,20 @@ def campaign_send(req: CampaignSendRequest):
     if not req.email:
         raise HTTPException(status_code=400, detail="email is required")
 
-    # ── Queue for Outlook COM (no SMTP needed) ──
-    queue = _load_queue()
-    item = {
-        "id": str(uuid.uuid4())[:8],
-        "to": req.email,
-        "cc": req.cc_emails,
-        "subject": preview["subject"],
-        "html_body": preview["html"],
-        "company": req.company,
-        "campaign_id": req.campaign_id,
-        "attach_pdf": True,
-        "status": "pending",
-        "queued_at": datetime.now().isoformat(),
-        "sent_at": None,
-    }
-    queue.append(item)
-    _save_queue(queue)
-    log.info("Campaign email queued for %s (%s) | id: %s", req.email, req.company, item["id"])
+    # ── Queue into PostgreSQL (worker polls via email_queue_router) ──
+    if not is_postgres_configured():
+        raise HTTPException(503, "PostgreSQL not configured — set DATABASE_URL")
+
+    queue_id = _insert_to_pg_queue(
+        email=req.email,
+        subject=preview["subject"],
+        html_body=preview["html"],
+    )
+    log.info("Campaign email queued for %s (%s) | pg_id: %s", req.email, req.company, queue_id)
 
     return {
         "status":      "queued",
-        "queue_id":    item["id"],
+        "queue_id":    queue_id,
         "to":          req.email,
         "company":     req.company,
         "cc":          req.cc_emails,
@@ -1363,20 +1357,15 @@ def campaign_send(req: CampaignSendRequest):
 @router.post("/campaign/bulk-send")
 def campaign_bulk_send(req: CampaignBulkSendRequest):
     """
-    Bulk send campaign emails to multiple CNEE prospects at once.
-    Looks up each email in cnee_master.xlsx to get company/pic/pol/destination.
-    Returns per-email results including any failures.
+    Bulk queue campaign emails to multiple CNEE prospects.
+    Looks up each email in cnee_master.xlsx, renders HTML with rates,
+    then inserts into PostgreSQL queue. Worker sends via Outlook COM.
     """
     if not req.emails:
         raise HTTPException(status_code=400, detail="emails list is empty")
 
-    smtp_host = os.getenv("SMTP_HOST", "smtp.office365.com")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user = os.getenv("SMTP_USER", "")
-    smtp_pass = os.getenv("SMTP_PASS", "")
-
-    if not smtp_user or not smtp_pass:
-        raise HTTPException(status_code=500, detail="SMTP not configured. Set SMTP_USER and SMTP_PASS in .env")
+    if not is_postgres_configured():
+        raise HTTPException(503, "PostgreSQL not configured — set DATABASE_URL")
 
     # Load CNEE data
     df = _load_cnee()
@@ -1388,100 +1377,80 @@ def campaign_bulk_send(req: CampaignBulkSendRequest):
     if targets.empty:
         raise HTTPException(status_code=404, detail="No prospects found for the given emails")
 
-    cfg       = _load_config()
-    from_name = cfg.get("from_name", "Nelson Freight")
-    sent_ok   = []
+    queued_ok = []
     errors    = []
 
-    try:
-        ctx = ssl.create_default_context()
-        smtp_conn = smtplib.SMTP(smtp_host, smtp_port)
-        smtp_conn.ehlo()
-        smtp_conn.starttls(context=ctx)
-        smtp_conn.login(smtp_user, smtp_pass)
-    except smtplib.SMTPAuthenticationError:
-        raise HTTPException(status_code=401, detail="SMTP authentication failed. Check SMTP_USER/SMTP_PASS.")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"SMTP connect failed: {e}")
+    for _, prospect in targets.iterrows():
+        email_addr  = str(prospect.get("EMAIL", "")).strip()
+        company     = str(prospect.get("COMPANY", ""))
+        pic         = str(prospect.get("CNEE_PIC", ""))
+        pol         = str(prospect.get("POL", "HPH"))
+        destination = str(prospect.get("DESTINATION", ""))
+        campaign_id = str(prospect.get("CAMPAIGN_ID", req.campaign_id))
 
-    try:
-        for _, prospect in targets.iterrows():
-            email_addr  = str(prospect.get("EMAIL", "")).strip()
-            company     = str(prospect.get("COMPANY", ""))
-            pic         = str(prospect.get("CNEE_PIC", ""))
-            pol         = str(prospect.get("POL", "HPH"))
-            destination = str(prospect.get("DESTINATION", ""))
-            campaign_id = str(prospect.get("CAMPAIGN_ID", req.campaign_id))
-
-            try:
-                prev_req = CampaignPreviewRequest(
-                    email=email_addr,
-                    company=company,
-                    pic=pic,
-                    pol=pol,
-                    destinations=destination or DEFAULT_DESTS,
-                    markup=req.markup,
-                    intro="",
-                    closing="",
-                    subject=req.subject,
-                    template=req.template,
-                )
-                preview = campaign_preview(prev_req)
-
-                if preview["is_blocked"]:
-                    errors.append({"email": email_addr, "company": company, "error": f"Blocked: {preview['warn_msg']}"})
-                    continue
-
-                msg = MIMEMultipart("mixed")
-                msg["Subject"] = preview["subject"]
-                msg["From"]    = f"{from_name} <{smtp_user}>"
-                msg["To"]      = email_addr
-                if req.cc_emails:
-                    msg["Cc"] = ", ".join(req.cc_emails)
-                msg.attach(MIMEText(preview["html"], "html", "utf-8"))
-
-                # Attach company profile PDF
-                if _COMPANY_PDF.exists():
-                    try:
-                        with open(_COMPANY_PDF, "rb") as pdf_file:
-                            pdf_part = MIMEBase("application", "pdf")
-                            pdf_part.set_payload(pdf_file.read())
-                            encoders.encode_base64(pdf_part)
-                            pdf_part.add_header("Content-Disposition", 'attachment; filename="Pudong Prime - Company Profile.pdf"')
-                            msg.attach(pdf_part)
-                    except Exception:
-                        pass
-
-                all_recip = [email_addr] + req.cc_emails
-                smtp_conn.sendmail(smtp_user, all_recip, msg.as_string())
-
-                _log_campaign_send(email_addr, company, campaign_id, preview["subject"], "sent", preview["row_count"])
-                sent_ok.append({"email": email_addr, "company": company, "subject": preview["subject"], "status": "sent"})
-                log.info("Bulk send OK: %s (%s)", email_addr, company)
-
-            except Exception as e:
-                log.warning("Bulk send error for %s: %s", email_addr, e)
-                errors.append({"email": email_addr, "company": company, "error": str(e)})
-    finally:
         try:
-            smtp_conn.quit()
-        except Exception:
-            pass
+            prev_req = CampaignPreviewRequest(
+                email=email_addr,
+                company=company,
+                pic=pic,
+                pol=pol,
+                destinations=destination or DEFAULT_DESTS,
+                markup=req.markup,
+                intro="",
+                closing="",
+                subject=req.subject,
+                template=req.template,
+            )
+            preview = campaign_preview(prev_req)
+
+            if preview["is_blocked"]:
+                errors.append({"email": email_addr, "company": company, "error": f"Blocked: {preview['warn_msg']}"})
+                continue
+
+            queue_id = _insert_to_pg_queue(
+                email=email_addr,
+                subject=preview["subject"],
+                html_body=preview["html"],
+            )
+            queued_ok.append({"email": email_addr, "company": company, "subject": preview["subject"], "status": "queued", "queue_id": queue_id})
+            log.info("Bulk queue OK: %s (%s) pg_id=%s", email_addr, company, queue_id)
+
+        except Exception as e:
+            log.warning("Bulk queue error for %s: %s", email_addr, e)
+            errors.append({"email": email_addr, "company": company, "error": str(e)})
 
     return {
-        "sent":      len(sent_ok),
+        "sent":      len(queued_ok),
         "failed":    len(errors),
-        "results":   sent_ok,
+        "results":   queued_ok,
         "errors":    errors,
         "timestamp": datetime.now().isoformat(),
     }
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ── EMAIL QUEUE — Outlook COM Integration ─────────────────────────────────────
+# ── PostgreSQL Email Queue Helper ─────────────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
-# WebApp queues emails here → Local agent polls → Sends via Outlook COM
-# No SMTP Auth needed. No IT Admin approval needed.
+# Inserts into email_queue table (PostgreSQL) — worker polls this via
+# email_queue_router.py GET /api/email/queue/pending
+
+def _insert_to_pg_queue(email: str, subject: str, html_body: str, cnee_id: int = None) -> int | None:
+    """Insert a single email into PostgreSQL email_queue. Returns queue id or None."""
+    rows = execute_sync(
+        """
+        INSERT INTO email_queue (cnee_id, email, subject, html_body)
+        VALUES (%s, %s, %s, %s)
+        RETURNING id
+        """,
+        (cnee_id, email, subject, html_body),
+    )
+    return rows[0]["id"] if rows else None
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ── DEPRECATED: JSON Email Queue (replaced by PostgreSQL queue above) ─────────
+# ══════════════════════════════════════════════════════════════════════════════
+# Kept for reference. Worker now uses email_queue_router.py (PostgreSQL).
 
 _QUEUE_FILE = Path(_repo_root) / "email_engine" / "data" / "email_queue.json"
 

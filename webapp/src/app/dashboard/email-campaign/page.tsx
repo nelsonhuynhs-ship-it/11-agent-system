@@ -7,8 +7,11 @@ import { campaignApi, dataApi, CampaignProspect } from "@/lib/api";
 type Step = 1 | 2 | 3 | 4;
 
 interface QueueResult {
-  queued: number;
-  message: string;
+  sent: number;
+  failed: number;
+  results: Array<{ email: string; company: string; subject: string; status: string; queue_id: number }>;
+  errors: Array<{ email: string; company: string; error: string }>;
+  timestamp: string;
 }
 
 const STEP_LABELS = ["Select Campaign", "Select Batch", "Preview Email", "Approve & Queue"];
@@ -346,9 +349,12 @@ export default function EmailCampaignPage() {
           ) : (
             <div className="space-y-4">
               <div className="rounded-lg bg-green-500/10 border border-green-500/30 p-5 text-center space-y-2">
-                <div className="text-3xl font-bold text-green-400">{queueResult.queued}</div>
+                <div className="text-3xl font-bold text-green-400">{queueResult.sent}</div>
                 <p className="font-semibold text-text">emails queued</p>
-                <p className="text-sm text-text-muted">{queueResult.message || "Worker will send them shortly."}</p>
+                <p className="text-sm text-text-muted">
+                  {queueResult.failed > 0 ? `${queueResult.failed} failed — ` : ""}
+                  Worker will send them shortly.
+                </p>
               </div>
               <button
                 onClick={resetWizard}
