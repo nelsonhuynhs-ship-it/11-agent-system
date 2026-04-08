@@ -358,23 +358,61 @@ export interface QueueResponse {
   message: string;
 }
 
+function scoreToTier(score: number): string {
+  if (score >= 0.8) return 'VIP';
+  if (score >= 0.6) return 'HOT';
+  if (score >= 0.4) return 'WARM_A';
+  if (score >= 0.2) return 'WARM_B';
+  if (score > 0)    return 'COOL';
+  return 'PARK';
+}
+
 export const dataApi = {
-  cneeList: (params: {
+  cneeList: async (params: {
     page?: number;
     limit?: number;
     campaign?: string;
     status?: string;
     country?: string;
     search?: string;
-  } = {}) => {
+  } = {}): Promise<CneeListResponse> => {
     const qs = new URLSearchParams();
     if (params.page) qs.set('page', String(params.page));
-    if (params.limit) qs.set('limit', String(params.limit));
+    if (params.limit) qs.set('page_size', String(params.limit));
     if (params.campaign) qs.set('campaign', params.campaign);
     if (params.status) qs.set('status', params.status);
     if (params.country) qs.set('country', params.country);
-    if (params.search) qs.set('search', params.search);
-    return fetchAPI<CneeListResponse>(`/api/data/cnee?${qs}`);
+    // API doesn't support search filter yet — handled client-side
+    const raw = await fetchAPI<{
+      total: number; page: number; page_size: number; pages: number;
+      items: Array<{
+        id: number; company_name: string; contact_name: string; email: string;
+        campaign: string; country: string; port: string; status: string;
+        lead_score: number; last_contacted: string | null;
+      }>;
+    }>(`/api/data/cnee?${qs}`);
+
+    const rows: CneeRow[] = (raw.items ?? []).map(r => ({
+      email:        r.email ?? '',
+      company:      r.company_name ?? '',
+      pic:          r.contact_name ?? '',
+      campaign_id:  r.campaign ?? '',
+      country:      r.country ?? '',
+      already_sent: r.last_contacted ? 'Y' : 'N',
+      last_sent:    r.last_contacted ?? null,
+      send_count:   0,
+      tier:         scoreToTier(r.lead_score ?? 0),
+      email_quality: Math.round((r.lead_score ?? 0) * 100),
+    }));
+
+    return {
+      rows,
+      total:       raw.total ?? 0,
+      filtered:    raw.total ?? 0,
+      page:        raw.page ?? 1,
+      limit:       raw.page_size ?? 50,
+      total_pages: raw.pages ?? 1,
+    };
   },
 
   emailLog: (params: {
