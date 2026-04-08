@@ -54,10 +54,17 @@ def get_outlook():
 
 
 def send_via_outlook(outlook, email_data: dict) -> bool:
-    """Send a single email via Outlook COM."""
+    """Send a single email via Outlook COM.
+    Accepts both 'to' (JSON queue) and 'email' (PostgreSQL queue) keys.
+    """
     try:
+        recipient = email_data.get("to") or email_data.get("email", "")
+        if not recipient:
+            log.error("SEND FAILED: no recipient — keys=%s", list(email_data.keys()))
+            return False
+
         mail = outlook.CreateItem(0)  # 0 = olMailItem
-        mail.To = email_data["to"]
+        mail.To = recipient
         if email_data.get("cc"):
             mail.CC = "; ".join(email_data["cc"])
         mail.Subject = email_data["subject"]
@@ -68,10 +75,10 @@ def send_via_outlook(outlook, email_data: dict) -> bool:
             mail.Attachments.Add(str(COMPANY_PDF))
 
         mail.Send()
-        log.info("SENT: %s | %s", email_data["to"], email_data["subject"][:50])
+        log.info("SENT: %s | %s", recipient, email_data["subject"][:50])
         return True
     except Exception as e:
-        log.error("SEND FAILED: %s | %s", email_data["to"], e)
+        log.error("SEND FAILED: %s | %s", recipient, e)
         return False
 
 
