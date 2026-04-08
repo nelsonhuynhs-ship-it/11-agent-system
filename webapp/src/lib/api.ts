@@ -354,8 +354,11 @@ export interface EmailLogResponse {
 }
 
 export interface QueueResponse {
-  queued: number;
-  message: string;
+  sent: number;
+  failed: number;
+  results: Array<{ email: string; company: string; subject: string; status: string; queue_id: number }>;
+  errors: Array<{ email: string; company: string; error: string }>;
+  timestamp: string;
 }
 
 export const dataApi = {
@@ -401,7 +404,7 @@ export const dataApi = {
     markup?: number;
     template?: string;
   }) =>
-    fetchAPI<QueueResponse>('/api/email/queue', {
+    fetchAPI<QueueResponse>('/api/email-rate/campaign/bulk-send', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
