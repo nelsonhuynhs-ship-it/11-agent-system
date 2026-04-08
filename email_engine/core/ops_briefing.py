@@ -163,6 +163,17 @@ def main() -> None:
     log.info("Sending Telegram briefing...")
     ok = send_telegram(msg)
     log.info("Sent: %s", ok)
+    # Report to Fox Spirit (GoClaw VPS)
+    try:
+        import importlib.util, pathlib
+        _rep = pathlib.Path(__file__).parent.parent.parent / "tools" / "goclaw" / "goclaw_reporter.py"
+        _spec = importlib.util.spec_from_file_location("goclaw_reporter", _rep)
+        _mod = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)
+        _mod.report_to_fox("ops-brief", {"sent": ok, "red": len(groups["red"]),
+                           "yellow": len(groups["yellow"]), "green": len(groups["green"])})
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

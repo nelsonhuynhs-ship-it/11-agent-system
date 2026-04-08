@@ -265,4 +265,14 @@ if __name__ == '__main__':
         format="[%(asctime)s] %(levelname)-8s %(message)s",
         datefmt="%H:%M:%S",
     )
-    generate()
+    out = generate()
+    # Report to Fox Spirit (GoClaw VPS)
+    try:
+        import importlib.util, pathlib
+        _rep = pathlib.Path(__file__).parent.parent.parent / "tools" / "goclaw" / "goclaw_reporter.py"
+        _spec = importlib.util.spec_from_file_location("goclaw_reporter", _rep)
+        _mod = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)
+        _mod.report_to_fox("morning-brief", {"success": out is not None, "file": str(out) if out else None})
+    except Exception:
+        pass

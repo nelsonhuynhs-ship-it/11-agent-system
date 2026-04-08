@@ -82,3 +82,4 @@ TelegramBot_backup_*
 # Local backups + submodules
 .git_backup_*/
 claudekit-skills/
+tools/goclaw/.env

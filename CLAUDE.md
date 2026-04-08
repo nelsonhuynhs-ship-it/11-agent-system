@@ -80,6 +80,21 @@ Deploy: git pull → cp files → npm build → systemctl restart
 - Laptop VP: Chatbot runtime only (bot_v5, Telegram) — NO Claude Code
 - Both: same GitHub repo
 
+## GoClaw (PC Home)
+⚠️ **MỌI file GoClaw đều ở ổ D — KHÔNG phải C:\Users\Nelson\AppData**
+| Item | Path |
+|------|------|
+| DB | `D:/GoClaw/data/goclaw.db` |
+| Workspace | `D:/GoClaw/workspace/` |
+| Fox Spirit | `D:/GoClaw/workspace/little-fox/SOUL.md` |
+| Bat tools | `C:/Users/Nelson/5398948978/` ← exception, intentionally on C |
+| auto-campaign.py | `D:/NELSON/2. Areas/Engine_test/tools/goclaw/auto-campaign.py` |
+| Port | 18790 (PC Home only) |
+| Version | v1.2.2 (update từ v1.2.0) |
+| Agents | Fox Spirit (lead), SALES-OPS, OPS-ENGINE, WATCHDOG |
+| Cron | Daily Email Campaign — `0 16 * * 1-5` Asia/Ho_Chi_Minh |
+Python: `C:/Users/Nelson/anaconda3/python` (NOT system python3)
+
 ## SSH
 HOME PC: C:\Users\ADMIN\.ssh\id_nelson_vps
 Laptop VP: id_ed25519 (working as of 2026-03-24)

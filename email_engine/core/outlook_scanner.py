@@ -382,4 +382,15 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    _results = main()
+    # Report to Fox Spirit (GoClaw VPS) — fire-and-forget
+    try:
+        import importlib.util, pathlib
+        _rep = pathlib.Path(__file__).parent.parent.parent / "tools" / "goclaw" / "goclaw_reporter.py"
+        _spec = importlib.util.spec_from_file_location("goclaw_reporter", _rep)
+        _mod = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)
+        _summary = {k: v.get("status") for k, v in _results.items()} if isinstance(_results, dict) else {}
+        _mod.report_to_fox("outlook-scanner", {"success": True, "jobs": _summary})
+    except Exception:
+        pass

@@ -1133,6 +1133,17 @@ def run_full_import(days: int = 3, rate_type: Optional[str] = None,
         except Exception as e:
             log.warning("[⚠️] Anomaly check skipped: %s", e)
 
+        # ── Rate delta alert — compare new vs 7-day-prior prices ──
+        # NOTE: path only valid on Laptop VP (C:\Users\Nelson\...) — PC Home will
+        #       log a warning and continue normally (non-blocking, safe to skip).
+        try:
+            import subprocess as _sp
+            _alert_bat = r"C:\Users\Nelson\5398948978\rate-alert.bat"
+            _sp.Popen(_alert_bat, shell=True)  # shell=True required to run .bat
+            log.info("[📊] Rate alert check triggered (non-blocking)")
+        except Exception as e:
+            log.warning("[⚠️] Rate alert skipped: %s", e)
+
     return result
 
 
@@ -1159,6 +1170,16 @@ def main():
                                  scan_only=args.scan_only)
 
     import sys
+    # Report result to Fox Spirit (GoClaw VPS) — fire-and-forget
+    try:
+        import importlib.util, pathlib
+        _rep = pathlib.Path(__file__).parent.parent / "tools" / "goclaw" / "goclaw_reporter.py"
+        _spec = importlib.util.spec_from_file_location("goclaw_reporter", _rep)
+        _mod = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)
+        _mod.report_to_fox("rate-import", result)
+    except Exception:
+        pass
     output = json.dumps(result, ensure_ascii=False, indent=2, default=str)
     if sys.stdout and hasattr(sys.stdout, 'buffer'):
         sys.stdout.buffer.write(("\n" + output + "\n").encode("utf-8", errors="replace"))
