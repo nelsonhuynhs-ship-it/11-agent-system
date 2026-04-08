@@ -24,7 +24,31 @@ DATA_DIR = os.path.join(BASE_DIR, "data")  # Pricing_Engine/data
 MAPPING_DIR = os.path.join(BASE_DIR, "Mapping")  # Pricing_Engine/Mapping
 HISTORY_DIR = DATA_DIR  # Luôn lưu parquet trong Pricing_Engine/data
 OUTPUT_FILE = os.path.join(HISTORY_DIR, "Cleaned_Master_History.parquet")
-PUC_SOC_FILE = os.path.join(DATA_DIR, "PUC_SOC.xlsx")
+def _find_puc_file():
+    """Auto-detect latest PUC file (PUC_SOC.xlsx or PUC {MONTH} {YEAR}.xlsx)."""
+    import glob
+    legacy = os.path.join(DATA_DIR, "PUC_SOC.xlsx")
+    if os.path.exists(legacy):
+        return legacy
+    # Search DATA_DIR and OneDrive pricing for PUC*.xlsx
+    candidates = glob.glob(os.path.join(DATA_DIR, "PUC*.xlsx"))
+    # Also check OneDrive pricing path if different
+    try:
+        import sys
+        sys.path.insert(0, os.path.dirname(BASE_DIR))
+        from shared import paths as sp
+        for d in [sp.PRICING_DATA, sp.PRICING_DATA / "rate-tables"]:
+            candidates.extend(glob.glob(str(d / "PUC*.xlsx")))
+    except Exception:
+        pass
+    candidates = [f for f in candidates if "PUC_SOC" not in os.path.basename(f)]
+    candidates.sort(key=lambda f: os.path.getmtime(f), reverse=True)
+    if candidates:
+        print(f"  [PUC] Auto-detected: {os.path.basename(candidates[0])}")
+        return candidates[0]
+    return legacy
+
+PUC_SOC_FILE = _find_puc_file()
 
 # Container type normalization
 CONTAINER_NORMALIZE = {
