@@ -9,17 +9,33 @@ const API_BASE = API_URL;
 
 // ── Fetch wrapper with error handling ─────────────────────
 async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
-  });
-  if (!res.ok) {
-    throw new Error(`API error: ${res.status} ${res.statusText}`);
+  const controller = new AbortController();
+  const timeoutMs = 300_000; // 5 minutes — bulk-send renders 50 emails
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers,
+      },
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      const detail = body ? JSON.parse(body)?.detail || res.statusText : res.statusText;
+      throw new Error(`API error: ${res.status} — ${detail}`);
+    }
+    return res.json();
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error('Request timeout — server took too long (5min limit)');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
   }
-  return res.json();
 }
 
 // ── API Client ────────────────────────────────────────────
