@@ -24,7 +24,7 @@ import logging
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 from database.connection import execute_sync, is_postgres_configured
 
