@@ -78,14 +78,33 @@ jobs:
             # 5. Clean up stale worktrees
             git worktree prune 2>/dev/null || true
 
-            # 6. Ensure worktree helper script is executable
-            HELPER="$GOCLAW_ROOT/worktree-helper.sh"
-            if [ -f "$HELPER" ]; then
-              chmod +x "$HELPER"
-              echo "[OK] Worktree helper ready"
+            # 6. Install worktree helper + wt command
+            HELPER_SRC="$REPO/tools/goclaw/vps-worktree-helper.sh"
+            HELPER_DST="$GOCLAW_ROOT/worktree-helper.sh"
+            WT_CMD="$GOCLAW_ROOT/wt"
+
+            if [ -f "$HELPER_SRC" ]; then
+              cp "$HELPER_SRC" "$HELPER_DST"
+              chmod +x "$HELPER_DST"
+              # Create wt quick command
+              echo '#!/bin/bash' > "$WT_CMD"
+              echo '/opt/nelson/goclaw/worktree-helper.sh "$@"' >> "$WT_CMD"
+              chmod +x "$WT_CMD"
+              echo "[OK] wt command installed"
             fi
 
-            # 7. Write sync status
+            # 7. Setup PATH (one-time, idempotent)
+            if ! grep -q "goclaw" /etc/profile.d/nelson.sh 2>/dev/null; then
+              mkdir -p /etc/profile.d
+              cat >> /etc/profile.d/nelson.sh << 'PROFILE'
+export GOCLAW_ROOT="/opt/nelson/goclaw"
+export GOCLAW_REPO="$GOCLAW_ROOT/workspace/FreightBrian"
+export PATH="$GOCLAW_ROOT:$PATH"
+PROFILE
+              echo "[OK] PATH configured"
+            fi
+
+            # 8. Write sync status
             echo "$(date -Iseconds) | branch=$BRANCH | commit=$(git rev-parse --short HEAD)" >> "$GOCLAW_ROOT/logs/sync.log"
 
             echo "=== Sync DONE ==="
