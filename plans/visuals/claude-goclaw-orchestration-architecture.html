@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code + GoClaw — Multi-Agent Orchestration Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ── Light (default) — Blueprint palette ── */
+:root {
+  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SF Mono', Consolas, monospace;
+  --bg: #f0f4f8;
+  --surface: #ffffff;
+  --surface2: #e8eef4;
+  --surface-elevated: #f7fafc;
+  --border: rgba(30, 60, 100, 0.1);
+  --border-bright: rgba(30, 60, 100, 0.2);
+  --text: #1a2a3a;
+  --text-dim: #5a7090;
+  --text-bright: #0d1b2a;
+  --accent: #1a5fa8;
+  --accent-dim: rgba(26, 95, 168, 0.08);
+  --node-a: #1a5fa8;
+  --node-a-dim: rgba(26, 95, 168, 0.08);
+  --node-b: #0f766e;
+  --node-b-dim: rgba(15, 118, 110, 0.08);
+  --node-c: #b45309;
+  --node-c-dim: rgba(180, 83, 9, 0.08);
+  --node-d: #7c3aed;
+  --node-d-dim: rgba(124, 58, 237, 0.08);
+  --green: #059669;
+  --green-dim: rgba(5, 150, 105, 0.08);
+  --red: #dc2626;
+  --red-dim: rgba(220, 38, 38, 0.08);
+  --amber: #d97706;
+  --amber-dim: rgba(217, 119, 6, 0.08);
+  --teal: #0891b2;
+  --teal-dim: rgba(8, 145, 178, 0.08);
+  --plum: #9f1239;
+  --plum-dim: rgba(159, 18, 57, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1421;
+    --surface: #111d2e;
+    --surface2: #162438;
+    --surface-elevated: #1a2d44;
+    --border: rgba(100, 160, 220, 0.12);
+    --border-bright: rgba(100, 160, 220, 0.22);
+    --text: #c8d8e8;
+    --text-dim: #607080;
+    --text-bright: #e8f0f8;
+    --accent: #4a90d9;
+    --accent-dim: rgba(74, 144, 217, 0.1);
+    --node-a: #4a90d9;
+    --node-a-dim: rgba(74, 144, 217, 0.1);
+    --node-b: #5eead4;
+    --node-b-dim: rgba(94, 234, 212, 0.1);
+    --node-c: #fbbf24;
+    --node-c-dim: rgba(251, 191, 36, 0.1);
+    --node-d: #a78bfa;
+    --node-d-dim: rgba(167, 139, 250, 0.1);
+    --green: #34d399;
+    --green-dim: rgba(52, 211, 153, 0.1);
+    --red: #f87171;
+    --red-dim: rgba(248, 113, 113, 0.1);
+    --amber: #fbbf24;
+    --amber-dim: rgba(251, 191, 36, 0.1);
+    --teal: #22d3ee;
+    --teal-dim: rgba(34, 211, 238, 0.1);
+    --plum: #fb7185;
+    --plum-dim: rgba(251, 113, 133, 0.1);
+  }
+}
+
+[data-theme="dark"] {
+  --bg: #0d1421;
+  --surface: #111d2e;
+  --surface2: #162438;
+  --surface-elevated: #1a2d44;
+  --border: rgba(100, 160, 220, 0.12);
+  --border-bright: rgba(100, 160, 220, 0.22);
+  --text: #c8d8e8;
+  --text-dim: #607080;
+  --text-bright: #e8f0f8;
+  --accent: #4a90d9;
+  --accent-dim: rgba(74, 144, 217, 0.1);
+  --node-a: #4a90d9;
+  --node-a-dim: rgba(74, 144, 217, 0.1);
+  --node-b: #5eead4;
+  --node-b-dim: rgba(94, 234, 212, 0.1);
+  --node-c: #fbbf24;
+  --node-c-dim: rgba(251, 191, 36, 0.1);
+  --node-d: #a78bfa;
+  --node-d-dim: rgba(167, 139, 250, 0.1);
+  --green: #34d399;
+  --green-dim: rgba(52, 211, 153, 0.1);
+  --red: #f87171;
+  --red-dim: rgba(248, 113, 113, 0.1);
+  --amber: #fbbf24;
+  --amber-dim: rgba(251, 191, 36, 0.1);
+  --teal: #22d3ee;
+  --teal-dim: rgba(34, 211, 238, 0.1);
+  --plum: #fb7185;
+  --plum-dim: rgba(251, 113, 133, 0.1);
+}
+
+/* ── Reset & base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text);
+  background: var(--bg);
+  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-size: 24px 24px;
+  overflow-wrap: break-word;
+  padding: 32px 24px 64px;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* ── Theme Toggle ── */
+.theme-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 300;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: background 0.15s, color 0.15s;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+.theme-toggle:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+
+/* ── Typography ── */
+h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-bright);
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-bright);
+  margin: 48px 0 16px;
+}
+
+h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 24px 0 12px;
+}
+
+.subtitle {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 32px;
+}
+
+/* ── Section Labels ── */
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.section-label::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.section-label--blue { color: var(--node-a); }
+.section-label--teal { color: var(--node-b); }
+.section-label--amber { color: var(--node-c); }
+.section-label--purple { color: var(--node-d); }
+
+/* ── Cards ── */
+.ve-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 24px;
+  position: relative;
+}
+.ve-card--elevated {
+  background: var(--surface-elevated);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.ve-card--hero {
+  background: color-mix(in srgb, var(--surface) 92%, var(--accent) 8%);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+  border-color: color-mix(in srgb, var(--border) 50%, var(--accent) 50%);
+}
+.ve-card--accent-a { border-left: 3px solid var(--node-a); }
+.ve-card--accent-b { border-left: 3px solid var(--node-b); }
+.ve-card--accent-c { border-left: 3px solid var(--node-c); }
+.ve-card--accent-d { border-left: 3px solid var(--node-d); }
+
+.ve-card__label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ve-card__label::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ── Grid layouts ── */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+.card-grid > * { min-width: 0; }
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 768px) {
+  .two-col { grid-template-columns: 1fr; }
+}
+.two-col > * { min-width: 0; }
+
+.three-col {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+@media (max-width: 900px) {
+  .three-col { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 600px) {
+  .three-col { grid-template-columns: 1fr; }
+}
+.three-col > * { min-width: 0; }
+
+/* ── KPI cards ── */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 32px;
+}
+.kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  text-align: center;
+}
+.kpi__value {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.2;
+}
+.kpi__label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+/* ── Flow steps ── */
+.flow-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+}
+.flow-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 12px 0;
+  position: relative;
+}
+.flow-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 40px;
+  bottom: -4px;
+  width: 2px;
+  background: var(--border-bright);
+}
+.flow-step__num {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+.flow-step__num--blue { background: var(--node-a-dim); color: var(--node-a); border: 2px solid var(--node-a); }
+.flow-step__num--teal { background: var(--node-b-dim); color: var(--node-b); border: 2px solid var(--node-b); }
+.flow-step__num--amber { background: var(--node-c-dim); color: var(--node-c); border: 2px solid var(--node-c); }
+.flow-step__content {
+  flex: 1;
+  min-width: 0;
+}
+.flow-step__title {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-bright);
+}
+.flow-step__desc {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+/* ── Agent cards ── */
+.agent-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  text-align: center;
+  transition: box-shadow 0.15s;
+}
+.agent-card:hover {
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+.agent-card__icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+  display: block;
+}
+.agent-card__name {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-bright);
+}
+.agent-card__role {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+.agent-card__tools {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--teal);
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Code-like mono ── */
+code, .mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  background: var(--surface2);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--accent);
+}
+
+/* ── Data table ── */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.data-table th {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 2px solid var(--border-bright);
+  background: var(--surface2);
+}
+.data-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+.data-table tr:last-child td { border-bottom: none; }
+
+/* ── Status badges ── */
+.badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.badge--blue { background: var(--node-a-dim); color: var(--node-a); }
+.badge--teal { background: var(--node-b-dim); color: var(--node-b); }
+.badge--amber { background: var(--node-c-dim); color: var(--node-c); }
+.badge--green { background: var(--green-dim); color: var(--green); }
+.badge--red { background: var(--red-dim); color: var(--red); }
+
+/* ── Mermaid ── */
+.mermaid-wrap {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px 24px;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+.mermaid-wrap--compact { min-height: 300px; }
+.zoom-controls {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 2px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px;
+  z-index: 10;
+}
+.zoom-controls button {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+.zoom-controls button:hover {
+  background: var(--border);
+  color: var(--text);
+}
+.zoom-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  padding: 0 6px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+}
+.diagram-shell__hint {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  opacity: 0.7;
+}
+
+.mermaid-viewport {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  min-height: 350px;
+}
+.mermaid-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.mermaid-wrap { cursor: grab; }
+.mermaid-wrap.is-panning { cursor: grabbing; user-select: none; }
+
+/* Mermaid SVG overrides */
+.mermaid .nodeLabel { color: var(--text) !important; }
+.mermaid .edgeLabel { color: var(--text-dim) !important; background-color: var(--bg) !important; }
+.mermaid .edgeLabel rect { fill: var(--bg) !important; }
+.mermaid .node rect, .mermaid .node circle, .mermaid .node polygon { stroke-width: 1.5px; }
+.mermaid .edge-pattern-solid { stroke-width: 1.5px; }
+.mermaid .edgeLabel { font-family: var(--font-mono) !important; font-size: 13px !important; }
+.mermaid .nodeLabel { font-family: var(--font-body) !important; font-size: 15px !important; }
+
+/* ── Connector lines (CSS) ── */
+.connector {
+  text-align: center;
+  padding: 8px 0;
+  color: var(--text-dim);
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* ── Callout ── */
+.callout {
+  background: var(--amber-dim);
+  border-left: 3px solid var(--amber);
+  border-radius: 0 8px 8px 0;
+  padding: 12px 16px;
+  font-size: 14px;
+  color: var(--text);
+  margin: 16px 0;
+}
+.callout strong { color: var(--amber); }
+
+/* ── Divider ── */
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 40px 0;
+}
+
+/* ── Lists ── */
+ul.clean {
+  list-style: none;
+  padding: 0;
+}
+ul.clean li {
+  padding: 4px 0 4px 16px;
+  position: relative;
+  font-size: 14px;
+}
+ul.clean li::before {
+  content: '\203A';
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-weight: bold;
+}
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" id="themeToggle" title="Toggle theme" aria-label="Toggle light/dark theme"></button>
+
+<div class="container">
+
+  <!-- ═══════ HEADER ═══════ -->
+  <h1>Claude Code + GoClaw</h1>
+  <p class="subtitle">Multi-Agent Orchestration Architecture &mdash; Nelson Freight System</p>
+
+  <!-- ═══════ KPIs ═══════ -->
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="kpi__value">2</div>
+      <div class="kpi__label">Entry Flows</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi__value" style="color: var(--node-b);">7</div>
+      <div class="kpi__label">Agents Total</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi__value" style="color: var(--node-c);">5</div>
+      <div class="kpi__label">Components</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi__value" style="color: var(--plum);">3</div>
+      <div class="kpi__label">APIs</div>
+    </div>
+  </div>
+
+  <!-- ═══════ OVERVIEW DIAGRAM ═══════ -->
+  <div class="section-label section-label--blue">System Overview</div>
+
+  <section class="diagram-shell">
+    <p class="diagram-shell__hint">Ctrl/Cmd + wheel to zoom. Drag to pan. Double-click to fit.</p>
+    <div class="mermaid-wrap">
+      <div class="zoom-controls">
+        <button type="button" data-action="zoom-in" title="Zoom in">+</button>
+        <button type="button" data-action="zoom-out" title="Zoom out">&minus;</button>
+        <button type="button" data-action="zoom-fit" title="Smart fit">&#8634;</button>
+        <button type="button" data-action="zoom-one" title="1:1">1:1</button>
+        <button type="button" data-action="zoom-expand" title="Expand">&#x26F6;</button>
+        <span class="zoom-label">Loading...</span>
+      </div>
+      <div class="mermaid-viewport">
+        <div class="mermaid mermaid-canvas"></div>
+      </div>
+    </div>
+    <script type="text/plain" class="diagram-source">
+graph TD
+  NELSON["Nelson Huynh"]:::user
+
+  subgraph PC["FLOW A: PC Home"]
+    CC["Claude Code Desktop<br/>Planning + Orchestration"]:::brain
+  end
+
+  subgraph TG["FLOW B: Mobile"]
+    TBOT["Telegram"]:::ext
+    CAPTAIN["GoClaw Captain<br/>Parse + Structure"]:::captain
+    API["FastAPI /api/plan-request<br/>Claude API Bridge"]:::api
+  end
+
+  subgraph GC["GoClaw Engine"]
+    LEADER["Fox Spirit Leader<br/>Task Distribution"]:::leader
+    HAWK["HAWK<br/>Web Scraper"]:::agent
+    LENS["LENS<br/>Data Analyst"]:::agent
+    COMPASS["COMPASS<br/>Research"]:::agent
+    SHIELD["SHIELD<br/>Security"]:::agent
+    FORGE["FORGE<br/>Builder"]:::agent
+  end
+
+  NELSON -->|"At PC"| CC
+  NELSON -->|"On the go"| TBOT
+  CC ==>|"POST /v1/agents/wake"| LEADER
+  TBOT -->|"Chat"| CAPTAIN
+  CAPTAIN -->|"POST /api/plan-request"| API
+  API -.->|"Anthropic API"| CC
+  API -->|"Plan JSON"| CAPTAIN
+  CAPTAIN ==>|"POST /v1/agents/wake"| LEADER
+  LEADER -->|"sessions_spawn"| HAWK
+  LEADER -->|"sessions_spawn"| LENS
+  LEADER -->|"sessions_spawn"| COMPASS
+  LEADER -->|"sessions_spawn"| SHIELD
+  LEADER -->|"sessions_spawn"| FORGE
+
+  classDef user fill:#0891b211,stroke:#0891b2,stroke-width:2px
+  classDef brain fill:#1a5fa822,stroke:#1a5fa8,stroke-width:2px
+  classDef captain fill:#b4530922,stroke:#b45309,stroke-width:2px
+  classDef api fill:#05966922,stroke:#059669,stroke-width:1.5px
+  classDef ext fill:#64748b11,stroke:#64748b,stroke-width:1px,stroke-dasharray:5 5
+  classDef leader fill:#9f123922,stroke:#9f1239,stroke-width:2px
+  classDef agent fill:#0f766e11,stroke:#0f766e,stroke-width:1.5px
+    </script>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ═══════ FLOW A ═══════ -->
+  <h2>Flow A — Nelson tai PC</h2>
+  <div class="section-label section-label--blue">Claude Code = Trung tam dieu phoi</div>
+
+  <div class="ve-card ve-card--hero" style="margin-bottom: 24px;">
+    <p style="font-size: 15px;">Khi anh ngoi truoc may tinh, Claude Code Desktop la giao dien chinh. Anh mo ta yeu cau, Claude Code lap plan chi tiet, anh approve roi Claude Code gui thang cho GoClaw Leader de thuc thi.</p>
+  </div>
+
+  <div class="flow-steps">
+    <div class="flow-step">
+      <div class="flow-step__num flow-step__num--blue">1</div>
+      <div class="flow-step__content">
+        <div class="flow-step__title">Nelson mo ta yeu cau</div>
+        <div class="flow-step__desc">Anh chat voi Claude Code Desktop: "Build feature X", "Fix bug Y", "Scrape rate HPL"</div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step__num flow-step__num--blue">2</div>
+      <div class="flow-step__content">
+        <div class="flow-step__title">Claude Code lap plan</div>
+        <div class="flow-step__desc">Phan tich, research, tao implementation plan voi tasks cụ the cho tung sub-agent</div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step__num flow-step__num--blue">3</div>
+      <div class="flow-step__content">
+        <div class="flow-step__title">Anh review va approve plan</div>
+        <div class="flow-step__desc">Duyệt plan, dieu chinh neu can, roi confirm de bat dau thuc thi</div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step__num flow-step__num--teal">4</div>
+      <div class="flow-step__content">
+        <div class="flow-step__title">Claude Code ban task cho GoClaw Leader</div>
+        <div class="flow-step__desc"><code>POST /v1/agents/{leader-id}/wake</code> voi structured plan payload</div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step__num flow-step__num--teal">5</div>
+      <div class="flow-step__content">
+        <div class="flow-step__title">Leader phan bo sub-agents</div>
+        <div class="flow-step__desc">Fox Spirit dung <code>sessions_spawn()</code> de chia task cho HAWK, LENS, COMPASS, SHIELD, FORGE</div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step__num flow-step__num--amber">6</div>
+      <div class="flow-step__content">
+        <div class="flow-step__title">Ket qua tra ve Claude Code</div>
+        <div class="flow-step__desc">Leader tong hop ket qua tu sub-agents, Claude Code doc va bao cao cho anh</div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ═══════ FLOW B ═══════ -->
+  <h2>Flow B — Nelson o ngoai (Telegram)</h2>
+  <div class="section-label section-label--amber">Claude API = Dau nao tu xa</div>
+
+  <div class="ve-card ve-card--hero" style="margin-bottom: 24px;">
+    <p style="font-size: 15px;">Khi anh o ngoai, chat Telegram cho GoClaw Captain. Captain chuyen doi yeu cau thanh cau truc JSON, goi FastAPI endpoint de Claude API lap plan, roi chuyen plan cho GoClaw Leader thuc thi.</p>
+  </div>
+
+  <div class="flow-steps">
+    <div class="flow-step">
+      <div class="flow-step__num flow-step__num--amber">1</div>
+      <div class="flow-step__content">
+        <div class="flow-step__title">Nelson chat Telegram</div>
+        <div class="flow-step__desc">Anh gui tin nhan cho GoClaw Captain: "Build dashboard cho email history"</div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step__num flow-step__num--amber">2</div>
+      <div class="flow-step__content">
+        <div class="flow-step__title">Captain parse va structure request</div>
+        <div class="flow-step__desc">Chuyen doi ngon ngu tu nhien thanh structured JSON voi context, requirements, constraints</div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step__num flow-step__num--blue">3</div>
+      <div class="flow-step__content">
+        <div class="flow-step__title">Captain goi FastAPI bridge</div>
+        <div class="flow-step__desc"><code>POST /api/plan-request</code> gui structured request len Nelson API (port 8100)</div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step__num flow-step__num--blue">4</div>
+      <div class="flow-step__content">
+        <div class="flow-step__title">FastAPI goi Anthropic Claude API</div>
+        <div class="flow-step__desc">Endpoint nay goi Claude API de lap plan — Claude van la dau nao du anh khong o PC</div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step__num flow-step__num--teal">5</div>
+      <div class="flow-step__content">
+        <div class="flow-step__title">Plan tra ve → Captain → Leader</div>
+        <div class="flow-step__desc">Captain nhan plan, review, roi <code>POST /v1/agents/{leader}/wake</code> de bat dau thuc thi</div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step__num flow-step__num--teal">6</div>
+      <div class="flow-step__content">
+        <div class="flow-step__title">Leader → Sub-agents → Ket qua</div>
+        <div class="flow-step__desc">Giong Flow A: Leader phan bo, sub-agents thuc thi, Captain gui ket qua ve Telegram</div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ═══════ SEQUENCE DIAGRAM ═══════ -->
+  <h2>Communication Flow</h2>
+  <div class="section-label section-label--teal">Sequence Diagram</div>
+
+  <section class="diagram-shell">
+    <p class="diagram-shell__hint">Ctrl/Cmd + wheel to zoom. Drag to pan. Double-click to fit.</p>
+    <div class="mermaid-wrap">
+      <div class="zoom-controls">
+        <button type="button" data-action="zoom-in" title="Zoom in">+</button>
+        <button type="button" data-action="zoom-out" title="Zoom out">&minus;</button>
+        <button type="button" data-action="zoom-fit" title="Smart fit">&#8634;</button>
+        <button type="button" data-action="zoom-one" title="1:1">1:1</button>
+        <button type="button" data-action="zoom-expand" title="Expand">&#x26F6;</button>
+        <span class="zoom-label">Loading...</span>
+      </div>
+      <div class="mermaid-viewport">
+        <div class="mermaid mermaid-canvas"></div>
+      </div>
+    </div>
+    <script type="text/plain" class="diagram-source">
+sequenceDiagram
+  participant N as Nelson
+  participant CC as Claude Code
+  participant API as FastAPI 8100
+  participant CAP as Captain
+  participant FS as Fox Spirit Leader
+  participant SA as Sub-Agents
+
+  rect rgb(26, 95, 168, 0.05)
+    Note over N,SA: FLOW A - Nelson at PC
+    N->>CC: Describe task
+    CC->>CC: Create plan
+    CC-->>N: Show plan for approval
+    N->>CC: Approve
+    CC->>FS: POST /v1/agents/wake with plan
+    FS->>SA: sessions_spawn per task
+    SA-->>FS: Results
+    FS-->>CC: Aggregated result
+    CC-->>N: Report
+  end
+
+  rect rgb(180, 83, 9, 0.05)
+    Note over N,SA: FLOW B - Nelson on Telegram
+    N->>CAP: Telegram message
+    CAP->>CAP: Parse and structure
+    CAP->>API: POST /api/plan-request
+    API->>API: Call Anthropic Claude API
+    API-->>CAP: Plan JSON
+    CAP->>FS: POST /v1/agents/wake with plan
+    FS->>SA: sessions_spawn per task
+    SA-->>FS: Results
+    FS-->>CAP: Aggregated result
+    CAP-->>N: Telegram response
+  end
+    </script>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ═══════ AGENT ROSTER ═══════ -->
+  <h2>Agent Roster</h2>
+  <div class="section-label section-label--purple">GoClaw Squad</div>
+
+  <div class="two-col" style="margin-bottom: 20px;">
+    <div class="ve-card ve-card--elevated ve-card--accent-a">
+      <div class="ve-card__label" style="color: var(--node-a);">Leader</div>
+      <h3 style="margin: 0 0 8px;">Fox Spirit</h3>
+      <p style="font-size: 14px; color: var(--text-dim);">Nhan plan tu Claude Code, phan tich task dependencies, dispatch cho sub-agents qua <code>sessions_spawn()</code>, tong hop ket qua.</p>
+    </div>
+    <div class="ve-card ve-card--elevated ve-card--accent-c">
+      <div class="ve-card__label" style="color: var(--node-c);">Captain</div>
+      <h3 style="margin: 0 0 8px;">Telegram Bridge</h3>
+      <p style="font-size: 14px; color: var(--text-dim);">Nhan tin nhan Telegram tu Nelson, parse thanh structured request, goi FastAPI bridge, chuyen plan cho Leader.</p>
+    </div>
+  </div>
+
+  <div style="font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--node-b); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+    <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--node-b); display: inline-block;"></span>
+    Sub-Agents
+  </div>
+
+  <div class="three-col" style="grid-template-columns: repeat(5, 1fr);">
+    <div class="agent-card">
+      <span class="agent-card__icon" style="color: var(--red);">&#9670;</span>
+      <div class="agent-card__name">HAWK</div>
+      <div class="agent-card__role">Web Scraper</div>
+      <div class="agent-card__tools">Playwright, HTTP, Parser</div>
+    </div>
+    <div class="agent-card">
+      <span class="agent-card__icon" style="color: var(--teal);">&#9673;</span>
+      <div class="agent-card__name">LENS</div>
+      <div class="agent-card__role">Data Analyst</div>
+      <div class="agent-card__tools">DuckDB, Pandas, Charts</div>
+    </div>
+    <div class="agent-card">
+      <span class="agent-card__icon" style="color: var(--green);">&#9678;</span>
+      <div class="agent-card__name">COMPASS</div>
+      <div class="agent-card__role">Researcher</div>
+      <div class="agent-card__tools">Web Search, Docs, Summary</div>
+    </div>
+    <div class="agent-card">
+      <span class="agent-card__icon" style="color: var(--amber);">&#9670;</span>
+      <div class="agent-card__name">SHIELD</div>
+      <div class="agent-card__role">Security Audit</div>
+      <div class="agent-card__tools">OWASP, Scan, Validate</div>
+    </div>
+    <div class="agent-card">
+      <span class="agent-card__icon" style="color: var(--node-a);">&#9674;</span>
+      <div class="agent-card__name">FORGE</div>
+      <div class="agent-card__role">Code Builder</div>
+      <div class="agent-card__tools">Code Gen, Test, Deploy</div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ═══════ COMPONENTS ═══════ -->
+  <h2>Components Can Build</h2>
+  <div class="section-label section-label--teal">Implementation Roadmap</div>
+
+  <div class="ve-card" style="margin-bottom: 16px; overflow-x: auto;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Component</th>
+          <th>Description</th>
+          <th>Location</th>
+          <th>Priority</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td><strong>/api/plan-request</strong></td>
+          <td>FastAPI endpoint nhan structured request, goi Anthropic Claude API, tra plan JSON</td>
+          <td><code>api/routers/</code></td>
+          <td><span class="badge badge--red">P0</span></td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td><strong>Leader SOUL.md</strong></td>
+          <td>Fox Spirit: nhan plan payload, parse tasks, dispatch sessions_spawn</td>
+          <td><code>GoClaw/workspace/</code></td>
+          <td><span class="badge badge--red">P0</span></td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td><strong>wake-goclaw.py</strong></td>
+          <td>Claude Code helper: format plan JSON + POST /v1/agents/wake</td>
+          <td><code>tools/goclaw/</code></td>
+          <td><span class="badge badge--amber">P1</span></td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td><strong>5x Sub-agent SOUL.md</strong></td>
+          <td>HAWK, LENS, COMPASS, SHIELD, FORGE definitions + tool bindings</td>
+          <td><code>GoClaw/workspace/</code></td>
+          <td><span class="badge badge--amber">P1</span></td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td><strong>Captain SOUL.md</strong></td>
+          <td>Telegram parser: NL to structured JSON + call /api/plan-request</td>
+          <td><code>GoClaw/workspace/</code></td>
+          <td><span class="badge badge--blue">P2</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══════ TECHNICAL DETAILS ═══════ -->
+  <h2>Technical Details</h2>
+  <div class="section-label section-label--blue">Infra + APIs</div>
+
+  <div class="two-col">
+    <div class="ve-card ve-card--accent-a">
+      <div class="ve-card__label" style="color: var(--node-a);">GoClaw API</div>
+      <ul class="clean">
+        <li><code>POST /v1/agents/{id}/wake</code> — Trigger agent</li>
+        <li><code>POST /v1/tools/custom</code> — Register tool</li>
+        <li><code>POST /v1/mcp/servers</code> — MCP server</li>
+        <li>Port: <strong>18790</strong></li>
+      </ul>
+    </div>
+    <div class="ve-card ve-card--accent-b">
+      <div class="ve-card__label" style="color: var(--node-b);">Nelson API</div>
+      <ul class="clean">
+        <li><code>POST /api/plan-request</code> — Claude bridge (NEW)</li>
+        <li><code>GET /api/rates</code> — Rate query</li>
+        <li><code>POST /api/email/send</code> — Email send</li>
+        <li>Port: <strong>8100</strong> on VPS</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="ve-card" style="margin-top: 16px; overflow-x: auto;">
+    <div class="ve-card__label" style="color: var(--node-c);">GoClaw Lane Config</div>
+    <table class="data-table">
+      <thead>
+        <tr><th>Lane</th><th>Concurrency</th><th>Purpose</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>main</code></td><td>30</td><td>User chat sessions</td></tr>
+        <tr><td><code>subagent</code></td><td>50</td><td>Spawned sub-agents</td></tr>
+        <tr><td><code>team</code></td><td>100</td><td>Team delegation</td></tr>
+        <tr><td><code>cron</code></td><td>30</td><td>Scheduled jobs</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ═══════ TASK SCHEMA ═══════ -->
+  <h2>Task Schema</h2>
+  <div class="section-label section-label--purple">Plan Payload Format</div>
+
+  <div class="ve-card" style="font-family: var(--font-mono); font-size: 13px; white-space: pre-wrap; line-height: 1.6; background: var(--surface2);">
+{
+  "plan_id": "uuid",
+  "created_by": "claude-code",
+  "created_at": "2026-04-09T17:00:00+07:00",
+  "title": "Build email history dashboard",
+  "tasks": [
+    {
+      "id": "task-1",
+      "agent": "HAWK",
+      "capability": "web_scrape",
+      "action": "Scrape HPL rate page",
+      "params": { "url": "...", "carrier": "HPL" },
+      "timeout_seconds": 120,
+      "depends_on": []
+    },
+    {
+      "id": "task-2",
+      "agent": "FORGE",
+      "capability": "code_gen",
+      "action": "Build Next.js dashboard page",
+      "params": { "template": "dashboard", "features": ["table", "chart"] },
+      "timeout_seconds": 300,
+      "depends_on": ["task-1"]
+    }
+  ],
+  "callback": "file://tasks/done/{plan_id}.json"
+}
+  </div>
+
+  <div class="callout" style="margin-top: 16px;">
+    <strong>Luu y:</strong> Field <code>agent</code> la optional — Leader co the tu route dua tren <code>capability</code> neu agent khong duoc chi dinh.
+  </div>
+
+  <hr class="divider">
+
+  <!-- ═══════ RISKS ═══════ -->
+  <h2>Risks + Mitigations</h2>
+
+  <div class="card-grid">
+    <div class="ve-card ve-card--accent-c">
+      <div class="ve-card__label" style="color: var(--red);">Risk 1</div>
+      <h3 style="margin: 0 0 4px;">Claude Code khong phai daemon</h3>
+      <p style="font-size: 14px; color: var(--text-dim);">Dong terminal = mat coordination. <strong>Fix:</strong> Tasks co UUID, idempotent, co the resume.</p>
+    </div>
+    <div class="ve-card ve-card--accent-c">
+      <div class="ve-card__label" style="color: var(--red);">Risk 2</div>
+      <h3 style="margin: 0 0 4px;">Sub-agents chua co tool bindings</h3>
+      <p style="font-size: 14px; color: var(--text-dim);">HAWK/LENS/COMPASS/SHIELD/FORGE moi la ten. <strong>Fix:</strong> Tao SOUL.md + skills ZIP truoc khi test.</p>
+    </div>
+    <div class="ve-card ve-card--accent-c">
+      <div class="ve-card__label" style="color: var(--amber);">Risk 3</div>
+      <h3 style="margin: 0 0 4px;">Double execution</h3>
+      <p style="font-size: 14px; color: var(--text-dim);">Retry khi timeout co the chay 2 lan. <strong>Fix:</strong> Check done/ truoc khi submit, UUID dedup.</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════ SCRIPTS ═══════ -->
+<script>
+// Theme toggle
+(function() {
+  var toggle = document.getElementById('themeToggle');
+  var saved = localStorage.getItem('theme');
+  var initial = saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  if (saved) document.documentElement.setAttribute('data-theme', initial);
+  toggle.textContent = initial === 'dark' ? '\u2600' : '\u263E';
+  toggle.addEventListener('click', function() {
+    var current = document.documentElement.getAttribute('data-theme')
+      || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    var next = current === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    toggle.textContent = next === 'dark' ? '\u2600' : '\u263E';
+    // Re-render mermaid diagrams for theme change
+    location.reload();
+  });
+})();
+</script>
+
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
+const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
+  || (!document.documentElement.getAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
+
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'base',
+  look: 'classic',
+  themeVariables: {
+    primaryColor: isDark ? '#1a2d44' : '#e8eef4',
+    primaryBorderColor: isDark ? '#4a90d9' : '#1a5fa8',
+    primaryTextColor: isDark ? '#c8d8e8' : '#1a2a3a',
+    secondaryColor: isDark ? '#162438' : '#f0fdf4',
+    secondaryBorderColor: isDark ? '#34d399' : '#059669',
+    secondaryTextColor: isDark ? '#c8d8e8' : '#1a2a3a',
+    tertiaryColor: isDark ? '#27201a' : '#fef3c7',
+    tertiaryBorderColor: isDark ? '#d97706' : '#f59e0b',
+    tertiaryTextColor: isDark ? '#fef3c7' : '#27201a',
+    lineColor: isDark ? '#4a6080' : '#94a3b8',
+    fontSize: '15px',
+    fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+    noteBkgColor: isDark ? '#1a2d44' : '#fefce8',
+    noteTextColor: isDark ? '#c8d8e8' : '#1a2a3a',
+    noteBorderColor: isDark ? '#fbbf24' : '#d97706',
+  }
+});
+
+// Zoom/pan engine
+const config = { fitPadding: 24, zoomMin: 0.3, zoomMax: 4, readabilityFloor: 0.5, zoomStep: 0.15 };
+const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+let activeDrag = null;
+
+addEventListener('mousemove', (e) => activeDrag?.onMove(e));
+addEventListener('mouseup', () => { activeDrag?.onEnd(); activeDrag = null; });
+
+function initDiagram(shell) {
+  const wrap = shell.querySelector('.mermaid-wrap');
+  const viewport = shell.querySelector('.mermaid-viewport');
+  const canvas = shell.querySelector('.mermaid-canvas');
+  const source = shell.querySelector('.diagram-source');
+  const label = shell.querySelector('.zoom-label');
+
+  if (!wrap || !viewport || !canvas || !source || !label) return;
+
+  let zoom = 1, panX = 0, panY = 0;
+  let naturalW = 0, naturalH = 0;
+
+  function apply() {
+    const svg = canvas.querySelector('svg');
+    if (!svg) return;
+    svg.style.width = (naturalW * zoom) + 'px';
+    svg.style.height = (naturalH * zoom) + 'px';
+    canvas.style.transform = 'translate(' + panX + 'px, ' + panY + 'px)';
+    label.textContent = Math.round(zoom * 100) + '%';
+  }
+
+  function fitSmart() {
+    const vw = viewport.clientWidth - config.fitPadding * 2;
+    const vh = viewport.clientHeight - config.fitPadding * 2;
+    if (!naturalW || !naturalH) return;
+    const fit = Math.min(vw / naturalW, vh / naturalH, 1.5);
+    zoom = Math.max(fit, config.readabilityFloor);
+    const sw = naturalW * zoom, sh = naturalH * zoom;
+    panX = Math.max(0, (viewport.clientWidth - sw) / 2);
+    panY = Math.max(0, (viewport.clientHeight - sh) / 2);
+    apply();
+  }
+
+  async function render() {
+    try {
+      const code = source.textContent.trim();
+      if (!code) { label.textContent = 'Empty'; return; }
+      const id = 'dia-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+      const { svg } = await mermaid.render(id, code);
+      canvas.innerHTML = svg;
+      const svgEl = canvas.querySelector('svg');
+      if (svgEl) {
+        naturalW = svgEl.viewBox?.baseVal?.width || svgEl.getBoundingClientRect().width;
+        naturalH = svgEl.viewBox?.baseVal?.height || svgEl.getBoundingClientRect().height;
+        svgEl.removeAttribute('height');
+        svgEl.style.maxWidth = 'none';
+      }
+      fitSmart();
+    } catch (err) {
+      console.error('Mermaid render:', err);
+      label.textContent = 'Error';
+    }
+  }
+
+  // Zoom controls
+  wrap.querySelectorAll('.zoom-controls button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.action;
+      if (action === 'zoom-in') zoom = clamp(zoom * (1 + config.zoomStep), config.zoomMin, config.zoomMax);
+      if (action === 'zoom-out') zoom = clamp(zoom * (1 - config.zoomStep), config.zoomMin, config.zoomMax);
+      if (action === 'zoom-fit') { fitSmart(); return; }
+      if (action === 'zoom-one') { zoom = 1; panX = 0; panY = 0; }
+      if (action === 'zoom-expand') {
+        const svgEl = canvas.querySelector('svg');
+        if (svgEl) {
+          const blob = new Blob([svgEl.outerHTML], { type: 'image/svg+xml' });
+          window.open(URL.createObjectURL(blob), '_blank');
+        }
+        return;
+      }
+      apply();
+    });
+  });
+
+  // Ctrl+wheel zoom
+  wrap.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.1 : 0.9;
+    zoom = clamp(zoom * factor, config.zoomMin, config.zoomMax);
+    apply();
+  }, { passive: false });
+
+  // Drag to pan
+  wrap.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    const startX = e.clientX, startY = e.clientY;
+    const startPanX = panX, startPanY = panY;
+    wrap.classList.add('is-panning');
+    activeDrag = {
+      onMove: (me) => { panX = startPanX + me.clientX - startX; panY = startPanY + me.clientY - startY; apply(); },
+      onEnd: () => { wrap.classList.remove('is-panning'); }
+    };
+  });
+
+  // Double-click to fit
+  wrap.addEventListener('dblclick', fitSmart);
+
+  render();
+}
+
+document.querySelectorAll('.diagram-shell').forEach(initDiagram);
+</script>
+
+</body>
+</html>
