@@ -1,0 +1,102 @@
+name: GoClaw Workspace Sync
+
+# ============================================================
+#   NELSON FREIGHT — GoClaw Code Sync
+#   Push to main → sync code to GoClaw workspace on VPS
+#   GoClaw can then read code, create worktrees, do reviews
+# ============================================================
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to sync (default: main)"
+        required: false
+        default: "main"
+
+env:
+  VPS_HOST: 14.225.207.145
+  VPS_USER: root
+
+jobs:
+  sync-goclaw:
+    name: "Sync code to GoClaw workspace"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Sync repo to GoClaw workspace
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          GH_TOKEN: ${{ secrets.GH_DEPLOY_TOKEN }}
+        with:
+          host: ${{ env.VPS_HOST }}
+          username: ${{ env.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          timeout: 300s
+          envs: GH_TOKEN
+          script: |
+            set -e
+            echo "=== GoClaw Workspace Sync $(date '+%H:%M %d/%m/%Y') ==="
+
+            BRANCH="${{ github.event.inputs.branch || 'main' }}"
+            GOCLAW_ROOT="/opt/nelson/goclaw"
+            WORKSPACE="$GOCLAW_ROOT/workspace"
+            REPO="$WORKSPACE/FreightBrian"
+            WORKTREES="$GOCLAW_ROOT/worktrees"
+            REPO_URL="https://${GH_TOKEN}@github.com/nelsonhuynhs-ship-it/FrieghtBrian.git"
+
+            # 1. Create directory structure
+            mkdir -p "$WORKSPACE" "$WORKTREES" "$GOCLAW_ROOT/logs" "$GOCLAW_ROOT/plans"
+            echo "[OK] Dirs ready"
+
+            # 2. Clone or update main repo
+            if [ ! -d "$REPO/.git" ]; then
+              echo "First time — cloning repo..."
+              git clone "$REPO_URL" "$REPO"
+              cd "$REPO"
+            else
+              cd "$REPO"
+              git remote set-url origin "$REPO_URL"
+              git fetch origin --prune
+              git checkout main 2>/dev/null || git checkout -b main origin/main
+              git reset --hard origin/main
+            fi
+            echo "[OK] Main branch: $(git log -1 --pretty='%h %s')"
+
+            # 3. Fetch all remote branches (for worktree access)
+            git fetch origin '+refs/heads/*:refs/remotes/origin/*'
+            echo "[OK] All branches fetched"
+
+            # 4. List available branches for GoClaw
+            echo ""
+            echo "--- Available branches ---"
+            git branch -r --format='%(refname:short)' | head -20
+            echo ""
+
+            # 5. Clean up stale worktrees
+            git worktree prune 2>/dev/null || true
+
+            # 6. Ensure worktree helper script is executable
+            HELPER="$GOCLAW_ROOT/worktree-helper.sh"
+            if [ -f "$HELPER" ]; then
+              chmod +x "$HELPER"
+              echo "[OK] Worktree helper ready"
+            fi
+
+            # 7. Write sync status
+            echo "$(date -Iseconds) | branch=$BRANCH | commit=$(git rev-parse --short HEAD)" >> "$GOCLAW_ROOT/logs/sync.log"
+
+            echo "=== Sync DONE ==="
+            echo "Repo: $REPO"
+            echo "Worktrees dir: $WORKTREES"
+
+      - name: Notify sync result
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          [ "$STATUS" = "success" ] && MSG="GoClaw Sync OK" || MSG="GoClaw Sync FAIL"
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d text="$MSG | $(date -u '+%d/%m %H:%M UTC')" || true
