@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TraSuaPOS — Upgrade Roadmap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #faf8f5;
+    --surface: #ffffff;
+    --surface-hover: #f5f0ea;
+    --text: #1a1613;
+    --text-muted: #8c7e6f;
+    --accent: #c8956c;
+    --accent-dark: #a37248;
+    --success: #4a9e6f;
+    --warning: #d4953a;
+    --danger: #c45454;
+    --border: #e8e0d6;
+    --shadow: 0 1px 3px rgba(26,22,19,0.06), 0 4px 12px rgba(26,22,19,0.04);
+    --shadow-lg: 0 4px 16px rgba(26,22,19,0.08), 0 8px 32px rgba(26,22,19,0.04);
+    --radius: 12px;
+    --font: 'DM Sans', system-ui, sans-serif;
+    --mono: 'DM Mono', monospace;
+  }
+
+  [data-theme="dark"] {
+    --bg: #141210;
+    --surface: #1e1b18;
+    --surface-hover: #2a2520;
+    --text: #f0ece6;
+    --text-muted: #8c7e6f;
+    --accent: #d4a373;
+    --accent-dark: #e8b98a;
+    --success: #5cb87a;
+    --warning: #e5a84d;
+    --danger: #d46b6b;
+    --border: #2e2924;
+    --shadow: 0 1px 3px rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.15);
+    --shadow-lg: 0 4px 16px rgba(0,0,0,0.25), 0 8px 32px rgba(0,0,0,0.2);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 40px 24px; }
+
+  /* Theme toggle */
+  .theme-toggle {
+    position: fixed; top: 16px; right: 16px; z-index: 100;
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--surface); border: 1px solid var(--border);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    box-shadow: var(--shadow); font-size: 18px; transition: all 0.2s;
+  }
+  .theme-toggle:hover { transform: scale(1.1); }
+
+  /* Header */
+  .hero {
+    text-align: center; margin-bottom: 48px;
+    padding: 48px 24px; background: var(--surface);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+  }
+  .hero-emoji { font-size: 48px; margin-bottom: 12px; }
+  .hero h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+  .hero .subtitle { color: var(--text-muted); font-size: 14px; font-family: var(--mono); }
+
+  /* Section labels */
+  .section-label {
+    font-family: var(--mono); font-size: 11px; font-weight: 500;
+    color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px;
+    margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+  }
+  .section-label::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+  /* Cards */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px; margin-bottom: 24px;
+    box-shadow: var(--shadow); transition: all 0.2s;
+  }
+  .card:hover { box-shadow: var(--shadow-lg); }
+  .card h3 { font-size: 18px; font-weight: 600; margin-bottom: 12px; }
+
+  /* Stats grid */
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px; margin-bottom: 32px;
+  }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px; text-align: center;
+    box-shadow: var(--shadow);
+  }
+  .stat-value { font-size: 28px; font-weight: 700; color: var(--accent); }
+  .stat-label { font-size: 12px; color: var(--text-muted); font-family: var(--mono); margin-top: 4px; }
+
+  /* Phase timeline */
+  .phase {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px; margin-bottom: 16px;
+    box-shadow: var(--shadow); position: relative;
+    border-left: 4px solid var(--border);
+    transition: all 0.2s;
+  }
+  .phase:hover { border-left-color: var(--accent); }
+  .phase.critical { border-left-color: var(--danger); }
+  .phase.active { border-left-color: var(--success); }
+  .phase.planned { border-left-color: var(--warning); }
+  .phase.future { border-left-color: var(--text-muted); }
+
+  .phase-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+  .phase-title { font-size: 16px; font-weight: 600; }
+  .phase-meta { display: flex; gap: 8px; align-items: center; }
+
+  .badge {
+    display: inline-block; padding: 2px 10px; border-radius: 99px;
+    font-size: 11px; font-weight: 600; font-family: var(--mono);
+  }
+  .badge-critical { background: #fde8e8; color: var(--danger); }
+  .badge-active { background: #e8f5ee; color: var(--success); }
+  .badge-planned { background: #fef3e2; color: var(--warning); }
+  .badge-future { background: var(--surface-hover); color: var(--text-muted); }
+  [data-theme="dark"] .badge-critical { background: #3a1c1c; }
+  [data-theme="dark"] .badge-active { background: #1c3a25; }
+  [data-theme="dark"] .badge-planned { background: #3a2e1c; }
+  [data-theme="dark"] .badge-future { background: #2a2520; }
+
+  .task-list { list-style: none; padding: 0; }
+  .task-list li {
+    padding: 6px 0; font-size: 14px; display: flex; align-items: flex-start; gap: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .task-list li:last-child { border-bottom: none; }
+  .task-list .check { width: 16px; height: 16px; border: 2px solid var(--border); border-radius: 4px; flex-shrink: 0; margin-top: 3px; }
+
+  /* Bug report */
+  .bug-card {
+    background: var(--surface); border: 1px solid var(--danger);
+    border-radius: var(--radius); padding: 24px; margin-bottom: 24px;
+    box-shadow: var(--shadow);
+  }
+  .bug-card h3 { color: var(--danger); }
+
+  /* P&L Section */
+  .pnl-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 12px; }
+  .pnl-table th { text-align: left; padding: 10px 12px; background: var(--surface-hover); font-weight: 600; font-size: 12px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.5px; }
+  .pnl-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .pnl-table .total td { font-weight: 700; border-top: 2px solid var(--accent); }
+  .pnl-table .income td { color: var(--success); }
+  .pnl-table .expense td { color: var(--danger); }
+
+  /* Timeline */
+  .timeline-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 12px; margin-top: 16px;
+  }
+  .timeline-quarter {
+    background: var(--surface-hover); border-radius: 8px;
+    padding: 16px; text-align: center;
+  }
+  .timeline-quarter h4 { font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--accent); }
+  .timeline-quarter p { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+
+  /* Mermaid */
+  .mermaid-container { margin: 24px 0; }
+  .mermaid { display: flex; justify-content: center; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .container { padding: 20px 16px; }
+    .hero { padding: 32px 16px; }
+    .hero h1 { font-size: 22px; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .timeline-grid { grid-template-columns: repeat(2, 1fr); }
+    .phase-header { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌓</button>
+
+<div class="container">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-emoji">🧋</div>
+    <h1>TraSuaPOS — Upgrade Roadmap</h1>
+    <div class="subtitle">v1.2.0 → v2.0 | Q2–Q4 2026 | React + Fastify + SQLite→PostgreSQL</div>
+  </div>
+
+  <!-- Current Status -->
+  <div class="section-label">current status</div>
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-value">32+</div>
+      <div class="stat-label">products</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">11</div>
+      <div class="stat-label">db tables</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">9</div>
+      <div class="stat-label">api routes</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">85%</div>
+      <div class="stat-label">feature complete</div>
+    </div>
+  </div>
+
+  <!-- Architecture Diagram -->
+  <div class="section-label">system architecture</div>
+  <div class="card">
+    <div class="mermaid-container">
+      <pre class="mermaid">
+graph TB
+    subgraph Client["Browser / Mobile"]
+        A[React 18 + TypeScript]
+        B[Zustand State]
+        C[Vite Build]
+    end
+
+    subgraph Server["VPS 14.225.207.145"]
+        D[Fastify Backend]
+        E[WebSocket :3001]
+        F[ESC/POS Print]
+    end
+
+    subgraph Data["Database"]
+        G[(SQLite pos.db)]
+        H[(PostgreSQL v2)]
+    end
+
+    subgraph New["New Features"]
+        I[P&L Reports]
+        J[Excel Export]
+        K[Multi-Branch]
+    end
+
+    A -->|HTTP :3000| D
+    A -->|WS| E
+    D --> G
+    G -.->|migrate| H
+    D --> F
+    D --> I
+    D --> J
+    D --> K
+
+    style H stroke:#4a9e6f,stroke-width:2px,stroke-dasharray: 5 5
+    style I stroke:#d4953a,stroke-width:2px,stroke-dasharray: 5 5
+    style J stroke:#d4953a,stroke-width:2px,stroke-dasharray: 5 5
+    style K stroke:#d4953a,stroke-width:2px,stroke-dasharray: 5 5
+      </pre>
+    </div>
+  </div>
+
+  <!-- BUG: Mobile Responsive -->
+  <div class="section-label">bug report</div>
+  <div class="bug-card">
+    <h3>BUG: Mobile header bị che mất chữ</h3>
+    <p style="margin: 12px 0; color: var(--text-muted); font-size: 14px;">
+      Trên điện thoại, header bar "Milk Tea & Coffee" + nav buttons bị đè lên nhau.
+      Thiếu safe-area padding cho notch/status bar.
+    </p>
+    <table class="pnl-table">
+      <tr><th>Issue</th><th>Root Cause</th><th>Fix</th></tr>
+      <tr>
+        <td>Header text bị che</td>
+        <td>Thiếu <code>padding-top: env(safe-area-inset-top)</code></td>
+        <td>Thêm safe-area CSS + viewport meta</td>
+      </tr>
+      <tr>
+        <td>Nav buttons chồng lên nhau</td>
+        <td>Fixed header không tính chiều cao safe area</td>
+        <td>Dùng <code>min-height</code> cho header + flex wrap</td>
+      </tr>
+      <tr>
+        <td>Category tabs bị tràn</td>
+        <td>Horizontal scroll thiếu padding</td>
+        <td>Thêm <code>overflow-x: auto</code> + padding-right</td>
+      </tr>
+    </table>
+    <div style="margin-top: 16px; padding: 12px; background: var(--surface-hover); border-radius: 8px; font-family: var(--mono); font-size: 12px;">
+      <strong>Quick Fix CSS:</strong><br>
+      <code>
+        .header { padding-top: max(16px, env(safe-area-inset-top)); }<br>
+        .nav-bar { min-height: 56px; flex-wrap: wrap; gap: 8px; }<br>
+        .category-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      </code>
+    </div>
+  </div>
+
+  <!-- P&L Report System (NEW) -->
+  <div class="section-label">new feature: p&l report system</div>
+  <div class="card">
+    <h3>Hệ thống Báo cáo Lời/Lỗ</h3>
+    <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">
+      Tính toán doanh thu, chi phí, lời/lỗ hàng ngày/tháng/quý/năm. Tự động trừ tiền mặt bằng, nhân viên, nguyên liệu.
+    </p>
+
+    <h4 style="font-size: 14px; margin-bottom: 8px;">Mẫu báo cáo tháng:</h4>
+    <table class="pnl-table">
+      <tr><th>Khoản mục</th><th>Tháng này</th><th>Tháng trước</th><th>% Thay đổi</th></tr>
+      <tr class="income"><td>Doanh thu bán hàng</td><td>45,000,000₫</td><td>42,000,000₫</td><td>+7.1%</td></tr>
+      <tr class="income"><td>Doanh thu khác</td><td>500,000₫</td><td>300,000₫</td><td>+66%</td></tr>
+      <tr><td colspan="4" style="height:8px; border:none;"></td></tr>
+      <tr class="expense"><td>Tiền mặt bằng</td><td>-8,000,000₫</td><td>-8,000,000₫</td><td>0%</td></tr>
+      <tr class="expense"><td>Lương nhân viên</td><td>-12,000,000₫</td><td>-11,500,000₫</td><td>+4.3%</td></tr>
+      <tr class="expense"><td>Nguyên liệu</td><td>-13,500,000₫</td><td>-12,600,000₫</td><td>+7.1%</td></tr>
+      <tr class="expense"><td>Điện nước</td><td>-2,000,000₫</td><td>-1,800,000₫</td><td>+11%</td></tr>
+      <tr class="expense"><td>Chi phí khác</td><td>-1,500,000₫</td><td>-1,200,000₫</td><td>+25%</td></tr>
+      <tr><td colspan="4" style="height:8px; border:none;"></td></tr>
+      <tr class="total"><td>LỢI NHUẬN RÒNG</td><td style="color:var(--success);">8,500,000₫</td><td>7,200,000₫</td><td style="color:var(--success);">+18%</td></tr>
+      <tr><td>Biên lợi nhuận</td><td>18.7%</td><td>17.0%</td><td>+1.7pp</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>Growth Metrics Dashboard</h3>
+    <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">
+      Theo dõi tốc độ phát triển quán để có lộ trình phù hợp.
+    </p>
+    <div class="stats-grid" style="margin-bottom: 0;">
+      <div class="stat-card">
+        <div class="stat-value" style="color: var(--success);">+18%</div>
+        <div class="stat-label">profit growth MoM</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">156</div>
+        <div class="stat-label">orders / day avg</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">28.8K₫</div>
+        <div class="stat-label">avg order value</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">30%</div>
+        <div class="stat-label">COGS ratio</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Excel Export Feature -->
+  <div class="section-label">new feature: excel export</div>
+  <div class="card">
+    <h3>Dashboard Export XLSX</h3>
+    <ul class="task-list">
+      <li><span class="check"></span> Báo cáo doanh số ngày (daily sales report)</li>
+      <li><span class="check"></span> Báo cáo tháng (monthly P&L statement)</li>
+      <li><span class="check"></span> Báo cáo quý (quarterly comparison)</li>
+      <li><span class="check"></span> Báo cáo năm (annual summary + growth chart)</li>
+      <li><span class="check"></span> Chi tiết theo nhân viên (staff performance)</li>
+      <li><span class="check"></span> Chi tiết theo sản phẩm (product mix analysis)</li>
+      <li><span class="check"></span> Lịch sử chi phí (expense tracking)</li>
+    </ul>
+    <div style="margin-top: 16px; padding: 12px; background: var(--surface-hover); border-radius: 8px; font-size: 13px;">
+      <strong>Tech:</strong> <code>exceljs</code> library | Backend generate → Browser download | Template-based formatting
+    </div>
+  </div>
+
+  <!-- Phase Roadmap -->
+  <div class="section-label">upgrade phases</div>
+
+  <!-- Phase 0: Hot Fix -->
+  <div class="phase critical">
+    <div class="phase-header">
+      <span class="phase-title">Phase 0 — Hot Fix Mobile + Excel Export</span>
+      <div class="phase-meta">
+        <span class="badge badge-critical">URGENT</span>
+        <span style="font-family: var(--mono); font-size: 12px; color: var(--text-muted);">3-5 days</span>
+      </div>
+    </div>
+    <ul class="task-list">
+      <li><span class="check"></span> Fix mobile header safe-area padding</li>
+      <li><span class="check"></span> Fix nav buttons overlap on small screens</li>
+      <li><span class="check"></span> Add horizontal scroll for category tabs</li>
+      <li><span class="check"></span> Excel export: daily/monthly/quarterly/yearly</li>
+      <li><span class="check"></span> Basic P&L report page in dashboard</li>
+    </ul>
+  </div>
+
+  <!-- Phase 1: Security -->
+  <div class="phase active">
+    <div class="phase-header">
+      <span class="phase-title">Phase 1 — Security Hardening</span>
+      <div class="phase-meta">
+        <span class="badge badge-active">1-2 weeks</span>
+        <span style="font-family: var(--mono); font-size: 12px; color: var(--text-muted);">40-60h</span>
+      </div>
+    </div>
+    <ul class="task-list">
+      <li><span class="check"></span> JWT authentication + refresh token</li>
+      <li><span class="check"></span> Bcrypt PIN hash (thay plain text)</li>
+      <li><span class="check"></span> Rate limiting login (5 attempts/5min)</li>
+      <li><span class="check"></span> Input validation (Zod schemas)</li>
+      <li><span class="check"></span> Audit log cho thao tác nhạy cảm</li>
+      <li><span class="check"></span> CORS whitelist + HTTPS only</li>
+    </ul>
+  </div>
+
+  <!-- Phase 2: Database -->
+  <div class="phase planned">
+    <div class="phase-header">
+      <span class="phase-title">Phase 2 — Database Upgrade</span>
+      <div class="phase-meta">
+        <span class="badge badge-planned">2-3 weeks</span>
+        <span style="font-family: var(--mono); font-size: 12px; color: var(--text-muted);">60-80h</span>
+      </div>
+    </div>
+    <ul class="task-list">
+      <li><span class="check"></span> SQLite → PostgreSQL migration</li>
+      <li><span class="check"></span> Proper indexes (orders, customers, products)</li>
+      <li><span class="check"></span> Migration system (node-pg-migrate)</li>
+      <li><span class="check"></span> Connection pooling + automated backup</li>
+    </ul>
+  </div>
+
+  <!-- Phase 3: P&L System -->
+  <div class="phase planned">
+    <div class="phase-header">
+      <span class="phase-title">Phase 3 — P&L Report System</span>
+      <div class="phase-meta">
+        <span class="badge badge-planned">2-3 weeks</span>
+        <span style="font-family: var(--mono); font-size: 12px; color: var(--text-muted);">60-80h</span>
+      </div>
+    </div>
+    <ul class="task-list">
+      <li><span class="check"></span> Expense categories table (rent, salary, utilities, COGS)</li>
+      <li><span class="check"></span> Monthly fixed costs config (mặt bằng, lương cố định)</li>
+      <li><span class="check"></span> COGS auto-calculate from ingredients</li>
+      <li><span class="check"></span> Daily P&L auto-generate</li>
+      <li><span class="check"></span> Monthly closing report</li>
+      <li><span class="check"></span> Growth rate tracking (MoM, QoQ, YoY)</li>
+      <li><span class="check"></span> Break-even analysis</li>
+      <li><span class="check"></span> XLSX export with charts</li>
+    </ul>
+  </div>
+
+  <!-- Phase 4: Multi-Branch -->
+  <div class="phase future">
+    <div class="phase-header">
+      <span class="phase-title">Phase 4 — Multi-Branch</span>
+      <div class="phase-meta">
+        <span class="badge badge-future">3-4 weeks</span>
+        <span style="font-family: var(--mono); font-size: 12px; color: var(--text-muted);">80-100h</span>
+      </div>
+    </div>
+    <ul class="task-list">
+      <li><span class="check"></span> Branch table + branch_id on all tables</li>
+      <li><span class="check"></span> Branch selection on login</li>
+      <li><span class="check"></span> Cross-branch P&L comparison</li>
+      <li><span class="check"></span> Multi-branch dashboard aggregate</li>
+    </ul>
+  </div>
+
+  <!-- Phase 5: Inventory -->
+  <div class="phase future">
+    <div class="phase-header">
+      <span class="phase-title">Phase 5 — Inventory Management</span>
+      <div class="phase-meta">
+        <span class="badge badge-future">2-3 weeks</span>
+        <span style="font-family: var(--mono); font-size: 12px; color: var(--text-muted);">60-80h</span>
+      </div>
+    </div>
+    <ul class="task-list">
+      <li><span class="check"></span> Ingredients table + recipe BOM</li>
+      <li><span class="check"></span> Stock in/out transactions</li>
+      <li><span class="check"></span> Low stock alerts</li>
+      <li><span class="check"></span> Inventory valuation (FIFO)</li>
+      <li><span class="check"></span> Supplier management</li>
+    </ul>
+  </div>
+
+  <!-- Phase 6: Customer App -->
+  <div class="phase future">
+    <div class="phase-header">
+      <span class="phase-title">Phase 6 — Customer App</span>
+      <div class="phase-meta">
+        <span class="badge badge-future">4-6 weeks</span>
+        <span style="font-family: var(--mono); font-size: 12px; color: var(--text-muted);">120-160h</span>
+      </div>
+    </div>
+    <ul class="task-list">
+      <li><span class="check"></span> React Native / Expo app</li>
+      <li><span class="check"></span> Customer registration (Google, Apple, Phone)</li>
+      <li><span class="check"></span> Order history + points + tier status</li>
+      <li><span class="check"></span> Push notifications (promotions)</li>
+    </ul>
+  </div>
+
+  <!-- Timeline -->
+  <div class="section-label">timeline 2026</div>
+  <div class="card">
+    <div class="timeline-grid">
+      <div class="timeline-quarter">
+        <h4>Apr 2026</h4>
+        <p>Phase 0<br>Mobile fix<br>Excel export</p>
+      </div>
+      <div class="timeline-quarter">
+        <h4>May–Jun</h4>
+        <p>Phase 1–2<br>Security<br>PostgreSQL</p>
+      </div>
+      <div class="timeline-quarter">
+        <h4>Jul–Aug</h4>
+        <p>Phase 3–4<br>P&L Reports<br>Multi-Branch</p>
+      </div>
+      <div class="timeline-quarter">
+        <h4>Sep–Dec</h4>
+        <p>Phase 5–6<br>Inventory<br>Customer App</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tech Debt -->
+  <div class="section-label">technical debt</div>
+  <div class="card">
+    <table class="pnl-table">
+      <tr><th>Item</th><th>Severity</th><th>Effort</th></tr>
+      <tr><td>No unit tests</td><td style="color:var(--danger);">High</td><td>2-3 days</td></tr>
+      <tr><td>No API docs (Swagger)</td><td style="color:var(--warning);">Medium</td><td>1 day</td></tr>
+      <tr><td>POS.tsx = 36KB</td><td style="color:var(--warning);">Medium</td><td>Refactor</td></tr>
+      <tr><td>No error boundaries</td><td style="color:var(--warning);">Medium</td><td>2 hours</td></tr>
+      <tr><td>No structured logging</td><td style="color:var(--warning);">Medium</td><td>1 day</td></tr>
+      <tr><td>No monitoring (Sentry)</td><td style="color:var(--danger);">High</td><td>1 day</td></tr>
+      <tr><td>PIN stored plain text</td><td style="color:var(--danger);">Critical</td><td>Phase 1</td></tr>
+    </table>
+  </div>
+
+  <!-- Footer -->
+  <div style="text-align: center; padding: 32px 0; color: var(--text-muted); font-size: 12px; font-family: var(--mono);">
+    TraSuaPOS Roadmap v2 | Generated 2026-04-09 | Nelson Freight AI System
+  </div>
+
+</div>
+
+<script>
+  // Theme toggle
+  function toggleTheme() {
+    const html = document.documentElement;
+    const current = html.getAttribute('data-theme');
+    html.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+    localStorage.setItem('theme', current === 'dark' ? 'light' : 'dark');
+  }
+  // Load saved theme
+  const saved = localStorage.getItem('theme') || 'light';
+  document.documentElement.setAttribute('data-theme', saved);
+
+  // Mermaid init
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: saved === 'dark' ? 'dark' : 'neutral',
+    themeVariables: {
+      primaryColor: '#c8956c',
+      primaryTextColor: '#1a1613',
+      primaryBorderColor: '#e8e0d6',
+      lineColor: '#8c7e6f',
+      fontSize: '14px'
+    }
+  });
+</script>
+
+</body>
+</html>

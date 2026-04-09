@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GoClaw Hub — Workspace Controller Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --font-body: 'Outfit', system-ui, sans-serif;
+  --font-mono: 'Space Mono', 'SF Mono', Consolas, monospace;
+  --bg: #f8fafb;
+  --surface: #ffffff;
+  --surface2: #f0f3f6;
+  --surface-elevated: #f7f9fb;
+  --border: rgba(0, 40, 80, 0.08);
+  --border-bright: rgba(0, 40, 80, 0.16);
+  --text: #1a2332;
+  --text-dim: #5a6a7a;
+  --text-bright: #0d1520;
+  --accent: #0369a1;
+  --accent-dim: rgba(3, 105, 161, 0.07);
+  --brain: #0369a1;
+  --brain-dim: rgba(3, 105, 161, 0.07);
+  --hub: #059669;
+  --hub-dim: rgba(5, 150, 105, 0.07);
+  --agent: #0891b2;
+  --agent-dim: rgba(8, 145, 178, 0.07);
+  --warn: #d97706;
+  --warn-dim: rgba(217, 119, 6, 0.07);
+  --red: #dc2626;
+  --red-dim: rgba(220, 38, 38, 0.07);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c1218;
+    --surface: #131c26;
+    --surface2: #1a2636;
+    --surface-elevated: #1e2d40;
+    --border: rgba(100, 180, 255, 0.08);
+    --border-bright: rgba(100, 180, 255, 0.16);
+    --text: #c8d8e8;
+    --text-dim: #607888;
+    --text-bright: #e8f0f8;
+    --accent: #38bdf8;
+    --accent-dim: rgba(56, 189, 248, 0.1);
+    --brain: #38bdf8;
+    --brain-dim: rgba(56, 189, 248, 0.1);
+    --hub: #34d399;
+    --hub-dim: rgba(52, 211, 153, 0.1);
+    --agent: #22d3ee;
+    --agent-dim: rgba(34, 211, 238, 0.1);
+    --warn: #fbbf24;
+    --warn-dim: rgba(251, 191, 36, 0.1);
+    --red: #f87171;
+    --red-dim: rgba(248, 113, 113, 0.1);
+  }
+}
+[data-theme="dark"] {
+  --bg: #0c1218;
+  --surface: #131c26;
+  --surface2: #1a2636;
+  --surface-elevated: #1e2d40;
+  --border: rgba(100, 180, 255, 0.08);
+  --border-bright: rgba(100, 180, 255, 0.16);
+  --text: #c8d8e8;
+  --text-dim: #607888;
+  --text-bright: #e8f0f8;
+  --accent: #38bdf8;
+  --accent-dim: rgba(56, 189, 248, 0.1);
+  --brain: #38bdf8;
+  --brain-dim: rgba(56, 189, 248, 0.1);
+  --hub: #34d399;
+  --hub-dim: rgba(52, 211, 153, 0.1);
+  --agent: #22d3ee;
+  --agent-dim: rgba(34, 211, 238, 0.1);
+  --warn: #fbbf24;
+  --warn-dim: rgba(251, 191, 36, 0.1);
+  --red: #f87171;
+  --red-dim: rgba(248, 113, 113, 0.1);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text);
+  background: var(--bg);
+  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-size: 20px 20px;
+  overflow-wrap: break-word;
+  padding: 32px 24px 80px;
+}
+.container { max-width: 960px; margin: 0 auto; }
+
+/* Theme toggle */
+.theme-toggle {
+  position: fixed; top: 16px; right: 16px; z-index: 300;
+  width: 36px; height: 36px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface);
+  color: var(--text-dim); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; transition: background 0.15s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.theme-toggle:hover { background: var(--surface2); color: var(--text); }
+
+/* Typography */
+h1 { font-size: 26px; font-weight: 700; color: var(--text-bright); margin-bottom: 4px; }
+h2 { font-size: 18px; font-weight: 600; color: var(--text-bright); margin: 40px 0 12px; }
+.subtitle { font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); margin-bottom: 28px; }
+
+.label {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1.5px;
+  display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
+}
+.label::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.label--brain { color: var(--brain); }
+.label--hub { color: var(--hub); }
+.label--agent { color: var(--agent); }
+.label--warn { color: var(--warn); }
+
+/* Cards */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 18px 22px; position: relative;
+}
+.card--hero {
+  background: color-mix(in srgb, var(--surface) 92%, var(--hub) 8%);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  border-color: color-mix(in srgb, var(--border) 50%, var(--hub) 50%);
+}
+.card--brain { border-left: 3px solid var(--brain); }
+.card--hub { border-left: 3px solid var(--hub); }
+.card--agent { border-left: 3px solid var(--agent); }
+
+/* Grid */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+@media (max-width: 768px) {
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .grid-5 { grid-template-columns: repeat(2, 1fr); }
+}
+.grid-2 > *, .grid-3 > *, .grid-5 > * { min-width: 0; }
+
+/* Flow */
+.flow { display: flex; flex-direction: column; gap: 0; }
+.step { display: flex; gap: 14px; padding: 10px 0; position: relative; }
+.step:not(:last-child)::after {
+  content: ''; position: absolute; left: 15px; top: 38px; bottom: -2px;
+  width: 2px; background: var(--border-bright);
+}
+.step-n {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 13px; font-weight: 700;
+  flex-shrink: 0; z-index: 1;
+}
+.step-n--brain { background: var(--brain-dim); color: var(--brain); border: 2px solid var(--brain); }
+.step-n--hub { background: var(--hub-dim); color: var(--hub); border: 2px solid var(--hub); }
+.step-n--agent { background: var(--agent-dim); color: var(--agent); border: 2px solid var(--agent); }
+.step-body { flex: 1; min-width: 0; }
+.step-title { font-weight: 600; font-size: 15px; color: var(--text-bright); }
+.step-desc { font-size: 13px; color: var(--text-dim); margin-top: 2px; }
+
+/* Agent mini cards */
+.agent-mini {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px; text-align: center;
+}
+.agent-mini__name {
+  font-family: var(--font-mono); font-weight: 700; font-size: 13px; color: var(--text-bright);
+}
+.agent-mini__role { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+/* Mono code */
+code {
+  font-family: var(--font-mono); font-size: 12px;
+  background: var(--surface2); padding: 2px 5px; border-radius: 3px; color: var(--accent);
+}
+
+/* Table */
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl th {
+  font-family: var(--font-mono); font-size: 11px; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--text-dim); text-align: left;
+  padding: 8px 12px; border-bottom: 2px solid var(--border-bright); background: var(--surface2);
+}
+.tbl td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+
+/* Callout */
+.callout {
+  background: var(--hub-dim); border-left: 3px solid var(--hub);
+  border-radius: 0 8px 8px 0; padding: 12px 16px; font-size: 14px; margin: 16px 0;
+}
+
+.divider { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+/* Mermaid */
+.diagram-shell { margin: 16px 0; }
+.diagram-shell__hint { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); margin-bottom: 6px; opacity: 0.7; }
+.mermaid-wrap {
+  position: relative; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 28px 20px; overflow: hidden;
+  display: flex; justify-content: center; align-items: center; min-height: 380px;
+  cursor: grab;
+}
+.mermaid-wrap.is-panning { cursor: grabbing; user-select: none; }
+.mermaid-viewport { position: relative; overflow: hidden; width: 100%; height: 100%; min-height: 340px; }
+.mermaid-canvas { position: absolute; top: 0; left: 0; }
+.zoom-controls {
+  position: absolute; top: 8px; right: 8px; display: flex; gap: 2px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 2px; z-index: 10;
+}
+.zoom-controls button {
+  width: 26px; height: 26px; border: none; background: transparent;
+  color: var(--text-dim); font-family: var(--font-mono); font-size: 13px;
+  border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+}
+.zoom-controls button:hover { background: var(--border); color: var(--text); }
+.zoom-label { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); padding: 0 5px; display: flex; align-items: center; }
+
+.mermaid .nodeLabel { color: var(--text) !important; }
+.mermaid .edgeLabel { color: var(--text-dim) !important; background-color: var(--bg) !important; }
+.mermaid .edgeLabel rect { fill: var(--bg) !important; }
+.mermaid .node rect, .mermaid .node circle, .mermaid .node polygon { stroke-width: 1.5px; }
+.mermaid .edgeLabel { font-family: var(--font-mono) !important; font-size: 12px !important; }
+.mermaid .nodeLabel { font-family: var(--font-body) !important; font-size: 14px !important; }
+
+/* Arrow between sections */
+.arrow-down { text-align: center; padding: 6px 0; color: var(--text-dim); font-size: 22px; }
+</style>
+</head>
+<body>
+<button class="theme-toggle" id="themeToggle" title="Toggle theme" aria-label="Toggle theme"></button>
+
+<div class="container">
+
+  <h1>GoClaw = Hub Dieu Phoi</h1>
+  <p class="subtitle">GoClaw toan quyen workspace &bull; Claude = dau nao lap plan &bull; Nelson chi can ra lenh</p>
+
+  <!-- ══════ CORE CONCEPT ══════ -->
+  <div class="card card--hero" style="margin-bottom: 28px;">
+    <p style="font-size: 16px; font-weight: 500; color: var(--text-bright); margin-bottom: 8px;">Nguyen tac cot loi</p>
+    <p style="font-size: 14px;">
+      <strong>Claude Code</strong> = dau nao (nghi, lap plan, phan tich) &rarr;
+      <strong>GoClaw</strong> = tay chan (thuc thi, thao tac file, deploy, scrape, test) &rarr;
+      <strong>Nelson</strong> = chi huy (ra lenh, duyet plan)
+    </p>
+    <p style="font-size: 13px; color: var(--text-dim); margin-top: 8px;">
+      GoClaw co toan quyen workspace: doc/ghi file, chay command, truy cap API, quan ly sub-agents.
+    </p>
+  </div>
+
+  <!-- ══════ OVERVIEW DIAGRAM ══════ -->
+  <div class="label label--hub">Toan canh he thong</div>
+
+  <section class="diagram-shell">
+    <p class="diagram-shell__hint">Ctrl + wheel zoom &bull; Keo de di chuyen &bull; Double-click de fit</p>
+    <div class="mermaid-wrap">
+      <div class="zoom-controls">
+        <button data-action="zoom-in">+</button>
+        <button data-action="zoom-out">&minus;</button>
+        <button data-action="zoom-fit">&#8634;</button>
+        <button data-action="zoom-one">1:1</button>
+        <button data-action="zoom-expand">&#x26F6;</button>
+        <span class="zoom-label">...</span>
+      </div>
+      <div class="mermaid-viewport">
+        <div class="mermaid mermaid-canvas"></div>
+      </div>
+    </div>
+    <script type="text/plain" class="diagram-source">
+graph TD
+  N["Nelson<br/>Ra lenh"]:::user
+
+  subgraph BRAIN["Claude = Dau nao"]
+    CC["Claude Code Desktop<br/>Lap plan + Phan tich"]
+    API["Claude API<br/>Lap plan tu xa"]
+  end
+
+  subgraph HUB["GoClaw = Hub thuc thi"]
+    direction TB
+    LEADER["Fox Spirit<br/>Nhan plan, chia viec"]:::leader
+    HAWK["HAWK<br/>Scrape web"]:::sub
+    LENS["LENS<br/>Phan tich data"]:::sub
+    COMPASS["COMPASS<br/>Nghien cuu"]:::sub
+    SHIELD["SHIELD<br/>Kiem tra bao mat"]:::sub
+    FORGE["FORGE<br/>Build code"]:::sub
+  end
+
+  WS[("Workspace<br/>Files + Git + DB")]:::ws
+
+  N -->|"PC: chat truc tiep"| CC
+  N -->|"Telegram: chat Captain"| API
+  CC ==>|"Plan JSON"| LEADER
+  API -.->|"Plan JSON"| LEADER
+  LEADER -->|"Chia task"| HAWK
+  LEADER -->|"Chia task"| LENS
+  LEADER -->|"Chia task"| COMPASS
+  LEADER -->|"Chia task"| SHIELD
+  LEADER -->|"Chia task"| FORGE
+  HAWK -->|"Doc/ghi"| WS
+  LENS -->|"Query"| WS
+  FORGE -->|"Code + deploy"| WS
+  SHIELD -->|"Scan"| WS
+  COMPASS -->|"Research"| WS
+
+  classDef user fill:#0369a111,stroke:#0369a1,stroke-width:2px
+  classDef leader fill:#05966922,stroke:#059669,stroke-width:2px
+  classDef sub fill:#0891b211,stroke:#0891b2,stroke-width:1.5px
+  classDef ws fill:#d9770611,stroke:#d97706,stroke-width:1.5px,stroke-dasharray:5 5
+    </script>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ══════ 3 ROLES ══════ -->
+  <h2>3 Vai tro ro rang</h2>
+
+  <div class="grid-3">
+    <div class="card card--brain">
+      <div class="label label--brain">Dau nao</div>
+      <p style="font-weight: 600; font-size: 16px;">Claude</p>
+      <p style="font-size: 13px; color: var(--text-dim); margin-top: 6px;">
+        Nghi &bull; Lap plan &bull; Phan tich &bull; Quyet dinh kiến truc<br>
+        <strong>Khong</strong> truc tiep thao tac file/deploy
+      </p>
+    </div>
+    <div class="card card--hub">
+      <div class="label label--hub">Hub thuc thi</div>
+      <p style="font-weight: 600; font-size: 16px;">GoClaw</p>
+      <p style="font-size: 13px; color: var(--text-dim); margin-top: 6px;">
+        Nhan plan &bull; Chia viec &bull; Thuc thi &bull; Bao cao<br>
+        <strong>Toan quyen</strong> workspace, file, git, deploy
+      </p>
+    </div>
+    <div class="card" style="border-left: 3px solid var(--warn);">
+      <div class="label label--warn">Chi huy</div>
+      <p style="font-weight: 600; font-size: 16px;">Nelson</p>
+      <p style="font-size: 13px; color: var(--text-dim); margin-top: 6px;">
+        Ra lenh &bull; Duyet plan &bull; Kiem tra ket qua<br>
+        Qua PC hoac Telegram
+      </p>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ══════ WORKFLOW ══════ -->
+  <h2>Workflow hang ngay</h2>
+
+  <div class="grid-2">
+    <!-- FLOW A -->
+    <div>
+      <div class="label label--brain">Flow A: Anh o PC</div>
+      <div class="flow">
+        <div class="step">
+          <div class="step-n step-n--brain">1</div>
+          <div class="step-body">
+            <div class="step-title">Anh noi voi Claude Code</div>
+            <div class="step-desc">"Build email history page" hoac "Fix rate query bug"</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n step-n--brain">2</div>
+          <div class="step-body">
+            <div class="step-title">Claude lap plan</div>
+            <div class="step-desc">Phan tich, tao task list, xac dinh agent nao lam gi</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n step-n--brain">3</div>
+          <div class="step-body">
+            <div class="step-title">Anh duyet plan</div>
+            <div class="step-desc">OK &rarr; Claude gui plan cho GoClaw</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n step-n--hub">4</div>
+          <div class="step-body">
+            <div class="step-title">GoClaw nhan va thuc thi</div>
+            <div class="step-desc">Leader chia viec, sub-agents lam song song</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n step-n--hub">5</div>
+          <div class="step-body">
+            <div class="step-title">GoClaw bao cao</div>
+            <div class="step-desc">Ket qua tra ve Claude &rarr; anh xem</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FLOW B -->
+    <div>
+      <div class="label label--warn">Flow B: Anh o ngoai (Telegram)</div>
+      <div class="flow">
+        <div class="step">
+          <div class="step-n" style="background: var(--warn-dim); color: var(--warn); border: 2px solid var(--warn);">1</div>
+          <div class="step-body">
+            <div class="step-title">Anh chat Telegram</div>
+            <div class="step-desc">"Scrape rate HPL roi gui email cho CANDLE campaign"</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n step-n--hub">2</div>
+          <div class="step-body">
+            <div class="step-title">Captain nhan + cau truc hoa</div>
+            <div class="step-desc">Chuyen tin nhan thanh structured request</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n step-n--brain">3</div>
+          <div class="step-body">
+            <div class="step-title">Goi Claude API lap plan</div>
+            <div class="step-desc">Claude van la dau nao, ke ca khi anh khong o PC</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n step-n--hub">4</div>
+          <div class="step-body">
+            <div class="step-title">GoClaw nhan plan + thuc thi</div>
+            <div class="step-desc">Giong Flow A tu buoc 4</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n" style="background: var(--warn-dim); color: var(--warn); border: 2px solid var(--warn);">5</div>
+          <div class="step-body">
+            <div class="step-title">Bao cao qua Telegram</div>
+            <div class="step-desc">Captain gui ket qua ve cho anh</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ══════ GOCLAW SQUAD ══════ -->
+  <h2>GoClaw Squad</h2>
+  <div class="label label--hub">7 Agents — toan quyen workspace</div>
+
+  <div class="grid-2" style="margin-bottom: 14px;">
+    <div class="card card--hub">
+      <p style="font-weight: 600; margin-bottom: 4px;">Fox Spirit — Leader</p>
+      <p style="font-size: 13px; color: var(--text-dim);">Nhan plan &rarr; chia task &rarr; giam sat sub-agents &rarr; tong hop ket qua &rarr; verify truoc khi bao cao</p>
+    </div>
+    <div class="card" style="border-left: 3px solid var(--warn);">
+      <p style="font-weight: 600; margin-bottom: 4px;">Captain — Telegram Bridge</p>
+      <p style="font-size: 13px; color: var(--text-dim);">Nhan tin nhan tu Nelson &rarr; cau truc hoa &rarr; goi Claude API &rarr; gui plan cho Leader</p>
+    </div>
+  </div>
+
+  <div class="grid-5">
+    <div class="agent-mini">
+      <div class="agent-mini__name">HAWK</div>
+      <div class="agent-mini__role">Scrape web + collect data</div>
+    </div>
+    <div class="agent-mini">
+      <div class="agent-mini__name">LENS</div>
+      <div class="agent-mini__role">Phan tich data + bao cao</div>
+    </div>
+    <div class="agent-mini">
+      <div class="agent-mini__name">COMPASS</div>
+      <div class="agent-mini__role">Nghien cuu + tim kiem</div>
+    </div>
+    <div class="agent-mini">
+      <div class="agent-mini__name">SHIELD</div>
+      <div class="agent-mini__role">Bao mat + kiem tra</div>
+    </div>
+    <div class="agent-mini">
+      <div class="agent-mini__name">FORGE</div>
+      <div class="agent-mini__role">Code + test + deploy</div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ══════ HARNESS ══════ -->
+  <h2>Harness — An toan khi cap toan quyen</h2>
+  <div class="label label--agent">Guides + Sensors</div>
+
+  <div class="card" style="margin-bottom: 14px; overflow-x: auto;">
+    <table class="tbl">
+      <thead><tr><th>Lop</th><th>Guide (ngan truoc)</th><th>Sensor (phat hien sau)</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Workspace</strong></td>
+          <td>SOUL.md cho moi agent: quyen + cam</td>
+          <td>Git diff review truoc khi commit</td>
+        </tr>
+        <tr>
+          <td><strong>Code</strong></td>
+          <td>Coding conventions, architecture rules</td>
+          <td>Linter, type check, unit test tu dong</td>
+        </tr>
+        <tr>
+          <td><strong>Deploy</strong></td>
+          <td>Deploy script co dry-run</td>
+          <td>Health check sau deploy, rollback tu dong</td>
+        </tr>
+        <tr>
+          <td><strong>Data</strong></td>
+          <td>Cam xoa file master, chi doc parquet</td>
+          <td>Backup tu dong truoc moi thay doi</td>
+        </tr>
+        <tr>
+          <td><strong>Email</strong></td>
+          <td>Cooldown rules, max 50/batch</td>
+          <td>Log moi email, alert neu vuot nguong</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout">
+    <strong>Nguyen tac Harness:</strong> Moi khi agent mac loi, tao rule de no <em>khong bao gio</em> mac loi do nua. Tich luy dan &rarr; he thong cang chay cang chinh xac.
+  </div>
+
+  <hr class="divider">
+
+  <!-- ══════ SEQUENCE ══════ -->
+  <h2>Sequence — Mot task chay nhu the nao</h2>
+  <div class="label label--brain">Tu lenh &rarr; ket qua</div>
+
+  <section class="diagram-shell">
+    <p class="diagram-shell__hint">Ctrl + wheel zoom &bull; Keo de di chuyen</p>
+    <div class="mermaid-wrap mermaid-wrap--compact">
+      <div class="zoom-controls">
+        <button data-action="zoom-in">+</button>
+        <button data-action="zoom-out">&minus;</button>
+        <button data-action="zoom-fit">&#8634;</button>
+        <button data-action="zoom-one">1:1</button>
+        <button data-action="zoom-expand">&#x26F6;</button>
+        <span class="zoom-label">...</span>
+      </div>
+      <div class="mermaid-viewport">
+        <div class="mermaid mermaid-canvas"></div>
+      </div>
+    </div>
+    <script type="text/plain" class="diagram-source">
+sequenceDiagram
+  participant N as Nelson
+  participant C as Claude
+  participant L as Fox Spirit
+  participant A as Sub-Agents
+  participant W as Workspace
+
+  N->>C: Ra lenh
+  C->>C: Lap plan + chia tasks
+  C-->>N: Hien plan de duyet
+  N->>C: OK, chay di
+  C->>L: Gui plan JSON
+  L->>A: Chia viec theo capability
+  A->>W: Thao tac file, code, query
+  A->>A: Tu verify ket qua
+  A-->>L: Bao cao xong
+  L->>L: Tong hop + kiem tra chat luong
+  L-->>C: Ket qua cuoi cung
+  C-->>N: Bao cao
+    </script>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ══════ WHAT CHANGES ══════ -->
+  <h2>Thay doi so voi truoc</h2>
+
+  <div class="grid-2">
+    <div class="card" style="border-left: 3px solid var(--red);">
+      <p style="font-weight: 600; color: var(--red); font-size: 13px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Truoc (hien tai)</p>
+      <p style="font-size: 13px; color: var(--text-dim);">
+        Claude Code lam tat ca: plan + code + test + deploy.<br>
+        GoClaw chi chay cron don gian.<br>
+        Moi thu phu thuoc vao 1 session Claude.
+      </p>
+    </div>
+    <div class="card" style="border-left: 3px solid var(--hub);">
+      <p style="font-weight: 600; color: var(--hub); font-size: 13px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Sau (moi)</p>
+      <p style="font-size: 13px; color: var(--text-dim);">
+        Claude Code chi lap plan.<br>
+        GoClaw lam tat ca viec nang: code, test, deploy, scrape.<br>
+        7 agents chay song song, khong gioi han boi 1 session.
+      </p>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ══════ NEXT STEPS ══════ -->
+  <h2>Buoc tiep theo</h2>
+
+  <div class="card" style="overflow-x: auto;">
+    <table class="tbl">
+      <thead><tr><th>#</th><th>Viec</th><th>Mo ta</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><strong>Tao Leader SOUL.md</strong></td><td>Fox Spirit: nhan plan JSON, parse tasks, dispatch sub-agents, verify results</td></tr>
+        <tr><td>2</td><td><strong>Tao 5 Sub-agent SOUL.md</strong></td><td>HAWK/LENS/COMPASS/SHIELD/FORGE: capabilities + tool bindings + rules</td></tr>
+        <tr><td>3</td><td><strong>Build /api/plan-request</strong></td><td>FastAPI endpoint goi Claude API de lap plan tu xa (cho Flow B)</td></tr>
+        <tr><td>4</td><td><strong>Build wake-goclaw.py</strong></td><td>Script de Claude Code gui plan qua POST /v1/agents/wake</td></tr>
+        <tr><td>5</td><td><strong>Tao Captain SOUL.md</strong></td><td>Telegram bridge: parse message &rarr; goi /api/plan-request &rarr; gui plan cho Leader</td></tr>
+        <tr><td>6</td><td><strong>Test end-to-end</strong></td><td>Anh ra lenh &rarr; plan &rarr; GoClaw thuc thi &rarr; ket qua</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- ══════ JS ══════ -->
+<script>
+(function() {
+  var t = document.getElementById('themeToggle');
+  var s = localStorage.getItem('theme');
+  var i = s || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  if (s) document.documentElement.setAttribute('data-theme', i);
+  t.textContent = i === 'dark' ? '\u2600' : '\u263E';
+  t.addEventListener('click', function() {
+    var c = document.documentElement.getAttribute('data-theme')
+      || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    var n = c === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', n);
+    localStorage.setItem('theme', n);
+    t.textContent = n === 'dark' ? '\u2600' : '\u263E';
+    location.reload();
+  });
+})();
+</script>
+
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
+const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
+  || (!document.documentElement.getAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
+
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'base',
+  look: 'classic',
+  themeVariables: {
+    primaryColor: isDark ? '#1e2d40' : '#e8f0f8',
+    primaryBorderColor: isDark ? '#38bdf8' : '#0369a1',
+    primaryTextColor: isDark ? '#c8d8e8' : '#1a2332',
+    secondaryColor: isDark ? '#162820' : '#f0fdf4',
+    secondaryBorderColor: isDark ? '#34d399' : '#059669',
+    secondaryTextColor: isDark ? '#c8d8e8' : '#1a2332',
+    tertiaryColor: isDark ? '#2a2010' : '#fef9c3',
+    tertiaryBorderColor: isDark ? '#fbbf24' : '#d97706',
+    tertiaryTextColor: isDark ? '#fef9c3' : '#2a2010',
+    lineColor: isDark ? '#4a6078' : '#94a3b8',
+    fontSize: '14px',
+    fontFamily: "'Outfit', system-ui, sans-serif",
+    noteBkgColor: isDark ? '#1e2d40' : '#fefce8',
+    noteTextColor: isDark ? '#c8d8e8' : '#1a2332',
+    noteBorderColor: isDark ? '#fbbf24' : '#d97706',
+  }
+});
+
+const config = { fitPadding: 20, zoomMin: 0.3, zoomMax: 4, readabilityFloor: 0.5, zoomStep: 0.15 };
+const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+let activeDrag = null;
+addEventListener('mousemove', e => activeDrag?.onMove(e));
+addEventListener('mouseup', () => { activeDrag?.onEnd(); activeDrag = null; });
+
+function initDiagram(shell) {
+  const wrap = shell.querySelector('.mermaid-wrap');
+  const viewport = shell.querySelector('.mermaid-viewport');
+  const canvas = shell.querySelector('.mermaid-canvas');
+  const source = shell.querySelector('.diagram-source');
+  const label = shell.querySelector('.zoom-label');
+  if (!wrap || !viewport || !canvas || !source || !label) return;
+
+  let zoom = 1, panX = 0, panY = 0, naturalW = 0, naturalH = 0;
+
+  function apply() {
+    const svg = canvas.querySelector('svg');
+    if (!svg) return;
+    svg.style.width = (naturalW * zoom) + 'px';
+    svg.style.height = (naturalH * zoom) + 'px';
+    canvas.style.transform = `translate(${panX}px, ${panY}px)`;
+    label.textContent = Math.round(zoom * 100) + '%';
+  }
+
+  function fitSmart() {
+    const vw = viewport.clientWidth - config.fitPadding * 2;
+    const vh = viewport.clientHeight - config.fitPadding * 2;
+    if (!naturalW || !naturalH) return;
+    zoom = Math.max(Math.min(vw / naturalW, vh / naturalH, 1.5), config.readabilityFloor);
+    panX = Math.max(0, (viewport.clientWidth - naturalW * zoom) / 2);
+    panY = Math.max(0, (viewport.clientHeight - naturalH * zoom) / 2);
+    apply();
+  }
+
+  async function render() {
+    try {
+      const code = source.textContent.trim();
+      if (!code) return;
+      const id = 'dia-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+      const { svg } = await mermaid.render(id, code);
+      canvas.innerHTML = svg;
+      const el = canvas.querySelector('svg');
+      if (el) {
+        naturalW = el.viewBox?.baseVal?.width || el.getBoundingClientRect().width;
+        naturalH = el.viewBox?.baseVal?.height || el.getBoundingClientRect().height;
+        el.removeAttribute('height');
+        el.style.maxWidth = 'none';
+      }
+      fitSmart();
+    } catch (e) { console.error(e); label.textContent = 'Error'; }
+  }
+
+  wrap.querySelectorAll('.zoom-controls button').forEach(b => {
+    b.addEventListener('click', () => {
+      const a = b.dataset.action;
+      if (a === 'zoom-in') zoom = clamp(zoom * 1.15, config.zoomMin, config.zoomMax);
+      if (a === 'zoom-out') zoom = clamp(zoom * 0.85, config.zoomMin, config.zoomMax);
+      if (a === 'zoom-fit') { fitSmart(); return; }
+      if (a === 'zoom-one') { zoom = 1; panX = 0; panY = 0; }
+      if (a === 'zoom-expand') {
+        const s = canvas.querySelector('svg');
+        if (s) window.open(URL.createObjectURL(new Blob([s.outerHTML], { type: 'image/svg+xml' })), '_blank');
+        return;
+      }
+      apply();
+    });
+  });
+
+  wrap.addEventListener('wheel', e => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    zoom = clamp(zoom * (e.deltaY < 0 ? 1.1 : 0.9), config.zoomMin, config.zoomMax);
+    apply();
+  }, { passive: false });
+
+  wrap.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    const sx = e.clientX, sy = e.clientY, spx = panX, spy = panY;
+    wrap.classList.add('is-panning');
+    activeDrag = {
+      onMove: m => { panX = spx + m.clientX - sx; panY = spy + m.clientY - sy; apply(); },
+      onEnd: () => wrap.classList.remove('is-panning')
+    };
+  });
+
+  wrap.addEventListener('dblclick', fitSmart);
+  render();
+}
+
+document.querySelectorAll('.diagram-shell').forEach(initDiagram);
+</script>
+</body>
+</html>
