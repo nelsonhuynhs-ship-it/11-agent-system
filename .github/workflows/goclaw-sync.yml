@@ -96,11 +96,9 @@ jobs:
             # 7. Setup PATH (one-time, idempotent)
             if ! grep -q "goclaw" /etc/profile.d/nelson.sh 2>/dev/null; then
               mkdir -p /etc/profile.d
-              cat >> /etc/profile.d/nelson.sh << 'PROFILE'
-export GOCLAW_ROOT="/opt/nelson/goclaw"
-export GOCLAW_REPO="$GOCLAW_ROOT/workspace/FreightBrian"
-export PATH="$GOCLAW_ROOT:$PATH"
-PROFILE
+              echo 'export GOCLAW_ROOT="/opt/nelson/goclaw"' >> /etc/profile.d/nelson.sh
+              echo 'export GOCLAW_REPO="$GOCLAW_ROOT/workspace/FreightBrian"' >> /etc/profile.d/nelson.sh
+              echo 'export PATH="$GOCLAW_ROOT:$PATH"' >> /etc/profile.d/nelson.sh
               echo "[OK] PATH configured"
             fi
 
