@@ -108,4 +108,4 @@ The following directories still exist for backward compatibility and will be rem
 - `ERP/scripts/` → migrated to `ERP/core/`, `ERP/quotes/`, `ERP/jobs/`, `ERP/carrier_rules/`
 
 **Do NOT add new code to legacy directories.** All new development should target the organized `ERP/` subdirectories.
-<!-- test deploy 260410 -->
+<!-- test deploy v2 -->
