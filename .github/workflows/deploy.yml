@@ -94,18 +94,36 @@ jobs:
             echo "=== Nelson Docker Deploy $(date '+%H:%M %d/%m/%Y') ==="
 
             CODE="/opt/nelson/code"
+            CLEAN_URL="https://github.com/nelsonhuynhs-ship-it/FrieghtBrian.git"
             mkdir -p "$CODE" /opt/nelson/data/email /opt/nelson/local/logs/email-engine /opt/nelson/local/runtime
 
-            # 1. Git pull
-            REPO_URL="https://${GH_TOKEN}@github.com/nelsonhuynhs-ship-it/FrieghtBrian.git"
+            # 1. Git pull — token via ephemeral http.extraheader, never embedded in .git/config
+            B64_AUTH=$(printf "x-access-token:%s" "$GH_TOKEN" | base64 -w0)
+            AUTH_HEADER="AUTHORIZATION: basic $B64_AUTH"
+
             if [ ! -d "$CODE/.git" ]; then
-              git clone "$REPO_URL" "$CODE"
+              git -c http.extraheader="$AUTH_HEADER" clone "$CLEAN_URL" "$CODE"
             fi
             cd "$CODE"
-            git remote set-url origin "$REPO_URL"
-            git fetch origin main
+
+            # Ensure remote URL clean (sanitize any leftover token from previous deploys)
+            git remote set-url origin "$CLEAN_URL"
+
+            # Fetch with ephemeral header (-c = runtime only, not saved to disk)
+            git -c http.extraheader="$AUTH_HEADER" fetch origin main
             git reset --hard origin/main
             echo "[OK] Code: $(git log -1 --pretty='%h %s')"
+
+            # Verify no token leak in .git/config
+            if grep -qE "(ghp_|github_pat_|gho_|ghu_|ghs_|ghr_)" .git/config; then
+              echo "[FAIL] Token leaked in .git/config!"
+              grep -E "(ghp_|github_pat_|gho_|ghu_|ghs_|ghr_)" .git/config | sed 's/github_pat_[^@ ]*/REDACTED/g'
+              exit 1
+            fi
+            echo "[OK] .git/config clean, no token embedded"
+
+            # Clear sensitive env vars from memory for remaining steps
+            unset B64_AUTH AUTH_HEADER GH_TOKEN
 
             # 2. Stop old systemctl services (migrate to Docker)
             systemctl stop nelson-api 2>/dev/null || true
