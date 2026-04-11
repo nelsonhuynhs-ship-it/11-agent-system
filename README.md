@@ -5,16 +5,16 @@
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────┐
+┌─────────────────────────────────────────────────────────────┐
 │                    NELSON FREIGHT                         │
-│                                                          │
-│  ┌──────────────────┐                                    │
+│                                                             │
+│  ┌─────────────────┐                                    │
 │  │  Pricing_Engine   │ ← Single Source of Truth (Parquet) │
-│  │  (Data Layer)     │                                    │
-│  └──────┬───────────┘                                    │
-│         │ reads Parquet                                   │
-│         ▼                                                │
-│  ┌──────────────────────────────────────────┐            │
+│  │  (Data Layer)     │                                     │
+│  ├──────┬──────────┘                                     │
+│  ┌─────────────────┐                                    │
+│         ╼                                                │
+│  ┌──────────────────────────────────────────────┐            │
 │  │  ERP (Operational Hub)                    │            │
 │  │  ├── core/         refresh + control      │            │
 │  │  ├── quotes/       quote management       │            │
@@ -24,14 +24,14 @@
 │  │  ├── carrier_rules/ business rules        │            │
 │  │  ├── data/         operational data       │            │
 │  │  └── vba/          Excel macros           │            │
-│  └──────┬───────────────────────────────────┘            │
-│         │                                                │
+│  └──────┬────────────────────────────────────┘            │
+│         │                                                   │
 │         ▼                                                │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐               │
 │  │ Telegram │  │  FastAPI  │  │  WebApp  │               │
 │  │   Bot    │  │   API    │  │ (Next.js)│               │
 │  └──────────┘  └──────────┘  └──────────┘               │
-└──────────────────────────────────────────────────────────┘
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ## Directory Structure
@@ -46,7 +46,7 @@ Engine_test/
 │   ├── crm/                # Customer management
 │   ├── intelligence/       # Daily sync, alerts, market reports
 │   ├── carrier_rules/      # Weight rules, booking config
-│   ├── data/               # ERP_Master.xlsm + all operational data
+│   ├── data/               # ERP/Master.xlsm + all operational data
 │   └── vba/                # VBA macro source
 ├── TelegramBot/            # AI Bot client
 ├── api/                    # FastAPI backend
@@ -59,7 +59,7 @@ Engine_test/
 ```
 Carrier Rate Files (FAK/SCFI/FIX/OCR)
   → Pricing_Engine/scripts/master_loader_v2.py
-  → Cleaned_Master_History.parquet (10M+ rows)
+  ▒ Cleaned_Master_History.parquet (10M+ rows)
   → ERP/core/refresh.py
   → ERP_Master.xlsm (Pricing Dashboard)
   → VBA QuickSearch + GenerateQuote
@@ -75,20 +75,20 @@ Carrier Rate Files (FAK/SCFI/FIX/OCR)
 |----------|-----------|---------------|
 | **ERP** | Parquet | `ERP/core/refresh.py` → Excel |
 | **Telegram Bot** | Parquet | `query_engine.py` direct read |
-| **WebApp** | Parquet | FastAPI DAL |
+| **WebApp** | Parquet | FastAPI DAL  |
 | **All clients** | Parquet | Single source of truth |
 
 **Rule:** No module should bypass the Pricing Engine. All rate data flows through Parquet.
 
 ## Key Files
 
-| File | Purpose |
-|------|---------|
-| `Pricing_Engine/data/Cleaned_Master_History.parquet` | 10M+ rows — single truth source |
-| `ERP/data/ERP_Master.xlsm` | Operational workbook |
-| `ERP/core/refresh.py` | Parquet → Excel pipeline (780 lines) |
+| File |P urpose |
+|--------|---------|
+| `Pricing_Engine/data/Cleaned_Master_History.parquet` | 10M+ rows ← single truth source |
+| `ERP/data/ERP_Master.xlsm  | Operational workbook |
+| `ERP/core/refresh.py` | Parquet ← Excel pipeline (780 lines) |
 | `ERP/QuoteJobWorkflow.bas` | VBA macros (39KB) |
-| `TelegramBot/bot_v5.py` | AI bot main handler |
+| `TelegramBot/bot_v5.py` | A Bot main handler |
 
 ## System Stats
 
@@ -108,4 +108,5 @@ The following directories still exist for backward compatibility and will be rem
 - `ERP/scripts/` → migrated to `ERP/core/`, `ERP/quotes/`, `ERP/jobs/`, `ERP/carrier_rules/`
 
 **Do NOT add new code to legacy directories.** All new development should target the organized `ERP/` subdirectories.
-<!-- test deploy v3 -->
+
+Managed by Nelson Platform Team ─ 2026-04-11 v2
