@@ -1,0 +1,275 @@
+{
+  "_meta": {
+    "version": "2.0",
+    "created": "2026-04-01",
+    "author": "Nelson + Claude",
+    "purpose": "Master mapping cho tất cả file giá. Mỗi file type có column map riêng. Chỉnh sửa ở đây = áp dụng toàn bộ hệ thống.",
+    "how_to_update": "Thêm/bớt cột: sửa columns array. Thêm carrier mới: sửa carriers array. Thêm contract type: thêm vào contract_types."
+  },
+
+  "contract_types": {
+    "FAK": {
+      "description": "Freight All Kinds — giá chung theo tuyến, nhiều hãng tàu",
+      "carriers": ["CMA", "COSCO", "EMC", "HPL", "MSC", "ONE", "WHL", "YML", "ZIM"],
+      "soc_carriers": ["CMA", "ONE", "YML", "HPL"],
+      "file_pattern": "Update rate*US CANADA*.xlsx",
+      "header_row": 0,
+      "sub_header_row": 1,
+      "data_start_row": 2,
+      "total_columns": 71,
+      "columns": {
+        "metadata": [
+          {"col": "A", "field": "POL",                "required": true},
+          {"col": "B", "field": "POD",                "required": true},
+          {"col": "C", "field": "PlaceOfDelivery",    "required": true},
+          {"col": "D", "field": "RoutingNote",        "required": false, "note": "SOC / COC indicator"},
+          {"col": "E", "field": "Routing",            "required": false, "note": "IPI / MLB / DIRECT"},
+          {"col": "F", "field": "Carrier",            "required": true},
+          {"col": "G", "field": "EffectiveDate",      "required": true, "format": "datetime"},
+          {"col": "H", "field": "ExpirationDate",     "required": true, "format": "datetime"},
+          {"col": "I", "field": "GroupNote",           "required": false, "note": "FAK PSW SOC / FAK ALL IN etc"},
+          {"col": "J", "field": "Commodity",           "required": false},
+          {"col": "K", "field": "TransitTimeGroupCode","required": false, "note": "Transit time HOẶC Group code tùy carrier"},
+          {"col": "L", "field": "ContractIdentifier",  "required": false}
+        ],
+        "rates": [
+          {"col": "M",  "field": "ALL_IN_COST",   "cont": "20GP"},
+          {"col": "N",  "field": "ALL_IN_COST",   "cont": "40GP"},
+          {"col": "O",  "field": "ALL_IN_COST",   "cont": "40HQ"},
+          {"col": "P",  "field": "ALL_IN_COST",   "cont": "45HQ"},
+          {"col": "Q",  "field": "ALL_IN_COST",   "cont": "40NOR"}
+        ],
+        "surcharges": [
+          {"col": "R",  "field": "BASIC_OF",         "cont": "20GP"},
+          {"col": "S",  "field": "BASIC_OF",         "cont": "40GP"},
+          {"col": "T",  "field": "BASIC_OF",         "cont": "40HQ"},
+          {"col": "U",  "field": "BASIC_OF",         "cont": "45HQ"},
+          {"col": "V",  "field": "BASIC_OF",         "cont": "40NOR"},
+
+          {"col": "W",  "field": "ARB_OLF",          "cont": "20GP"},
+          {"col": "X",  "field": "ARB_OLF",          "cont": "40GP"},
+          {"col": "Y",  "field": "ARB_OLF",          "cont": "40HQ"},
+          {"col": "Z",  "field": "ARB_OLF",          "cont": "45HQ"},
+
+          {"col": "AA", "field": "PREMIUM_HDL_SOC",   "cont": "20GP", "note": "SOC only"},
+          {"col": "AB", "field": "PREMIUM_HDL_SOC",   "cont": "40GP"},
+          {"col": "AC", "field": "PREMIUM_HDL_SOC",   "cont": "40HQ"},
+          {"col": "AD", "field": "PREMIUM_HDL_SOC",   "cont": "45HQ"},
+
+          {"col": "AE", "field": "ISPS_LSF_CMC",      "cont": "20GP"},
+          {"col": "AF", "field": "ISPS_LSF_CMC",      "cont": "40GP"},
+          {"col": "AG", "field": "ISPS_LSF_CMC",      "cont": "40HQ"},
+          {"col": "AH", "field": "ISPS_LSF_CMC",      "cont": "45HQ"},
+
+          {"col": "AI", "field": "OCS_LSS_SOC_HDL",   "cont": "20GP", "note": "SOC cost HDL fee"},
+          {"col": "AJ", "field": "OCS_LSS_SOC_HDL",   "cont": "40GP"},
+          {"col": "AK", "field": "OCS_LSS_SOC_HDL",   "cont": "40HQ"},
+          {"col": "AL", "field": "OCS_LSS_SOC_HDL",   "cont": "45HQ"},
+
+          {"col": "AM", "field": "PSS_PUC",           "cont": "20GP"},
+          {"col": "AN", "field": "PSS_PUC",           "cont": "40GP"},
+          {"col": "AO", "field": "PSS_PUC",           "cont": "40HQ"},
+          {"col": "AP", "field": "PSS_PUC",           "cont": "45HQ"},
+
+          {"col": "AQ", "field": "GRI",               "cont": "20GP"},
+          {"col": "AR", "field": "GRI",               "cont": "40GP"},
+          {"col": "AS", "field": "GRI",               "cont": "40HQ"},
+          {"col": "AT", "field": "GRI",               "cont": "45HQ"},
+
+          {"col": "AU", "field": "EIC_GFS_BAF",       "cont": "20GP"},
+          {"col": "AV", "field": "EIC_GFS_BAF",       "cont": "40GP"},
+          {"col": "AW", "field": "EIC_GFS_BAF",       "cont": "40HQ"},
+          {"col": "AX", "field": "EIC_GFS_BAF",       "cont": "45HQ"},
+
+          {"col": "AY", "field": "PCS",               "cont": "20GP"},
+          {"col": "AZ", "field": "PCS",               "cont": "40GP"},
+          {"col": "BA", "field": "PCS",               "cont": "40HQ"},
+          {"col": "BB", "field": "PCS",               "cont": "45HQ"},
+
+          {"col": "BC", "field": "EFS",                "cont": "20GP", "note": "Header='EFS' — Emergency Fuel Surcharge"},
+          {"col": "BD", "field": "EFS",                "cont": "40GP"},
+          {"col": "BE", "field": "EFS",                "cont": "40HQ"},
+          {"col": "BF", "field": "EFS",                "cont": "45HQ"},
+
+          {"col": "BG", "field": "GARMENT_ADDON",     "cont": "20GP"},
+          {"col": "BH", "field": "GARMENT_ADDON",     "cont": "40GP"},
+          {"col": "BI", "field": "GARMENT_ADDON",     "cont": "40HQ"},
+          {"col": "BJ", "field": "GARMENT_ADDON",     "cont": "45HQ"},
+
+          {"col": "BK", "field": "WHA_BCO_EIC",       "cont": "20GP"},
+          {"col": "BL", "field": "WHA_BCO_EIC",       "cont": "40GP"},
+          {"col": "BM", "field": "WHA_BCO_EIC",       "cont": "40HQ"},
+          {"col": "BN", "field": "WHA_BCO_EIC",       "cont": "45HQ"},
+
+          {"col": "BO", "field": "HDL_FEE_CARRIER",   "cont": "20GP"},
+          {"col": "BP", "field": "HDL_FEE_CARRIER",   "cont": "40GP"},
+          {"col": "BQ", "field": "HDL_FEE_CARRIER",   "cont": "40HQ"},
+          {"col": "BR", "field": "HDL_FEE_CARRIER",   "cont": "45HQ"},
+          {"col": "BS", "field": "HDL_FEE_CARRIER",   "cont": "40NOR"}
+        ]
+      }
+    },
+
+    "FIX_RATE": {
+      "description": "Fixed rate / Special rate contracts — giá cố định theo hợp đồng",
+      "carriers": ["ZIM", "HPL", "YML", "ONE", "CMA", "HMM"],
+      "soc_carriers": ["HPL"],
+      "file_pattern": "Fixed Rate Summary Table*.xlsx",
+      "header_row": 0,
+      "sub_header_row": 1,
+      "data_start_row": 2,
+      "total_columns": 18,
+      "actual_excel_columns": 84,
+      "note": "KHÁC FAK: có TransitPort (D), ServiceNote (E), Mode (F). Carrier ở col G (không phải F). Chỉ có Base Ocean Freight, KHÔNG có surcharges. Excel file có 84 cột nhưng chỉ A-Q (18 cột) có dữ liệu, còn lại trống (formatting Excel).",
+      "columns": {
+        "metadata": [
+          {"col": "A", "field": "POL",                "required": true},
+          {"col": "B", "field": "POD",                "required": true},
+          {"col": "C", "field": "PlaceOfDelivery",    "required": true},
+          {"col": "D", "field": "TransitPort",        "required": false, "note": "KHÁC FAK: FAK=RoutingNote, FIX=TransitPort"},
+          {"col": "E", "field": "ServiceNote",        "required": false, "note": "FIXED RATE / SOC FIX RATE"},
+          {"col": "F", "field": "Mode",               "required": false, "note": "USEC / USWC / CAWC / IPI / CAIPI / RIPI"},
+          {"col": "G", "field": "Carrier",            "required": true,  "note": "Col G (FAK dùng col F)"},
+          {"col": "H", "field": "EffectiveDate",      "required": true, "format": "datetime"},
+          {"col": "I", "field": "ExpirationDate",     "required": true, "format": "datetime"},
+          {"col": "J", "field": "GroupCode",           "required": false},
+          {"col": "K", "field": "TransitTime",         "required": false},
+          {"col": "L", "field": "ContractIdentifier",  "required": false}
+        ],
+        "rates": [
+          {"col": "M",  "field": "BASE_OF",   "cont": "20GP", "note": "FIX = Base Ocean Freight (FAK = ALL IN COST)"},
+          {"col": "N",  "field": "BASE_OF",   "cont": "40GP"},
+          {"col": "O",  "field": "BASE_OF",   "cont": "40HQ"},
+          {"col": "P",  "field": "BASE_OF",   "cont": "45HQ"},
+          {"col": "Q",  "field": "BASE_OF",   "cont": "40NOR"}
+        ],
+        "surcharges": []
+      }
+    },
+
+    "SCFI": {
+      "description": "HPL SCFI — hợp đồng SCFI index-linked, chỉ HPL",
+      "carriers": ["HPL"],
+      "file_pattern": "HPL SCFI CONTRACT*.xlsx",
+      "note": "SCFI có 3 sheets: FORMULA, RATE TABLE, remark. Mapping dưới cho RATE TABLE sheet. File có 26 cột.",
+      "sheet_name": "RATE TABLE",
+      "rate_table": {
+        "header_row": 0,
+        "sub_header_row": 1,
+        "data_start_row": 2,
+        "total_columns": 26,
+        "columns": {
+          "metadata": [
+            {"col": "A", "field": "PlaceOfDelivery",    "required": true,  "header": "Destination", "note": "Excel header = 'Destination', map thành PlaceOfDelivery cho unified output"},
+            {"col": "B", "field": "POD",                "required": true,  "header": "via PORT"},
+            {"col": "C", "field": "Scope",              "required": false, "header": "via", "note": "WC/EC/GULF — dùng để phân loại scope thay vì GroupNote"},
+            {"col": "D", "field": "ContractIdentifier",  "required": false, "header": "Contract"},
+            {"col": "E", "field": "MRCode",             "required": false, "header": "mr code", "note": "MR code — internal reference"},
+            {"col": "F", "field": "EffectiveDate",      "required": true, "format": "datetime", "header": "VALID", "sub_header": "EFF", "note": "Merged header 'VALID' spans F-G, sub-headers EFF/END"},
+            {"col": "G", "field": "ExpirationDate",     "required": true, "format": "datetime", "header": "VALID", "sub_header": "END"}
+          ],
+          "rates": [
+            {"col": "H",  "field": "BASE_OF",     "cont": "20",    "header": "BASE O/F", "note": "SCFI dùng 20'/40'/40'HC"},
+            {"col": "I",  "field": "BASE_OF",     "cont": "40"},
+            {"col": "J",  "field": "BASE_OF",     "cont": "40HC"}
+          ],
+          "surcharges": [
+            {"col": "K",  "field": "HLCU_OFFER",  "cont": "20",   "header": "HLCU Offer"},
+            {"col": "L",  "field": "HLCU_OFFER",  "cont": "40"},
+            {"col": "M",  "field": "HLCU_OFFER",  "cont": "40HC"},
+
+            {"col": "N",  "field": "ISPS",        "cont": "20",   "header": "ISPS"},
+            {"col": "O",  "field": "ISPS",        "cont": "40"},
+            {"col": "P",  "field": "ISPS",        "cont": "40HC"},
+
+            {"col": "Q",  "field": "EMF",         "cont": "20",   "header": "EMF"},
+            {"col": "R",  "field": "EMF",         "cont": "40"},
+            {"col": "S",  "field": "EMF",         "cont": "40HC"},
+
+            {"col": "T",  "field": "DLF",         "cont": "20",   "header": "DLF"},
+            {"col": "U",  "field": "DLF",         "cont": "40"},
+            {"col": "V",  "field": "DLF",         "cont": "40HC"},
+
+            {"col": "W",  "field": "COMMISSION",  "cont": "20",   "header": "COMMISSION", "note": "Maps to HDL FEE in unified output"},
+            {"col": "X",  "field": "COMMISSION",  "cont": "40"},
+            {"col": "Y",  "field": "COMMISSION",  "cont": "40HC"},
+
+            {"col": "Z",  "field": "EXTRA",       "cont": null,   "note": "Column Z trống trong file hiện tại — reserved"}
+          ]
+        }
+      },
+      "formula": {
+        "description": "SCFI discount formula — calculate rate from SCFI index",
+        "structure": {
+          "scopes": ["USWC", "VIA WEST BASE+VAN/PRR--US", "USEC", "GULF"],
+          "fields": ["SCFI_index", "discount_pct", "cost_discount", "discount_20", "discount_40"]
+        },
+        "gulf_rule": "GULF = USEC + 200 (always)"
+      }
+    },
+
+    "PUC_SOC": {
+      "description": "PUC/SOC surcharge per city — áp dụng cho container SOC",
+      "carriers": ["HPL"],
+      "file_pattern": "*PUC_SOC*.xlsx",
+      "note": "Lookup table: Place → PUC per container type. Add vào tổng giá khi RoutingNote = SOC hoặc ServiceNote contains SOC.",
+      "columns": [
+        {"col": "A", "field": "Place",    "note": "City, State format — cần normalize match với PlaceOfDelivery"},
+        {"col": "B", "field": "PUC_20",   "cont": "20GP"},
+        {"col": "C", "field": "PUC_40",   "cont": "40GP"},
+        {"col": "D", "field": "PUC_40HC", "cont": "40HQ"}
+      ],
+      "total_cities": 114
+    }
+  },
+
+  "carrier_contract_matrix": {
+    "_description": "Ma trận: carrier nào có loại hợp đồng nào",
+    "HPL": {
+      "contracts": ["FAK", "FAK_SOC", "FIX_RATE", "FIX_RATE_SOC", "SCFI"],
+      "note": "HPL = hãng tàu nhiều loại hợp đồng nhất. Cần xác định loại dựa trên: GroupNote (FAK), ServiceNote (FIX), file source (SCFI).",
+      "detection_rules": {
+        "FAK":           "Carrier=HPL AND RoutingNote != SOC",
+        "FAK_SOC":       "Carrier=HPL AND (RoutingNote=SOC OR GroupNote contains 'SOC')",
+        "FIX_RATE":      "Carrier=HPL AND ServiceNote=FIXED RATE",
+        "FIX_RATE_SOC":  "Carrier=HPL AND ServiceNote contains 'SOC'",
+        "SCFI":          "Source file = HPL SCFI CONTRACT"
+      },
+      "puc_soc_applies": ["FAK_SOC", "FIX_RATE_SOC", "SCFI"]
+    },
+    "CMA":  {"contracts": ["FAK", "FAK_SOC", "FIX_RATE"], "note": "SOC qua FAK"},
+    "ONE":  {"contracts": ["FAK", "FAK_SOC", "FIX_RATE"], "note": "SOC qua FAK, group code trong col K"},
+    "YML":  {"contracts": ["FAK", "FAK_SOC", "FIX_RATE"], "note": "SOC qua FAK"},
+    "ZIM":  {"contracts": ["FIX_RATE"],                    "note": "Chỉ fix rate"},
+    "HMM":  {"contracts": ["FIX_RATE"],                    "note": "Chỉ fix rate"},
+    "COSCO":{"contracts": ["FAK"],                          "note": "Chỉ FAK"},
+    "EMC":  {"contracts": ["FAK"],                          "note": "Chỉ FAK (Evergreen)"},
+    "MSC":  {"contracts": ["FAK"],                          "note": "Chỉ FAK"},
+    "WHL":  {"contracts": ["FAK"],                          "note": "Chỉ FAK (Wan Hai)"}
+  },
+
+  "container_type_normalization": {
+    "_description": "Normalize tên container giữa các file type",
+    "20GP":  ["20GP", "20'", "20"],
+    "40GP":  ["40GP", "40'", "40"],
+    "40HQ":  ["40HQ", "40'HC", "40HC"],
+    "45HQ":  ["45'HQ", "45HQ"],
+    "40NOR": ["40NOR"]
+  },
+
+  "unified_output_fields": {
+    "_description": "Khi normalize ra Parquet, dùng tên field này",
+    "metadata": ["POL", "POD", "PlaceOfDelivery", "Carrier", "ContractType", "ContractIdentifier", "EffectiveDate", "ExpirationDate", "GroupCode", "Mode", "TransitTime", "IsSOC", "SourceFile"],
+    "rates": {
+      "primary": "ALL_IN_COST",
+      "note": "Nếu file chỉ có BASE_OF (FIX_RATE, SCFI): ALL_IN_COST = BASE_OF + surcharges (nếu có) + PUC_SOC (nếu SOC)"
+    },
+    "key_surcharges": ["BASIC_OF", "ISPS", "EMF_EIC", "PCS_DLF", "ARB_OLF", "PSS_PUC", "GRI", "HDL_FEE", "PUC_SOC"]
+  },
+
+  "cross_reference_rules": {
+    "FAK_to_FIX_match": "POL + POD + PlaceOfDelivery + Carrier → so sánh ALL_IN vs BASE_OF",
+    "SCFI_to_FAK_match": "PlaceOfDelivery + POD → HPL FAK vs HPL SCFI giá nào tốt hơn",
+    "SOC_pricing": "Giá SOC = Base rate + PUC_SOC lookup by PlaceOfDelivery city"
+  }
+}
