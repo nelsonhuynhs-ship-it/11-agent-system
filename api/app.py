@@ -152,6 +152,8 @@ from routers.job_router import router as job_router
 from routers.email_rate_router import router as email_rate_router  # Sprint 13
 from routers.data_router import router as data_router              # Email platform data
 from routers.email_queue_router import router as email_queue_router  # Worker bridge
+from routers.sync_router import router as sync_router                # ERP sync
+from routers.customer_check_router import router as customer_check_router  # Tax code check
 
 app.include_router(rate_router)
 app.include_router(quote_router)
@@ -169,6 +171,8 @@ app.include_router(job_router)
 app.include_router(email_rate_router)
 app.include_router(data_router)
 app.include_router(email_queue_router)
+app.include_router(sync_router)
+app.include_router(customer_check_router)
 
 # ── Event Bus ─────────────────────────────────────────────────────────────────
 from event_bus import bus
