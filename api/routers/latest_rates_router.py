@@ -43,33 +43,16 @@ _PORT_MAP_FILE = _sp.PORT_MAP
 
 router = APIRouter(prefix="/api/rates/latest", tags=["Latest Rates"])
 
-# ── Cache ─────────────────────────────────────────────────────────────────────
-_parquet_df = None
-_parquet_loaded_at = None
+# ── DuckDB Engine (replaces pandas read_parquet) ─────────────────────────────
+import duckdb
+
 _port_map = None
 _cust_rules = None
 
 
 def _load_parquet():
-    """Load Parquet with 5-min cache."""
-    global _parquet_df, _parquet_loaded_at
-    import pandas as pd
-    from datetime import datetime
-
-    now = datetime.now()
-    if _parquet_df is not None and _parquet_loaded_at:
-        age = (now - _parquet_loaded_at).total_seconds()
-        if age < 300:  # 5 min cache
-            return _parquet_df
-
-    if not _PARQUET_FILE.exists():
-        log.error("Parquet not found: %s", _PARQUET_FILE)
-        return pd.DataFrame()
-
-    _parquet_df = pd.read_parquet(_PARQUET_FILE)
-    _parquet_loaded_at = now
-    log.info("Parquet loaded: %d rows", len(_parquet_df))
-    return _parquet_df
+    """Return parquet path for DuckDB queries — no pandas load."""
+    return str(_PARQUET_FILE) if _PARQUET_FILE.exists() else None
 
 
 def _load_customer_rules():
@@ -107,60 +90,42 @@ def _load_port_map():
 
 
 def _query_latest(
-    df, pol: str, place: str, container: str = "40HQ", top_n: int = 5
+    parquet_path, pol: str, place: str, container: str = "40HQ", top_n: int = 5
 ) -> list[dict]:
-    """Query latest valid rates for a route, sorted by cheapest."""
-    import pandas as pd
-
-    if df is None or df.empty:
+    """Query latest valid rates via DuckDB — no pandas full load."""
+    if not parquet_path:
         return []
 
-    # Filter: Total Ocean Freight only
-    mask = df["Charge_Name"].astype(str).str.upper().str.contains("TOTAL", na=False)
+    ct_norm = container.upper().replace("'", "")
+    con = duckdb.connect()
 
-    # POL filter
-    mask &= df["POL"].astype(str).str.upper().str.contains(pol.upper(), na=False)
-
-    # Place/POD filter
-    place_upper = place.upper()
-    mask &= (
-        df["Place"].astype(str).str.upper().str.contains(place_upper, na=False)
-        | df["POD"].astype(str).str.upper().str.contains(place_upper, na=False)
-    )
-
-    # Container filter
-    ct_map = {
-        "40HQ": ["40HQ", "40HC", "40HG"],
-        "20GP": ["20GP", "20DC", "20"],
-        "40GP": ["40GP"],
-    }
-    ct_values = ct_map.get(container.upper(), [container.upper()])
-    mask &= df["Container_Type"].astype(str).str.upper().isin(ct_values)
-
-    filtered = df[mask].copy()
-    if filtered.empty:
+    try:
+        df = con.execute("""
+            SELECT DISTINCT ON (Carrier)
+                Carrier, POL, POD, Place,
+                REPLACE(Container_Type, chr(39), '') AS Container_Type,
+                ROUND(Amount, 2) AS Amount, Rate_Type, Note,
+                Eff, Exp,
+                CASE WHEN UPPER(COALESCE(Note, '')) LIKE '%SOC%' THEN true ELSE false END AS is_soc
+            FROM read_parquet(?)
+            WHERE Exp >= CURRENT_DATE
+              AND Charge_Name IN ('ALL IN COST', 'Total Ocean Freight', 'Base Ocean Freight')
+              AND UPPER(TRIM(POL)) = UPPER(TRIM(?))
+              AND (UPPER(TRIM(Place)) LIKE '%' || UPPER(TRIM(?)) || '%'
+                   OR UPPER(TRIM(POD)) LIKE '%' || UPPER(TRIM(?)) || '%')
+              AND UPPER(REPLACE(Container_Type, chr(39), '')) = ?
+              AND Amount > 0
+            ORDER BY Carrier, Amount ASC
+        """, [parquet_path, pol, place, place, ct_norm]).fetchdf()
+    except Exception as e:
+        log.error("DuckDB query error: %s", e)
         return []
 
-    # Filter valid dates (not expired)
-    if "Exp" in filtered.columns:
-        try:
-            filtered["_exp"] = pd.to_datetime(filtered["Exp"], errors="coerce")
-            today = pd.Timestamp.now()
-            valid = filtered[filtered["_exp"] >= today]
-            if not valid.empty:
-                filtered = valid
-        except Exception:
-            pass
-
-    # Best rate per carrier
-    best = (
-        filtered.sort_values("Amount")
-        .drop_duplicates(subset=["Carrier"], keep="first")
-        .head(top_n)
-    )
+    if df.empty:
+        return []
 
     results = []
-    for _, row in best.iterrows():
+    for _, row in df.sort_values("Amount").head(top_n).iterrows():
         results.append({
             "carrier": str(row.get("Carrier", "")),
             "pol": str(row.get("POL", "")),
@@ -172,7 +137,7 @@ def _query_latest(
             "note": str(row.get("Note", "")),
             "effective": str(row.get("Eff", "")),
             "expiry": str(row.get("Exp", "")),
-            "is_soc": "SOC" in str(row.get("Note", "")).upper(),
+            "is_soc": bool(row.get("is_soc", False)),
         })
 
     return results
