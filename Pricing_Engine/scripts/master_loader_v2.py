@@ -116,7 +116,7 @@ PUC_CARRIERS = {'CMA', 'ONE', 'YML', 'HPL'}   # SOC carriers that use PUC_SOC.xl
 
 # Place name aliases: PUC file uses full names, parquet uses port codes
 _PUC_PLACE_ALIASES = {
-    'LOS ANGELES': ['LAX', 'LGB', 'LONG BEACH'],
+    'LOS ANGELES': ['LAX', 'LGB', 'LAX/LGB', 'LONG BEACH'],
     'NEW YORK': ['NYC', 'NEWARK', 'NEW YORK/NEW JERSEY'],
     'SAVANNAH': ['SAV'],
     'HOUSTON': ['HOU'],
