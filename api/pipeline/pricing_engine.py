@@ -21,6 +21,13 @@ def _get_con():
     return duckdb.connect()
 
 
+    # Charges that represent the final quote price per contract type:
+# FAK  → ALL IN COST (includes all surcharges)
+# SCFI → Total Ocean Freight (mapped from HLCU Offer in rate_importer)
+# FIX  → Base Ocean Freight (FIX has no surcharges, base = final)
+QUOTABLE_CHARGES = ('ALL IN COST', 'Total Ocean Freight', 'Base Ocean Freight')
+
+
 def get_active_rates(
     pol: str,
     pod: str,
@@ -28,8 +35,9 @@ def get_active_rates(
     container: str = "40HQ",
     rate_type: str = None,
     limit: int = 20,
+    all_charges: bool = False,
 ) -> pd.DataFrame:
-    """Query active rates with predicate pushdown on Parquet."""
+    """Query active rates for email quoting. Only returns final quotable prices by default."""
     con = _get_con()
     container_norm = _normalize_container(container)
 
@@ -44,6 +52,12 @@ def get_active_rates(
           AND (UPPER(TRIM(POD)) = UPPER(TRIM(?)) OR UPPER(TRIM(Place)) = UPPER(TRIM(?)))
     """
     params = [str(PARQUET_PATH), container_norm, pol, pod, pod]
+
+    # Filter to quotable charges only (unless all_charges=True for debugging)
+    if not all_charges:
+        placeholders = ", ".join(["?"] * len(QUOTABLE_CHARGES))
+        query += f" AND Charge_Name IN ({placeholders})"
+        params.extend(QUOTABLE_CHARGES)
 
     if carrier:
         query += " AND UPPER(TRIM(Carrier)) = UPPER(TRIM(?))"
@@ -92,7 +106,7 @@ def get_rate_summary(pol: str, pod: str) -> dict:
         WHERE Exp >= CURRENT_DATE
           AND UPPER(TRIM(POL)) = UPPER(TRIM(?))
           AND (UPPER(TRIM(POD)) = UPPER(TRIM(?)) OR UPPER(TRIM(Place)) = UPPER(TRIM(?)))
-          AND Charge_Name = 'Total Ocean Freight'
+          AND Charge_Name IN ('ALL IN COST', 'Total Ocean Freight', 'Base Ocean Freight')
         GROUP BY Carrier, Container
         ORDER BY Carrier, Container
     """, [str(PARQUET_PATH), pol, pod, pod]).fetchdf()
