@@ -83,3 +83,4 @@ TelegramBot_backup_*
 .git_backup_*/
 claudekit-skills/
 tools/goclaw/.env
+.claude/

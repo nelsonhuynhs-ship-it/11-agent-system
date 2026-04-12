@@ -69,6 +69,13 @@ Repo: github.com/nelsonhuynhs-ship-it/FreightBrian.git
 - Parquet ~6.6M rows — ALWAYS filter last 30 days only (fallback 60d→90d nếu empty)
 - DuckDB engine — 28.6x faster than Pandas
 
+## ERP v14 Source of Truth
+
+See `docs/erp-v14-source-of-truth.md` — AI agents and new contributors MUST
+read this before auditing or modifying ERP v14. Live v14 lives on OneDrive
+(`D:/OneDrive/NelsonData/erp/`), not in the repo. Files in `ERP/vba/` and
+`ERP/core/refresh.py` are LEGACY v13 — do not edit.
+
 ## VPS
 IP: 14.225.207.145
 Services: nelson-api (8100), nelson-webapp3003 (3003)

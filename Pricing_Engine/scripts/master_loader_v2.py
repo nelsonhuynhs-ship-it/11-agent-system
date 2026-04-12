@@ -20,10 +20,24 @@ if sys.platform == 'win32':
 # --- CẤU HÌNH ---
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_DIR = os.path.dirname(SCRIPT_DIR)  # Pricing_Engine folder
-DATA_DIR = os.path.join(BASE_DIR, "data")  # Pricing_Engine/data
-MAPPING_DIR = os.path.join(BASE_DIR, "Mapping")  # Pricing_Engine/Mapping
-HISTORY_DIR = DATA_DIR  # Luôn lưu parquet trong Pricing_Engine/data
-OUTPUT_FILE = os.path.join(HISTORY_DIR, "Cleaned_Master_History.parquet")
+
+# Resolve OneDrive canonical paths via shared/paths (single source of truth).
+# Fallback: legacy repo-local paths if shared import fails.
+try:
+    _repo_root = os.path.dirname(BASE_DIR)
+    if _repo_root not in sys.path:
+        sys.path.insert(0, _repo_root)
+    from shared import paths as _sp  # type: ignore
+    DATA_DIR = str(_sp.PRICING_DATA)
+    MAPPING_DIR = str(_sp.MAPPING_DIR)  # OneDrive: pricing/mapping
+    HISTORY_DIR = str(_sp.PRICING_DATA)
+    OUTPUT_FILE = str(_sp.PARQUET_FILE)
+except Exception as _e:
+    print(f"[WARN] shared.paths unavailable ({_e}); using legacy repo paths")
+    DATA_DIR = os.path.join(BASE_DIR, "data")
+    MAPPING_DIR = os.path.join(BASE_DIR, "Mapping")
+    HISTORY_DIR = DATA_DIR
+    OUTPUT_FILE = os.path.join(HISTORY_DIR, "Cleaned_Master_History.parquet")
 def _find_puc_file():
     """Auto-detect latest PUC file (PUC_SOC.xlsx or PUC {MONTH} {YEAR}.xlsx)."""
     import glob
