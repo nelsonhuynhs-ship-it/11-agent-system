@@ -1,0 +1,22 @@
+{% extends "_base.html.j2" %}
+{% block content %}
+<p>Hi {{ pic | default(company) }},</p>
+
+<p>Heads up — rates on <strong>{{ pol }} → {{ pod }}</strong> have been updated effective {{ effective_date | default('this week') }}:</p>
+
+<div style="background:#fce4ec;border-left:4px solid #f44336;padding:15px;margin:15px 0">
+{% if direction == 'up' %}
+<strong>Rate Increase:</strong> {{ carrier }} rates going up by ~${{ change_amount | default('50-100') }}/container starting {{ effective_date }}.
+{% else %}
+<strong>Rate Decrease:</strong> {{ carrier }} rates dropping by ~${{ change_amount | default('50-100') }}/container — good opportunity to book!
+{% endif %}
+</div>
+
+{% if best_rate %}
+<p>Current best rate: <strong>${{ best_rate.amount }} / {{ best_rate.container }}</strong> via {{ best_rate.carrier }} (valid until {{ best_rate.exp }})</p>
+{% endif %}
+
+<p>Let me know if you'd like to lock in current rates before the change takes effect.</p>
+
+<p>Best,</p>
+{% endblock %}

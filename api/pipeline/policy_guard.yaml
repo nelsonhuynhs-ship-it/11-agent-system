@@ -1,0 +1,26 @@
+auto_respond:
+  allowed_intents:
+    - INQUIRY
+    - RATE_REQUEST
+    - SERVICE_INFO
+
+  blocked_intents:
+    - NEGOTIATION
+    - COMPLAINT
+    - CONTRACT_DISCUSS
+    - LEGAL
+    - FINANCIAL
+
+  guardrails:
+    max_auto_replies_per_day: 20
+    max_auto_replies_per_contact: 1
+    require_rate_in_system: true
+    never_promise_delivery_date: true
+    never_discuss_competitor: true
+    always_cc_team: true
+
+  fallback:
+    action: hold_and_alert
+    alert_channel: telegram
+    alert_to: "5398948978"
+    message_template: "Reply from {company} ({email}): {subject}. Intent: {intent}. Needs your review."

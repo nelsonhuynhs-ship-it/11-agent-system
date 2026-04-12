@@ -1,0 +1,19 @@
+{% extends "_base.html.j2" %}
+{% block content %}
+<p>Hi {{ pic | default('there') }},</p>
+
+<p>Quick note — we have some excellent <strong>{{ rate_type | default('FAK') }}</strong> rates on <strong>{{ pol | default('HCM') }} → {{ pod }}</strong> that I thought might interest {{ company }}:</p>
+
+{% if best_rate %}
+<div style="background:#f0f7ff;border-left:4px solid #2196F3;padding:15px;margin:15px 0">
+<strong>{{ best_rate.carrier }}</strong> — ${{ best_rate.amount }} / {{ best_rate.container }}<br>
+<span style="color:#666">Valid until {{ best_rate.exp }}</span>
+</div>
+{% endif %}
+
+<p>These rates are all-inclusive (O/F + surcharges). We handle {{ commodity | default('general cargo') }} shipments daily on this lane.</p>
+
+<p>Happy to send a full breakdown if you're shipping soon. Just reply with your cargo details and I'll prepare a quote within the hour.</p>
+
+<p>Cheers,</p>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "_base.html.j2" %}
+{% block content %}
+<p>Dear {{ pic | default(company) }},</p>
+
+<p>Thank you for your inquiry. Please find below our quotation for <strong>{{ commodity | default('your cargo') }}</strong> from <strong>{{ pol }} → {{ pod }}</strong>:</p>
+
+{% if rates %}
+<table style="border-collapse:collapse;width:100%;margin:15px 0">
+<tr style="background:#e3f2fd"><th style="padding:10px;border:1px solid #ddd;text-align:left">Item</th><th style="padding:10px;border:1px solid #ddd">Carrier</th><th style="padding:10px;border:1px solid #ddd">20GP</th><th style="padding:10px;border:1px solid #ddd">40GP</th><th style="padding:10px;border:1px solid #ddd">40HQ</th><th style="padding:10px;border:1px solid #ddd">Valid Until</th></tr>
+{% for rate in rates %}
+<tr><td style="padding:8px;border:1px solid #ddd">{{ rate.charge | default('All-In') }}</td><td style="padding:8px;border:1px solid #ddd">{{ rate.carrier }}</td><td style="padding:8px;border:1px solid #ddd;text-align:center">${{ rate.get('20GP', '-') }}</td><td style="padding:8px;border:1px solid #ddd;text-align:center">${{ rate.get('40GP', '-') }}</td><td style="padding:8px;border:1px solid #ddd;text-align:center">${{ rate.get('40HQ', '-') }}</td><td style="padding:8px;border:1px solid #ddd;text-align:center">{{ rate.exp }}</td></tr>
+{% endfor %}
+</table>
+{% endif %}
+
+<p><strong>Terms:</strong></p>
+<ul>
+<li>Rates are subject to carrier space/equipment availability</li>
+<li>Free time: {{ free_time | default('14 days at destination') }}</li>
+<li>Transit time: {{ transit | default('Approximately 20-25 days') }}</li>
+</ul>
+
+<p>Please confirm if you'd like to proceed with a booking. We'll need: cargo ready date, commodity, weight/CBM, and number of containers.</p>
+
+<p>Best regards,</p>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "_base.html.j2" %}
+{% block content %}
+<p>Hi {{ pic | default('there') }},</p>
+
+<p>I see {{ company }} has shipped <strong>{{ total_shipment | default('multiple') }} containers</strong> recently on the {{ pol | default('Vietnam') }} → {{ destination | default('US') }} lane. With that volume, you likely qualify for our VIP contract rates.</p>
+
+<p>Our volume-tiered pricing can typically save <strong>$100-300 per container</strong> compared to spot market rates. The more you ship, the better the rate.</p>
+
+{% if rates %}
+<p>Current VIP rates on your lane:</p>
+<table style="border-collapse:collapse;width:100%;margin:15px 0">
+<tr style="background:#e8f5e9"><th style="padding:8px;border:1px solid #ddd;text-align:left">Route</th><th style="padding:8px;border:1px solid #ddd">40HQ Rate</th><th style="padding:8px;border:1px solid #ddd">Valid Until</th></tr>
+{% for rate in rates[:3] %}
+<tr><td style="padding:8px;border:1px solid #ddd">{{ rate.pol }} → {{ rate.pod }}</td><td style="padding:8px;border:1px solid #ddd;text-align:center;color:#2e7d32"><strong>${{ rate.amount }}</strong></td><td style="padding:8px;border:1px solid #ddd;text-align:center">{{ rate.exp }}</td></tr>
+{% endfor %}
+</table>
+{% endif %}
+
+<p>Interested in a volume quote? Just let me know your monthly TEU and preferred lanes.</p>
+
+<p>Regards,</p>
+{% endblock %}

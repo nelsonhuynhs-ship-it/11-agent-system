@@ -1,0 +1,12 @@
+{% extends "_base.html.j2" %}
+{% block content %}
+<p>Hi {{ pic | default('there') }},</p>
+
+<p>Just a quick follow-up on my previous email about {{ commodity | default('ocean freight') }} rates from {{ pol | default('Vietnam') }}. I understand you're busy, so I'll keep this brief.</p>
+
+<p>If the timing isn't right, no worries at all. But if you're evaluating freight options for upcoming shipments, I'd be happy to prepare a no-obligation comparison quote.</p>
+
+<p>Just reply "interested" and I'll send rates tailored to your lanes.</p>
+
+<p>Best,</p>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends "_base.html.j2" %}
+{% block content %}
+<p>Hi {{ pic | default('there') }},</p>
+
+<p>This is my last follow-up — I don't want to be a bother! I reached out a couple of weeks ago about freight rates for {{ company }}.</p>
+
+<p>If ocean freight from {{ pol | default('Asia') }} isn't a priority right now, I completely understand. But if you ever need a quick rate check in the future, feel free to reach out anytime.</p>
+
+<p>Wishing you and your team a great {{ season | default('quarter') }}!</p>
+
+<p>All the best,</p>
+{% endblock %}

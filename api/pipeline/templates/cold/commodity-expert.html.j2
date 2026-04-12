@@ -1,0 +1,20 @@
+{% extends "_base.html.j2" %}
+{% block content %}
+<p>Dear {{ pic | default(company) }},</p>
+
+<p>I noticed {{ company }} regularly ships <strong>{{ commodity }}</strong> from {{ pol | default('Southeast Asia') }} to the US. As a specialist in {{ commodity | lower }} logistics, I wanted to introduce our services.</p>
+
+<p><strong>Why shippers choose us for {{ commodity | lower }}:</strong></p>
+<ul>
+<li>Direct contracts with {{ carriers | default('HPL, ONE, CMA, YML, COSCO') }} — no middleman markup</li>
+<li>Dedicated {{ commodity | lower }} handling experience</li>
+<li>Weekly sailings from {{ pol | default('HCM/HPH') }} to all major US ports</li>
+<li>Competitive rates — often 10-15% below market average</li>
+</ul>
+
+<p>I'd love to compare rates on your current lanes. No obligation — just a quick benchmark to see if we can save you money.</p>
+
+<p>Would a 5-minute call work this week?</p>
+
+<p>Best,</p>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "_base.html.j2" %}
+{% block content %}
+<p>Hi {{ pic | default('there') }},</p>
+
+<p>A mutual contact suggested I reach out to {{ company }} regarding your ocean freight needs from {{ pol | default('Asia') }}.</p>
+
+<p>We're a boutique freight forwarder based in Vietnam, specializing in {{ commodity | default('containerized cargo') }} to North America. What sets us apart:</p>
+
+<ul>
+<li><strong>Direct carrier contracts</strong> — no broker layers, transparent pricing</li>
+<li><strong>Dedicated account manager</strong> — you'll always talk to the same person</li>
+<li><strong>24/7 tracking</strong> — real-time updates on every shipment</li>
+</ul>
+
+<p>Would you be open to a brief introduction call? I promise to keep it under 10 minutes.</p>
+
+<p>Warm regards,</p>
+{% endblock %}

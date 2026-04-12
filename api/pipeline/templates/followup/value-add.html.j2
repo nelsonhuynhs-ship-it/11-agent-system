@@ -1,0 +1,15 @@
+{% extends "_base.html.j2" %}
+{% block content %}
+<p>Hi {{ pic | default('there') }},</p>
+
+<p>Following up with some market intelligence that might be useful for {{ company }}:</p>
+
+<div style="background:#fff8e1;border-left:4px solid #ff9800;padding:15px;margin:15px 0">
+<strong>Market Update — {{ pol | default('Vietnam') }} → US</strong><br>
+{% if market_note %}{{ market_note }}{% else %}Rates have been trending {{ trend | default('stable') }} this month. Several carriers are offering promotional rates ahead of peak season. Now might be a good time to lock in rates.{% endif %}
+</div>
+
+<p>Happy to share specific numbers for your routes. What lanes are you most active on?</p>
+
+<p>Cheers,</p>
+{% endblock %}

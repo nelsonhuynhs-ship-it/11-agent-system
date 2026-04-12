@@ -1,0 +1,21 @@
+{% extends "_base.html.j2" %}
+{% block content %}
+<p>Dear {{ pic | default(company) }},</p>
+
+<p>I hope this message finds you well. I'm reaching out from Team Sunny Logistics regarding your <strong>{{ commodity | default('') }}</strong> shipments from <strong>{{ pol | default('Vietnam') }}</strong>.</p>
+
+<p>We specialize in ocean freight from Southeast Asia to the US/Canada and currently have competitive rates on your route:</p>
+
+{% if rates %}
+<table style="border-collapse:collapse;width:100%;margin:15px 0">
+<tr style="background:#f5f5f5"><th style="padding:8px;border:1px solid #ddd;text-align:left">Carrier</th><th style="padding:8px;border:1px solid #ddd">20GP</th><th style="padding:8px;border:1px solid #ddd">40GP</th><th style="padding:8px;border:1px solid #ddd">40HQ</th></tr>
+{% for rate in rates[:3] %}
+<tr><td style="padding:8px;border:1px solid #ddd">{{ rate.carrier }}</td><td style="padding:8px;border:1px solid #ddd;text-align:center">${{ rate.get('20GP', 'N/A') }}</td><td style="padding:8px;border:1px solid #ddd;text-align:center">${{ rate.get('40GP', 'N/A') }}</td><td style="padding:8px;border:1px solid #ddd;text-align:center">${{ rate.get('40HQ', 'N/A') }}</td></tr>
+{% endfor %}
+</table>
+{% endif %}
+
+<p>Would you be interested in receiving a detailed quotation for your upcoming shipments?</p>
+
+<p>Best regards,</p>
+{% endblock %}
