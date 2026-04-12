@@ -17,12 +17,14 @@ Usage:
     python rate_importer.py --days 7 --type FAK
     python rate_importer.py --scan-only        # just list emails, no download
 """
+import gc
 import json
 import logging
 import os
 import re
 import shutil
 import sys
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 import subprocess
@@ -51,21 +53,26 @@ PARQUET_FILE = sp.PARQUET_FILE
 RATE_TABLES_DIR = DATA_DIR / "rate-tables"
 
 def _find_puc_file() -> Path:
-    """Auto-detect latest PUC file. Searches for PUC_SOC.xlsx or PUC {MONTH} {YEAR}.xlsx."""
-    # Prefer explicit PUC_SOC.xlsx
+    """Auto-detect latest PUC file (PUC_SOC.xlsx or PUC {MONTH} {YEAR}.xlsx).
+
+    Unified 2026-04-12: drops new PUC file into processed/ alongside FAK/SCFI/FIX
+    (one folder for all rate files). Search order:
+      1. processed/        (new canonical location)
+      2. rate-tables/      (legacy fallback — being phased out)
+      3. DATA_DIR root     (for PUC_SOC.xlsx legacy layout)
+    Sorted by modification time — newest wins.
+    """
     legacy = DATA_DIR / "PUC_SOC.xlsx"
     if legacy.exists():
         return legacy
-    # Search for PUC {month} {year}.xlsx pattern in both root and rate-tables
-    import glob
     candidates = []
-    for d in [DATA_DIR, RATE_TABLES_DIR]:
-        candidates.extend(d.glob("PUC*.xlsx"))
-    # Sort by modified time, newest first
+    for d in [PROCESSED_DIR, RATE_TABLES_DIR, DATA_DIR]:
+        if d.exists():
+            candidates.extend(d.glob("PUC*.xlsx"))
     candidates = [f for f in candidates if "PUC_SOC" not in f.name]
     candidates.sort(key=lambda f: f.stat().st_mtime, reverse=True)
     if candidates:
-        log.info("Auto-detected PUC file: %s", candidates[0].name)
+        log.info("Auto-detected PUC file: %s (from %s)", candidates[0].name, candidates[0].parent.name)
         return candidates[0]
     return legacy  # fallback even if missing
 
@@ -78,6 +85,43 @@ TELEGRAM_CONFIG = sp.BOT_CODE / "config.py"
 # Ensure dirs exist
 for d in [INCOMING_DIR, PROCESSED_DIR, KNOWLEDGE_DIR]:
     d.mkdir(parents=True, exist_ok=True)
+
+
+# ── Drift prevention helpers (added 2026-04-11, plan 260411-2019-rate-pipeline-reorg) ──
+def safe_move(src: Path, dst: Path, retries: int = 3, delay_s: float = 1.5) -> bool:
+    """Move src → dst with bounded retry for PermissionError.
+
+    pandas.ExcelFile can hold a file handle after read; explicit gc before
+    each retry lets the interpreter release it. Returns True on success.
+    """
+    for attempt in range(retries):
+        try:
+            gc.collect()
+            shutil.move(str(src), str(dst))
+            return True
+        except PermissionError:
+            if attempt < retries - 1:
+                log.debug("safe_move retry %d/%d: %s", attempt + 1, retries, src.name)
+                time.sleep(delay_s)
+    return False
+
+
+def drain_drift() -> int:
+    """Delete files in incoming/ that already exist in processed/.
+
+    Safety net for the race where a re-download beat us before an import moved
+    the prior copy. Returns count removed. Safe to call anytime.
+    """
+    removed = 0
+    for f in INCOMING_DIR.glob("*.xlsx"):
+        if (PROCESSED_DIR / f.name).exists():
+            try:
+                f.unlink()
+                removed += 1
+                log.info("[drain_drift] removed %s", f.name)
+            except Exception as e:
+                log.warning("[drain_drift] failed to remove %s: %s", f.name, e)
+    return removed
 
 # ── Email Config ──────────────────────────────────────────────────────────────
 PRICING_SENDER = "pricing@pudongprime.vn"
@@ -365,8 +409,20 @@ def download_attachments(email_list: list[dict], force: bool = False) -> list[di
                 safe_date = email_date.replace("-", "")
                 target_name = f"{email_type}_{safe_date}_{fname}"
                 target_path = INCOMING_DIR / target_name
+                processed_path = PROCESSED_DIR / target_name
 
-                # Skip if already exists
+                # Skip if already imported (lives in processed/) — prevents drift
+                if processed_path.exists() and not force:
+                    log.info("  Skip (already processed): %s", target_name)
+                    downloaded.append({
+                        "file": str(processed_path),
+                        "type": email_type,
+                        "status": "already_processed",
+                        "original_name": fname,
+                    })
+                    continue
+
+                # Skip if already staged in incoming/
                 if target_path.exists() and not force:
                     log.info("  Skip (exists): %s", target_name)
                     downloaded.append({
@@ -642,17 +698,30 @@ def classify_and_import(files: list[dict] = None) -> dict:
     combined.to_parquet(PARQUET_FILE, index=False, engine='pyarrow')
     log.info("[+] Saved: %s (%d rows)", PARQUET_FILE.name, rates_after)
 
-    # Move processed files to processed/
+    # Bump forecast-retrain counter — nightly check_retrain decides the rest.
+    # Fire-and-forget: retrain trigger should never block a successful import.
+    try:
+        from Pricing_Engine.forecast_retrain import bump_import_counter
+        # Determine dominant rate type from files list (fallback "MIXED")
+        _types = {f.get("type", "") for f in files if f.get("type")}
+        _source = next(iter(_types)) if len(_types) == 1 else "MIXED"
+        bump_import_counter(
+            rows_added=max(0, rates_after - rates_before),
+            source=_source,
+            parquet_rows_after=rates_after,
+        )
+    except Exception as _e:
+        log.warning("forecast_retrain bump failed (non-blocking): %s", _e)
+
+    # Move processed files to processed/ using safe_move (retries on lock)
     for file_info in files:
         fpath = Path(file_info["file"])
         if fpath.exists() and fpath.parent == INCOMING_DIR:
             dest = PROCESSED_DIR / fpath.name
-            try:
-                shutil.move(str(fpath), str(dest))
+            if safe_move(fpath, dest):
                 log.info("  Moved → processed/%s", fpath.name)
-            except PermissionError:
-                # File still locked by pandas ExcelFile — will be re-processed next run (dedup handles it)
-                log.warning("  ⚠️ File locked, skipping move: %s (will retry next run)", fpath.name)
+            else:
+                log.warning("  ⚠️ safe_move failed after retries: %s — will be drained next run", fpath.name)
 
     result = {
         "files_processed": files_ok,
@@ -1181,12 +1250,21 @@ def main():
     parser.add_argument("--scan-only", action="store_true", help="Just scan, don't import")
     parser.add_argument("--import-pending", action="store_true",
                         help="Import files already in incoming/ folder")
+    parser.add_argument("--drain", action="store_true",
+                        help="Delete incoming/ files that already exist in processed/ then exit")
 
     args = parser.parse_args()
 
-    if args.import_pending:
+    if args.drain:
+        n = drain_drift()
+        result = {"drained": n, "action": "drain-only"}
+    elif args.import_pending:
+        # Always drain before re-importing to avoid duplicate work
+        drain_drift()
         result = classify_and_import()
     else:
+        # Always drain before full import
+        drain_drift()
         result = run_full_import(days=args.days, rate_type=args.type,
                                  scan_only=args.scan_only)
 
