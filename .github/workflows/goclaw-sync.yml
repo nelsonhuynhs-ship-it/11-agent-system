@@ -45,7 +45,11 @@ jobs:
             WORKSPACE="$GOCLAW_ROOT/workspace"
             REPO="$WORKSPACE/FreightBrian"
             WORKTREES="$GOCLAW_ROOT/worktrees"
-            REPO_URL="https://${GH_TOKEN}@github.com/nelsonhuynhs-ship-it/FrieghtBrian.git"
+            REPO_CLEAN_URL="https://github.com/nelsonhuynhs-ship-it/FrieghtBrian.git"
+
+            # Auth via http.extraheader (token NEVER written to .git/config)
+            B64_AUTH=$(echo -n "x-access-token:${GH_TOKEN}" | base64)
+            AUTH_HEADER="AUTHORIZATION: basic ${B64_AUTH}"
 
             # 1. Create directory structure
             mkdir -p "$WORKSPACE" "$WORKTREES" "$GOCLAW_ROOT/logs" "$GOCLAW_ROOT/plans"
@@ -54,20 +58,31 @@ jobs:
             # 2. Clone or update main repo
             if [ ! -d "$REPO/.git" ]; then
               echo "First time — cloning repo..."
-              git clone "$REPO_URL" "$REPO"
+              git -c "http.extraheader=$AUTH_HEADER" clone "$REPO_CLEAN_URL" "$REPO"
               cd "$REPO"
+              git remote set-url origin "$REPO_CLEAN_URL"
             else
               cd "$REPO"
-              git remote set-url origin "$REPO_URL"
-              git fetch origin --prune
+              git remote set-url origin "$REPO_CLEAN_URL"
+              git -c "http.extraheader=$AUTH_HEADER" fetch origin --prune
               git checkout main 2>/dev/null || git checkout -b main origin/main
               git reset --hard origin/main
+            fi
+
+            # Safety: verify no token in .git/config
+            if grep -qE "(ghp_|github_pat_|gho_|ghs_)" "$REPO/.git/config" 2>/dev/null; then
+              echo "FATAL: token detected in .git/config — aborting"
+              git remote set-url origin "$REPO_CLEAN_URL"
+              exit 1
             fi
             echo "[OK] Main branch: $(git log -1 --pretty='%h %s')"
 
             # 3. Fetch all remote branches (for worktree access)
-            git fetch origin '+refs/heads/*:refs/remotes/origin/*'
+            git -c "http.extraheader=$AUTH_HEADER" fetch origin '+refs/heads/*:refs/remotes/origin/*'
             echo "[OK] All branches fetched"
+
+            # Cleanup auth from env
+            unset B64_AUTH AUTH_HEADER GH_TOKEN
 
             # 4. List available branches for GoClaw
             echo ""
