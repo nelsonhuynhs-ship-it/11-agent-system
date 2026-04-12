@@ -20,24 +20,20 @@ if sys.platform == 'win32':
 # --- CẤU HÌNH ---
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_DIR = os.path.dirname(SCRIPT_DIR)  # Pricing_Engine folder
-
 # Resolve OneDrive canonical paths via shared/paths (single source of truth).
-# Fallback: legacy repo-local paths if shared import fails.
 try:
     _repo_root = os.path.dirname(BASE_DIR)
     if _repo_root not in sys.path:
         sys.path.insert(0, _repo_root)
-    from shared import paths as _sp  # type: ignore
+    from shared import paths as _sp
     DATA_DIR = str(_sp.PRICING_DATA)
-    MAPPING_DIR = str(_sp.MAPPING_DIR)  # OneDrive: pricing/mapping
-    HISTORY_DIR = str(_sp.PRICING_DATA)
-    OUTPUT_FILE = str(_sp.PARQUET_FILE)
+    MAPPING_DIR = str(_sp.MAPPING_DIR)
 except Exception as _e:
     print(f"[WARN] shared.paths unavailable ({_e}); using legacy repo paths")
-    DATA_DIR = os.path.join(BASE_DIR, "data")
-    MAPPING_DIR = os.path.join(BASE_DIR, "Mapping")
-    HISTORY_DIR = DATA_DIR
-    OUTPUT_FILE = os.path.join(HISTORY_DIR, "Cleaned_Master_History.parquet")
+    DATA_DIR = os.path.join(BASE_DIR, "data")  # Pricing_Engine/data
+MAPPING_DIR = os.path.join(BASE_DIR, "Mapping")  # Pricing_Engine/Mapping
+HISTORY_DIR = DATA_DIR  # Luôn lưu parquet trong Pricing_Engine/data
+OUTPUT_FILE = os.path.join(HISTORY_DIR, "Cleaned_Master_History.parquet")
 def _find_puc_file():
     """Auto-detect latest PUC file (PUC_SOC.xlsx or PUC {MONTH} {YEAR}.xlsx)."""
     import glob
@@ -118,6 +114,26 @@ def excel_col_to_idx(col_letter):
 
 PUC_CARRIERS = {'CMA', 'ONE', 'YML', 'HPL'}   # SOC carriers that use PUC_SOC.xlsx correction
 
+# Place name aliases: PUC file uses full names, parquet uses port codes
+_PUC_PLACE_ALIASES = {
+    'LOS ANGELES': ['LAX', 'LGB', 'LONG BEACH'],
+    'NEW YORK': ['NYC', 'NEWARK', 'NEW YORK/NEW JERSEY'],
+    'SAVANNAH': ['SAV'],
+    'HOUSTON': ['HOU'],
+    'NORFOLK': ['ORF'],
+    'CHARLESTON': ['CHS'],
+    'MIAMI': ['MIA'],
+    'CHICAGO': ['CHI'],
+    'DALLAS': ['DAL', 'DFW'],
+    'SEATTLE': ['SEA'],
+    'PORTLAND': ['PDX'],
+    'ST LOUIS': ['SAINT LOUIS'],
+    'ST PAUL': ['SAINT PAUL'],
+    'MOBILE': ['MOB'],
+    'MEMPHIS': ['MEM'],
+    'ATLANTA': ['ATL'],
+}
+
 
 def load_puc_soc_lookup(puc_file: str) -> dict:
     """
@@ -185,7 +201,21 @@ def load_puc_soc_lookup(puc_file: str) -> dict:
                 "45'HQ": _get(col_45) or v40,
                 '40NOR': v40,
             }
-        print(f"  [PUC] Loaded {len(lookup)} place entries from PUC_SOC.xlsx")
+        # Expand aliases: LOS ANGELES → also match LAX, LGB, LONG BEACH
+        expanded = {}
+        for place_key, vals in lookup.items():
+            expanded[place_key] = vals
+            for alias_src, alias_targets in _PUC_PLACE_ALIASES.items():
+                if place_key == alias_src:
+                    for t in alias_targets:
+                        if t not in expanded:
+                            expanded[t] = vals
+                # Reverse: if parquet has full name but PUC has code
+                for t in alias_targets:
+                    if place_key == t and alias_src not in expanded:
+                        expanded[alias_src] = vals
+        lookup = expanded
+        print(f"  [PUC] Loaded {len(lookup)} place entries (with aliases) from PUC_SOC.xlsx")
         return lookup
     except Exception as exc:
         print(f"  [PUC] Error loading PUC_SOC.xlsx: {exc}")
@@ -213,7 +243,8 @@ def apply_puc_soc_correct(df: pd.DataFrame, puc_file: str) -> pd.DataFrame:
         print("  [PUC] No PUC lookup — skipping PUC correction")
         return df
 
-    BASE_CHARGES = ['Base Ocean Freight', 'Total Ocean Freight', 'BASIC O/F', 'ALL IN COST']
+    # Only correct Total Ocean Freight and ALL IN COST — BASIC O/F must stay raw
+    BASE_CHARGES = ['Total Ocean Freight', 'ALL IN COST']
     PSS_PUC_LABEL = 'PSS/PUC'  # Charge_Name label stored from mapping cols AM-AP
 
     # ── Identify CMA/ONE/YML SOC rows ──────────────────────────────────────
