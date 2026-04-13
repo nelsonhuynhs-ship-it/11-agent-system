@@ -17,6 +17,8 @@ sys.path.insert(0, str(ENGINE_TEST))
 sys.path.insert(0, str(ENGINE_TEST / "api"))
 sys.path.insert(0, str(ENGINE_TEST / "api" / "routers"))
 
+from shared.paths import PARQUET_FILE as _PARQUET
+
 
 def test_no_pandas_read_parquet():
     """Verify zero pd.read_parquet() calls in rate_router.py."""
@@ -41,7 +43,7 @@ def test_no_pandas_read_parquet():
 def test_freight_db_import():
     """FreightDB imports and initializes correctly."""
     from db.duckdb_engine import FreightDB
-    parquet = ENGINE_TEST / "Pricing_Engine" / "data" / "Cleaned_Master_History.parquet"
+    parquet = _PARQUET
     db = FreightDB(parquet)
     assert db is not None
     print("  ✓ FreightDB imports and initializes correctly")
@@ -50,7 +52,7 @@ def test_freight_db_import():
 def test_get_rates_logic():
     """Simulate /api/rates endpoint logic."""
     from db.duckdb_engine import FreightDB
-    parquet = ENGINE_TEST / "Pricing_Engine" / "data" / "Cleaned_Master_History.parquet"
+    parquet = _PARQUET
     db = FreightDB(parquet)
 
     start = time.perf_counter()
@@ -68,7 +70,7 @@ def test_get_rates_logic():
 def test_carriers_logic():
     """Simulate /api/rates/carriers endpoint."""
     from db.duckdb_engine import FreightDB
-    parquet = ENGINE_TEST / "Pricing_Engine" / "data" / "Cleaned_Master_History.parquet"
+    parquet = _PARQUET
     db = FreightDB(parquet)
 
     df = db.query_rates(days=90)
@@ -80,7 +82,7 @@ def test_carriers_logic():
 def test_regions_logic():
     """Simulate /api/rates/regions endpoint."""
     from db.duckdb_engine import FreightDB
-    parquet = ENGINE_TEST / "Pricing_Engine" / "data" / "Cleaned_Master_History.parquet"
+    parquet = _PARQUET
     db = FreightDB(parquet)
 
     df = db.query_rates(pol="HPH", container_type="40HQ", days=90)
@@ -106,7 +108,7 @@ def test_regions_logic():
 def test_matrix_envelope():
     """Simulate /api/rates/matrix endpoint with envelope."""
     from db.duckdb_engine import FreightDB
-    parquet = ENGINE_TEST / "Pricing_Engine" / "data" / "Cleaned_Master_History.parquet"
+    parquet = _PARQUET
     db = FreightDB(parquet)
 
     start = time.perf_counter()
@@ -126,7 +128,7 @@ def test_matrix_envelope():
 def test_envelope_endpoint():
     """Simulate /api/rates/envelope endpoint."""
     from db.duckdb_engine import FreightDB
-    parquet = ENGINE_TEST / "Pricing_Engine" / "data" / "Cleaned_Master_History.parquet"
+    parquet = _PARQUET
     db = FreightDB(parquet)
 
     envelope = db.get_market_envelope("HPH", "LAX", "40HQ", 30)
@@ -151,7 +153,7 @@ def test_memory_under_200mb():
     tracemalloc.start()
 
     from db.duckdb_engine import FreightDB
-    parquet = ENGINE_TEST / "Pricing_Engine" / "data" / "Cleaned_Master_History.parquet"
+    parquet = _PARQUET
     db = FreightDB(parquet)
 
     # Simulate multiple endpoint calls
@@ -172,7 +174,7 @@ def test_memory_under_200mb():
 def test_response_time_under_3s():
     """Each endpoint-type query completes in < 3 seconds."""
     from db.duckdb_engine import FreightDB
-    parquet = ENGINE_TEST / "Pricing_Engine" / "data" / "Cleaned_Master_History.parquet"
+    parquet = _PARQUET
     db = FreightDB(parquet)
 
     endpoints = [

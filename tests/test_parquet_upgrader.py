@@ -17,10 +17,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from Pricing_Engine.normalization.parquet_upgrader import (
     _normalize_chunk, _get_row_count, run_validate, run_dry_run,
 )
+from shared.paths import PARQUET_FILE as ORIGINAL
 
-PARQUET = Path(__file__).parent.parent / "Pricing_Engine" / "data"
-UPGRADED = PARQUET / "Cleaned_Master_History_normalized.parquet"
-ORIGINAL = PARQUET / "Cleaned_Master_History.parquet"
+UPGRADED = ORIGINAL.parent / "Cleaned_Master_History_normalized.parquet"
 
 
 def test_dry_run_produces_correct_sample():

@@ -15,8 +15,9 @@ import duckdb
 import pandas as pd
 
 # ── Paths ──
-BASE_DIR = Path(__file__).parent.parent
-PARQUET_FILE = BASE_DIR / "Pricing_Engine" / "data" / "Cleaned_Master_History.parquet"
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from shared.paths import PARQUET_FILE
 
 
 def test_duckdb_reads_parquet():

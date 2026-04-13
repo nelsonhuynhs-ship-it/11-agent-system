@@ -15,8 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from intelligence.anomaly_detector import AnomalyDetector, AnomalyResult
 from db.duckdb_engine import FreightDB
-
-PARQUET = Path(__file__).parent.parent / "Pricing_Engine" / "data" / "Cleaned_Master_History.parquet"
+from shared.paths import PARQUET_FILE as PARQUET
 
 
 def _make_detector_mock(median: float = 2000.0) -> AnomalyDetector:

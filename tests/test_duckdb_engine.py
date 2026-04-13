@@ -13,8 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from db.duckdb_engine import FreightDB
-
-PARQUET = Path(__file__).parent.parent / "Pricing_Engine" / "data" / "Cleaned_Master_History.parquet"
+from shared.paths import PARQUET_FILE as PARQUET
 
 
 def get_db() -> FreightDB:

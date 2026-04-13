@@ -20,6 +20,11 @@ from typing import Optional
 import duckdb
 import pandas as pd
 
+try:
+    from shared.paths import PARQUET_FILE as _DEFAULT_PARQUET
+except ImportError:
+    _DEFAULT_PARQUET = None
+
 log = logging.getLogger(__name__)
 
 __all__ = ["FreightDB"]
@@ -47,7 +52,11 @@ class FreightDB:
     All string params use ? placeholders for safety.
     """
 
-    def __init__(self, parquet_path: str | Path):
+    def __init__(self, parquet_path: str | Path | None = None):
+        if parquet_path is None:
+            if _DEFAULT_PARQUET is None:
+                raise ValueError("parquet_path required: shared.paths not available")
+            parquet_path = _DEFAULT_PARQUET
         self._path = Path(parquet_path)
         if not self._path.exists():
             log.warning("Parquet file not found: %s — FreightDB queries will return empty", self._path)

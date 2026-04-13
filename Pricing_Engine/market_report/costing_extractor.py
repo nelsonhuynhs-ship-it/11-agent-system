@@ -141,6 +141,7 @@ def extract_costing(
           AND Amount IS NOT NULL
           AND Amount > 0
           AND Charge_Name IN ('Base Ocean Freight', 'Total Ocean Freight')
+          AND (Exp IS NULL OR Exp >= CURRENT_DATE)
     """
 
     try:
