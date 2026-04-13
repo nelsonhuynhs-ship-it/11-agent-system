@@ -31,7 +31,7 @@ try:
 except Exception as _e:
     print(f"[WARN] shared.paths unavailable ({_e}); using legacy repo paths")
     DATA_DIR = os.path.join(BASE_DIR, "data")  # Pricing_Engine/data
-MAPPING_DIR = os.path.join(BASE_DIR, "Mapping")  # Pricing_Engine/Mapping
+    MAPPING_DIR = os.path.join(BASE_DIR, "Mapping")  # Pricing_Engine/Mapping
 HISTORY_DIR = DATA_DIR  # Luôn lưu parquet trong Pricing_Engine/data
 OUTPUT_FILE = os.path.join(HISTORY_DIR, "Cleaned_Master_History.parquet")
 def _find_puc_file():
@@ -333,21 +333,49 @@ def strip_puc_from_soc_rows(df, puc_file):
 
 
 def load_mapping_file(mode, filename):
-    """Load mapping CSV file for the given mode (FAK/SCFI/FIX)"""
+    """Load mapping CSV file for the given mode (FAK/SCFI/FIX).
+
+    2026-04-13: FIX files have multiple layouts (SPECIAL RATE vs Fixed Rate
+    Summary Table). Match mapping to input filename when multiple candidates
+    exist, falling back to first match.
+    """
     if not os.path.exists(MAPPING_DIR):
         return None
-    
-    # Find matching mapping file
+
+    # Find matching mapping files
     pattern = f"V4_FINAL_CHECK_{mode}_*.csv"
     mapping_files = glob.glob(os.path.join(MAPPING_DIR, pattern))
-    
+
     if not mapping_files:
         return None
-    
-    # Read the first matching mapping file
+
+    # 2026-04-13: If multiple mapping files exist for this mode, pick the one
+    # whose name best matches the input filename (e.g., "Fixed_Rate_Summary"
+    # mapping for "Fixed Rate Summary Table NO.22.xlsx").
+    chosen = mapping_files[0]
+    if len(mapping_files) > 1 and filename:
+        fname_up = filename.upper()
+        for mf in mapping_files:
+            mf_base = os.path.basename(mf).upper()
+            # Strip prefix "V4_FINAL_CHECK_FIX_" and suffix ".csv"
+            mf_key = mf_base.replace(f"V4_FINAL_CHECK_{mode}_", "").replace(".CSV", "").replace("_", " ")
+            if mf_key and mf_key in fname_up:
+                chosen = mf
+                break
+        # Fallback: "Fixed Rate" in filename → prefer mapping with "Fixed" in name
+        if chosen == mapping_files[0]:
+            for mf in mapping_files:
+                mf_base = os.path.basename(mf).upper()
+                if "FIXED" in fname_up and "FIXED" in mf_base:
+                    chosen = mf
+                    break
+                if "SPECIAL" in fname_up and "SPECIAL" in mf_base:
+                    chosen = mf
+                    break
+
     try:
-        mapping_df = pd.read_csv(mapping_files[0])
-        print(f"  [MAPPING] Loaded: {os.path.basename(mapping_files[0])}")
+        mapping_df = pd.read_csv(chosen)
+        print(f"  [MAPPING] Loaded: {os.path.basename(chosen)}")
         return mapping_df
     except Exception as e:
         print(f"  [!] Error loading mapping: {e}")
@@ -555,22 +583,30 @@ def master_loader_v2():
     """Main loader function with mapping-driven parsing"""
     
     # Collect Excel files - only pricing files (FAK, SCFI, SPECIAL RATE)
-    EXCLUDE_FILES = ['PUC_SOC', 'Port_Code', 'Schedule', 'Master', 'Group_Code']
-    files = [f for f in os.listdir(DATA_DIR) 
-             if f.endswith('.xlsx') 
-             and not f.startswith('~$') 
-             and not any(excl in f for excl in EXCLUDE_FILES)]
+    # 2026-04-13: Also search processed/ subdirectory (canonical rate file location)
+    EXCLUDE_FILES = ['PUC_SOC', 'PUC ', 'Port_Code', 'Schedule', 'Master', 'Group_Code']
+    search_dirs = [DATA_DIR]
+    processed_dir = os.path.join(DATA_DIR, "processed")
+    if os.path.isdir(processed_dir):
+        search_dirs.append(processed_dir)
+
+    files = []  # list of (filename, full_path) tuples
+    for sdir in search_dirs:
+        for f in os.listdir(sdir):
+            if (f.endswith('.xlsx')
+                    and not f.startswith('~$')
+                    and not any(excl in f for excl in EXCLUDE_FILES)):
+                files.append((f, os.path.join(sdir, f)))
     if not files:
-        print(f"[!] No Excel files found in: {DATA_DIR}")
+        print(f"[!] No Excel files found in: {DATA_DIR} (or processed/)")
         return
     
     print(f"[+] Found {len(files)} files to process")
     print(f"[+] Mapping directory: {MAPPING_DIR}")
-    
+
     all_data_list = []
-    
-    for file_name in files:
-        file_path = os.path.join(DATA_DIR, file_name)
+
+    for file_name, file_path in files:
         print(f"\n[>] Processing: {file_name}")
         
         fname_up = file_name.upper()
