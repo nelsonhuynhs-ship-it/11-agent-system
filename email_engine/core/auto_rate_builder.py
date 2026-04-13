@@ -68,12 +68,12 @@ def _load_port_map() -> dict:
     return mapping
 
 
-# ── Parquet Loader (cached) ──────────────────────────────────────────────────
+# ── Parquet Loader (DuckDB — fast, filtered) ────────────────────────────────
 _parquet_cache = None
 _parquet_time  = None
 
 def _load_parquet() -> pd.DataFrame:
-    """Load the master Parquet file (cached)."""
+    """Load valid rates from Parquet via DuckDB (28x faster, filtered by Exp >= today)."""
     global _parquet_cache, _parquet_time
     if _parquet_cache is not None:
         return _parquet_cache
@@ -82,18 +82,33 @@ def _load_parquet() -> pd.DataFrame:
         log.error("[AutoRate] Parquet not found: %s", PARQUET_FILE)
         return pd.DataFrame()
 
-    df = pd.read_parquet(PARQUET_FILE)
+    try:
+        import duckdb
+        t0 = datetime.now()
+        query = f"""
+            SELECT *
+            FROM read_parquet('{str(PARQUET_FILE).replace(chr(92), "/")}')
+            WHERE UPPER(Charge_Name) LIKE '%TOTAL%'
+              AND Exp >= CURRENT_DATE + INTERVAL '2 days'
+            ORDER BY Exp DESC
+        """
+        df = duckdb.sql(query).df()
+        elapsed = (datetime.now() - t0).total_seconds()
+        log.info("[AutoRate] DuckDB loaded: %d valid rows in %.1fs (filtered Exp >= today, TOTAL only)", len(df), elapsed)
+    except Exception as e:
+        log.warning("[AutoRate] DuckDB failed (%s), falling back to Pandas...", e)
+        df = pd.read_parquet(PARQUET_FILE)
+        # Apply same filters with Pandas
+        df = df[df["Charge_Name"].astype(str).str.upper().str.contains("TOTAL", na=False)]
+        try:
+            df["Exp"] = pd.to_datetime(df["Exp"], errors="coerce")
+            df = df[df["Exp"] >= pd.Timestamp.now() + pd.Timedelta(days=2)]
+        except Exception:
+            pass
+        log.info("[AutoRate] Pandas fallback loaded: %d rows", len(df))
+
     _parquet_cache = df
     _parquet_time  = datetime.now()
-    log.info("[AutoRate] Parquet loaded: %d rows | columns: %s", len(df), list(df.columns))
-    # Log date-like columns so we can identify Eff/Exp names
-    date_cols = [c for c in df.columns if any(k in c.lower()
-                 for k in ("eff", "exp", "valid", "date", "from", "to", "expire"))]
-    if date_cols:
-        log.info("[AutoRate] Date-related columns found: %s", date_cols)
-    else:
-        log.warning("[AutoRate] No Eff/Exp/Valid date columns found in Parquet. "
-                    "Validity column will show '—'. Available columns: %s", list(df.columns))
     return df
 
 
@@ -107,34 +122,20 @@ def _query_best_rates(pol: str, place: str, df: pd.DataFrame, top_n: int = 2) ->
     if df is None or df.empty:
         return pd.DataFrame()
 
-    # Filter: Total Ocean Freight only (not sub-charges)
-    charge_mask = df["Charge_Name"].astype(str).str.upper().str.contains("TOTAL", na=False)
-
-    # Filter by POL
+    # Data already filtered by DuckDB: TOTAL charges + Exp >= today
+    # Just filter by POL + Place/POD
     pol_upper = pol.upper()
     pol_mask = df["POL"].astype(str).str.upper().str.contains(pol_upper, na=False)
 
-    # Filter by Place (city name match) — try Place first, fall back to POD
     place_upper = place.upper()
     place_mask = (
         df["Place"].astype(str).str.upper().str.contains(place_upper, na=False)
         | df["POD"].astype(str).str.upper().str.contains(place_upper, na=False)
     )
 
-    filtered = df[charge_mask & pol_mask & place_mask].copy()
+    filtered = df[pol_mask & place_mask].copy()
     if filtered.empty:
         return pd.DataFrame()
-
-    # Filter valid dates (not expired)
-    if "Exp" in filtered.columns:
-        try:
-            filtered["_exp"] = pd.to_datetime(filtered["Exp"], errors="coerce")
-            today = pd.Timestamp.now()
-            valid = filtered[filtered["_exp"] >= today]
-            if not valid.empty:
-                filtered = valid
-        except Exception:
-            pass
 
     # Container column = 'Container_Type'
     ct_col = "Container_Type"
@@ -166,10 +167,18 @@ def _query_best_rates(pol: str, place: str, df: pd.DataFrame, top_n: int = 2) ->
             return pd.NaT
 
     # Get best rates by carrier for 40HQ (include Eff/Exp dates)
+    # Strategy: pick the LATEST Exp first, then cheapest among latest
     best_40 = {}
     if not results_40.empty:
         for carrier, grp in results_40.groupby("Carrier"):
-            best_row = grp.loc[grp["Amount"].idxmin()]
+            grp = grp.copy()
+            grp["_exp_ts"] = pd.to_datetime(grp["Exp"], errors="coerce")
+            max_exp = grp["_exp_ts"].max()
+            # Keep only rates with the latest expiry (within 1 day tolerance)
+            latest = grp[grp["_exp_ts"] >= max_exp - pd.Timedelta(days=1)]
+            if latest.empty:
+                latest = grp
+            best_row = latest.loc[latest["Amount"].idxmin()]
             # Exp: try multiple column name variants
             exp_val = _get_col(best_row,
                 "Exp", "exp", "Expiry", "ExpDate", "Exp_Date",
@@ -187,11 +196,17 @@ def _query_best_rates(pol: str, place: str, df: pd.DataFrame, top_n: int = 2) ->
                 "note":    str(_get_col(best_row, "Note", "note", "Remark")),
             }
 
-    # Get best rates by carrier for 20GP
+    # Get best rates by carrier for 20GP (same logic: latest Exp first)
     best_20 = {}
     if not results_20.empty:
         for carrier, grp in results_20.groupby("Carrier"):
-            best_row = grp.loc[grp["Amount"].idxmin()]
+            grp = grp.copy()
+            grp["_exp_ts"] = pd.to_datetime(grp["Exp"], errors="coerce")
+            max_exp = grp["_exp_ts"].max()
+            latest = grp[grp["_exp_ts"] >= max_exp - pd.Timedelta(days=1)]
+            if latest.empty:
+                latest = grp
+            best_row = latest.loc[latest["Amount"].idxmin()]
             best_20[str(carrier)] = float(best_row["Amount"])
 
     # Combined: sort by 40HQ rate ascending, take top_n

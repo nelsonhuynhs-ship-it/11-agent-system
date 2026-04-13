@@ -1,0 +1,132 @@
+{
+  "trained_at": "2026-04-14 00:11:35",
+  "metrics": {
+    "accuracy": 0.5376,
+    "f1": 0.5144,
+    "mape": 136.46,
+    "directional_accuracy": 0.5943,
+    "n_predictions": 1475,
+    "n_walk_forward_weeks": 90
+  },
+  "walk_forward_results": [
+    {
+      "week": "2026-03-30",
+      "predicted": "DOWN",
+      "actual": "UP",
+      "pred_pct": -4.2,
+      "actual_pct": 9.14,
+      "correct": false
+    },
+    {
+      "week": "2026-03-30",
+      "predicted": "DOWN",
+      "actual": "UP",
+      "pred_pct": -2.22,
+      "actual_pct": 7.47,
+      "correct": false
+    },
+    {
+      "week": "2026-03-30",
+      "predicted": "DOWN",
+      "actual": "UP",
+      "pred_pct": -4.64,
+      "actual_pct": 7.03,
+      "correct": false
+    },
+    {
+      "week": "2026-03-30",
+      "predicted": "DOWN",
+      "actual": "UP",
+      "pred_pct": -12.77,
+      "actual_pct": 4.96,
+      "correct": false
+    },
+    {
+      "week": "2026-03-30",
+      "predicted": "DOWN",
+      "actual": "UP",
+      "pred_pct": -9.73,
+      "actual_pct": 6.59,
+      "correct": false
+    },
+    {
+      "week": "2026-03-30",
+      "predicted": "DOWN",
+      "actual": "UP",
+      "pred_pct": -6.41,
+      "actual_pct": 6.88,
+      "correct": false
+    },
+    {
+      "week": "2026-03-30",
+      "predicted": "DOWN",
+      "actual": "UP",
+      "pred_pct": -13.67,
+      "actual_pct": 5.02,
+      "correct": false
+    },
+    {
+      "week": "2026-03-30",
+      "predicted": "DOWN",
+      "actual": "UP",
+      "pred_pct": -6.47,
+      "actual_pct": 6.33,
+      "correct": false
+    },
+    {
+      "week": "2026-03-30",
+      "predicted": "DOWN",
+      "actual": "UP",
+      "pred_pct": -6.31,
+      "actual_pct": 11.46,
+      "correct": false
+    },
+    {
+      "week": "2026-03-30",
+      "predicted": "DOWN",
+      "actual": "UP",
+      "pred_pct": -5.91,
+      "actual_pct": 9.27,
+      "correct": false
+    },
+    {
+      "week": "2026-03-30",
+      "predicted": "DOWN",
+      "actual": "UP",
+      "pred_pct": -14.61,
+      "actual_pct": 2.48,
+      "correct": false
+    },
+    {
+      "week": "2026-03-30",
+      "predicted": "DOWN",
+      "actual": "UP",
+      "pred_pct": -3.42,
+      "actual_pct": 12.4,
+      "correct": false
+    }
+  ],
+  "corridors": [
+    "HCM\u2192LAX/LGB",
+    "HPH\u2192LAX/LGB",
+    "HCM\u2192OAK",
+    "HCM\u2192SEA/TAC",
+    "HPH\u2192SEA/TAC",
+    "HCM\u2192NYC",
+    "HPH\u2192NYC",
+    "HCM\u2192SAV",
+    "HPH\u2192SAV",
+    "HCM\u2192CHS",
+    "HPH\u2192CHS",
+    "HCM\u2192ORF",
+    "HPH\u2192ORF",
+    "HCM\u2192HOU",
+    "HPH\u2192HOU",
+    "HCM\u2192MIA",
+    "HCM\u2192CHI",
+    "HPH\u2192CHI",
+    "HCM\u2192DAL",
+    "HCM\u2192VAN",
+    "HPH\u2192VAN"
+  ]
+}

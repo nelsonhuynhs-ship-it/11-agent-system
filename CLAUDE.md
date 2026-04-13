@@ -73,8 +73,8 @@ Repo: github.com/nelsonhuynhs-ship-it/FreightBrian.git
 
 See `docs/erp-v14-source-of-truth.md` — AI agents and new contributors MUST
 read this before auditing or modifying ERP v14. Live v14 lives on OneDrive
-(`D:/OneDrive/NelsonData/erp/`), not in the repo. Files in `ERP/vba/` and
-`ERP/core/refresh.py` are LEGACY v13 — do not edit.
+(`D:/OneDrive/NelsonData/erp/`), not in the repo. ERP/vba/ and ERP/core/refresh.py
+were removed (2026-04-13) — they were legacy v13 dead code.
 
 ## VPS
 IP: 14.225.207.145
@@ -95,12 +95,31 @@ Deploy: git pull → cp files → npm build → systemctl restart
 | Workspace | `D:/GoClaw/workspace/` |
 | Fox Spirit | `D:/GoClaw/workspace/little-fox/SOUL.md` |
 | Bat tools | `C:/Users/Nelson/5398948978/` ← exception, intentionally on C |
-| auto-campaign.py | `D:/NELSON/2. Areas/Engine_test/tools/goclaw/auto-campaign.py` |
 | Port | 18790 (PC Home only) |
 | Version | v1.2.2 (update từ v1.2.0) |
 | Agents | Fox Spirit (lead), SALES-OPS, OPS-ENGINE, WATCHDOG |
 | Cron | Daily Email Campaign — `0 16 * * 1-5` Asia/Ho_Chi_Minh |
 Python: `C:/Users/Nelson/anaconda3/python` (NOT system python3)
+
+## Vercel Skills (for Email Dashboard + AI features)
+Load from `skills/` folder when building web UI or AI integrations:
+| Skill | Use For |
+|-------|---------|
+| `vercel-ai-sdk` | AI agents, rate forecast, text generation, tool calling |
+| `vercel-workflow` | Durable email sequences (send→wait→follow-up→cooldown) |
+| `vercel-building-components` | Dashboard UI components, accessible widgets |
+| `vercel-ai-elements` | AI chat interface, email history display |
+| `vercel-react-best-practices` | Performance optimization for dashboard |
+| `vercel-composition-patterns` | Component architecture patterns |
+| `web-artifacts-builder` | Self-contained HTML artifacts (mockups, previews) |
+
+## Repo Cleanup Log (2026-04-13)
+- Removed: `tools/goclaw/` (35 dead CLI scripts)
+- Removed: `ERP/vba/`, `ERP/core/refresh.py` (legacy v13, real files on OneDrive)
+- Moved: `Pricing_Engine/scripts/master_loader_v2.py` → `scripts/`
+- Archived: 2 completed plans → `plans/archive/`
+- Cleaned: 16 stale branches (14 claude/*, 2 forge/*) local + remote
+- Cleaned: email_engine/ duplicate data, dead schedulers, old planning docs
 
 ## SSH
 HOME PC: C:\Users\ADMIN\.ssh\id_nelson_vps
