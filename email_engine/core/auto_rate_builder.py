@@ -40,6 +40,77 @@ except ImportError:
 
 MARKUP_MIN      = 20   # minimum markup per container per route
 
+# ── Market Context (AI) ──────────────────────────────────────────────────────
+
+# Rough mapping: destination port code prefix → corridor city keyword
+_DEST_CORRIDOR_MAP = {
+    "USLAX": "LAX/LGB", "USLGB": "LAX/LGB",
+    "USEWR": "NYC",     "USNYC": "NYC",
+    "USSAV": "SAV",     "USCHI": "CHI",
+    "USHOU": "HOU",     "USOAK": "OAK",
+    "USSEA": "SEA/TAC", "USTAC": "SEA/TAC",
+    "USCHS": "CHS",     "USORF": "ORF",
+    "USMIA": "MIA",     "USDAL": "DAL",
+    "CAVAN": "VAN",
+}
+
+
+def get_market_context(pol: str, dest: str) -> dict | None:
+    """
+    Call AI model to get market direction for a given POL/destination.
+
+    Args:
+        pol:  Port of Loading (HPH or HCM)
+        dest: Comma-separated destination port codes (e.g. "USLAX,USLGB,USCHI")
+
+    Returns:
+        {direction, confidence, template_type} or None if model not available.
+        template_type: "URGENT" | "COMPETITIVE" | "STABLE"
+    """
+    try:
+        from rate_predictor import load_model, predict, extract_features
+        model = load_model()
+        if not model:
+            return None
+
+        # Find a matching corridor — use first dest code that maps
+        pol_upper = pol.strip().upper()
+        matched_corridor = None
+        for code in dest.split(","):
+            code = code.strip().upper()
+            city_kw = _DEST_CORRIDOR_MAP.get(code)
+            if city_kw:
+                # Build corridor key: "HPH→LAX/LGB" or "HCM→LAX/LGB"
+                matched_corridor = f"{pol_upper}→{city_kw}"
+                break
+
+        if not matched_corridor:
+            return None
+
+        df = extract_features()
+        latest = df.sort_values("week").groupby("corridor").last().reset_index()
+        row = latest[latest["corridor"] == matched_corridor]
+        if row.empty:
+            return None
+
+        result = predict(model, row.iloc[0])
+        direction  = result.get("direction", "STABLE")
+        confidence = result.get("confidence", 0.0)
+
+        # Classify template
+        if direction == "UP" and confidence >= 0.65:
+            template_type = "URGENT"
+        elif direction == "DOWN":
+            template_type = "COMPETITIVE"
+        else:
+            template_type = "STABLE"
+
+        return {"direction": direction, "confidence": confidence, "template_type": template_type}
+
+    except Exception as e:
+        log.debug("[MarketCtx] Could not get AI context: %s", e)
+        return None
+
 
 # ── Port Code Mapping ────────────────────────────────────────────────────────
 _port_map_cache = None
@@ -543,13 +614,18 @@ def build_rate_table_for_customer(
             "carriers": detail_carriers,
         })
 
-    html = _build_html_table(all_rows)
+    # Market intelligence badge (optional, graceful fallback)
+    mkt_ctx = get_market_context(pol, destinations)
+    badge = market_badge_html(mkt_ctx)
+
+    html = badge + _build_html_table(all_rows)
 
     return {
         "html":          html,
         "routes_found":  len(routes_detail),
         "total_rates":   len(all_rows),
         "routes_detail": routes_detail,
+        "market_context": mkt_ctx,
     }
 
 
@@ -605,6 +681,99 @@ def build_bulk_preview(
     log.info("[AutoRate] Bulk preview: %d customers, %d with rates",
              len(results), sum(1 for r in results if r["routes_found"] > 0))
     return results
+
+
+# ── Market Intelligence Context ─────────────────────────────────────────────
+
+# Corridor mapping: POL prefix → KEY_CORRIDORS name prefix
+_POL_MAP = {"HPH": "HPH", "HCM": "HCM", "HAIPHONG": "HPH", "HOCHIMINH": "HCM"}
+# POD code → corridor suffix
+_POD_SUFFIX = {
+    "USLAX": "LAX/LGB", "USLGB": "LAX/LGB", "USOAK": "OAK",
+    "USEWR": "NYC", "USNYK": "NYC", "USNYC": "NYC",
+    "USSAV": "SAV", "USCHS": "CHS", "USORF": "ORF",
+    "USHOU": "HOU", "USMIA": "MIA",
+    "USCHI": "CHI", "USDAL": "DAL",
+    "USSEA": "SEA/TAC", "USTAC": "SEA/TAC",
+    "CAVAN": "VAN",
+}
+
+def get_market_context(pol: str = "", dest: str = "") -> dict | None:
+    """Get AI market prediction for a POL→dest corridor. Returns None if unavailable."""
+    try:
+        from rate_predictor import load_model, predict as pred, extract_features, get_market_snapshot
+        import pandas as pd
+
+        model = load_model()
+        if not model:
+            return None
+
+        # Find corridor name
+        pol_prefix = _POL_MAP.get(pol.upper(), pol.upper()[:3])
+        dest_suffix = None
+        for code in dest.upper().replace(" ", "").split(","):
+            if code in _POD_SUFFIX:
+                dest_suffix = _POD_SUFFIX[code]
+                break
+
+        if not dest_suffix:
+            # Try market-level snapshot only
+            snap = get_market_snapshot()
+            trend = snap.get("trend_vs_last_week", "STABLE")
+            return {
+                "direction": trend,
+                "confidence": 0.5,
+                "template_type": "COMPETITIVE" if trend == "DOWN" else ("URGENT" if trend == "UP" else "STABLE"),
+            }
+
+        corridor_name = f"{pol_prefix}\u2192{dest_suffix}"
+        df = extract_features()
+        latest = df[df["corridor"] == corridor_name].sort_values("week").tail(1)
+        if latest.empty:
+            # Try without slash variant (e.g. LAX instead of LAX/LGB)
+            for c in df["corridor"].unique():
+                if c.startswith(f"{pol_prefix}\u2192") and dest_suffix.split("/")[0] in c:
+                    latest = df[df["corridor"] == c].sort_values("week").tail(1)
+                    corridor_name = c
+                    break
+        if latest.empty:
+            return None
+
+        result = pred(model, latest.iloc[0])
+        direction = result.get("direction", "STABLE")
+        confidence = result.get("confidence", 0.5)
+
+        if direction == "UP" and confidence >= 0.6:
+            tpl = "URGENT"
+        elif direction == "DOWN":
+            tpl = "COMPETITIVE"
+        else:
+            tpl = "STABLE"
+
+        return {"direction": direction, "confidence": confidence, "template_type": tpl, "corridor": corridor_name}
+    except Exception as e:
+        log.debug("[MarketCtx] %s", e)
+        return None
+
+
+def market_badge_html(ctx: dict | None) -> str:
+    """Small colored badge for email rate table. Returns empty string if no context."""
+    if not ctx:
+        return ""
+    d = ctx.get("direction", "STABLE")
+    if d == "UP":
+        color, bg, icon, text = "#b91c1c", "#fef2f2", "↑", "Rates trending up"
+    elif d == "DOWN":
+        color, bg, icon, text = "#15803d", "#f0fdf4", "↓", "Rates easing"
+    else:
+        color, bg, icon, text = "#6b7280", "#f9fafb", "→", "Market stable"
+    conf = int(ctx.get("confidence", 0) * 100)
+    return (
+        f'<div style="display:inline-block;padding:4px 12px;margin-bottom:8px;'
+        f'border-radius:4px;font-size:12px;font-family:Arial,sans-serif;'
+        f'color:{color};background:{bg};border:1px solid {color}30;">'
+        f'{icon} {text} ({conf}% confidence)</div>'
+    )
 
 
 # ── CLI ─────────────────────────────────────────────────────────────────────

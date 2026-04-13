@@ -149,11 +149,18 @@ def _do_send(campaign_id: str, req: SendRequest):
         prog["errors"].append({"email": "outlook", "error": str(e)})
         return
 
-    intro     = CFG.get("INTROTEXT", CFG.get("IntroText", ""))
+    default_intro = CFG.get("INTROTEXT", CFG.get("IntroText", ""))
     closing   = CFG.get("CLOSINGTEXT", CFG.get("ClosingText", ""))
     signature = CFG.get("SIGNATURE", CFG.get("Signature", ""))
     cooldown_map = _load_cooldown_map()
     cutoff = datetime.now() - pd.Timedelta(hours=48)
+
+    # AI-powered intro templates (fallback to config.xlsx default)
+    AI_INTROS = {
+        "URGENT": "Rates are trending upward — we recommend securing your booking soon to lock current pricing.",
+        "COMPETITIVE": "Market rates have softened recently — great timing to explore competitive options on this lane.",
+        "STABLE": default_intro,  # keep config.xlsx intro for stable market
+    }
 
     for c in req.contacts:
         # Cooldown check: skip if sent within last 48 hours
@@ -170,6 +177,14 @@ def _do_send(campaign_id: str, req: SendRequest):
             if not html and not c.force_send:
                 prog["skipped"] = prog.get("skipped", 0) + 1
                 continue
+
+            # Pick intro based on AI market context (if model loaded)
+            mkt = result.get("market_context")
+            if AI_MODEL and mkt:
+                intro = AI_INTROS.get(mkt.get("template_type", "STABLE"), default_intro)
+            else:
+                intro = default_intro
+
             subj = req.subject or gen_subject()
             m = outlook.CreateItem(0)
             m.To = c.email
