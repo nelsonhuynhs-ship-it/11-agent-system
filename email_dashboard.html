@@ -1406,6 +1406,44 @@ select.has-error,input.has-error{
     </div>
   </div>
 
+
+<!-- WhatsApp Section -->
+<div class="card" id="waSection">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="#25D366" style="flex-shrink:0"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.559 4.122 1.532 5.857L.053 23.447a.75.75 0 00.915.921l5.692-1.493A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.933 0-3.735-.52-5.28-1.424l-.378-.222-3.925 1.03 1.048-3.822-.245-.39A9.96 9.96 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
+      <span style="font-weight:700;font-size:.9rem">WhatsApp Blast</span>
+      <span id="waBadge" class="badge badge-amber">Not Configured</span>
+    </div>
+    <span id="waContactCount" style="font-size:.75rem;color:var(--muted2)">— contacts with WA</span>
+  </div>
+  <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+    <div class="field-wrap" style="flex:1;min-width:160px">
+      <label>Template</label>
+      <select id="waTemplate">
+        <option value="rate_update">Rate Update</option>
+        <option value="follow_up">Follow-up</option>
+        <option value="market_alert">Market Alert</option>
+      </select>
+    </div>
+    <div class="field-wrap" style="width:90px">
+      <label>Limit</label>
+      <input type="number" id="waLimit" value="50" min="1" max="500">
+    </div>
+    <button class="btn" id="waSendBtn" disabled
+      style="background:rgba(37,211,102,.15);color:#25D366;border:1px solid rgba(37,211,102,.3);height:44px;padding:0 18px;font-weight:700"
+      onclick="sendWhatsApp()">
+      Send WhatsApp
+    </button>
+  </div>
+  <div id="waProgress" style="display:none;margin-top:10px">
+    <div style="height:4px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden">
+      <div id="waProgressBar" style="height:100%;background:#25D366;width:0%;transition:width .3s ease"></div>
+    </div>
+    <div id="waProgressText" style="font-size:.72rem;color:var(--muted2);margin-top:4px">Sending...</div>
+  </div>
+</div>
+
 </div><!-- end #quickSendView -->
 
 <!-- History View -->
@@ -1444,6 +1482,52 @@ select.has-error,input.has-error{
     </div>
   </div>
 
+  <!-- Follow-up Intelligence Section -->
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 10px;">
+    <button class="btn btn-blue btn-sm" onclick="loadFollowupQueue()">
+      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="margin-right:5px"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Follow-up Queue
+    </button>
+    <button class="btn btn-green btn-sm" onclick="sendFollowups()">
+      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="margin-right:5px"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      Send Follow-ups
+    </button>
+    <button class="btn btn-amber btn-sm" onclick="scanReplies()">
+      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="margin-right:5px"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+      Scan Replies
+    </button>
+    <button class="btn btn-ghost btn-sm" onclick="loadHotLeads()">
+      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="margin-right:5px"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      Hot Leads
+    </button>
+  </div>
+
+  <!-- Follow-up Queue Panel -->
+  <div id="followupPanel" style="display:none;margin-bottom:14px;">
+    <div style="font-size:.8rem;color:var(--text2);margin-bottom:8px;font-weight:600;letter-spacing:.06em;">FOLLOW-UP QUEUE</div>
+    <div class="history-table-wrap" style="max-height:260px;">
+      <div class="history-table-scroll">
+        <table class="history-table">
+          <thead><tr><th>Email</th><th>Company</th><th>Step</th><th>Days Since</th><th>Subject Preview</th></tr></thead>
+          <tbody id="followupBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hot Leads Panel -->
+  <div id="hotLeadsPanel" style="display:none;margin-bottom:14px;">
+    <div style="font-size:.8rem;color:var(--text2);margin-bottom:8px;font-weight:600;letter-spacing:.06em;">HOT LEADS — replied last 7 days</div>
+    <div class="history-table-wrap" style="max-height:260px;">
+      <div class="history-table-scroll">
+        <table class="history-table">
+          <thead><tr><th>Email</th><th>Company</th><th>Score</th><th>Campaign</th><th>Last Reply</th></tr></thead>
+          <tbody id="hotLeadsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <!-- History table -->
   <div class="history-table-wrap">
     <div class="history-table-scroll">
@@ -1465,6 +1549,27 @@ select.has-error,input.has-error{
           </div></td></tr>
         </tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- WhatsApp Log Table -->
+  <div class="card" style="margin-top:4px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.559 4.122 1.532 5.857L.053 23.447a.75.75 0 00.915.921l5.692-1.493A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.933 0-3.735-.52-5.28-1.424l-.378-.222-3.925 1.03 1.048-3.822-.245-.39A9.96 9.96 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
+        <span style="font-weight:700;font-size:.85rem">WhatsApp Log</span>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="loadWALog()">Refresh</button>
+    </div>
+    <div class="history-table-wrap" style="max-height:240px">
+      <div class="history-table-scroll">
+        <table class="history-table" aria-label="WhatsApp send log">
+          <thead><tr><th>Timestamp</th><th>Phone</th><th>Template</th><th>Status</th><th>Message ID</th></tr></thead>
+          <tbody id="waLogBody">
+            <tr><td colspan="5"><div class="empty-state">Click Refresh to load WhatsApp log</div></td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div><!-- end #historyView -->
@@ -2167,6 +2272,89 @@ async function loadHistory() {
   }
 }
 
+// ── Phase 2: Follow-up / Reply / Lead Scoring ──────────────────────
+
+async function loadFollowupQueue() {
+  const panel = document.getElementById('followupPanel');
+  const tbody = document.getElementById('followupBody');
+  panel.style.display = 'block';
+  document.getElementById('hotLeadsPanel').style.display = 'none';
+  tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:12px"><span class="spinner" style="width:16px;height:16px"></span></td></tr>`;
+  try {
+    const data = await fetch(API + '/api/sequence/due').then(r => r.json());
+    const due = data.due || [];
+    if (!due.length) {
+      tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state" style="padding:12px">No contacts due for follow-up</div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = due.map(c => `<tr>
+      <td style="font-size:.73rem">${esc(c.email)}</td>
+      <td style="font-size:.73rem">${esc(c.company)}</td>
+      <td><span class="badge badge-blue" style="font-size:.6rem">Step ${c.current_step}→${c.next_step}</span></td>
+      <td style="color:var(--muted2);font-size:.72rem">${c.days_since}d ago</td>
+      <td style="font-size:.71rem;color:var(--muted2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(c.subject)}">${esc(c.subject)}</td>
+    </tr>`).join('');
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="5" style="color:var(--red);font-size:.73rem;padding:10px">Error: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+async function sendFollowups() {
+  if (!confirm('Send follow-up emails to all due contacts?')) return;
+  try {
+    const data = await fetch(API + '/api/sequence/send', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({campaign_id: '', dry_run: false})
+    }).then(r => r.json());
+    alert(`Queued ${data.queued || 0} follow-up emails. Running in background.`);
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+}
+
+async function scanReplies() {
+  const btn = event.target.closest('button');
+  if (btn) { btn.disabled = true; btn.textContent = 'Scanning...'; }
+  try {
+    const data = await fetch(API + '/api/replies/scan?hours_back=48').then(r => r.json());
+    alert(`Scan complete.\nNew replies detected: ${data.new_replies || 0}\nEmails scanned: ${data.scanned || 0}`);
+    if ((data.new_replies || 0) > 0) loadFollowupQueue();
+  } catch(e) {
+    alert('Scan failed: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📬 Scan Replies'; }
+  }
+}
+
+async function loadHotLeads() {
+  const panel = document.getElementById('hotLeadsPanel');
+  const tbody = document.getElementById('hotLeadsBody');
+  panel.style.display = 'block';
+  document.getElementById('followupPanel').style.display = 'none';
+  tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:12px"><span class="spinner" style="width:16px;height:16px"></span></td></tr>`;
+  try {
+    const data = await fetch(API + '/api/leads/hot?days=7').then(r => r.json());
+    const leads = data.leads || [];
+    if (!leads.length) {
+      tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state" style="padding:12px">No hot leads in last 7 days</div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = leads.map(l => {
+      const score = l.lead_score || 0;
+      const color = score >= 70 ? 'var(--green)' : score >= 50 ? 'var(--amber)' : 'var(--muted2)';
+      return `<tr>
+        <td style="font-size:.73rem">${esc(l.email)}</td>
+        <td style="font-size:.73rem">${esc(l.company)}</td>
+        <td><span style="font-weight:700;color:${color}">${score}</span></td>
+        <td><span class="badge badge-blue" style="font-size:.6rem">${esc(l.campaign_id || '—')}</span></td>
+        <td style="font-size:.71rem;color:var(--muted2)">${esc(l.last_reply || '—')}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="5" style="color:var(--red);font-size:.73rem;padding:10px">Error: ${esc(e.message)}</td></tr>`;
+  }
+}
+
 // ── AI Model: Market Snapshot ──
 async function loadMarketSnapshot() {
   try {
@@ -2352,6 +2540,83 @@ async function loadPrediction() {
   }
 }
 
+// ── WhatsApp functions ──────────────────────────────────────────
+async function initWA() {
+  try {
+    const s = await fetch(API + '/api/whatsapp/status').then(r => r.json());
+    const badge = document.getElementById('waBadge');
+    const btn   = document.getElementById('waSendBtn');
+    if (s.configured) {
+      badge.className = 'badge badge-green';
+      badge.textContent = 'Configured';
+      btn.disabled = false;
+    } else {
+      badge.className = 'badge badge-amber';
+      badge.textContent = 'Not Configured';
+      btn.disabled = true;
+    }
+    document.getElementById('waContactCount').textContent =
+      s.total_sent !== undefined ? `${s.total_sent} sent / ${s.total_failed} failed` : '— contacts with WA';
+  } catch(e) {
+    // silently fail — WA is optional
+  }
+}
+
+async function sendWhatsApp() {
+  const campaign = document.getElementById('campaignSelect')?.value || '';
+  const template = document.getElementById('waTemplate').value;
+  const limit    = parseInt(document.getElementById('waLimit').value) || 50;
+  const btn      = document.getElementById('waSendBtn');
+  const progress = document.getElementById('waProgress');
+  const bar      = document.getElementById('waProgressBar');
+  const txt      = document.getElementById('waProgressText');
+
+  if (!campaign) { showToast('Select a campaign first', 'error'); return; }
+
+  btn.disabled = true;
+  progress.style.display = 'block';
+  bar.style.width = '30%';
+  txt.textContent = 'Sending WhatsApp messages...';
+
+  try {
+    const res = await fetch(API + '/api/whatsapp/send', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({campaign_id: campaign, template_name: template, limit}),
+    }).then(r => r.json());
+    bar.style.width = '100%';
+    txt.textContent = `Done — Sent: ${res.sent}, Failed: ${res.failed}`;
+    showToast(`WA: ${res.sent} sent, ${res.failed} failed`, res.failed === 0 ? 'success' : 'warning');
+    setTimeout(() => { progress.style.display = 'none'; bar.style.width = '0%'; }, 4000);
+  } catch(e) {
+    txt.textContent = 'Error: ' + e.message;
+    showToast('WA send failed: ' + e.message, 'error');
+  }
+  btn.disabled = false;
+}
+
+async function loadWALog() {
+  const tbody = document.getElementById('waLogBody');
+  tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:10px"><span class="spinner" style="width:16px;height:16px"></span></td></tr>`;
+  try {
+    const rows = await fetch(API + '/api/whatsapp/log?limit=100').then(r => r.json());
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state">No WhatsApp messages logged yet</div></td></tr>`;
+      return;
+    }
+    const statusColor = {SENT:'var(--green2)',FAILED:'var(--red)',OPT_OUT:'var(--amber)',RECEIVED:'var(--blue2)'};
+    tbody.innerHTML = rows.map(r => `<tr>
+      <td style="font-size:.72rem;color:var(--muted2)">${esc(r.timestamp||'')}</td>
+      <td style="font-size:.73rem">${esc(r.phone||'')}</td>
+      <td><span class="badge badge-blue" style="font-size:.6rem">${esc(r.template||'')}</span></td>
+      <td><span style="font-size:.72rem;font-weight:700;color:${statusColor[r.status]||'var(--text)'}">${esc(r.status||'')}</span></td>
+      <td style="font-size:.65rem;color:var(--muted);font-family:monospace">${esc((r.message_id||'').substring(0,20))}</td>
+    </tr>`).join('');
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state" style="color:var(--red)">Failed: ${esc(e.message)}</div></td></tr>`;
+  }
+}
+
 // ── Keyboard nav: Tab order in main form ──
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
@@ -2360,6 +2625,7 @@ document.addEventListener('keydown', e => {
 });
 
 init();
+initWA();
 </script>
 </body>
 </html>

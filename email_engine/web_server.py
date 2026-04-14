@@ -405,6 +405,189 @@ def predict_endpoint():
     return {"overall_direction": majority, "overall_confidence": round(avg_conf, 3),
             "corridors": predictions, "total_corridors": len(predictions)}
 
+# ── Phase 2: Sequence / Reply / Lead Scoring Endpoints ────────────
+@app.get("/api/sequence/due")
+def sequence_due(campaign: str = None):
+    """Return contacts due for next follow-up step."""
+    try:
+        from sequence_runner import get_due_contacts
+        contacts = get_due_contacts(campaign_id=campaign)
+        return {"due": contacts, "count": len(contacts)}
+    except Exception as e:
+        log.error(f"sequence/due error: {e}")
+        return {"due": [], "count": 0, "error": str(e)}
+
+
+class SequenceSendRequest(BaseModel):
+    campaign_id: str = ""
+    dry_run: bool = False
+
+
+@app.post("/api/sequence/send", status_code=202)
+def sequence_send(req: SequenceSendRequest, background_tasks: BackgroundTasks):
+    """Send follow-up emails for all due contacts (background task)."""
+    from sequence_runner import get_due_contacts, advance_step, get_template
+
+    due = get_due_contacts(campaign_id=req.campaign_id or None)
+    if not due:
+        return {"queued": 0, "message": "No contacts due for follow-up"}
+
+    def _send_followups():
+        try:
+            import win32com.client
+            outlook = win32com.client.Dispatch("Outlook.Application")
+        except Exception as e:
+            log.error(f"Outlook unavailable for sequence send: {e}")
+            return
+
+        signature = CFG.get("SIGNATURE", CFG.get("Signature", ""))
+        sent = 0
+        for c in due:
+            if req.dry_run:
+                log.info(f"[DRY] SEQ step {c['next_step']} -> {c['email']}")
+                sent += 1
+                continue
+            try:
+                m = outlook.CreateItem(0)
+                m.To = c["email"]
+                m.Subject = c["subject"]
+                body = f"<html><body><p>Dear Team,</p><p>{c['intro']}</p><br>{signature}</body></html>"
+                m.HTMLBody = body
+                m.Send()
+                advance_step(c["email"], c["next_step"])
+                _log_send(c["email"], c["subject"], c.get("campaign_id", "SEQ"), "", "")
+                log.info(f"SEQ SENT step {c['next_step']} -> {c['email']}")
+                sent += 1
+            except Exception as e:
+                log.error(f"SEQ FAIL -> {c['email']}: {e}")
+
+        log.info(f"Sequence send done: {sent}/{len(due)} emails sent")
+
+    background_tasks.add_task(_send_followups)
+    return {"queued": len(due), "status": "running", "dry_run": req.dry_run}
+
+
+@app.get("/api/replies/scan")
+def replies_scan(hours_back: int = 24):
+    """Scan Outlook inbox for replies, update master, return count."""
+    try:
+        from reply_detector import scan_replies, process_replies
+        replies = scan_replies(hours_back=hours_back)
+        count = process_replies(replies)
+        return {"new_replies": count, "scanned": len(replies), "hours_back": hours_back}
+    except Exception as e:
+        log.error(f"replies/scan error: {e}")
+        return {"new_replies": 0, "scanned": 0, "error": str(e)}
+
+
+@app.get("/api/leads/hot")
+def leads_hot(days: int = 7):
+    """Return contacts who replied within last N days, sorted by LEAD_SCORE."""
+    try:
+        from reply_detector import get_hot_leads
+        leads = get_hot_leads(days=days)
+        return {"leads": leads, "count": len(leads), "days": days}
+    except Exception as e:
+        log.error(f"leads/hot error: {e}")
+        return {"leads": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/leads/priority")
+def leads_priority(campaign: str = "", top: int = 50):
+    """Return top N contacts by LEAD_SCORE for a campaign."""
+    try:
+        from lead_scorer import get_priority_contacts
+        contacts = get_priority_contacts(campaign_id=campaign, top_n=top)
+        return {"contacts": contacts, "count": len(contacts), "campaign": campaign}
+    except Exception as e:
+        log.error(f"leads/priority error: {e}")
+        return {"contacts": [], "count": 0, "error": str(e)}
+
+
+# ── WhatsApp Endpoints ─────────────────────────────────────────
+try:
+    from whatsapp_sender import (
+        is_configured as wa_is_configured, bulk_send_templates, TEMPLATE_NAMES,
+    )
+    from whatsapp_webhook import verify_webhook, process_webhook
+    WA_ENABLED = True
+except ImportError:
+    WA_ENABLED = False
+    log.warning("WhatsApp modules not found — WA endpoints disabled")
+
+class WASendRequest(BaseModel):
+    campaign_id: str
+    template_name: str
+    limit: int = Field(default=100, ge=1, le=1000)
+
+@app.get("/api/whatsapp/status")
+def wa_status():
+    configured = WA_ENABLED and wa_is_configured()
+    wa_log_path = BASE_DIR / "logs" / "whatsapp_log.csv"
+    sent = failed = 0
+    if wa_log_path.exists():
+        try:
+            wdf = pd.read_csv(wa_log_path)
+            sent   = int((wdf["status"] == "SENT").sum())
+            failed = int(wdf["status"].isin(["FAILED", "INVALID_PHONE"]).sum())
+        except Exception:
+            pass
+    return {"configured": configured, "wa_enabled": WA_ENABLED,
+            "total_sent": sent, "total_failed": failed}
+
+@app.post("/api/whatsapp/send")
+def wa_send(req: WASendRequest):
+    if not WA_ENABLED or not wa_is_configured():
+        raise HTTPException(status_code=503, detail={"error": "WhatsApp not configured"})
+    if req.template_name not in TEMPLATE_NAMES:
+        raise HTTPException(status_code=400, detail={"error": f"Unknown template: {req.template_name}"})
+    cnee_src = CNEE_V2 if CNEE_V2.exists() else (CNEE_V1 if CNEE_V1.exists() else None)
+    if not cnee_src:
+        raise HTTPException(status_code=404, detail={"error": "cnee_master not found"})
+    try:
+        cdf = pd.read_excel(cnee_src)
+        cdf.columns = cdf.columns.str.strip().str.upper()
+        if "CMD_NAME" in cdf.columns:
+            cdf = cdf[cdf["CMD_NAME"] == req.campaign_id]
+        cdf = cdf.head(req.limit)
+        result = bulk_send_templates(cdf, req.template_name)
+        return result
+    except Exception as e:
+        log.error(f"WA bulk send error: {e}")
+        raise HTTPException(status_code=500, detail={"error": str(e)})
+
+@app.get("/api/whatsapp/webhook")
+def wa_webhook_verify(
+    hub_mode: str = None, hub_verify_token: str = None, hub_challenge: str = None
+):
+    if not WA_ENABLED:
+        raise HTTPException(status_code=503, detail="WhatsApp not enabled")
+    from fastapi.responses import PlainTextResponse
+    challenge = verify_webhook(hub_mode or "", hub_verify_token or "", hub_challenge or "")
+    if challenge is None:
+        raise HTTPException(status_code=403, detail="Webhook verification failed")
+    return PlainTextResponse(challenge)
+
+@app.post("/api/whatsapp/webhook", status_code=200)
+def wa_webhook_receive(payload: dict):
+    if not WA_ENABLED:
+        return {"ok": True}
+    try:
+        count = process_webhook(payload)
+        return {"ok": True, "processed": count}
+    except Exception as e:
+        log.error(f"Webhook processing error: {e}")
+        return {"ok": True}  # always 200 to Meta
+
+@app.get("/api/whatsapp/log")
+def wa_log_endpoint(limit: int = 100):
+    wa_log_path = BASE_DIR / "logs" / "whatsapp_log.csv"
+    if not wa_log_path.exists():
+        return []
+    df = pd.read_csv(wa_log_path)
+    return df.sort_values("timestamp", ascending=False).head(limit).to_dict(orient="records")
+
+
 @app.get("/", response_class=HTMLResponse)
 def serve_dashboard():
     html = ENGINE_TEST / "email_dashboard.html"
