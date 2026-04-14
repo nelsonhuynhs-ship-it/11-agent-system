@@ -16,20 +16,24 @@ _YAML_PATH = Path(__file__).parent.parent / "data" / "arb_rates.yaml"
 
 # Human-readable labels for origins
 ORIGIN_LABELS = {
-    "shanghai":   "Shanghai, China",
-    "ningbo":     "Ningbo, China",
+    "shanghai":    "Shanghai, China",
+    "ningbo":      "Ningbo, China",
     "lat_krabang": "Lat Krabang, Thailand",
-    "phnom_penh": "Phnom Penh, Cambodia",
-    "port_klang": "Port Klang, Malaysia",
+    "phnom_penh":  "Phnom Penh, Cambodia",
+    "port_klang":  "Port Klang, Malaysia",
+    "da_nang":     "Da Nang, Vietnam",
+    "qui_nhon":    "Qui Nhon, Vietnam",
 }
 
 # Flag emoji for origins
 ORIGIN_FLAGS = {
-    "shanghai":   "CN",
-    "ningbo":     "CN",
+    "shanghai":    "CN",
+    "ningbo":      "CN",
     "lat_krabang": "TH",
-    "phnom_penh": "KH",
-    "port_klang": "MY",
+    "phnom_penh":  "KH",
+    "port_klang":  "MY",
+    "da_nang":     "VN",
+    "qui_nhon":    "VN",
 }
 
 

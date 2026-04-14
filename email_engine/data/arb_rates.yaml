@@ -7,6 +7,8 @@
 #   lat_krabang               → Thailand (ICD Lat Krabang)
 #   phnom_penh                → Cambodia
 #   port_klang                → Malaysia
+#   da_nang                   → Vietnam (VNDAD) — domestic ARB addon
+#   qui_nhon                  → Vietnam (VNUIH) — domestic ARB addon
 #
 # Contract types:
 #   FAK_SOC  = Freight All Kinds, Shipper-Owned Container
@@ -90,6 +92,44 @@ phnom_penh:    # Cambodia
     FAK_SOC: { 20GP: 80,  40HQ: 120 }
     FAK_COC: { 20GP: 65,  40HQ: 100 }
     FIX:     { 20GP: 50,  40HQ: 80  }
+
+da_nang:       # Vietnam — Da Nang (VNDAD) — TAO ARB addon from HPL FIX rate sheet
+  # From TPEB TAO table: Da Nang rates effective current → 31/12/9999
+  HPL:
+    FAK_SOC: { 20GP: 250, 40HQ: 500 }    # placeholder — Nelson fill actual
+    FAK_COC: { 20GP: 595, 40HQ: 1040 }   # from TAO sheet (Reefer=Y row)
+    FIX:     { 20GP: 250, 40HQ: 500 }    # from TAO sheet (non-reefer row)
+  CMA:
+    FAK_SOC: { 20GP: 384, 40HQ: 480 }    # umbrella TAO (All Asian countries)
+    FAK_COC: { 20GP: 384, 40HQ: 480 }
+    FIX:     { 20GP: 384, 40HQ: 480 }
+  ONE:
+    FAK_SOC: { 20GP: 384, 40HQ: 480 }
+    FAK_COC: { 20GP: 384, 40HQ: 480 }
+    FIX:     { 20GP: 384, 40HQ: 480 }
+  YML:
+    FAK_SOC: { 20GP: 384, 40HQ: 480 }
+    FAK_COC: { 20GP: 384, 40HQ: 480 }
+    FIX:     { 20GP: 384, 40HQ: 480 }
+
+qui_nhon:      # Vietnam — Qui Nhon (VNUIH) — TAO ARB addon
+  # From TPEB TAO table: Qui Nhon rates effective current → 31/12/9999
+  HPL:
+    FAK_SOC: { 20GP: 275, 40HQ: 475 }    # placeholder — Nelson fill actual
+    FAK_COC: { 20GP: 415, 40HQ: 865 }    # from TAO sheet (Reefer=Y row)
+    FIX:     { 20GP: 275, 40HQ: 475 }    # from TAO sheet (non-reefer row)
+  CMA:
+    FAK_SOC: { 20GP: 384, 40HQ: 480 }    # umbrella TAO
+    FAK_COC: { 20GP: 384, 40HQ: 480 }
+    FIX:     { 20GP: 384, 40HQ: 480 }
+  ONE:
+    FAK_SOC: { 20GP: 384, 40HQ: 480 }
+    FAK_COC: { 20GP: 384, 40HQ: 480 }
+    FIX:     { 20GP: 384, 40HQ: 480 }
+  YML:
+    FAK_SOC: { 20GP: 384, 40HQ: 480 }
+    FAK_COC: { 20GP: 384, 40HQ: 480 }
+    FIX:     { 20GP: 384, 40HQ: 480 }
 
 port_klang:    # Malaysia — Port Klang (Kuala Lumpur gateway)
   HPL:
