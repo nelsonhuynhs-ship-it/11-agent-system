@@ -88,6 +88,38 @@ for d in [INCOMING_DIR, PROCESSED_DIR, KNOWLEDGE_DIR]:
 
 
 # ── Drift prevention helpers (added 2026-04-11, plan 260411-2019-rate-pipeline-reorg) ──
+_CANONICAL_PREFIX = re.compile(r'^(FAK|SCFI|FIX)_\d{8}_', re.IGNORECASE)
+_MONTH_TO_NUM = {'JAN': 1, 'FEB': 2, 'MAR': 3, 'APR': 4, 'MAY': 5, 'JUN': 6,
+                 'JUL': 7, 'AUG': 8, 'SEP': 9, 'OCT': 10, 'NOV': 11, 'DEC': 12}
+
+
+def _ensure_canonical_prefix(path: Path, ftype: str) -> Path:
+    """Rename file in-place to canonical '{TYPE}_YYYYMMDD_{orig}' if prefix missing.
+
+    Date source (priority): (1) 'DD MMM' in filename body, (2) file mtime.
+    No-op if prefix already present. Returns new Path (possibly renamed).
+    """
+    if _CANONICAL_PREFIX.match(path.name):
+        return path
+
+    # Extract DD + MMM from filename body (e.g. "14 APR NO. 1" -> 14 APR)
+    m = re.search(r'(\d{1,2})\s*([A-Z]{3})', path.stem, re.IGNORECASE)
+    if m and (mo_num := _MONTH_TO_NUM.get(m.group(2).upper())):
+        year = datetime.now().year
+        date_str = f"{year}{mo_num:02d}{int(m.group(1)):02d}"
+    else:
+        date_str = datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y%m%d")
+
+    new_name = f"{ftype}_{date_str}_{path.name}"
+    new_path = path.parent / new_name
+    if new_path.exists():
+        log.info("  Canonical name already exists, using it: %s", new_name)
+        return new_path
+    path.rename(new_path)
+    log.info("  Normalized filename: %s -> %s", path.name, new_name)
+    return new_path
+
+
 def safe_move(src: Path, dst: Path, retries: int = 3, delay_s: float = 1.5) -> bool:
     """Move src → dst with bounded retry for PermissionError.
 
@@ -540,6 +572,12 @@ def classify_and_import(files: list[dict] = None) -> dict:
                 ftype = "FIX"
             else:
                 ftype = "FAK"  # Default
+
+            # Auto-add canonical prefix {TYPE}_YYYYMMDD_ for files dropped manually.
+            # refresh-v14.py sorts by this prefix to pick the latest rate version;
+            # a naked name like "Update rate to US CANADA_ 14 APR NO. 1.xlsx" would
+            # fall to the bottom and the ribbon would show a stale version.
+            f = _ensure_canonical_prefix(f, ftype)
             files.append({"file": str(f), "type": ftype, "status": "pending"})
 
     if not files:
