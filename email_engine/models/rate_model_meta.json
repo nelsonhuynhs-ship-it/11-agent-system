@@ -1,10 +1,10 @@
 {
-  "trained_at": "2026-04-14 07:12:31",
+  "trained_at": "2026-04-14 21:38:51",
   "metrics": {
-    "accuracy": 0.5376,
-    "f1": 0.5144,
-    "mape": 136.46,
-    "directional_accuracy": 0.5943,
+    "accuracy": 0.522,
+    "f1": 0.5004,
+    "mape": 135.06,
+    "directional_accuracy": 0.5756,
     "n_predictions": 1475,
     "n_walk_forward_weeks": 90
   },
@@ -13,96 +13,96 @@
       "week": "2026-03-30",
       "predicted": "DOWN",
       "actual": "UP",
-      "pred_pct": -4.2,
-      "actual_pct": 9.14,
+      "pred_pct": -11.43,
+      "actual_pct": 2.04,
+      "correct": false
+    },
+    {
+      "week": "2026-03-30",
+      "predicted": "UP",
+      "actual": "UP",
+      "pred_pct": -4.79,
+      "actual_pct": 8.99,
+      "correct": true
+    },
+    {
+      "week": "2026-03-30",
+      "predicted": "DOWN",
+      "actual": "UP",
+      "pred_pct": -5.4,
+      "actual_pct": 4.72,
       "correct": false
     },
     {
       "week": "2026-03-30",
       "predicted": "DOWN",
       "actual": "UP",
-      "pred_pct": -2.22,
-      "actual_pct": 7.47,
+      "pred_pct": -4.77,
+      "actual_pct": 6.08,
       "correct": false
     },
     {
       "week": "2026-03-30",
       "predicted": "DOWN",
       "actual": "UP",
-      "pred_pct": -4.64,
-      "actual_pct": 7.03,
+      "pred_pct": -5.98,
+      "actual_pct": 5.54,
       "correct": false
     },
     {
       "week": "2026-03-30",
       "predicted": "DOWN",
       "actual": "UP",
-      "pred_pct": -12.77,
-      "actual_pct": 4.96,
+      "pred_pct": -2.39,
+      "actual_pct": 5.03,
       "correct": false
     },
     {
       "week": "2026-03-30",
       "predicted": "DOWN",
       "actual": "UP",
-      "pred_pct": -9.73,
-      "actual_pct": 6.59,
+      "pred_pct": -12.07,
+      "actual_pct": 4.79,
       "correct": false
     },
     {
       "week": "2026-03-30",
       "predicted": "DOWN",
       "actual": "UP",
-      "pred_pct": -6.41,
-      "actual_pct": 6.88,
+      "pred_pct": -3.23,
+      "actual_pct": 12.26,
       "correct": false
     },
     {
       "week": "2026-03-30",
       "predicted": "DOWN",
       "actual": "UP",
-      "pred_pct": -13.67,
-      "actual_pct": 5.02,
+      "pred_pct": -3.48,
+      "actual_pct": 5.51,
       "correct": false
     },
     {
       "week": "2026-03-30",
       "predicted": "DOWN",
       "actual": "UP",
-      "pred_pct": -6.47,
-      "actual_pct": 6.33,
+      "pred_pct": -3.44,
+      "actual_pct": 7.1,
       "correct": false
     },
     {
       "week": "2026-03-30",
       "predicted": "DOWN",
       "actual": "UP",
-      "pred_pct": -6.31,
-      "actual_pct": 11.46,
+      "pred_pct": -0.84,
+      "actual_pct": 7.16,
       "correct": false
     },
     {
       "week": "2026-03-30",
       "predicted": "DOWN",
       "actual": "UP",
-      "pred_pct": -5.91,
-      "actual_pct": 9.27,
-      "correct": false
-    },
-    {
-      "week": "2026-03-30",
-      "predicted": "DOWN",
-      "actual": "UP",
-      "pred_pct": -14.61,
-      "actual_pct": 2.48,
-      "correct": false
-    },
-    {
-      "week": "2026-03-30",
-      "predicted": "DOWN",
-      "actual": "UP",
-      "pred_pct": -3.42,
-      "actual_pct": 12.4,
+      "pred_pct": -5.39,
+      "actual_pct": 5.13,
       "correct": false
     }
   ],
