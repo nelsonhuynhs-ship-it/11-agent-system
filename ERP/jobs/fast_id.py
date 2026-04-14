@@ -18,12 +18,12 @@ from openpyxl.styles import PatternFill
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, REPO_ROOT)
 from ERP.core.ribbon_guard import save_preserving_ribbon  # noqa: E402
+from ERP.core.active_jobs_cols import COL, DATA_START  # noqa: E402
 
 DEFAULT_ERP: Final = r"D:\OneDrive\NelsonData\erp\ERP_Master_v14.xlsm"
-DATA_START:  Final = 8   # row 8 = first data row (row 7 = headers)
-COL_FAST_ID: Final = 29  # col AC — FAST_JOB_NO
-COL_STATUS:  Final = 3   # col C  — Status
-COL_CRM:     Final = 2   # col B  — CRM / job ref
+COL_FAST_ID: Final = COL["FAST_ID"]    # col B (2) — FAST_ID
+COL_STATUS:  Final = COL["Status"]     # col N (14) — Status
+COL_CRM:     Final = COL["CRM_ID"]     # col D (4) — CRM_ID
 
 FILL_YELLOW = PatternFill("solid", fgColor="FFFF00")  # invalid format
 FILL_RED    = PatternFill("solid", fgColor="FF0000")  # duplicate

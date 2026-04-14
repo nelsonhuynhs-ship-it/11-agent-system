@@ -33,6 +33,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "core"))
 from ribbon_guard import save_preserving_ribbon  # noqa: E402
+from active_jobs_cols import COL as AJ_COL  # noqa: E402
 
 sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 
@@ -311,7 +312,7 @@ def stamp_active_jobs(wb, alerts: list[Alert]):
     # For now match by customer name via CRM_ID.
     stamped = 0
     for r in range(8, ws.max_row + 1):
-        crm = ws.cell(r, 1).value
+        crm = ws.cell(r, AJ_COL["CRM_ID"]).value
         if not crm:
             continue
         # Find any alert whose customer name matches CRM_ID (best-effort)
@@ -327,9 +328,9 @@ def stamp_active_jobs(wb, alerts: list[Alert]):
         # Strongest signal: largest magnitude drop = most actionable
         drops = [a for a in matched if a.kind == "DROP"]
         pick = max(drops, key=lambda a: abs(a.delta)) if drops else min(matched, key=lambda a: -abs(a.delta))
-        ws.cell(r, 35, pick.kind)          # PRICE_WATCH_STATUS
-        ws.cell(r, 36, round(pick.delta))  # PRICE_WATCH_DELTA
-        ws.cell(r, 35).fill = FILL_ALERT if pick.kind == "DROP" else FILL_WARN
+        ws.cell(r, AJ_COL["PRICE_WATCH_STATUS"], pick.kind)
+        ws.cell(r, AJ_COL["PRICE_WATCH_DELTA"], round(pick.delta))
+        ws.cell(r, AJ_COL["PRICE_WATCH_STATUS"]).fill = FILL_ALERT if pick.kind == "DROP" else FILL_WARN
         stamped += 1
     return stamped
 

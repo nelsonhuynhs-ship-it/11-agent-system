@@ -18,6 +18,7 @@ import openpyxl
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "core"))
 from ribbon_guard import save_preserving_ribbon  # noqa: E402
+from active_jobs_cols import COL, HDR_ROW, DATA_START  # noqa: E402
 
 sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 
@@ -25,12 +26,8 @@ log = logging.getLogger(__name__)
 
 DEFAULT_ERP_FILE: Final = r"D:\OneDrive\NelsonData\erp\ERP_Master_v14.xlsm"
 
-AJ_HDR_ROW = 7
-AJ_DATA_START = 8
-COL: Final = {
-    "CRM_ID": 1, "Routing": 3, "ETD": 5, "ETA": 6, "ATA": 7,
-    "Door_Address": 20, "Notes": 24,
-}
+AJ_HDR_ROW = HDR_ROW
+AJ_DATA_START = DATA_START
 
 _WC_KEYWORDS: Final = ("LAX", "LGB", "OAK", "SEA", "TAC", "USLAX", "USLGB", "USOAK", "USSEA")
 _EC_KEYWORDS: Final = ("NYC", "SAV", "CHS", "NORFOLK", "BAL", "BOS", "SAVANNAH",

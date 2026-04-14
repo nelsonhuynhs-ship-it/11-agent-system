@@ -1,20 +1,14 @@
 """
-active-jobs-schema.py — Active Jobs v4 schema migration
-=======================================================
-Adds cols 31-36 to Active Jobs sheet in ERP_Master_v14.xlsm:
-  31 (AE): SERVICE              — CY-CY / CY-DOOR
-  32 (AF): TRACKING_STAGE       — stage code (1/7..7/7) from shipment_tracker
-  33 (AG): RELEASE_EMAIL_SENT   — timestamp docsteam sent release email to customer
-  34 (AH): RELEASE_CONFIRMED    — timestamp customer confirmed pickup
-  35 (AI): PRICE_WATCH_STATUS   — OK / DROP / RISE (from price_alerts)
-  36 (AJ): PRICE_WATCH_DELTA    — $ delta (negative = price dropped, good for re-quote)
-
-Run ONCE before features 1/2/3 use those columns.
-Idempotent: skips if headers already present.
-
-Usage:
-    python ERP/core/active_jobs_schema.py
-    # optional: --file path/to/ERP_Master_v14.xlsm
+# DEPRECATED — DO NOT RUN
+# ========================
+# active_jobs_schema.py was used to add cols 31-36 to the OLD v14 36-col layout.
+# As of 2026-04-14, ERP_Master_v14.xlsm has been fully migrated to the NEW v4
+# 40-col layout via ERP/core/migrate_active_jobs_v4.py.
+#
+# All column positions are now authoritative in ERP/core/active_jobs_cols.py (COL dict).
+# Running this script again would corrupt the v4 header row.
+#
+# main() now prints a deprecation notice and exits 0 without touching the sheet.
 """
 from __future__ import annotations
 
@@ -108,10 +102,13 @@ def migrate(erp_file: str) -> int:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--file", default=DEFAULT_ERP_FILE)
-    args = ap.parse_args()
-    return migrate(args.file)
+    print("[DEPRECATED] active_jobs_schema.py is obsolete.")
+    print("  The Active Jobs sheet was fully migrated to v4 (40-col layout) via")
+    print("  ERP/core/migrate_active_jobs_v4.py on 2026-04-14.")
+    print("  Column positions are now managed by ERP/core/active_jobs_cols.py.")
+    print("  This script has been disabled to prevent corrupting the v4 header row.")
+    print("[OK] No changes made. Exiting 0.")
+    return 0
 
 
 if __name__ == "__main__":

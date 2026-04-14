@@ -13,20 +13,14 @@ from typing import Final
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "core"))
+from active_jobs_cols import COL as AJ_COL, DATA_START as AJ_DATA_START  # noqa: E402
+
 sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 
 DEFAULT_ERP_FILE: Final = r"D:\OneDrive\NelsonData\erp\ERP_Master_v14.xlsm"
 DEFAULT_OUT_DIR: Final = r"D:\OneDrive\NelsonData\erp\weekly_reports"
 DEFAULT_EMAIL_LOG: Final = r"D:\NELSON\2. Areas\Engine_test\email_engine\logs\email_log.csv"
-
-AJ_DATA_START = 8  # Active Jobs: header row 7, data row 8+
-AJ_COL: Final = {
-    "CRM_ID": 1,
-    "Container_Type": 10,
-    "Quantity": 11,
-    "Profit": 14,
-    "Created_Date": 25,
-}
 
 TEU_FACTOR: Final = {
     "20GP": 1, "20DC": 1, "20RF": 1,

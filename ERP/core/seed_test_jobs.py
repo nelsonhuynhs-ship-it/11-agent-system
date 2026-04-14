@@ -29,19 +29,11 @@ import openpyxl
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ribbon_guard import save_preserving_ribbon  # noqa: E402
+from active_jobs_cols import COL  # noqa: E402
 
 sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 
 ERP_FILE = r"D:\OneDrive\NelsonData\erp\ERP_Master_v14.xlsm"
-
-COL = {"CRM_ID": 1, "Customer_Type": 2, "Routing": 3, "Bkg_No": 4,
-       "ETD": 5, "ETA": 6, "ATA": 7, "Carrier": 8, "Contract_Type": 9,
-       "Container_Type": 10, "Quantity": 11, "Selling_Rate": 12,
-       "Buying_Rate": 13, "Profit": 14, "Profit_Margin": 15, "Status": 16,
-       "SI_Received": 17, "Door_Delivery": 19, "Door_Address": 20,
-       "Notes": 24, "Created_Date": 25, "Last_Updated": 26,
-       "FAST_JOB_NO": 29, "HBL_NO": 30,
-       "RELEASE_EMAIL_SENT": 33}
 
 TEST_ROW_START = 8
 TEST_ROW_END = 12  # inclusive
@@ -60,7 +52,7 @@ def _build_seed_rows(now: datetime | None = None) -> list[dict]:
              Status="Booked",
              Door_Delivery="Yes", Door_Address="LOS ANGELES, CA",
              Notes="", Created_Date=now, Last_Updated=now,
-             FAST_JOB_NO="se2604/266",  # lowercase + short seq — F4 FAST ID will fix
+             FAST_ID="se2604/266",  # lowercase + short seq — F4 FAST ID will fix
              HBL_NO="PELP26040260"),
 
         # r=9: VIFON stage 5 — in transit, ETD passed
@@ -73,7 +65,7 @@ def _build_seed_rows(now: datetime | None = None) -> list[dict]:
              Status="In Transit",
              Door_Delivery="No", Door_Address="",
              Notes="", Created_Date=now - timedelta(days=22), Last_Updated=now,
-             FAST_JOB_NO="SE2604/0280",
+             FAST_ID="SE2604/0280",
              HBL_NO="PNYC26040596"),
 
         # r=10: SIRI 40RF stage 2 — confirmed, for Reefer Plug demo
@@ -86,7 +78,7 @@ def _build_seed_rows(now: datetime | None = None) -> list[dict]:
              Status="Booked",
              Door_Delivery="Yes", Door_Address="CHICAGO, IL",
              Notes="", Created_Date=now - timedelta(days=1), Last_Updated=now,
-             FAST_JOB_NO="SE2604/0310",
+             FAST_ID="SE2604/0310",
              HBL_NO="PCHI26040310"),
 
         # r=11: TRAN ANH URGENT — release email 3h ago, ETA tomorrow, no confirm
@@ -99,7 +91,7 @@ def _build_seed_rows(now: datetime | None = None) -> list[dict]:
              Status="In Transit",
              Door_Delivery="No", Door_Address="",
              Notes="", Created_Date=now - timedelta(days=25), Last_Updated=now,
-             FAST_JOB_NO="SE2604/0400",
+             FAST_ID="SE2604/0400",
              HBL_NO="PLGB26040400",
              RELEASE_EMAIL_SENT=now - timedelta(hours=3)),
 
@@ -114,7 +106,7 @@ def _build_seed_rows(now: datetime | None = None) -> list[dict]:
              Status="Delivered",
              Door_Delivery="No", Door_Address="",
              Notes="", Created_Date=now - timedelta(days=33), Last_Updated=now,
-             FAST_JOB_NO="SE2604/0647",
+             FAST_ID="SE2604/0647",
              HBL_NO="PNYC26040596"),
     ]
 

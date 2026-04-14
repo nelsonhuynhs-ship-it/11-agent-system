@@ -43,6 +43,9 @@ import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "core"))
+from active_jobs_cols import COL as AJ_COL, HDR_ROW as AJ_HDR_ROW, DATA_START as AJ_DATA_START  # noqa: E402
+
 sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 
 DEFAULT_ERP_FILE: Final = r"D:\OneDrive\NelsonData\erp\ERP_Master_v14.xlsm"
@@ -67,34 +70,6 @@ COL_AIR = "J"
 COL_LCL = "K"
 
 
-# ── Source column mapping (Active Jobs v14, header row 7) ──
-AJ_HDR_ROW = 7
-AJ_DATA_START = 8
-
-AJ_COL: Final = {
-    "CRM_ID": 1,
-    "Customer_Type": 2,
-    "Routing": 3,
-    "Bkg_No": 4,
-    "ETD": 5,
-    "ETA": 6,
-    "ATA": 7,
-    "Carrier": 8,
-    "Contract_Type": 9,
-    "Container_Type": 10,
-    "Quantity": 11,
-    "Selling_Rate": 12,
-    "Buying_Rate": 13,
-    "Profit": 14,
-    "Profit_Margin": 15,
-    "Status": 16,
-    "Door_Address": 20,
-    "Notes": 24,
-    "Created_Date": 25,
-    "FAST_JOB_NO": 29,
-    "HBL_NO": 30,
-    "SERVICE": 31,
-}
 
 
 # ── Helpers ──
@@ -315,7 +290,7 @@ def write_report(rows: list[dict], month_label: str, out_file: str) -> dict:
         ws.cell(rr, 6, r.get("ETA"))
         ws.cell(rr, 7, r.get("Carrier"))
         ws.cell(rr, 8, r.get("HBL_NO"))
-        ws.cell(rr, 9, r.get("FAST_JOB_NO"))
+        ws.cell(rr, 9, r.get("FAST_ID"))
         ws.cell(rr, ord(vol_col_letter) - ord("A") + 1, vol_qty)
         ws.cell(rr, 18, buy)
         ws.cell(rr, 19, sell)

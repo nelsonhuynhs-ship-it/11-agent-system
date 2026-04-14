@@ -19,17 +19,17 @@ import yaml
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, REPO_ROOT)
 from ERP.core.ribbon_guard import save_preserving_ribbon  # noqa: E402
+from ERP.core.active_jobs_cols import COL, DATA_START  # noqa: E402
 
 _DATA_DIR: Final = Path(__file__).resolve().parents[1] / "data"
 YAML_PATH: Final = _DATA_DIR / "reefer_freetime.yaml"
 DEFAULT_ERP: Final = r"D:\OneDrive\NelsonData\erp\ERP_Master_v14.xlsm"
 
-DATA_START: Final = 8
-COL_ETA:   Final = 6   # F — ETA
-COL_ATA:   Final = 7   # G — ATA
-COL_CTYPE: Final = 10  # J — Container_Type
-COL_NOTES: Final = 24  # X — Notes
-COL_POD:   Final = 5   # E — POD
+COL_ETA:   Final = COL["ETA"]           # col U (21) — ETA (hidden)
+COL_ATA:   Final = COL["ATA"]           # col V (22) — ATA (hidden)
+COL_CTYPE: Final = COL["Container_Type"]  # col J (10) — Container_Type
+COL_NOTES: Final = COL["Notes"]         # col AF (32) — Notes (hidden)
+COL_POD:   Final = COL["POL_POD"]       # col E (5)  — POL_POD rendered string
 
 RF_TYPES = {"20RF", "40RF"}
 sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]

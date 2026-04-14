@@ -21,16 +21,14 @@ import openpyxl
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "core"))
 from ribbon_guard import save_preserving_ribbon  # noqa: E402
+from active_jobs_cols import COL, DATA_START  # noqa: E402
 
 sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 DEFAULT_ERP_FILE: Final = r"D:\OneDrive\NelsonData\erp\ERP_Master_v14.xlsm"
 AJ_SHEET: Final = "Active Jobs"
-AJ_DATA_START: Final = 8
-
-COL: Final = {"CRM_ID": 1, "Bkg_No": 4, "ETD": 5, "ETA": 6, "ATA": 7,
-              "Carrier": 8, "Status": 16, "Notes": 24, "HBL_NO": 30}
+AJ_DATA_START: Final = DATA_START
 
 _RE_CONTAINER = re.compile(r"\b([A-Z]{4}\d{7})\b")
 _RE_DATE_ISO  = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")

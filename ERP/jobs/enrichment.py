@@ -30,20 +30,9 @@ sys.path.insert(0, SCRIPT_DIR)
 sys.path.insert(0, os.path.join(SCRIPT_DIR, "..", "core"))
 from email_builder import build_mailto_link, load_rules  # noqa: E402
 from ribbon_guard import save_preserving_ribbon  # noqa: E402
+from active_jobs_cols import COL, HDR_ROW, DATA_START  # noqa: E402
 
 DEFAULT_ERP_FILE: Final = r"D:\OneDrive\NelsonData\erp\ERP_Master_v14.xlsm"
-
-# v14 Active Jobs layout (header row 7)
-HDR_ROW = 7
-DATA_START = 8
-COL = {
-    "CRM_ID": 1, "Customer_Type": 2, "Routing": 3, "Bkg_No": 4,
-    "Carrier": 8, "Contract_Type": 9, "Container_Type": 10, "Quantity": 11,
-    "Door_Delivery": 19, "Door_Address": 20,
-    "Cost_Breakdown": 27, "Request_BKG": 28,
-    "FAST_JOB_NO": 29, "HBL_NO": 30,
-    "SERVICE": 31,
-}
 
 
 def parse_routing(routing: str) -> tuple[str, str, str]:

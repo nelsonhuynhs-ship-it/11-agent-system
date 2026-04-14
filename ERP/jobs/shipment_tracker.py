@@ -44,27 +44,14 @@ from openpyxl.styles import Alignment, Font, PatternFill
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "core"))
 from ribbon_guard import save_preserving_ribbon  # noqa: E402
+from active_jobs_cols import COL, HDR_ROW, DATA_START, STAGE_NAMES  # noqa: E402
 
 sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 
 DEFAULT_ERP_FILE: Final = r"D:\OneDrive\NelsonData\erp\ERP_Master_v14.xlsm"
 
-# Active Jobs col indices (v14, header row 7)
-AJ_HDR_ROW = 7
-AJ_DATA_START = 8
-COL = {
-    "CRM_ID": 1, "Routing": 3, "Bkg_No": 4, "ETD": 5, "ETA": 6, "ATA": 7,
-    "Carrier": 8, "Contract_Type": 9, "Container_Type": 10, "Quantity": 11,
-    "Status": 16, "SI_Received": 17, "CY_Cutoff": 18,
-    "Notes": 24,
-    "TRACKING_STAGE": 32,
-    "RELEASE_CONFIRMED": 34,
-}
-
-STAGE_NAMES: Final = {
-    1: "BKG", 2: "Conf", 3: "SI Cut", 4: "Gate-in",
-    5: "ATD", 6: "ETA", 7: "Done",
-}
+AJ_HDR_ROW = HDR_ROW
+AJ_DATA_START = DATA_START
 
 # Color per stage bucket
 STAGE_FILLS: Final = {

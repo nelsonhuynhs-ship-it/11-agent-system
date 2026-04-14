@@ -35,22 +35,13 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "core"))
 from ribbon_guard import save_preserving_ribbon  # noqa: E402
+from active_jobs_cols import COL, DATA_START  # noqa: E402
 
 sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 
 DEFAULT_ERP_FILE: Final = r"D:\OneDrive\NelsonData\erp\ERP_Master_v14.xlsm"
 
-# Active Jobs columns (v14)
-AJ_DATA_START = 8
-COL = {
-    "CRM_ID": 1, "Routing": 3, "Bkg_No": 4,
-    "ETD": 5, "ETA": 6, "ATA": 7,
-    "Carrier": 8, "Container_Type": 10, "Quantity": 11,
-    "Status": 16, "Door_Delivery": 19,
-    "Notes": 24, "FAST_JOB_NO": 29, "HBL_NO": 30,
-    "RELEASE_EMAIL_SENT": 33,
-    "RELEASE_CONFIRMED": 34,
-}
+AJ_DATA_START = DATA_START
 
 
 @dataclass
@@ -122,7 +113,7 @@ def scan_alerts(
             row=r,
             crm_id=str(crm),
             hbl=str(ws.cell(r, COL["HBL_NO"]).value or ""),
-            fast_id=str(ws.cell(r, COL["FAST_JOB_NO"]).value or ""),
+            fast_id=str(ws.cell(r, COL["FAST_ID"]).value or ""),
             customer=str(crm),
             carrier=str(ws.cell(r, COL["Carrier"]).value or ""),
             routing=str(ws.cell(r, COL["Routing"]).value or ""),
@@ -265,7 +256,7 @@ def main() -> int:
             ws = wb.create_sheet("Release_Alerts")
             ws["A1"] = f"No pending release alerts as of {now:%d %b %Y %H:%M}"
             ws["A1"].font = Font(italic=True, color="666666")
-        wb.save(args.erp)
+        save_preserving_ribbon(wb, args.erp)
         wb.close()
 
     return 1 if urgent else 0
