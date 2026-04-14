@@ -9,10 +9,10 @@ Plan HTML: `D:/OneDrive/erp/quote-mockups/email-automation-upgrade-plan.html`
 ## Phase Status
 | Phase | Status | Progress |
 |-------|--------|----------|
-| Phase 1: Data Foundation (enrich, bounce, migrate 25 cols) | ⏳ NEXT | 0% |
-| Phase 2: Email Intelligence (sequence, reply detect, ARB) | ⏳ PENDING | 0% |
-| Phase 3: WhatsApp Channel (Meta API, templates) | ⏳ PENDING | 0% |
-| Phase 4: Analytics & Scale (dashboard, 1000/day) | ⏳ PENDING | 0% |
+| Phase 1: Data Foundation (enrich, bounce, migrate 25 cols) | ✅ DONE | f517a5d |
+| Phase 2: Email Intelligence (sequence, reply detect, ARB) | ✅ DONE | bb4264e |
+| Phase 3: WhatsApp Channel (Meta API, templates) | ✅ DONE | bb4264e |
+| Phase 4: Analytics & Scale (dashboard, 1000/day) | ✅ DONE | 2fab8d3 |
 
 ## Already Completed (Pre-v3)
 - ✅ FastAPI dashboard v2 (port 8231, 3 tabs)
