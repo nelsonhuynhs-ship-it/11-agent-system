@@ -111,6 +111,23 @@ def auto_import() -> int:
 
         components = vb_project.VBComponents
 
+        # CLEANUP pass — remove any suffix-numbered duplicates of our managed
+        # modules ("ERPv14JobsAutomation1", "ERPv14JobsAutomation2", etc.).
+        # These appear when a prior Import failed partway and VBA auto-renamed.
+        import re as _re
+        managed_bases = [m for m, _ in BAS_MODULES]
+        for comp in list(components):
+            if comp.Type != 1:  # 1 = standard module
+                continue
+            for base in managed_bases:
+                if _re.match(rf"^{_re.escape(base)}\d+$", comp.Name):
+                    print(f"    [cleanup] removing duplicate {comp.Name} ({comp.CodeModule.CountOfLines} lines)")
+                    try:
+                        components.Remove(comp)
+                    except Exception as e:
+                        print(f"      [warn] could not remove {comp.Name}: {e}")
+                    break
+
         # Re-import each module — prefer CodeModule.DeleteLines + AddFromFile
         # (preserves module identity, safer for modules with references)
         imported = []
