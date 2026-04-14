@@ -1,0 +1,83 @@
+[
+  {
+    "lane": "WC",
+    "carrier": "HPL",
+    "rate_type": "FAK",
+    "price": 1806.0,
+    "valid_from": "01 Apr",
+    "valid_to": "14 Apr",
+    "spread": -919.3333333333335
+  },
+  {
+    "lane": "WC",
+    "carrier": "YML",
+    "rate_type": "FAK",
+    "price": 1860.0,
+    "valid_from": "08 Apr",
+    "valid_to": "14 Apr",
+    "spread": -865.3333333333335
+  },
+  {
+    "lane": "WC",
+    "carrier": "CMA",
+    "rate_type": "FAK",
+    "price": 2639.0,
+    "valid_from": "08 Apr",
+    "valid_to": "14 Apr",
+    "spread": -86.33333333333348
+  },
+  {
+    "lane": "EC",
+    "carrier": "HPL",
+    "rate_type": "FAK",
+    "price": 2609.0,
+    "valid_from": "01 Apr",
+    "valid_to": "14 Apr",
+    "spread": -1087.0
+  },
+  {
+    "lane": "EC",
+    "carrier": "CMA",
+    "rate_type": "FAK",
+    "price": 2828.0,
+    "valid_from": "08 Apr",
+    "valid_to": "14 Apr",
+    "spread": -868.0
+  },
+  {
+    "lane": "EC",
+    "carrier": "ONE",
+    "rate_type": "FAK",
+    "price": 3219.0,
+    "valid_from": "09 Apr",
+    "valid_to": "14 Apr",
+    "spread": -477.0
+  },
+  {
+    "lane": "GULF",
+    "carrier": "HPL",
+    "rate_type": "FAK",
+    "price": 2709.0,
+    "valid_from": "01 Apr",
+    "valid_to": "14 Apr",
+    "spread": -1003.5714285714284
+  },
+  {
+    "lane": "GULF",
+    "carrier": "CMA",
+    "rate_type": "FAK",
+    "price": 3238.0,
+    "valid_from": "08 Apr",
+    "valid_to": "14 Apr",
+    "spread": -474.57142857142844
+  },
+  {
+    "lane": "GULF",
+    "carrier": "ONE",
+    "rate_type": "FAK",
+    "price": 3814.0,
+    "valid_from": "09 Apr",
+    "valid_to": "14 Apr",
+    "spread": 101.42857142857156
+  }
+]

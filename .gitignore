@@ -74,6 +74,10 @@ Thumbs.db
 /tmp/
 fix_cors.py
 *.bak_*
+*.local-bak
+.opencode/
+node_modules/
+scripts/node_modules/
 
 
 TelegramBot_backup_*
