@@ -65,17 +65,22 @@ def invalidate_cache():
 def get_arb_surcharge(
     origin: str,
     carrier: str,
-    contract_type: str = "FAK_SOC",
+    contract_type: str = "FAK",
     container: str = "40HQ",
+    pod_region: str = None,
 ) -> int | None:
     """
     Look up ARB surcharge (USD) for a given origin/carrier/contract/container.
 
+    Supports flat format: {20GP: 80, 40HQ: 100}
+    And region-nested:   {PSW: {20GP: 180, 40HQ: 200}, PNW: ...}
+
     Args:
         origin:        Origin key (e.g. "shanghai", "lat_krabang")
         carrier:       Carrier code (e.g. "HPL", "CMA", "ONE", "YML")
-        contract_type: "FAK_SOC" | "FAK_COC" | "FIX"
-        container:     "20GP" | "40HQ"
+        contract_type: "FAK" | "FAK_SOC" | "FAK_COC" | "FIX"
+        container:     "20GP" | "40GP" | "40HQ" | "45HQ"
+        pod_region:    Optional region for CMA-style rates ("PSW", "EC", etc.)
 
     Returns:
         int USD surcharge, or None if not found.
@@ -86,16 +91,37 @@ def get_arb_surcharge(
     contract_key = contract_type.upper().strip()
     container_key = container.upper().strip()
 
-    try:
-        return rates[origin_key][carrier_key][contract_key][container_key]
-    except (KeyError, TypeError):
-        # Try FAK_SOC as fallback if specific contract not found
-        if contract_key != "FAK_SOC":
-            try:
-                return rates[origin_key][carrier_key]["FAK_SOC"][container_key]
-            except (KeyError, TypeError):
-                pass
-        return None
+    # Normalize legacy keys: FAK_SOC/FAK_COC → try FAK as fallback
+    contract_candidates = [contract_key]
+    if contract_key in ("FAK_SOC", "FAK_COC"):
+        contract_candidates.append("FAK")
+    elif contract_key == "FAK":
+        contract_candidates.extend(["FAK_SOC", "FAK_COC"])
+
+    for ck in contract_candidates:
+        try:
+            rate_node = rates[origin_key][carrier_key][ck]
+        except (KeyError, TypeError):
+            continue
+
+        # Check if rate_node is region-nested (e.g. CMA FAK: {PSW: {...}, PNW: {...}})
+        if isinstance(rate_node, dict):
+            first_val = next(iter(rate_node.values()), None)
+            if isinstance(first_val, dict) and container_key not in rate_node:
+                # Region-nested — pick region or first available
+                if pod_region:
+                    region_node = rate_node.get(pod_region.upper())
+                    if region_node:
+                        return region_node.get(container_key)
+                # Fallback: first region
+                return first_val.get(container_key)
+            else:
+                # Flat: {20GP: 80, 40HQ: 100}
+                val = rate_node.get(container_key)
+                if val is not None:
+                    return val
+
+    return None
 
 
 def get_available_origins() -> list[dict]:

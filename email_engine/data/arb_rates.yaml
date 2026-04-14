@@ -58,22 +58,25 @@ ningbo:
     FIX:     { 20GP: 90,  40HQ: 135 }
 
 lat_krabang:   # Thailand — ICD Lat Krabang (Bangkok)
+  # REAL RATES from Nelson's contract table (format: 20GP/40GP/40HQ/45HQ)
   HPL:
-    FAK_SOC: { 20GP: 100, 40HQ: 150 }
-    FAK_COC: { 20GP: 85,  40HQ: 130 }
-    FIX:     { 20GP: 70,  40HQ: 110 }
-  CMA:
-    FAK_SOC: { 20GP: 110, 40HQ: 160 }
-    FAK_COC: { 20GP: 90,  40HQ: 135 }
-    FIX:     { 20GP: 75,  40HQ: 115 }
+    FAK: { 20GP: 100, 40GP: 120, 40HQ: 120 }           # FIX: TBA
   ONE:
-    FAK_SOC: { 20GP: 95,  40HQ: 145 }
-    FAK_COC: { 20GP: 80,  40HQ: 125 }
-    FIX:     { 20GP: 65,  40HQ: 105 }
+    FAK: { 20GP: 80,  40GP: 100, 40HQ: 100, 45HQ: 130 }
+    FIX: { 20GP: 80,  40GP: 100, 40HQ: 100, 45HQ: 130 }  # COC only
   YML:
-    FAK_SOC: { 20GP: 100, 40HQ: 150 }
-    FAK_COC: { 20GP: 85,  40HQ: 130 }
-    FIX:     { 20GP: 70,  40HQ: 110 }
+    FAK: { 20GP: 0,   40GP: 0,   40HQ: 0 }              # no ARB for FAK
+    FIX: { 20GP: 80,  40GP: 100, 40HQ: 100 }
+  CMA:
+    FAK:
+      PSW:   { 20GP: 180, 40GP: 200, 40HQ: 200, 45HQ: 255 }
+      PNW:   { 20GP: 225, 40GP: 250, 40HQ: 250, 45HQ: 320 }
+      BAL:   { 20GP: 225, 40GP: 250, 40HQ: 250, 45HQ: 320 }
+      EC:    { 20GP: 180, 40GP: 200, 40HQ: 200, 45HQ: 255 }
+      GCFL:  { 20GP: 180, 40GP: 200, 40HQ: 200, 45HQ: 255 }
+      MIAMI: { 20GP: 225, 40GP: 250, 40HQ: 250, 45HQ: 320 }
+    FIX:
+      BASKET: { 20GP: 90, 40GP: 100, 40HQ: 100, 45HQ: 130 }
 
 phnom_penh:    # Cambodia
   HPL:
