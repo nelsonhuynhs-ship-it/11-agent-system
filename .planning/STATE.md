@@ -1,35 +1,40 @@
 # STATE — Current Progress
 
-> Auto-updated: 2026-03-30T06:45
+> Auto-updated: 2026-04-14T07:00
 
-## Active Milestone
-**Sprint 12** — Bot + Data Skills + GSD Adoption
-
-## Current Phase
-**Phase 1: GSD Foundation** ✅ COMPLETE
+## Active Plan
+**Email Automation Upgrade v3** — THE ONLY ACTIVE PLAN
+Plan HTML: `D:/OneDrive/erp/quote-mockups/email-automation-upgrade-plan.html`
 
 ## Phase Status
 | Phase | Status | Progress |
 |-------|--------|----------|
-| Phase 1: GSD Foundation | ✅ COMPLETE | 4/4 tasks done |
-| Phase 2: Security & Auth | ⏳ PENDING | 0/3 tasks |
-| Phase 3: Intelligence Wiring | ⏳ PENDING | 0/3 tasks |
-| Phase 4: Bot Enhancements | ⏳ PENDING | 0/3 tasks |
+| Phase 1: Data Foundation (enrich, bounce, migrate 25 cols) | ⏳ NEXT | 0% |
+| Phase 2: Email Intelligence (sequence, reply detect, ARB) | ⏳ PENDING | 0% |
+| Phase 3: WhatsApp Channel (Meta API, templates) | ⏳ PENDING | 0% |
+| Phase 4: Analytics & Scale (dashboard, 1000/day) | ⏳ PENDING | 0% |
 
-## Last Completed
-- GSD v1.30.0 installed (57 skills, 18 agents, 5 hooks)
-- Codebase mapped (7 docs in `.planning/codebase/`)
-- Formal planning artifacts created (PROJECT, REQUIREMENTS, ROADMAP, STATE)
-- Atomic commit + milestone conventions documented
+## Already Completed (Pre-v3)
+- ✅ FastAPI dashboard v2 (port 8231, 3 tabs)
+- ✅ DuckDB rate engine (28x faster, Exp +2 day buffer)
+- ✅ AI XGBoost model (21 corridors, walk-forward, auto-load)
+- ✅ Market Intelligence badge in emails (URGENT/COMPETITIVE/STABLE)
+- ✅ 48h cooldown + email signature
+- ✅ Desktop shortcut (1-click launch)
+- ✅ GitHub commits: b42646b, 896a1b2
 
 ## Next Action
-→ **Phase 2: JWT Middleware** — start with `api/middleware/` auth implementation
+→ **Phase 1: Data Foundation** — migrate cnee_master 16→25 cols, bounce handler, POL/POD enrich
 
-## Blockers
-- VPS SSH occasional connectivity issues
-- Gemini API rate limits (5 RPM free tier)
+## Key Files
+- Dashboard: `email_engine/web_server.py` (port 8231)
+- Rate engine: `email_engine/core/auto_rate_builder.py`
+- AI model: `email_engine/core/rate_predictor.py`
+- ARB engine: `api/pipeline/arb_engine.py` (exists, needs wire to email)
+- Data: `email_engine/data/cnee_master.xlsx` (5,316 rows, 16 cols → 25)
 
-## Context
-- **Machine:** PC Home
-- **Focus:** WebApp + API domain
-- **GSD Active:** Yes — hooks running (prompt guard, context monitor)
+## Archived Plans (DO NOT USE)
+All old plans moved to `plans/archive/` on 14 Apr 2026:
+- 260411-email-cleaner-v2, 260411-erp-automation, 260411-rate-pipeline-reorg
+- 260411-erp-workflow-upgrade, 260413-forecast-redesign, email-sequence-ai-forecast
+These are SUPERSEDED by Email Automation Upgrade v3.

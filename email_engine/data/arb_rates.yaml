@@ -1,0 +1,110 @@
+# ARB Surcharges — Cross-Origin Pricing
+# =========================================================
+# Structure: origin_port → carrier → contract_type → container_type → USD amount
+#
+# Origins supported:
+#   shanghai, ningbo          → China
+#   lat_krabang               → Thailand (ICD Lat Krabang)
+#   phnom_penh                → Cambodia
+#   port_klang                → Malaysia
+#
+# Contract types:
+#   FAK_SOC  = Freight All Kinds, Shipper-Owned Container
+#   FAK_COC  = Freight All Kinds, Carrier-Owned Container
+#   FIX      = Fixed-rate contract
+#
+# Container types: 20GP, 40HQ
+#
+# NOTE: These are ARB *surcharges* added on top of HCM/HPH base rates.
+#       Nelson: replace placeholder values with actual carrier contract rates.
+# =========================================================
+
+shanghai:
+  HPL:
+    FAK_SOC: { 20GP: 150, 40HQ: 200 }
+    FAK_COC: { 20GP: 130, 40HQ: 180 }
+    FIX:     { 20GP: 100, 40HQ: 150 }
+  CMA:
+    FAK_SOC: { 20GP: 160, 40HQ: 220 }
+    FAK_COC: { 20GP: 140, 40HQ: 195 }
+    FIX:     { 20GP: 110, 40HQ: 160 }
+  ONE:
+    FAK_SOC: { 20GP: 140, 40HQ: 190 }
+    FAK_COC: { 20GP: 120, 40HQ: 170 }
+    FIX:     { 20GP: 95,  40HQ: 140 }
+  YML:
+    FAK_SOC: { 20GP: 145, 40HQ: 195 }
+    FAK_COC: { 20GP: 125, 40HQ: 175 }
+    FIX:     { 20GP: 100, 40HQ: 145 }
+
+ningbo:
+  HPL:
+    FAK_SOC: { 20GP: 140, 40HQ: 190 }
+    FAK_COC: { 20GP: 120, 40HQ: 170 }
+    FIX:     { 20GP: 90,  40HQ: 140 }
+  CMA:
+    FAK_SOC: { 20GP: 150, 40HQ: 210 }
+    FAK_COC: { 20GP: 130, 40HQ: 185 }
+    FIX:     { 20GP: 100, 40HQ: 155 }
+  ONE:
+    FAK_SOC: { 20GP: 130, 40HQ: 180 }
+    FAK_COC: { 20GP: 110, 40HQ: 160 }
+    FIX:     { 20GP: 85,  40HQ: 130 }
+  YML:
+    FAK_SOC: { 20GP: 135, 40HQ: 185 }
+    FAK_COC: { 20GP: 115, 40HQ: 165 }
+    FIX:     { 20GP: 90,  40HQ: 135 }
+
+lat_krabang:   # Thailand — ICD Lat Krabang (Bangkok)
+  HPL:
+    FAK_SOC: { 20GP: 100, 40HQ: 150 }
+    FAK_COC: { 20GP: 85,  40HQ: 130 }
+    FIX:     { 20GP: 70,  40HQ: 110 }
+  CMA:
+    FAK_SOC: { 20GP: 110, 40HQ: 160 }
+    FAK_COC: { 20GP: 90,  40HQ: 135 }
+    FIX:     { 20GP: 75,  40HQ: 115 }
+  ONE:
+    FAK_SOC: { 20GP: 95,  40HQ: 145 }
+    FAK_COC: { 20GP: 80,  40HQ: 125 }
+    FIX:     { 20GP: 65,  40HQ: 105 }
+  YML:
+    FAK_SOC: { 20GP: 100, 40HQ: 150 }
+    FAK_COC: { 20GP: 85,  40HQ: 130 }
+    FIX:     { 20GP: 70,  40HQ: 110 }
+
+phnom_penh:    # Cambodia
+  HPL:
+    FAK_SOC: { 20GP: 80,  40HQ: 120 }
+    FAK_COC: { 20GP: 65,  40HQ: 100 }
+    FIX:     { 20GP: 50,  40HQ: 80  }
+  CMA:
+    FAK_SOC: { 20GP: 85,  40HQ: 130 }
+    FAK_COC: { 20GP: 70,  40HQ: 110 }
+    FIX:     { 20GP: 55,  40HQ: 85  }
+  ONE:
+    FAK_SOC: { 20GP: 75,  40HQ: 115 }
+    FAK_COC: { 20GP: 60,  40HQ: 95  }
+    FIX:     { 20GP: 45,  40HQ: 75  }
+  YML:
+    FAK_SOC: { 20GP: 80,  40HQ: 120 }
+    FAK_COC: { 20GP: 65,  40HQ: 100 }
+    FIX:     { 20GP: 50,  40HQ: 80  }
+
+port_klang:    # Malaysia — Port Klang (Kuala Lumpur gateway)
+  HPL:
+    FAK_SOC: { 20GP: 90,  40HQ: 130 }
+    FAK_COC: { 20GP: 75,  40HQ: 110 }
+    FIX:     { 20GP: 60,  40HQ: 90  }
+  CMA:
+    FAK_SOC: { 20GP: 100, 40HQ: 145 }
+    FAK_COC: { 20GP: 82,  40HQ: 120 }
+    FIX:     { 20GP: 65,  40HQ: 95  }
+  ONE:
+    FAK_SOC: { 20GP: 85,  40HQ: 125 }
+    FAK_COC: { 20GP: 70,  40HQ: 105 }
+    FIX:     { 20GP: 55,  40HQ: 85  }
+  YML:
+    FAK_SOC: { 20GP: 90,  40HQ: 130 }
+    FAK_COC: { 20GP: 75,  40HQ: 110 }
+    FIX:     { 20GP: 60,  40HQ: 90  }

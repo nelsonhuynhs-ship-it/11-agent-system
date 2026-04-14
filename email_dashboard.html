@@ -1278,6 +1278,17 @@ select.has-error,input.has-error{
       <input type="number" id="markupInput" value="20" min="0" step="5"
              style="width:80px" tabindex="0" aria-label="Markup amount in USD">
     </div>
+    <div class="field-wrap">
+      <label for="arbOriginSelect">Cross-Origin (ARB)</label>
+      <select id="arbOriginSelect" style="min-width:170px" aria-label="ARB cross-origin surcharge" tabindex="0">
+        <option value="">None — HCM/HPH only</option>
+        <option value="shanghai">&#127464;&#127475; Shanghai</option>
+        <option value="ningbo">&#127464;&#127475; Ningbo</option>
+        <option value="lat_krabang">&#127481;&#127469; Lat Krabang (Thai)</option>
+        <option value="phnom_penh">&#127472;&#127469; Phnom Penh (KH)</option>
+        <option value="port_klang">&#127474;&#127486; Port Klang (MY)</option>
+      </select>
+    </div>
     <button class="btn btn-blue" id="loadBtn"
             onclick="loadContacts()" tabindex="0"
             aria-label="Load contacts for selected campaign">
@@ -1831,6 +1842,7 @@ async function showPreview(idx) {
   const defPol = document.getElementById('polSelect').value;
   const defDest = document.getElementById('destInput').value;
   const markup = parseFloat(document.getElementById('markupInput').value) || 20;
+  const arbOrigin = document.getElementById('arbOriginSelect').value || '';
   const pol = c.pol || defPol;
   const dest = c.dest || defDest;
 
@@ -1853,7 +1865,7 @@ async function showPreview(idx) {
 
   try {
     const rate = await fetch(
-      API + `/api/rate-preview?pol=${encodeURIComponent(pol)}&destinations=${encodeURIComponent(dest)}&markup=${markup}`
+      API + `/api/rate-preview?pol=${encodeURIComponent(pol)}&destinations=${encodeURIComponent(dest)}&markup=${markup}` + (arbOrigin ? `&arb_origin=${encodeURIComponent(arbOrigin)}` : '')
     ).then(r => r.json());
     const rateHtml = rate.html || `<em style="color:var(--amber)">No rates found for this route</em>`;
     previewHtmlRaw = rateHtml;
@@ -1861,10 +1873,13 @@ async function showPreview(idx) {
     // ── Content Engine: detect market condition from rate data ──
     const { tone, introText, toneBadgeHtml } = detectMarketTone(rate);
 
+    const arbLabel = {'shanghai':'Shanghai CN','ningbo':'Ningbo CN','lat_krabang':'Lat Krabang TH','phnom_penh':'Phnom Penh KH','port_klang':'Port Klang MY'}[arbOrigin] || '';
+    const arbMetaHtml = arbOrigin ? `<div class="meta-field" style="margin-top:2px">ARB Origin: <span style="color:var(--amber);font-weight:600">${esc(arbLabel)} surcharge applied</span></div>` : '';
     preview.innerHTML = `
       <div class="meta-field">To: <span>${esc(c.email)}</span></div>
       <div class="meta-field">Company: <span>${esc(c.company || '—')}</span></div>
       <div class="meta-field">POL: <span style="color:var(--teal)">${esc(pol)}</span> → ${esc(dest)}</div>
+      ${arbMetaHtml}
       <div class="meta-field" style="margin-top:4px">Template: ${toneBadgeHtml}</div>
       <div class="email-subject">${esc(currentSubject)}</div>
       <div>Dear ${esc(c.pic || 'Sir/Madam')},</div><br>
@@ -1902,6 +1917,7 @@ async function sendEmails() {
   const defPol = document.getElementById('polSelect').value;
   const defDest = document.getElementById('destInput').value;
   const markup = parseFloat(document.getElementById('markupInput').value) || 20;
+  const arbOriginSend = document.getElementById('arbOriginSelect').value || '';
 
   document.getElementById('sendBtn').disabled = true;
   document.getElementById('loadBtn').disabled = true;
@@ -1925,6 +1941,7 @@ async function sendEmails() {
           default_pol: defPol,
           default_dest: defDest,
           markup,
+          ...(arbOriginSend ? { arb_origin: arbOriginSend } : {}),
         })
       }).then(r => r.json());
       totalSent += res.sent || 0;

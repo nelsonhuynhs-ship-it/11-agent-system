@@ -26,6 +26,8 @@ except ImportError:
 DATA_FILE   = BASE_DIR / "data.xlsx"
 CONFIG_FILE = BASE_DIR / "data" / "config.xlsx"
 LOG_FILE    = BASE_DIR / "logs" / "email_log.csv"
+CNEE_V2     = BASE_DIR / "data" / "cnee_master_v2.xlsx"
+CNEE_V1     = BASE_DIR / "data" / "cnee_master.xlsx"
 (BASE_DIR / "logs").mkdir(exist_ok=True)
 
 SEND_PROGRESS: dict = {}  # campaign_id → {sent, total, errors, status}
@@ -71,6 +73,7 @@ class SendRequest(BaseModel):
     default_pol: str = "HPH"
     default_dest: str = "USLAX,USLGB,USEWR,USSAV,USCHI"
     markup: float = Field(default=20.0, ge=0, le=500)
+    arb_origin: str = ""  # Optional cross-origin key (e.g. "shanghai")
 
 def err(code: int, msg: str):
     raise HTTPException(status_code=code, detail={"error": msg})
@@ -109,13 +112,29 @@ def get_contacts(campaign: str):
     return {"contacts": results, "subject": gen_subject(), "total": len(results)}
 
 @app.get("/api/rate-preview")
-def rate_preview(pol: str, destinations: str, markup: float = 20.0):
+def rate_preview(pol: str, destinations: str, markup: float = 20.0, arb_origin: str = None):
     from auto_rate_builder import build_rate_table_for_customer
     try:
-        return build_rate_table_for_customer(pol=pol, destinations=destinations, markup=markup)
+        return build_rate_table_for_customer(
+            pol=pol, destinations=destinations, markup=markup,
+            arb_origin=arb_origin or None,
+        )
     except Exception as e:
         log.warning(f"Rate preview failed: {e}")
         return {"routes_found": 0, "total_rates": 0, "html": "", "routes_detail": []}
+
+
+@app.get("/api/arb-rates")
+def get_arb_rates():
+    """Return all available ARB origins, carriers, and sample rates from YAML."""
+    try:
+        from arb_pricing import load_arb_rates, get_available_origins
+        rates = load_arb_rates()
+        origins = get_available_origins()
+        return {"origins": origins, "raw": rates}
+    except Exception as e:
+        log.warning(f"ARB rates load failed: {e}")
+        return {"origins": [], "raw": {}}
 
 def _log_send(email, subj, cid, pol, dest):
     exists = LOG_FILE.exists()
@@ -162,7 +181,27 @@ def _do_send(campaign_id: str, req: SendRequest):
         "STABLE": default_intro,  # keep config.xlsx intro for stable market
     }
 
+    # Build suppression set from cnee_master_v2 EMAIL_STATUS
+    suppressed_emails: set = set()
+    SUPPRESSED_STATUSES = {"HARD_BOUNCE", "INVALID", "NO_MX"}
+    try:
+        cnee_src = CNEE_V2 if CNEE_V2.exists() else (CNEE_V1 if CNEE_V1.exists() else None)
+        if cnee_src:
+            _cnee = pd.read_excel(cnee_src, usecols=["EMAIL", "EMAIL_STATUS"])
+            _cnee.columns = _cnee.columns.str.upper()
+            _bad = _cnee[_cnee["EMAIL_STATUS"].isin(SUPPRESSED_STATUSES)]
+            suppressed_emails = set(_bad["EMAIL"].astype(str).str.lower().str.strip())
+            log.info(f"Suppression list loaded: {len(suppressed_emails)} emails")
+    except Exception as ex:
+        log.warning(f"Could not load suppression list: {ex}")
+
     for c in req.contacts:
+        # Suppression check: skip hard bounced / invalid / no-MX emails
+        if c.email.strip().lower() in suppressed_emails and not c.force_send:
+            prog["skipped"] = prog.get("skipped", 0) + 1
+            log.info(f"SUPPRESSED -> {c.email}")
+            continue
+
         # Cooldown check: skip if sent within last 48 hours
         last_sent = cooldown_map.get(c.email.strip().lower())
         if last_sent and last_sent > cutoff and not c.force_send:
@@ -172,7 +211,10 @@ def _do_send(campaign_id: str, req: SendRequest):
         try:
             pol  = c.pol or req.default_pol
             dest = c.dest or req.default_dest
-            result = build_rate_table_for_customer(pol=pol, destinations=dest, markup=req.markup)
+            result = build_rate_table_for_customer(
+                pol=pol, destinations=dest, markup=req.markup,
+                arb_origin=req.arb_origin or None,
+            )
             html = result.get("html", "")
             if not html and not c.force_send:
                 prog["skipped"] = prog.get("skipped", 0) + 1
@@ -257,6 +299,40 @@ def get_config():
         "closing": CFG.get("CLOSINGTEXT", CFG.get("ClosingText", "")),
         "week": date.today().isocalendar()[1],
     }
+
+@app.get("/api/data-health")
+def data_health():
+    """Returns contact quality stats from cnee_master_v2 (falls back to v1)."""
+    cnee_src = CNEE_V2 if CNEE_V2.exists() else (CNEE_V1 if CNEE_V1.exists() else None)
+    if not cnee_src:
+        return {"error": "cnee_master not found", "total_contacts": 0}
+    try:
+        df = pd.read_excel(cnee_src)
+        df.columns = df.columns.str.strip().str.upper()
+        total = len(df)
+        statuses = df.get("EMAIL_STATUS", pd.Series(["VALID"] * total))
+        valid = int((statuses == "VALID").sum())
+        bounced = int(statuses.isin(["HARD_BOUNCE", "SOFT_BOUNCE", "SOFT_SUPPRESSED"]).sum())
+        invalid = int(statuses.isin(["INVALID", "NO_MX"]).sum())
+        missing_pol = int(df["POL"].isna().sum() if "POL" in df.columns else 0)
+        missing_dest = int(df["DESTINATION"].isna().sum() if "DESTINATION" in df.columns else 0)
+        missing_phone = int(
+            (df["PHONE"].isna() | (df["PHONE"].astype(str).str.strip() == "")).sum()
+            if "PHONE" in df.columns else total
+        )
+        return {
+            "source": cnee_src.name,
+            "total_contacts": total,
+            "valid_emails": valid,
+            "bounced": bounced,
+            "invalid": invalid,
+            "missing_pol": missing_pol,
+            "missing_dest": missing_dest,
+            "missing_phone": missing_phone,
+        }
+    except Exception as e:
+        log.error(f"data-health error: {e}")
+        return {"error": str(e)}
 
 # ── AI Model Endpoints ─────────────────────────────────────────
 # ── Auto-load saved model on startup ───────────────────────────

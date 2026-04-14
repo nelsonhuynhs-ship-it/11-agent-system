@@ -525,16 +525,19 @@ def build_rate_table_for_customer(
     destinations: str = "",
     markup: float = MARKUP_MIN,
     top_per_route: int = 2,
+    arb_origin: str = None,
 ) -> dict:
     """
     Build an auto-generated HTML rate table for a customer.
-    
+
     Args:
         pol:            Port of Loading (HPH or HCM)
         destinations:   Comma-separated port codes  (e.g. "USCHI,USLAX,USSAV")
         markup:         Minimum markup per container (default $20)
         top_per_route:  Number of carrier options per route (default 2)
-    
+        arb_origin:     Optional cross-origin key (e.g. "shanghai", "lat_krabang").
+                        If provided, ARB surcharge is added to each rate row.
+
     Returns:
         dict with:
           html          — Complete HTML rate table
@@ -614,11 +617,27 @@ def build_rate_table_for_customer(
             "carriers": detail_carriers,
         })
 
+    # ARB cross-origin: replace base rates with origin + surcharge rows
+    arb_badge = ""
+    if arb_origin:
+        try:
+            from arb_pricing import build_cross_origin_rates, arb_badge_html, get_arb_surcharge
+            arb_rows = build_cross_origin_rates(all_rows, arb_origin)
+            if arb_rows:
+                # Sample surcharge for badge (first carrier, 40HQ)
+                sample_carrier = arb_rows[0].get("carrier", "")
+                s20 = get_arb_surcharge(arb_origin, sample_carrier, "FAK_SOC", "20GP")
+                s40 = get_arb_surcharge(arb_origin, sample_carrier, "FAK_SOC", "40HQ")
+                arb_badge = arb_badge_html(arb_origin, s20, s40)
+                all_rows = arb_rows
+        except Exception as e:
+            log.warning("[ARB] Could not apply ARB surcharge (%s) — using base rates", e)
+
     # Market intelligence badge (optional, graceful fallback)
     mkt_ctx = get_market_context(pol, destinations)
     badge = market_badge_html(mkt_ctx)
 
-    html = badge + _build_html_table(all_rows)
+    html = arb_badge + badge + _build_html_table(all_rows)
 
     return {
         "html":          html,
@@ -626,6 +645,7 @@ def build_rate_table_for_customer(
         "total_rates":   len(all_rows),
         "routes_detail": routes_detail,
         "market_context": mkt_ctx,
+        "arb_origin":    arb_origin,
     }
 
 
