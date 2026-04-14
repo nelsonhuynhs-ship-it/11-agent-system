@@ -24,8 +24,17 @@ import time
 sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 
 ERP_FILE = r"D:\OneDrive\NelsonData\erp\ERP_Master_v14.xlsm"
-BAS_FILE = r"D:\OneDrive\NelsonData\erp\erp-v14-jobs-automation.bas"
-MODULE_NAME = "ERPv14JobsAutomation"
+
+# Modules to (re)import — order matters: ribbon callbacks first, automation second
+# since automation may reference ribbon helpers
+BAS_MODULES = [
+    ("ERPv14Ribbon",          r"D:\OneDrive\NelsonData\erp\erp-v14-ribbon-callbacks.bas"),
+    ("ERPv14JobsAutomation",  r"D:\OneDrive\NelsonData\erp\erp-v14-jobs-automation.bas"),
+]
+
+# Backward compat — legacy single-file var used elsewhere
+BAS_FILE = BAS_MODULES[1][1]
+MODULE_NAME = BAS_MODULES[1][0]
 
 
 MANUAL_GUIDE = f"""
@@ -100,27 +109,59 @@ def auto_import() -> int:
             excel.Quit()
             return 2
 
-        # Remove existing module if present (idempotent)
         components = vb_project.VBComponents
-        existing = [c.Name for c in components]
-        if MODULE_NAME in existing:
-            print(f"    -> removing existing {MODULE_NAME}")
-            components.Remove(components(MODULE_NAME))
 
-        # Import fresh
-        print(f"    -> importing {BAS_FILE}")
-        components.Import(BAS_FILE)
+        # Re-import each module — prefer CodeModule.DeleteLines + AddFromFile
+        # (preserves module identity, safer for modules with references)
+        imported = []
+        skipped = []
+        for mod_name, bas_path in BAS_MODULES:
+            if not os.path.exists(bas_path):
+                print(f"    [skip] {mod_name}: file not found at {bas_path}")
+                skipped.append(mod_name)
+                continue
+
+            existing = [c.Name for c in components]
+            if mod_name in existing:
+                try:
+                    # In-place replace: clear existing CodeModule content, reload from file
+                    comp = components(mod_name)
+                    cm = comp.CodeModule
+                    if cm.CountOfLines > 0:
+                        cm.DeleteLines(1, cm.CountOfLines)
+                    cm.AddFromFile(bas_path)
+                    # Strip attribute header re-injected by AddFromFile if present
+                    # (optional; VBE auto-strips). Then remove the module-name 'Attribute' line
+                    # that comes from the .bas Attribute VB_Name="..." — VBE handles it.
+                    print(f"    -> reloaded {mod_name} in-place (CodeModule.AddFromFile)")
+                    imported.append(mod_name)
+                    continue
+                except Exception as e:
+                    print(f"    [warn] in-place reload of {mod_name} failed: {e}")
+                    # Fall through to Remove+Import
+                    try:
+                        components.Remove(components(mod_name))
+                    except Exception as e2:
+                        print(f"    [skip] {mod_name}: cannot remove ({e2}) — import skipped")
+                        skipped.append(mod_name)
+                        continue
+            try:
+                components.Import(bas_path)
+                print(f"    -> imported fresh {mod_name}")
+                imported.append(mod_name)
+            except Exception as e:
+                print(f"    [skip] {mod_name}: import failed ({e})")
+                skipped.append(mod_name)
 
         # Save workbook
         wb.Save()
         if spawned:
             wb.Close(SaveChanges=False)
             excel.Quit()
-            print(f"\n[SUCCESS] VBA module '{MODULE_NAME}' imported + saved.")
-        else:
-            print(f"\n[SUCCESS] VBA module '{MODULE_NAME}' imported + saved.")
-            print(f"          Workbook still open in your Excel — ready to click buttons.")
-        print("          Buttons: Price Watch | Tracking | Release Alerts | Enrich BKG | etc.\n")
+        print(f"\n[SUCCESS] VBA imported: {', '.join(imported) if imported else '(none)'}")
+        if skipped:
+            print(f"          Skipped: {', '.join(skipped)} (import manually via Alt+F11 if needed)")
+        print("          v4 layout: MarkQuoteWin writes to cols A-S (MONTH, FAST_ID, CUSTOMER, POL-POD, ...)\n")
         return 0
 
     except Exception as e:
