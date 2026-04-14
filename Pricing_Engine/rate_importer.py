@@ -551,7 +551,17 @@ def classify_and_import(files: list[dict] = None) -> dict:
     log.info("=" * 60)
 
     # Import master_loader_v2 functions
-    sys.path.insert(0, str(SCRIPT_DIR / "scripts"))
+    # NOTE: per 2026-04-13 cleanup, master_loader_v2 moved to repo-root scripts/
+    # (previously Pricing_Engine/scripts/). Try both locations for backward compat.
+    _repo_root = SCRIPT_DIR.parent  # Engine_test/
+    _candidate_dirs = [
+        _repo_root / "scripts",           # current canonical location
+        SCRIPT_DIR / "scripts",           # legacy location (pre-2026-04-13)
+    ]
+    for _d in _candidate_dirs:
+        if (_d / "master_loader_v2.py").exists():
+            sys.path.insert(0, str(_d))
+            break
     try:
         from master_loader_v2 import (
             parse_file_with_mapping,
@@ -560,6 +570,7 @@ def classify_and_import(files: list[dict] = None) -> dict:
         )
     except ImportError as e:
         log.error("Cannot import master_loader_v2: %s", e)
+        log.error("Searched: %s", [str(d) for d in _candidate_dirs])
         return {"error": str(e)}
 
     all_data = []
