@@ -1512,6 +1512,9 @@ select.has-error,input.has-error{
     <span id="dhContent" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
       <span class="dh-spinner"></span>
     </span>
+    <button onclick="startVerify(false)" style="margin-left:auto;padding:4px 12px;border-radius:6px;border:1px solid #3b82f6;background:#eff6ff;color:#2563eb;font-size:12px;cursor:pointer;font-weight:600" title="Verify all emails (Syntax + MX check)">🔍 Verify Emails</button>
+    <button onclick="startVerify(true)" style="padding:4px 12px;border-radius:6px;border:1px solid #f59e0b;background:#fffbeb;color:#d97706;font-size:12px;cursor:pointer;font-weight:600" title="Deep verify with SMTP (slower, needs port 25)">⚡ SMTP Deep</button>
+    <span id="verifyStatus" style="font-size:11px;color:#6b7280;min-width:120px"></span>
   </div>
 
   <!-- Header -->
@@ -2905,6 +2908,28 @@ async function loadDataHealth() {
   } catch(e) {
     el.innerHTML = `<span style="color:var(--muted);font-size:.75rem">Data quality unavailable</span>`;
   }
+}
+
+// ── Email Verification ──
+let _verifyPollId = null;
+async function startVerify(smtp) {
+  const label = smtp ? 'SMTP Deep Verify' : 'Quick Verify';
+  if (!confirm(`Start ${label} for all contacts?\n\nThis will add VERIFY_STATUS + VERIFY_REMARK columns.\nNo rows or columns will be deleted.`)) return;
+  const st = document.getElementById('verifyStatus');
+  st.textContent = 'Starting...';
+  try {
+    await fetch(API + '/api/verify-emails?smtp=' + smtp, {method: 'POST'});
+    _verifyPollId = setInterval(async () => {
+      const p = await fetch(API + '/api/verify-emails/progress').then(r => r.json());
+      st.textContent = p.running ? `Verifying: ${p.current}/${p.total}` : `Done! ✅`;
+      if (!p.running && _verifyPollId) {
+        clearInterval(_verifyPollId); _verifyPollId = null;
+        const r = p.results || {};
+        st.innerHTML = `✅ Valid: ${r.valid||0} | ❌ Invalid: ${r.invalid_syntax||0} | 🚫 No MX: ${r.no_mx||0} | 💀 Dead: ${r.dead_smtp||0}`;
+        loadDataHealth();
+      }
+    }, 2000);
+  } catch(e) { st.textContent = 'Error: ' + e.message; }
 }
 
 // ── Analytics Dashboard ──

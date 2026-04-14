@@ -300,6 +300,36 @@ def get_config():
         "week": date.today().isocalendar()[1],
     }
 
+# ── Email Verification ────────────────────────────────────────────
+VERIFY_PROGRESS: dict = {"running": False, "current": 0, "total": 0, "status": "idle", "results": {}}
+
+@app.post("/api/verify-emails")
+def verify_emails(background_tasks: BackgroundTasks, smtp: bool = False):
+    if VERIFY_PROGRESS["running"]:
+        return {"error": "Verification already running", "progress": VERIFY_PROGRESS}
+    VERIFY_PROGRESS.update({"running": True, "current": 0, "total": 0, "status": "starting", "results": {}})
+    def _run():
+        try:
+            from email_bulk_verifier import bulk_verify
+            def _cb(cur, tot, email, status):
+                VERIFY_PROGRESS["current"] = cur
+                VERIFY_PROGRESS["total"] = tot
+                VERIFY_PROGRESS["status"] = f"{cur}/{tot}"
+            result = bulk_verify(smtp=smtp, progress_callback=_cb)
+            VERIFY_PROGRESS["results"] = result
+            VERIFY_PROGRESS["status"] = "done"
+        except Exception as e:
+            VERIFY_PROGRESS["status"] = f"error: {e}"
+            VERIFY_PROGRESS["results"] = {"error": str(e)}
+        finally:
+            VERIFY_PROGRESS["running"] = False
+    background_tasks.add_task(_run)
+    return {"message": "Verification started", "smtp": smtp}
+
+@app.get("/api/verify-emails/progress")
+def verify_progress():
+    return VERIFY_PROGRESS
+
 @app.get("/api/data-health")
 def data_health():
     """Returns contact quality stats from cnee_master_v2 (falls back to v1)."""
@@ -759,6 +789,6 @@ if __name__ == "__main__":
     log.info(f"Parquet: {PARQUET_FILE} (exists={PARQUET_FILE.exists()})")
     log.info(f"Contacts: {len(df_contacts)} | Campaigns: {df_contacts['CMD_NAME'].nunique()}")
     print("\n" + "=" * 50)
-    print("  EMAIL DASHBOARD v2 — http://localhost:8231")
+    print("  EMAIL DASHBOARD v3 — http://localhost:8232")
     print("=" * 50 + "\n")
-    uvicorn.run(app, host="0.0.0.0", port=8231, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8232, log_level="info")
