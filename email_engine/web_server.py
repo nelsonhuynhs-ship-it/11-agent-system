@@ -579,6 +579,167 @@ def wa_webhook_receive(payload: dict):
         log.error(f"Webhook processing error: {e}")
         return {"ok": True}  # always 200 to Meta
 
+# ── Analytics Endpoints ───────────────────────────────────────────
+_analytics_cache: dict = {}
+_analytics_cache_ts: float = 0.0
+_ANALYTICS_TTL = 60  # seconds
+
+def _load_email_log() -> "pd.DataFrame":
+    if not LOG_FILE.exists():
+        return pd.DataFrame(columns=["timestamp","email","subject","campaign_id","status","reply_timestamp","cycle_id"])
+    df = pd.read_csv(LOG_FILE)
+    df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+    return df.dropna(subset=["timestamp"])
+
+def _load_cnee() -> "pd.DataFrame":
+    src = CNEE_V2 if CNEE_V2.exists() else (CNEE_V1 if CNEE_V1.exists() else None)
+    if not src:
+        return pd.DataFrame()
+    df = pd.read_excel(src)
+    df.columns = df.columns.str.strip().str.upper()
+    return df
+
+@app.get("/api/analytics/overview")
+def analytics_overview():
+    import time
+    global _analytics_cache, _analytics_cache_ts
+    now = time.time()
+    if _analytics_cache.get("overview") and now - _analytics_cache_ts < _ANALYTICS_TTL:
+        return _analytics_cache["overview"]
+    try:
+        df = _load_email_log()
+        cnee = _load_cnee()
+        today_start = pd.Timestamp.now().normalize()
+        wa_log_path = BASE_DIR / "logs" / "whatsapp_log.csv"
+        wa_today = 0
+        if wa_log_path.exists():
+            try:
+                wdf = pd.read_csv(wa_log_path)
+                wdf["timestamp"] = pd.to_datetime(wdf["timestamp"], errors="coerce")
+                wa_today = int((wdf["timestamp"] >= today_start).sum())
+            except Exception:
+                pass
+        total_sent = len(df)
+        total_contacts = len(cnee) if not cnee.empty else 0
+        campaigns_active = df["campaign_id"].nunique() if "campaign_id" in df.columns else 0
+        emails_today = int((df["timestamp"] >= today_start).sum())
+        # Reply rate from reply_timestamp column if present
+        reply_rate = 0.0
+        if "reply_timestamp" in df.columns and total_sent > 0:
+            replied = df["reply_timestamp"].notna().sum()
+            reply_rate = round(float(replied) / total_sent * 100, 2)
+        # Bounce rate from cnee
+        bounce_rate = 0.0
+        if not cnee.empty and "EMAIL_STATUS" in cnee.columns:
+            bounced = cnee["EMAIL_STATUS"].isin(["HARD_BOUNCE","SOFT_BOUNCE"]).sum()
+            if total_contacts:
+                bounce_rate = round(float(bounced) / total_contacts * 100, 2)
+        # Avg lead score
+        avg_lead_score = 0
+        if not cnee.empty and "LEAD_SCORE" in cnee.columns:
+            avg_lead_score = int(cnee["LEAD_SCORE"].dropna().mean() or 0)
+        result = {
+            "total_sent": total_sent,
+            "total_contacts": total_contacts,
+            "campaigns_active": campaigns_active,
+            "emails_today": emails_today,
+            "wa_today": wa_today,
+            "reply_rate": reply_rate,
+            "bounce_rate": bounce_rate,
+            "avg_lead_score": avg_lead_score,
+        }
+        _analytics_cache["overview"] = result
+        _analytics_cache_ts = now
+        return result
+    except Exception as e:
+        log.error(f"analytics/overview error: {e}")
+        return {"total_sent":0,"total_contacts":0,"campaigns_active":0,"emails_today":0,"wa_today":0,"reply_rate":0.0,"bounce_rate":0.0,"avg_lead_score":0}
+
+@app.get("/api/analytics/campaign-stats")
+def analytics_campaign_stats():
+    try:
+        df = _load_email_log()
+        cnee = _load_cnee()
+        if df.empty:
+            return []
+        # Group by campaign
+        grp = df.groupby("campaign_id")
+        stats = []
+        for cid, sub in grp:
+            sent = len(sub)
+            replied = int(sub["reply_timestamp"].notna().sum()) if "reply_timestamp" in sub.columns else 0
+            reply_rate = round(replied / sent * 100, 1) if sent else 0.0
+            # Bounced from cnee filtered to campaign
+            bounced = 0
+            avg_score = 0
+            if not cnee.empty:
+                if "CMD_NAME" in cnee.columns:
+                    csub = cnee[cnee["CMD_NAME"] == cid]
+                else:
+                    csub = cnee
+                if "EMAIL_STATUS" in csub.columns:
+                    bounced = int(csub["EMAIL_STATUS"].isin(["HARD_BOUNCE","SOFT_BOUNCE"]).sum())
+                if "LEAD_SCORE" in csub.columns and len(csub):
+                    avg_score = int(csub["LEAD_SCORE"].dropna().mean() or 0)
+            stats.append({
+                "campaign": str(cid),
+                "sent": sent,
+                "replied": replied,
+                "bounced": bounced,
+                "reply_rate": reply_rate,
+                "avg_score": avg_score,
+            })
+        stats.sort(key=lambda x: x["reply_rate"], reverse=True)
+        return stats
+    except Exception as e:
+        log.error(f"analytics/campaign-stats error: {e}")
+        return []
+
+@app.get("/api/analytics/timeline")
+def analytics_timeline(days: int = 30):
+    try:
+        df = _load_email_log()
+        wa_log_path = BASE_DIR / "logs" / "whatsapp_log.csv"
+        cutoff = pd.Timestamp.now() - pd.Timedelta(days=days)
+        # Email daily
+        email_daily: dict = {}
+        reply_daily: dict = {}
+        if not df.empty:
+            recent = df[df["timestamp"] >= cutoff].copy()
+            recent["date"] = recent["timestamp"].dt.date.astype(str)
+            email_daily = recent.groupby("date").size().to_dict()
+            if "reply_timestamp" in recent.columns:
+                r = recent[recent["reply_timestamp"].notna()].copy()
+                r["rdate"] = pd.to_datetime(r["reply_timestamp"], errors="coerce").dt.date.astype(str)
+                reply_daily = r.groupby("rdate").size().to_dict()
+        # WA daily
+        wa_daily: dict = {}
+        if wa_log_path.exists():
+            try:
+                wdf = pd.read_csv(wa_log_path)
+                wdf["timestamp"] = pd.to_datetime(wdf["timestamp"], errors="coerce")
+                wdf = wdf[wdf["timestamp"] >= cutoff].copy()
+                wdf["date"] = wdf["timestamp"].dt.date.astype(str)
+                wa_daily = wdf.groupby("date").size().to_dict()
+            except Exception:
+                pass
+        # Build date range
+        import datetime as dt_mod
+        result = []
+        for i in range(days):
+            d = (pd.Timestamp.now() - pd.Timedelta(days=days-1-i)).date()
+            ds = str(d)
+            result.append({
+                "date": ds,
+                "emails": email_daily.get(ds, 0),
+                "whatsapp": wa_daily.get(ds, 0),
+                "replies": reply_daily.get(ds, 0),
+            })
+        return result
+    except Exception as e:
+        log.error(f"analytics/timeline error: {e}")
+        return []
+
 @app.get("/api/whatsapp/log")
 def wa_log_endpoint(limit: int = 100):
     wa_log_path = BASE_DIR / "logs" / "whatsapp_log.csv"
