@@ -1,0 +1,41 @@
+default_commission_rate: 0.50  # 50% of gross profit goes to commission pool
+
+# Per-customer overrides (CRM_ID -> % of gross profit allocated to KB pool)
+customer_commission:
+  VIFON EXPORT: 0.40
+  NAFOODS: 0.45
+  SIRI: 0.50
+  PANDA DAD: 0.50
+
+# Marine insurance rates — % of declared cargo value
+insurance_rates:
+  A:  # ICC-A All Risks (broadest coverage)
+    default: 0.0015  # 0.15%
+    REEFER: 0.0020   # 0.20% surcharge for refrigerated cargo
+  B:  # ICC-B Named perils
+    default: 0.0010
+  C:  # ICC-C Most named perils (narrowest)
+    default: 0.0005
+
+# Trucking rates by destination zone (USD per 40HC equivalent)
+# 20GP = 0.6 factor applied; CY-CY (no trucking) = 0 even for non-zero zones
+trucking:
+  zones:
+    # USWC inland destinations
+    CHICAGO, IL: 1800
+    DENVER, CO: 1400
+    SALT LAKE CITY, UT: 1600
+    ATLANTA, GA: 2200
+    HOUSTON, TX: 2000
+    DALLAS, TX: 1900
+    # Direct port = 0 (no inland trucking)
+    LOS ANGELES, CA: 0
+    LONG BEACH, CA: 0
+    NEW YORK, NY: 0
+    SAVANNAH, GA: 0
+  factor_20GP: 0.6   # 20GP charged 60% of 40HC rate
+  factor_40HC: 1.0
+  tthq_fee: 150  # TTHQ customs clearance fee per shipment (DOOR only)
+
+# Withholding tax on company's share of KB pool (KICK BACK Tax column)
+withholding_tax_rate: 0.03  # 3%

@@ -1,378 +1,395 @@
+"""weekly_report.py — Nelson Freight weekly sales KPI report (12 cols).
+Replaces previous 4C market-analysis script — see f6-weekly-report.md.
+Usage: python ERP/intelligence/weekly_report.py [--year Y --week W] [--out path]
 """
-WEEKLY MARKET REPORT - 4C Framework
-Costing | Capacity | Challenge | Change
+from __future__ import annotations
 
-Kết hợp: Pricing + Product Update + Schedule
-Output: Report toàn diện cho Sales review mỗi thứ 2
-"""
-
+import argparse
 import os
 import sys
-import pandas as pd
-from datetime import datetime, date
+from datetime import date, datetime, timedelta
+from typing import Final
 
-sys.stdout.reconfigure(encoding='utf-8')
+import openpyxl
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PRICING_FILE = os.path.join(BASE_DIR, "Pricing_Engine", "MasterFullPricing.xlsx")
+sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 
-# Region mapping
-REGIONS = {
-    'USWC': ['USLAX', 'USLGB', 'USOAK', 'USSEA', 'USTAC'],
-    'USEC': ['USNYC', 'USSAV', 'USCHS', 'USJAX', 'USORF', 'USBOS', 'USPHL'],
-    'USGULF': ['USHOU', 'USMSY', 'USMOB', 'USTPA', 'USTIW'],
-    'CANADA': ['CAVAN', 'CAHAL', 'CATOR', 'CAMTR'],
+DEFAULT_ERP_FILE: Final = r"D:\OneDrive\NelsonData\erp\ERP_Master_v14.xlsm"
+DEFAULT_OUT_DIR: Final = r"D:\OneDrive\NelsonData\erp\weekly_reports"
+DEFAULT_EMAIL_LOG: Final = r"D:\NELSON\2. Areas\Engine_test\email_engine\logs\email_log.csv"
+
+AJ_DATA_START = 8  # Active Jobs: header row 7, data row 8+
+AJ_COL: Final = {
+    "CRM_ID": 1,
+    "Container_Type": 10,
+    "Quantity": 11,
+    "Profit": 14,
+    "Created_Date": 25,
 }
 
-INLAND_CITIES = ['KANSAS', 'DENVER', 'DALLAS', 'CINCINNATI', 'CHICAGO', 'ATLANTA', 'MEMPHIS']
+TEU_FACTOR: Final = {
+    "20GP": 1, "20DC": 1, "20RF": 1,
+    "40GP": 2, "40DC": 2, "40HC": 2, "40HQ": 2, "40RF": 2, "45HC": 2, "45HQ": 2,
+}
 
-CARRIERS_FOCUS = ['ONE', 'HPL', 'CMA', 'MSC', 'COSCO', 'YML', 'ZIM', 'EMC']
+SALES_MAP: Final = {
+    "Nelson":  ["nelsonhuynhs@gmail.com", "nelson@pudongprime.vn"],
+    "Johnny":  ["johnny@pudongprime.vn"],
+    "Jennie":  ["jennie@pudongprime.vn"],
+    "Blue":    ["blue@pudongprime.vn"],
+    "Lina":    ["lina@pudongprime.vn"],
+    "Otis":    ["otis@pudongprime.vn"],
+    "Jun":     ["jun@pudongprime.vn"],
+}
 
-COMMODITY_TYPES = {
-    'FAK': ['FAK'],
-    'FIX': ['FIX', '990104', 'NAC'],
-    'REEFER': ['REEFER'],
-    'SHORT_TERM': ['SHORT TERM', 'GDSM', 'GDS'],
+EMAIL_TO_SALES: Final = {
+    email: name
+    for name, emails in SALES_MAP.items()
+    for email in emails
 }
 
 
-def load_pricing_data():
-    """Load current pricing from MasterFullPricing"""
-    if not os.path.exists(PRICING_FILE):
-        print(f"⚠️ Pricing file not found: {PRICING_FILE}")
-        return pd.DataFrame()
-    
-    df = pd.read_excel(PRICING_FILE, sheet_name='Master')
-    return df
+def iso_week(d: date) -> tuple[int, int]:
+    """Return (iso_year, iso_week_number) for a given date per ISO-8601."""
+    iso = d.isocalendar()
+    return iso[0], iso[1]
 
 
-def load_old_rate():
-    """Load historical rates for comparison"""
-    if not os.path.exists(PRICING_FILE):
-        return pd.DataFrame()
-    
+def week_bounds(year: int, week: int) -> tuple[date, date]:
+    """Return (monday, sunday) for the given ISO year/week."""
+    jan4 = date(year, 1, 4)  # Jan 4 is always in week 1 per ISO-8601
+    week1_monday = jan4 - timedelta(days=jan4.weekday())
+    monday = week1_monday + timedelta(weeks=week - 1)
+    sunday = monday + timedelta(days=6)
+    return monday, sunday
+
+
+def load_active_jobs_for_week(erp_file: str, year: int, week: int) -> list[dict]:
+    """Load Active Jobs rows where Created_Date falls in the ISO week.
+    All attributed to Nelson (safe default — no Owner col in v14).
+    """
+    if not os.path.exists(erp_file):
+        raise FileNotFoundError(f"ERP file not found: {erp_file}")
+
+    monday, sunday = week_bounds(year, week)
+    start = datetime(monday.year, monday.month, monday.day)
+    end = datetime(sunday.year, sunday.month, sunday.day, 23, 59, 59)
+
+    wb = openpyxl.load_workbook(erp_file, read_only=True, data_only=True, keep_vba=True)
+    sheet_name = next((s for s in wb.sheetnames if "Active" in s), None)
+    if not sheet_name:
+        wb.close()
+        raise RuntimeError("Active Jobs sheet not found in workbook")
+
+    ws = wb[sheet_name]
+    rows: list[dict] = []
+    for r in range(AJ_DATA_START, ws.max_row + 1):
+        crm = ws.cell(r, AJ_COL["CRM_ID"]).value
+        if not crm:
+            continue
+        created = ws.cell(r, AJ_COL["Created_Date"]).value
+        if not isinstance(created, datetime):
+            continue
+        if not (start <= created <= end):
+            continue
+        rows.append({
+            "CRM_ID": str(crm).strip(),
+            "Container_Type": ws.cell(r, AJ_COL["Container_Type"]).value or "",
+            "Quantity": int(ws.cell(r, AJ_COL["Quantity"]).value or 1),
+            "Profit": float(ws.cell(r, AJ_COL["Profit"]).value or 0),
+            "sales": "Nelson",
+        })
+    wb.close()
+    return rows
+
+
+def load_emails_for_week(log_csv: str, year: int, week: int) -> dict[str, int]:
+    """Count emails per sender for the ISO week. Returns {sender_email: count}.
+    Auto-detects sender_email/sender/from_email column if present;
+    otherwise credits all to Nelson (current log has no sender column).
+    """
+    if not os.path.exists(log_csv):
+        return {}
+
+    import pandas as pd
+
     try:
-        df = pd.read_excel(PRICING_FILE, sheet_name='Recent_History')
-        return df
-    except:
-        return pd.DataFrame()
+        df = pd.read_csv(log_csv, dtype=str)
+    except Exception:
+        return {}
 
+    sender_col = None
+    for candidate in ("sender_email", "sender", "from_email"):
+        if candidate in df.columns:
+            sender_col = candidate
+            break
 
-def get_region(pod):
-    """Determine region from POD code"""
-    if not pod:
-        return 'OTHER'
-    pod = str(pod).upper()
-    for region, codes in REGIONS.items():
-        if pod in codes or any(pod.startswith(c[:2]) for c in codes):
-            return region
-    return 'OTHER'
+    monday, sunday = week_bounds(year, week)
 
-
-def get_commodity_group(commodity):
-    """Group commodity types"""
-    if not commodity:
-        return 'OTHER'
-    comm = str(commodity).upper()
-    for group, keywords in COMMODITY_TYPES.items():
-        if any(kw in comm for kw in keywords):
-            return group
-    return 'OTHER'
-
-
-def check_inland(place):
-    """Check if destination is inland"""
-    if not place:
-        return False
-    place_upper = str(place).upper()
-    return any(city in place_upper for city in INLAND_CITIES)
-
-
-def analyze_costing(df):
-    """Analyze current pricing - COSTING section"""
-    results = {}
-    
-    # Filter HCM and HPH origins
-    df_origin = df[df['POL'].isin(['HCM', 'HPH'])]
-    
-    for region in ['USWC', 'USEC', 'USGULF', 'CANADA']:
-        results[region] = {}
-        
-        # Filter by region
-        df_region = df_origin[df_origin['POD'].apply(lambda x: get_region(x) == region)]
-        
-        for carrier in CARRIERS_FOCUS:
-            df_carrier = df_region[df_region['Carrier'] == carrier]
-            if df_carrier.empty:
+    def _parse_ts(val: str) -> datetime | None:
+        for fmt in ("%d/%m/%Y %H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+            try:
+                return datetime.strptime(str(val).strip(), fmt)
+            except ValueError:
                 continue
-            
-            carrier_data = {}
-            for comm_group in ['FAK', 'FIX', 'REEFER', 'SHORT_TERM']:
-                df_comm = df_carrier[df_carrier['Commodity'].apply(lambda x: get_commodity_group(x) == comm_group)]
-                if df_comm.empty:
-                    continue
-                
-                # Get min price for 40HQ
-                price_40hq = df_comm['40HQ'].dropna()
-                if not price_40hq.empty:
-                    carrier_data[comm_group] = {
-                        'min': int(price_40hq.min()),
-                        'max': int(price_40hq.max()),
-                        'count': len(price_40hq)
-                    }
-            
-            if carrier_data:
-                results[region][carrier] = carrier_data
-    
-    # Inland analysis
-    results['INLAND'] = {}
-    df_inland = df_origin[df_origin['Place'].apply(check_inland)]
-    
-    for carrier in CARRIERS_FOCUS:
-        df_carrier = df_inland[df_inland['Carrier'] == carrier]
-        if df_carrier.empty:
-            continue
-        
-        price_40hq = df_carrier['40HQ'].dropna()
-        if not price_40hq.empty:
-            # Group by city
-            for city in INLAND_CITIES:
-                df_city = df_carrier[df_carrier['Place'].str.upper().str.contains(city, na=False)]
-                if not df_city.empty:
-                    city_price = df_city['40HQ'].dropna()
-                    if not city_price.empty:
-                        if city not in results['INLAND']:
-                            results['INLAND'][city] = {}
-                        results['INLAND'][city][carrier] = {
-                            'min': int(city_price.min()),
-                            'max': int(city_price.max())
-                        }
-    
-    return results
+        return None
+
+    df["_ts"] = df["timestamp"].apply(_parse_ts)
+    df = df.dropna(subset=["_ts"])
+    df = df[df["_ts"].apply(
+        lambda dt: date(dt.year, dt.month, dt.day) >= monday
+        and date(dt.year, dt.month, dt.day) <= sunday
+    )]
+
+    if sender_col:
+        counts = df[sender_col].value_counts().to_dict()
+        return {str(k): int(v) for k, v in counts.items()}
+    else:
+        return {"nelson@pudongprime.vn": int(len(df))}
 
 
-def analyze_capacity(product_data, schedule_data):
-    """Analyze capacity - space, equipment, blanks"""
-    results = {
-        'space': {},
-        'equipment': {},
-        'blanks': {}
+def _load_crm_first_transactions(erp_file: str) -> dict[str, datetime]:
+    """Return {CRM_ID: first_transaction_date} from CRM sheet."""
+    if not os.path.exists(erp_file):
+        return {}
+    try:
+        wb = openpyxl.load_workbook(erp_file, read_only=True, data_only=True, keep_vba=True)
+        sname = next((s for s in wb.sheetnames if "CRM" in s.upper()), None)
+        if not sname:
+            wb.close(); return {}
+        ws = wb[sname]
+        hdr_row = ft_col = None
+        for r in range(1, min(10, ws.max_row + 1)):
+            for c in range(1, min(40, ws.max_column + 1)):
+                v = ws.cell(r, c).value
+                if v and "first" in str(v).lower() and "transaction" in str(v).lower():
+                    ft_col, hdr_row = c, r; break
+            if ft_col:
+                break
+        if not ft_col:
+            wb.close(); return {}
+        result = {}
+        for r in range(hdr_row + 1, ws.max_row + 1):
+            cid, ft = ws.cell(r, 1).value, ws.cell(r, ft_col).value
+            if cid and isinstance(ft, datetime):
+                result[str(cid).strip()] = ft
+        wb.close()
+        return result
+    except Exception:
+        return {}
+
+
+def build_weekly_summary(
+    jobs: list[dict],
+    emails: dict[str, int],
+    sales_map: dict[str, str],
+    erp_file: str = DEFAULT_ERP_FILE,
+    year: int | None = None,
+    week: int | None = None,
+) -> list[dict]:
+    """One row per sales person with 12 KPI fields.
+    KH MOI = first transaction in this week per CRM; KH SDDV = all others.
+    """
+    if year is None or week is None:
+        y, w = iso_week(date.today())
+        year = year or y
+        week = week or w
+
+    monday, sunday = week_bounds(year, week)
+    week_start = datetime(monday.year, monday.month, monday.day)
+    week_end = datetime(sunday.year, sunday.month, sunday.day, 23, 59, 59)
+
+    crm_first = _load_crm_first_transactions(erp_file)
+
+    data: dict[str, dict] = {
+        name: {"shipments": 0, "vol_teu": 0.0, "profit": 0.0, "customers": set()}
+        for name in SALES_MAP
     }
-    
-    # Space from product update
-    if product_data:
-        for carrier, info in product_data.get('space_situation', {}).items():
-            results['space'][carrier] = info.get('status', 'UNKNOWN')
-        
-        for carrier, info in product_data.get('equipment', {}).items():
-            results['equipment'][carrier] = info.get('quality', 'NORMAL')
-    
-    # Blanks from schedule
-    if schedule_data:
-        for week, count in schedule_data.get('blanks_by_week', {}).items():
-            results['blanks'][week] = count
-    
-    return results
+
+    for job in jobs:
+        sales_name = job.get("sales", "Nelson")
+        if sales_name not in data:
+            data[sales_name] = {"shipments": 0, "vol_teu": 0.0, "profit": 0.0, "customers": set()}
+        d = data[sales_name]
+        d["shipments"] += 1
+        cont = str(job.get("Container_Type") or "").upper().strip()
+        qty = int(job.get("Quantity") or 1)
+        teu = TEU_FACTOR.get(cont, 1)
+        d["vol_teu"] += qty * teu
+        d["profit"] += float(job.get("Profit") or 0)
+        cid = job.get("CRM_ID")
+        if cid:
+            d["customers"].add(cid)
+
+    email_counts: dict[str, int] = {}
+    for key, cnt in emails.items():
+        name = sales_map.get(key) or EMAIL_TO_SALES.get(key) or key
+        email_counts[name] = email_counts.get(name, 0) + cnt
+
+    rows: list[dict] = []
+    for stt, sales_name in enumerate(SALES_MAP.keys(), start=1):
+        d = data[sales_name]
+        customers = d["customers"]
+
+        new_custs = set()
+        existing_custs = set()
+        for cid in customers:
+            ft = crm_first.get(cid)
+            if ft and week_start <= ft <= week_end:
+                new_custs.add(cid)
+            else:
+                existing_custs.add(cid)
+
+        rows.append({
+            "STT": stt,
+            "Ten Sales": sales_name,
+            "So shipment": d["shipments"],
+            "VOL (TEU)": round(d["vol_teu"], 1),
+            "PROFIT ($)": round(d["profit"], 0),
+            "KH SDDV": len(existing_custs),
+            "KH MOI": len(new_custs),
+            "GAP KH": 0,
+            "KH TIEM NANG": 0,
+            "HOAT DONG TUAN": email_counts.get(sales_name, 0),
+            "% HOAN THANH": "",
+            "PLAN TUAN NAY": "",
+        })
+
+    return rows
 
 
-def analyze_changes(df_current, df_old):
-    """Analyze week-over-week changes"""
-    results = {}
-    
-    if df_current.empty or df_old.empty:
-        return results
-    
-    # Get latest and previous rates for comparison
-    for region in ['USWC', 'USEC', 'USGULF']:
-        results[region] = {}
-        
-        for carrier in ['ONE', 'HPL', 'CMA']:
-            # Current average
-            curr = df_current[
-                (df_current['Carrier'] == carrier) & 
-                (df_current['POD'].apply(lambda x: get_region(x) == region))
-            ]['40HQ'].dropna()
-            
-            # Previous average
-            prev = df_old[
-                (df_old['Carrier'] == carrier) & 
-                (df_old['POD'].apply(lambda x: get_region(x) == region))
-            ]['40HQ'].dropna()
-            
-            if not curr.empty and not prev.empty:
-                curr_avg = curr.mean()
-                prev_avg = prev.mean()
-                delta = curr_avg - prev_avg
-                pct = (delta / prev_avg * 100) if prev_avg else 0
-                
-                results[region][carrier] = {
-                    'current': int(curr_avg),
-                    'previous': int(prev_avg),
-                    'delta': int(delta),
-                    'pct': round(pct, 1)
-                }
-    
-    return results
+_THIN = Side(style="thin", color="AAAAAA")
+_BORDER = Border(left=_THIN, right=_THIN, top=_THIN, bottom=_THIN)
+_BLUE_HDR = "1F4E79"
+_ROW_ODD = "EAF0FB"
+_ROW_EVEN = "FFFFFF"
+_TOTAL_BG = "FFF2CC"
+
+COLUMNS = [
+    "STT", "Ten Sales", "So shipment", "VOL (TEU)", "PROFIT ($)",
+    "KH SDDV", "KH MOI", "GAP KH", "KH TIEM NANG",
+    "HOAT DONG TUAN", "% HOAN THANH", "PLAN TUAN NAY",
+]
+COL_WIDTHS = [5, 14, 12, 10, 12, 10, 10, 10, 14, 16, 14, 16]
 
 
-def generate_report():
-    """Generate comprehensive 4C Market Report"""
-    
-    print("="*80)
-    print("📊 WEEKLY MARKET REPORT - 4C FRAMEWORK")
-    print(f"   Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')} (Week {datetime.now().isocalendar()[1]})")
-    print("   Origin: HCM, HPH → USA, Canada")
-    print("="*80)
-    
-    # Load data
-    print("\n⏳ Loading data...")
-    df_current = load_pricing_data()
-    df_old = load_old_rate()
-    
-    # Load product update and schedule from history
-    product_data = None
-    schedule_data = None
-    try:
-        from market_history import load_history
-        history = load_history()
-        
-        # Get latest product update
-        if history['product_updates']:
-            latest_week = sorted(history['product_updates'].keys())[-1]
-            product_data = history['product_updates'][latest_week]
-        
-        # Get latest schedule
-        if history['schedules']:
-            latest_sched = sorted(history['schedules'].keys())[-1]
-            schedule_data = history['schedules'][latest_sched]
-    except:
-        pass
-    
-    # ========== 1. COSTING ==========
-    print("\n" + "="*80)
-    print("💰 1. COSTING - Mức giá hiện tại (40HQ)")
-    print("="*80)
-    
-    costing = analyze_costing(df_current)
-    
-    for region in ['USWC', 'USEC', 'USGULF', 'CANADA']:
-        if region not in costing or not costing[region]:
-            continue
-        
-        print(f"\n📍 {region}:")
-        print("-"*60)
-        print(f"{'Carrier':<8} {'FAK':<15} {'FIX':<15} {'REEFER':<15} {'SHORT':<15}")
-        print("-"*60)
-        
-        for carrier, data in costing[region].items():
-            fak = f"${data.get('FAK', {}).get('min', '-'):,}" if 'FAK' in data else "-"
-            fix = f"${data.get('FIX', {}).get('min', '-'):,}" if 'FIX' in data else "-"
-            rf = f"${data.get('REEFER', {}).get('min', '-'):,}" if 'REEFER' in data else "-"
-            short = f"${data.get('SHORT_TERM', {}).get('min', '-'):,}" if 'SHORT_TERM' in data else "-"
-            print(f"{carrier:<8} {fak:<15} {fix:<15} {rf:<15} {short:<15}")
-    
-    # Inland
-    if costing.get('INLAND'):
-        print(f"\n📍 INLAND CITIES:")
-        print("-"*60)
-        for city, carriers in costing['INLAND'].items():
-            carrier_str = " | ".join([f"{c}: ${v['min']:,}" for c, v in list(carriers.items())[:3]])
-            print(f"   {city}: {carrier_str}")
-    
-    # ========== 2. CAPACITY ==========
-    print("\n" + "="*80)
-    print("📦 2. CAPACITY - Space, Equipment, Sailings")
-    print("="*80)
-    
-    capacity = analyze_capacity(product_data, schedule_data)
-    
-    # Space Status
-    print("\n🚢 Space Status:")
-    for carrier in CARRIERS_FOCUS:
-        status = capacity['space'].get(carrier, 'N/A')
-        emoji = "🔴" if status == 'FULL' else "🟢" if status == 'OPEN' else "🟡"
-        print(f"   {emoji} {carrier}: {status}")
-    
-    # Equipment
-    print("\n🔧 Equipment:")
-    for carrier, quality in capacity['equipment'].items():
-        emoji = "✅" if quality == 'GOOD' else "⚠️" if quality == 'BAD' else "➖"
-        print(f"   {emoji} {carrier}: {quality}")
-    
-    # Blank Sailings
-    print("\n⚓ Sailing Schedule (Blanks per week):")
-    for week, count in sorted(capacity['blanks'].items()):
-        bar = "█" * min(count, 20)
-        status = "TIGHT" if count >= 10 else "NORMAL" if count >= 3 else "OPEN"
-        emoji = "🔴" if status == 'TIGHT' else "🟡" if status == 'NORMAL' else "🟢"
-        print(f"   {emoji} {week}: {count:2d} blanks {bar}")
-    
-    # ========== 3. CHALLENGE ==========
-    print("\n" + "="*80)
-    print("⚠️ 3. CHALLENGE - Rủi ro và Thách thức")
-    print("="*80)
-    
-    if product_data:
-        print("\n🔔 Special Notes từ Product:")
-        for note in product_data.get('special_notes', [])[:5]:
-            print(f"   • {note[:100]}...")
-    
-    # Identify challenges
-    print("\n🚨 Key Challenges:")
-    full_carriers = [c for c, s in capacity['space'].items() if s == 'FULL']
-    if full_carriers:
-        print(f"   • FULL Space: {', '.join(full_carriers)} → Book sớm hoặc alternative")
-    
-    bad_equip = [c for c, q in capacity['equipment'].items() if q == 'BAD']
-    if bad_equip:
-        print(f"   • Equipment xấu: {', '.join(bad_equip)} → Kiểm tra rỗng trước khi lấy")
-    
-    tight_weeks = [w for w, c in capacity['blanks'].items() if c >= 10]
-    if tight_weeks:
-        print(f"   • Tight weeks: {', '.join(tight_weeks)} → Push booking sớm")
-    
-    # ========== 4. CHANGE ==========
-    print("\n" + "="*80)
-    print("📈 4. CHANGE - Biến động giá vs Kỳ trước")
-    print("="*80)
-    
-    try:
-        changes = analyze_changes(df_current, df_old)
-        
-        if not changes:
-            print("\n   ⚠️ Chưa có dữ liệu so sánh kỳ trước")
-        else:
-            for region in ['USWC', 'USEC', 'USGULF']:
-                if region not in changes or not changes[region]:
-                    continue
-                
-                print(f"\n📍 {region}:")
-                for carrier, data in changes[region].items():
-                    delta = data['delta']
-                    pct = data['pct']
-                    arrow = "▲" if delta > 0 else "▼" if delta < 0 else "→"
-                    color_note = "(Tăng)" if delta > 0 else "(Giảm)" if delta < 0 else "(Ổn định)"
-                    print(f"   {carrier}: ${data['current']:,} {arrow} ${abs(delta):,} ({pct:+.1f}%) {color_note}")
-    except Exception as e:
-        print(f"\n   ⚠️ Chưa có dữ liệu so sánh: {str(e)[:50]}")
-    
-    # ========== SUMMARY ==========
-    print("\n" + "="*80)
-    print("📋 EXECUTIVE SUMMARY")
-    print("="*80)
-    
-    print("\n💡 Recommendations:")
-    if full_carriers:
-        print(f"   1. Carriers FULL ({', '.join(full_carriers)}): Ưu tiên alternatives hoặc book trước 2 tuần")
-    if tight_weeks:
-        print(f"   2. Weeks TIGHT ({', '.join(tight_weeks)}): Khuyên khách confirm sớm, expect giá tăng")
-    if bad_equip:
-        print(f"   3. Equipment issues ({', '.join(bad_equip)}): Cảnh báo khách check rỗng")
-    
-    print("\n" + "="*80)
-    print("END OF WEEKLY MARKET REPORT")
-    print("="*80)
+_CENTER = Alignment(horizontal="center", vertical="center")
+
+def _style_title(cell):
+    cell.font = Font(bold=True, size=14, color=_BLUE_HDR, name="Segoe UI")
+    cell.alignment = _CENTER
+
+def _style_hdr(cell):
+    cell.font = Font(bold=True, color="FFFFFF", size=9, name="Segoe UI")
+    cell.fill = PatternFill("solid", fgColor=_BLUE_HDR)
+    cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    cell.border = _BORDER
+
+def _style_body(cell, odd: bool = True, bold: bool = False, fmt: str | None = None):
+    cell.font = Font(size=10, name="Segoe UI", bold=bold)
+    cell.fill = PatternFill("solid", fgColor=_ROW_ODD if odd else _ROW_EVEN)
+    cell.alignment = _CENTER
+    cell.border = _BORDER
+    if fmt:
+        cell.number_format = fmt
+
+def _style_total(cell, fmt: str | None = None):
+    cell.font = Font(bold=True, size=11, name="Segoe UI", color=_BLUE_HDR)
+    cell.fill = PatternFill("solid", fgColor=_TOTAL_BG)
+    cell.alignment = _CENTER
+    cell.border = _BORDER
+    if fmt:
+        cell.number_format = fmt
+
+
+_COL_FMT = {"PROFIT ($)": '"$"#,##0', "VOL (TEU)": "#,##0.0"}
+
+def write_weekly_report(rows: list[dict], year: int, week: int, out_file: str) -> dict:
+    """Write formatted xlsx. Returns stats dict."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = f"W{week:02d}_{year}"
+    nc = len(COLUMNS)
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=nc)
+    ws["A1"] = f"WEEKLY REPORT — Week {week} / {year}"
+    _style_title(ws["A1"]); ws.row_dimensions[1].height = 30
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=nc)
+    ws["A2"] = "Nelson Freight (Pudong Prime) — Sales KPI"
+    ws["A2"].font = Font(italic=True, size=9, color="555555")
+    ws["A2"].alignment = _CENTER; ws.row_dimensions[2].height = 16
+    for c, (label, width) in enumerate(zip(COLUMNS, COL_WIDTHS), start=1):
+        _style_hdr(ws.cell(3, c, label))
+        ws.column_dimensions[chr(ord("A") + c - 1)].width = width
+    ws.row_dimensions[3].height = 32
+    totals = {"So shipment": 0, "VOL (TEU)": 0.0, "PROFIT ($)": 0.0,
+              "KH SDDV": 0, "KH MOI": 0, "GAP KH": 0, "KH TIEM NANG": 0, "HOAT DONG TUAN": 0}
+    for idx, row in enumerate(rows):
+        rr, odd = 4 + idx, idx % 2 == 0
+        for c, col in enumerate(COLUMNS, start=1):
+            _style_body(ws.cell(rr, c, row.get(col, "")), odd=odd, fmt=_COL_FMT.get(col))
+        for k in totals:
+            v = row.get(k, 0)
+            if isinstance(v, (int, float)):
+                totals[k] += v
+        ws.row_dimensions[rr].height = 20
+    tr = 4 + len(rows)
+    ws.cell(tr, 1, "TOTAL")
+    ws.merge_cells(start_row=tr, start_column=1, end_row=tr, end_column=2)
+    for c, col in enumerate(COLUMNS, start=1):
+        cell = ws.cell(tr, c)
+        if col in totals:
+            cell.value = totals[col]
+        _style_total(cell, fmt=_COL_FMT.get(col))
+    ws.row_dimensions[tr].height = 22
+    ws.freeze_panes = "A4"
+    os.makedirs(os.path.dirname(out_file), exist_ok=True)
+    wb.save(out_file); wb.close()
+    return {"rows": len(rows), "total_shipments": totals["So shipment"],
+            "total_vol_teu": totals["VOL (TEU)"], "total_profit": totals["PROFIT ($)"],
+            "out_file": out_file}
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Generate weekly sales KPI report")
+    ap.add_argument("--year", type=int, default=None)
+    ap.add_argument("--week", type=int, default=None)
+    ap.add_argument("--erp", default=DEFAULT_ERP_FILE)
+    ap.add_argument("--email-log", default=DEFAULT_EMAIL_LOG)
+    ap.add_argument("--out", default=None)
+    args = ap.parse_args()
+
+    if args.year and args.week:
+        year, week = args.year, args.week
+    else:
+        year, week = iso_week(date.today())
+
+    print(f"[+] Weekly KPI report — Year {year} Week {week}")
+
+    jobs = load_active_jobs_for_week(args.erp, year, week)
+    print(f"    -> {len(jobs)} jobs in week")
+
+    emails = load_emails_for_week(args.email_log, year, week)
+    total_emails = sum(emails.values())
+    print(f"    -> {total_emails} emails sent this week")
+
+    rows = build_weekly_summary(
+        jobs, emails, EMAIL_TO_SALES,
+        erp_file=args.erp, year=year, week=week,
+    )
+
+    out = args.out
+    if not out:
+        out = os.path.join(DEFAULT_OUT_DIR, f"WEEKLY_{year}_W{week:02d}.xlsx")
+
+    stats = write_weekly_report(rows, year, week, out)
+    print(f"\n[SUCCESS] Report written: {stats['out_file']}")
+    print(f"    sales rows : {stats['rows']}")
+    print(f"    shipments  : {stats['total_shipments']}")
+    print(f"    volume TEU : {stats['total_vol_teu']:.1f}")
+    print(f"    profit     : ${stats['total_profit']:,.0f}")
+    return 0
 
 
 if __name__ == "__main__":
-    generate_report()
+    sys.exit(main())

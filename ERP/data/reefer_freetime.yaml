@@ -1,0 +1,34 @@
+# reefer_freetime.yaml — Reefer Power Plug Fee config
+# Nelson can edit daily fees here; no code changes needed.
+# All fees in USD/day per container.
+#
+# plug_fee  : charged by terminal for reefer power while sitting on dock
+# demurrage : storage fee after freetime_days_demurrage (same for all ports)
+#
+# freetime_days: number of FREE days before plug fee starts
+#   = (ATA + freetime_days) is the last free day
+#   Drop container BY that date to pay $0 plug fee.
+
+terminals:
+  USLGB:
+    freetime_days: 4
+    daily_fee_20RF: 150
+    daily_fee_40RF: 200
+  USLAX:
+    freetime_days: 4
+    daily_fee_20RF: 160
+    daily_fee_40RF: 210
+  USNYC:
+    freetime_days: 5
+    daily_fee_20RF: 180
+    daily_fee_40RF: 230
+  default:
+    freetime_days: 4
+    daily_fee_20RF: 150
+    daily_fee_40RF: 200
+
+# Demurrage (storage) — applies alongside plug fee after freetime_days_demurrage
+demurrage:
+  freetime_days: 7
+  daily_fee_20RF: 100
+  daily_fee_40RF: 140
