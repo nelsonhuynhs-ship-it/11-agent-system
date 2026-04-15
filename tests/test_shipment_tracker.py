@@ -157,8 +157,8 @@ class TestComputeStage:
 
 class TestUpdateActiveJobs:
 
-    def test_update_writes_tracking_stage_col32(self, seeded_erp: Path):
-        """update_active_jobs() must write 'N/7 Name' labels to col 32."""
+    def test_update_writes_tracking_stage_col36(self, seeded_erp: Path):
+        """update_active_jobs() must write 'N/7 Name' labels to col 36 (TRACKING_STAGE)."""
         stats = update_active_jobs(str(seeded_erp), dry_run=False)
         assert stats["total"] > 0
 
@@ -171,14 +171,14 @@ class TestUpdateActiveJobs:
             crm = ws.cell(r, 1).value
             if not crm:
                 continue
-            stage_val = ws.cell(r, 32).value
+            stage_val = ws.cell(r, 36).value
             if stage_val:
                 filled += 1
                 # Must match pattern "N/7 Name"
                 assert "/" in str(stage_val), f"Row {r} TRACKING_STAGE '{stage_val}' missing '/'"
                 assert "7" in str(stage_val), f"Row {r} TRACKING_STAGE '{stage_val}' missing '7'"
         wb.close()
-        assert filled > 0, "No TRACKING_STAGE values written to col 32"
+        assert filled > 0, "No TRACKING_STAGE values written to col 36"
 
     def test_stage_format_correct(self, seeded_erp: Path):
         """TRACKING_STAGE values must follow 'N/7 StageName' format exactly."""
@@ -193,7 +193,7 @@ class TestUpdateActiveJobs:
             crm = ws.cell(r, 1).value
             if not crm:
                 continue
-            val = ws.cell(r, 32).value
+            val = ws.cell(r, 36).value
             if val:
                 assert val in valid_labels, (
                     f"Row {r} TRACKING_STAGE '{val}' not in valid labels"
@@ -206,27 +206,27 @@ class TestUpdateActiveJobs:
         assert sum(stats["by_stage"].values()) == stats["total"]
 
     def test_dry_run_does_not_write(self, seeded_erp: Path):
-        """dry_run=True must not modify col 32."""
-        # Clear col 32 first
+        """dry_run=True must not modify col 36 (TRACKING_STAGE) on disk."""
+        # Snapshot col 36 before dry_run
         wb = openpyxl.load_workbook(str(seeded_erp), keep_vba=True)
         sheet = next(s for s in wb.sheetnames if AJ_SHEET_KEYWORD in s)
         ws = wb[sheet]
-        for r in range(AJ_DATA_START, ws.max_row + 1):
-            ws.cell(r, 32, None)
-        wb.save(str(seeded_erp))
+        before = {r: ws.cell(r, 36).value
+                  for r in range(AJ_DATA_START, ws.max_row + 1)}
         wb.close()
 
         update_active_jobs(str(seeded_erp), dry_run=True)
 
+        # Col 36 on disk must be identical to before — dry_run must not save
         wb2 = openpyxl.load_workbook(str(seeded_erp), keep_vba=True)
         sheet2 = next(s for s in wb2.sheetnames if AJ_SHEET_KEYWORD in s)
         ws2 = wb2[sheet2]
         for r in range(AJ_DATA_START, ws2.max_row + 1):
-            crm = ws2.cell(r, 1).value
-            if crm:
-                assert ws2.cell(r, 32).value is None, (
-                    f"dry_run wrote to col 32 at row {r}"
-                )
+            after_val = ws2.cell(r, 36).value
+            assert after_val == before[r], (
+                f"dry_run modified col 36 at row {r}: "
+                f"{before[r]!r} → {after_val!r}"
+            )
         wb2.close()
 
     def test_file_not_found_raises(self, tmp_path: Path):

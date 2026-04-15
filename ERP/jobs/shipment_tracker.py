@@ -153,11 +153,12 @@ def update_active_jobs(erp_file: str, dry_run: bool = False) -> dict:
         counts[stage] += 1
         total += 1
 
-        label = f"{stage}/7 {STAGE_NAMES[stage]}"
-        cell = ws.cell(r, COL["TRACKING_STAGE"], label)
-        cell.font = Font(size=10, name="Segoe UI", bold=stage == 7)
-        cell.alignment = Alignment(horizontal="center", vertical="center")
-        cell.fill = STAGE_FILLS[stage]
+        if not dry_run:
+            label = f"{stage}/7 {STAGE_NAMES[stage]}"
+            cell = ws.cell(r, COL["TRACKING_STAGE"], label)
+            cell.font = Font(size=10, name="Segoe UI", bold=stage == 7)
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            cell.fill = STAGE_FILLS[stage]
 
     if not dry_run:
         save_preserving_ribbon(wb, erp_file)

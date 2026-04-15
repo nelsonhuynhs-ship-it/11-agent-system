@@ -11,6 +11,9 @@ from pathlib import Path
 import openpyxl
 import pytest
 
+sys.path.insert(0, str(Path(__file__).parent.parent / "ERP" / "core"))
+from active_jobs_cols import COL as _COL
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "ERP" / "jobs"))
 from release_alerts import (
     _format_countdown,
@@ -20,9 +23,9 @@ from release_alerts import (
 
 AJ_SHEET_KEYWORD = "Active"
 AJ_DATA_START = 8
-COL_RELEASE_EMAIL_SENT = 33
-COL_RELEASE_CONFIRMED = 34
-COL_ETA = 6
+COL_RELEASE_EMAIL_SENT = _COL["RELEASE_EMAIL_SENT"]   # 37
+COL_RELEASE_CONFIRMED = _COL["RELEASE_CONFIRMED"]      # 38
+COL_ETA = _COL["ETA"]                                  # 21
 
 
 # ---------------------------------------------------------------------------
@@ -105,8 +108,8 @@ def _seed_release_scenario(erp_path: Path, sent_hours_ago: float,
 
     # Overwrite seed row 7 (row 14) — OCEANSEA
     r = AJ_DATA_START + 6
-    ws.cell(r, 1, "OCEANSEA_TEST")
-    ws.cell(r, 3, "HCM-USLAX")
+    ws.cell(r, _COL["CRM_ID"], "OCEANSEA_TEST")
+    ws.cell(r, _COL["Routing"], "HCM-USLAX")
     ws.cell(r, COL_ETA, eta)
     ws.cell(r, COL_RELEASE_EMAIL_SENT, sent_at)
     ws.cell(r, COL_RELEASE_CONFIRMED, confirmed if confirmed else None)

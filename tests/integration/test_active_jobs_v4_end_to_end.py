@@ -23,6 +23,8 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "ERP" / "core"))
 from ribbon_guard import save_preserving_ribbon  # noqa: E402
+from active_jobs_cols import COL as _COL  # noqa: E402
+
 PYTHON = r"C:\Users\Nelson\anaconda3\python.exe"
 LIVE_ERP = Path(r"D:\OneDrive\NelsonData\erp\ERP_Master_v14.xlsm")
 
@@ -104,18 +106,36 @@ def _seed_active_jobs(xlsm: Path):
              FAST_JOB_NO="SE2604/0650", HBL_NO="PLGB26040650"),
     ]
 
-    COL = {"CRM_ID": 1, "Routing": 3, "Bkg_No": 4, "ETD": 5, "ETA": 6, "ATA": 7,
-           "Carrier": 8, "Contract_Type": 9, "Container_Type": 10, "Quantity": 11,
-           "Selling_Rate": 12, "Buying_Rate": 13, "Profit": 14, "Status": 16,
-           "Door_Delivery": 19, "Door_Address": 20, "FAST_JOB_NO": 29, "HBL_NO": 30}
+    # Use canonical source-of-truth COL map (ERP/core/active_jobs_cols.py)
+    # Map seed-data keys to COL dict names — FAST_JOB_NO is the v4 FAST_ID col.
+    KEY_TO_COL = {
+        "CRM_ID": "CRM_ID", "Routing": "Routing", "Bkg_No": "Bkg_No",
+        "ETD": "ETD", "ETA": "ETA", "ATA": "ATA", "Carrier": "Carrier",
+        "Contract_Type": "Contract_Type", "Container_Type": "Container_Type",
+        "Quantity": "Quantity", "Selling_Rate": "Selling_Rate",
+        "Buying_Rate": "Buying_Rate", "Profit": "Profit", "Status": "Status",
+        "Door_Delivery": "Door_Delivery", "Door_Address": "Door_Address",
+        "FAST_JOB_NO": "FAST_ID", "HBL_NO": "HBL_NO",
+    }
+    # Cols that may carry stale values from live ERP — clear before seeding so
+    # downstream helpers (enrichment, etc.) treat rows as fresh.
+    CLEAR_COLS = ("SERVICE", "TRACKING", "TRACKING_STAGE", "Request_BKG",
+                  "Profit", "Profit_Margin", "RELEASE_EMAIL_SENT",
+                  "RELEASE_CONFIRMED", "PRICE_WATCH_STATUS", "PRICE_WATCH_DELTA")
+
     r = 8
     for row in rows:
-        for key, col in COL.items():
+        # Wipe stale cells from prior content in the live workbook copy
+        for col_name in CLEAR_COLS:
+            cell = ws.cell(r, _COL[col_name])
+            cell.value = None
+            cell.hyperlink = None  # critical — see vba-gotchas #7
+        for key, col_name in KEY_TO_COL.items():
             if key in row:
-                ws.cell(r, col, row[key])
-        # special — optional RELEASE_EMAIL_SENT injection
-        if "RELEASE_EMAIL_SENT_col" in row:
-            ws.cell(r, row["RELEASE_EMAIL_SENT_col"], row["RELEASE_EMAIL_SENT_val"])
+                ws.cell(r, _COL[col_name], row[key])
+        # special — RELEASE_EMAIL_SENT uses canonical col
+        if "RELEASE_EMAIL_SENT_val" in row:
+            ws.cell(r, _COL["RELEASE_EMAIL_SENT"], row["RELEASE_EMAIL_SENT_val"])
         r += 1
     save_preserving_ribbon(wb, str(xlsm))
     wb.close()
@@ -192,7 +212,8 @@ def test_e2e_transit_time_fills_eta(seeded_live_copy: Path):
     # Before: most seeded rows have ETA=None
     wb = openpyxl.load_workbook(seeded_live_copy, read_only=True)
     ws = wb["Active Jobs"]
-    missing_before = sum(1 for r in range(8, 15) if ws.cell(r, 6).value is None)
+    missing_before = sum(1 for r in range(8, 15)
+                         if ws.cell(r, _COL["ETA"]).value is None)
     wb.close()
 
     rc, out = _run("ERP/jobs/transit_time.py", ["--erp", str(seeded_live_copy)])
@@ -200,7 +221,8 @@ def test_e2e_transit_time_fills_eta(seeded_live_copy: Path):
 
     wb = openpyxl.load_workbook(seeded_live_copy, read_only=True)
     ws = wb["Active Jobs"]
-    missing_after = sum(1 for r in range(8, 15) if ws.cell(r, 6).value is None)
+    missing_after = sum(1 for r in range(8, 15)
+                        if ws.cell(r, _COL["ETA"]).value is None)
     wb.close()
     assert missing_after < missing_before, (
         f"Transit time did not fill any ETA: before={missing_before}, after={missing_after}"
@@ -214,7 +236,7 @@ def test_e2e_fast_id_normalizes(seeded_live_copy: Path):
     assert rc == 0, out
     wb = openpyxl.load_workbook(seeded_live_copy, read_only=True)
     ws = wb["Active Jobs"]
-    val = ws.cell(8, 29).value
+    val = ws.cell(8, _COL["FAST_ID"]).value
     assert val == "SE2604/0266", f"Expected 'SE2604/0266', got {val!r}"
     wb.close()
 
@@ -238,9 +260,10 @@ def test_e2e_enrichment_fills_service_and_mailto(seeded_live_copy: Path):
     wb = openpyxl.load_workbook(seeded_live_copy)
     ws = wb["Active Jobs"]
     # Row 8 NAFOODS Door=Yes → SERVICE=CY-DOOR, Request_BKG has mailto hyperlink
-    assert ws.cell(8, 31).value == "CY-DOOR"
-    assert ws.cell(8, 28).hyperlink is not None
-    assert ws.cell(8, 28).hyperlink.target.startswith("mailto:")
+    assert ws.cell(8, _COL["SERVICE"]).value == "CY-DOOR"
+    req_cell = ws.cell(8, _COL["Request_BKG"])
+    assert req_cell.hyperlink is not None
+    assert req_cell.hyperlink.target.startswith("mailto:")
     # Row 9 VIFON Door=No → CY-CY
-    assert ws.cell(9, 31).value == "CY-CY"
+    assert ws.cell(9, _COL["SERVICE"]).value == "CY-CY"
     wb.close()
