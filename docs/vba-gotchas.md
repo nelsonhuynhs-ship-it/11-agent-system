@@ -89,6 +89,44 @@ Test automation can't answer an InputBox. Either:
 
 After `CodeModule.AddFromString`, newly added Subs may not be callable via `Application.Run` until workbook is saved + reopened, OR until Excel recompiles. Prefer adding to source `.bas` + re-import.
 
+## 11. Module-level variables MUST be at top of module — never between procedures
+
+Bug we hit (2026-04-15): Nelson opened the xlsm and got `Compile error: Only comments may appear after End Sub, End Function or End Property`. Root cause — `Private m_CurrentMonth As String` was declared *below* `End Sub` on line 655 of `erp-v14-jobs-automation.bas`, after many procedures had already been defined.
+
+VBA's module structure is strict:
+
+```
+Attribute VB_Name = "…"
+Option Explicit
+'--- module-level declarations (Const, Private, Public, Dim) live HERE ---'
+Private Const FOO As String = "x"
+Private m_State As String
+
+Private Function Bar() As String   '<-- after this point, only procedures allowed
+    …
+End Function
+
+' BAD — VBA rejects module-level declaration after first procedure:
+Private m_OtherState As String   '<-- "Only comments may appear…"
+
+Public Sub Baz()
+    …
+End Sub
+```
+
+```vba
+' GOOD — all variable declarations moved to top
+Option Explicit
+Private Const PY_HOME As String = "…"
+Private m_CurrentMonth As String   ' ISO "YYYY-MM"
+
+Private Function FirstProc() As String
+    …
+End Function
+```
+
+**Detection:** `scripts/check_vba_compile.py` flags this via rule R1. Wired into `verify-erp.bat` step 2 so we catch it pre-commit, not post-deploy.
+
 ## Pre-commit checklist
 
 Run **before** every commit that touches `.bas` / `.xml` / `active_jobs_cols.py`:
