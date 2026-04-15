@@ -235,7 +235,45 @@ def convert_special_rate(input_file, output_file, sheets=None):
         
         # Remove empty rows
         result = result.dropna(subset=['POD'], how='all').reset_index(drop=True)
-        
+
+        # 2026-04-16: POD contamination guard. Raw Fixed Rate sheets sometimes
+        # contain section-header rows where POD cell text is actually a surcharge
+        # note (e.g. 'SUBJECT TO EFS', 'included EFS'). These leak into the
+        # parquet and corrupt the Pricing sheet dropdown. Recover via Place col
+        # when possible, else drop. Mirrors refresh-v14.py clean_pod_contamination().
+        if 'POD' in result.columns:
+            pod_str = result['POD'].astype(str).str.strip()
+            bad_pat = r'SUBJECT\s*TO|^incl(?:uded)?\s*EFS|^EFS\b'
+            bad = pod_str.str.contains(bad_pat, case=False, na=False, regex=True)
+            n_bad = int(bad.sum())
+            if n_bad > 0:
+                # Merge bad POD text into 'Group rate or Service note'
+                note_col = 'Group rate or Service note'
+                if note_col in result.columns:
+                    old_pod = result.loc[bad, 'POD'].astype(str).str.strip()
+                    cur_note = result.loc[bad, note_col].fillna('').astype(str).str.strip()
+                    sep = cur_note.where(cur_note == '', ' | ').where(cur_note != '', '')
+                    result.loc[bad, note_col] = (cur_note + sep + old_pod).str.strip(' |').str.strip()
+                # Recover via PlaceOfDelivery
+                recovered = 0
+                dropped = 0
+                if 'PlaceOfDelivery' in result.columns:
+                    place = result.loc[bad, 'PlaceOfDelivery'].astype(str).str.strip()
+                    place_ok = (place != '') & (place.str.lower() != 'nan')
+                    bad_idx = result.loc[bad].index
+                    recover_idx = bad_idx[place_ok.values]
+                    drop_idx = bad_idx[~place_ok.values]
+                    if len(recover_idx) > 0:
+                        result.loc[recover_idx, 'POD'] = result.loc[recover_idx, 'PlaceOfDelivery'].values
+                        recovered = len(recover_idx)
+                    if len(drop_idx) > 0:
+                        result = result.drop(drop_idx).reset_index(drop=True)
+                        dropped = len(drop_idx)
+                else:
+                    result = result.loc[~bad].reset_index(drop=True)
+                    dropped = n_bad
+                print(f'     ⚠️ POD cleanup: {n_bad} contaminated → {recovered} recovered, {dropped} dropped')
+
         all_results.append(result)
         print(f'     ✓ {result.shape[0]} rows')
     
