@@ -175,6 +175,24 @@ def auto_import() -> int:
         if spawned:
             wb.Close(SaveChanges=False)
             excel.Quit()
+
+        # CRITICAL: Excel COM Save can silently drop customUI bindings if the
+        # workbook was edited with a broken ribbon callback during import.
+        # Always re-inject customUI14.xml to guarantee ribbon survives.
+        # (ERP_STANDARDS §1.3 — every save on ERP_Master_v14.xlsm must preserve
+        #  customUI; gotcha #6.)
+        try:
+            from customui_utils import ensure_customui  # type: ignore
+            cui_xml = os.path.join(os.path.dirname(ERP_FILE), "CustomUI_v14.xml")
+            if os.path.exists(cui_xml):
+                result = ensure_customui(ERP_FILE, cui_xml)
+                if result.get("injected"):
+                    print("    -> customUI14 re-injected (ribbon safeguarded)")
+                elif result.get("already_ok"):
+                    print("    -> customUI14 already intact")
+        except Exception as e:
+            print(f"    [warn] customUI re-inject failed: {e}")
+
         print(f"\n[SUCCESS] VBA imported: {', '.join(imported) if imported else '(none)'}")
         if skipped:
             print(f"          Skipped: {', '.join(skipped)} (import manually via Alt+F11 if needed)")
