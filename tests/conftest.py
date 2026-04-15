@@ -51,7 +51,15 @@ def erp_copy(tmp_path):
 
 
 def _seed_active_jobs_rows(erp_path: Path) -> None:
-    """Write 7 seed rows into Active Jobs (rows 8-14) covering stages 1-7."""
+    """Write 7 seed rows into Active Jobs (rows 8-14) covering stages 1-7.
+
+    Uses COL dict from ERP.core.active_jobs_cols (v4 migration source of truth).
+    Col positions may change; keys are field names, not integers.
+    """
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "ERP" / "core"))
+    from active_jobs_cols import COL  # type: ignore[import-untyped]
+
     wb = openpyxl.load_workbook(str(erp_path), keep_vba=True)
     sheet = next((s for s in wb.sheetnames if AJ_SHEET_KEYWORD in s), None)
     if sheet is None:
@@ -61,48 +69,60 @@ def _seed_active_jobs_rows(erp_path: Path) -> None:
 
     now = datetime.now()
 
-    # Seed rows: (col values dict)
-    # Col layout: 1=CRM_ID 3=Routing 4=Bkg_No 5=ETD 6=ETA 7=ATA 8=Carrier
-    # 9=Contract_Type 10=Container_Type 11=Quantity 16=Status 17=SI_Received
-    # 18=CY_Cutoff 19=Door_Delivery 24=Notes 29=FAST_JOB_NO 30=HBL_NO
-    # 33=RELEASE_EMAIL_SENT 34=RELEASE_CONFIRMED
+    # Seed rows keyed by field name (resolved to col via COL dict at write time)
     seeds = [
         # Stage 1 BKG — booking pending, no contract
-        {1: "NAFOODS", 3: "HPH-USLGB", 4: "NFBKG001", 8: "ONE",
-         10: "40HQ", 11: 2, 16: "Booked", 19: "No"},
+        {"CRM_ID": "NAFOODS", "Routing": "HPH-USLGB", "Bkg_No": "NFBKG001",
+         "Carrier": "ONE", "Container_Type": "40HQ", "Quantity": 2,
+         "Status": "Booked", "Door_Delivery": "No"},
         # Stage 2 Conf — bkg + contract
-        {1: "SIRI", 3: "HPH-USLGB", 4: "SRBKG002", 8: "MSC",
-         9: "SHA0005N25", 10: "40HQ", 11: 1, 16: "Confirmed", 19: "No"},
+        {"CRM_ID": "SIRI", "Routing": "HPH-USLGB", "Bkg_No": "SRBKG002",
+         "Carrier": "MSC", "Contract_Type": "SHA0005N25",
+         "Container_Type": "40HQ", "Quantity": 1,
+         "Status": "Confirmed", "Door_Delivery": "No"},
         # Stage 3 SI Cut
-        {1: "VIFON", 3: "HCM-USLAX", 4: "VFBKG003", 8: "CMA",
-         9: "CMA-2026", 10: "40GP", 11: 2, 16: "Confirmed",
-         17: now - timedelta(days=2), 19: "No"},
+        {"CRM_ID": "VIFON", "Routing": "HCM-USLAX", "Bkg_No": "VFBKG003",
+         "Carrier": "CMA", "Contract_Type": "CMA-2026",
+         "Container_Type": "40GP", "Quantity": 2,
+         "Status": "Confirmed", "SI_Received": now - timedelta(days=2),
+         "Door_Delivery": "No"},
         # Stage 5 ATD — ETD in past
-        {1: "WESTFOOD", 3: "HPH-USNYC", 4: "WFBKG004", 8: "OOCL",
-         9: "OO2026", 10: "40HQ", 11: 1,
-         5: now - timedelta(days=10), 16: "In Transit", 19: "No"},
+        {"CRM_ID": "WESTFOOD", "Routing": "HPH-USNYC", "Bkg_No": "WFBKG004",
+         "Carrier": "OOCL", "Contract_Type": "OO2026",
+         "Container_Type": "40HQ", "Quantity": 1,
+         "ETD": now - timedelta(days=10),
+         "Status": "In Transit", "Door_Delivery": "No"},
         # Stage 6 ETA — ATA set
-        {1: "PANDA", 3: "HCM-USLAX", 4: "PDBKG005", 8: "COSCO",
-         9: "CS2026", 10: "20GP", 11: 3,
-         5: now - timedelta(days=20), 7: now - timedelta(days=1),
-         16: "Arrived", 19: "No"},
+        {"CRM_ID": "PANDA", "Routing": "HCM-USLAX", "Bkg_No": "PDBKG005",
+         "Carrier": "COSCO", "Contract_Type": "CS2026",
+         "Container_Type": "20GP", "Quantity": 3,
+         "ETD": now - timedelta(days=20),
+         "ATA": now - timedelta(days=1),
+         "Status": "Arrived", "Door_Delivery": "No"},
         # Stage 7 Done — delivered
-        {1: "TRANANH", 3: "HPH-USLGB", 4: "TABKG006", 8: "ONE",
-         9: "SHA0005N25", 10: "40RF", 11: 1,
-         5: now - timedelta(days=30), 7: now - timedelta(days=10),
-         16: "Delivered", 19: "Yes"},
+        {"CRM_ID": "TRANANH", "Routing": "HPH-USLGB", "Bkg_No": "TABKG006",
+         "Carrier": "ONE", "Contract_Type": "SHA0005N25",
+         "Container_Type": "40RF", "Quantity": 1,
+         "ETD": now - timedelta(days=30),
+         "ATA": now - timedelta(days=10),
+         "Status": "Delivered", "Door_Delivery": "Yes"},
         # Release-email-sent case for release_alerts tests
-        {1: "OCEANSEA", 3: "HCM-USLAX", 4: "OSBKG007", 8: "CMA",
-         9: "CMA-2026", 10: "40HQ", 11: 1,
-         5: now - timedelta(days=25), 6: now + timedelta(days=2),
-         16: "Arrived", 19: "No",
-         33: now - timedelta(hours=3)},  # release email 3h ago, no confirm
+        {"CRM_ID": "OCEANSEA", "Routing": "HCM-USLAX", "Bkg_No": "OSBKG007",
+         "Carrier": "CMA", "Contract_Type": "CMA-2026",
+         "Container_Type": "40HQ", "Quantity": 1,
+         "ETD": now - timedelta(days=25),
+         "ETA": now + timedelta(days=2),
+         "Status": "Arrived", "Door_Delivery": "No",
+         "RELEASE_EMAIL_SENT": now - timedelta(hours=3)},
     ]
 
     for i, row_data in enumerate(seeds):
         r = AJ_DATA_START + i
-        for col, val in row_data.items():
-            ws.cell(r, col, val)
+        for field_name, val in row_data.items():
+            col_idx = COL.get(field_name)
+            if col_idx is None:
+                raise KeyError(f"Field {field_name!r} not in active_jobs_cols.COL dict")
+            ws.cell(r, col_idx, val)
 
     wb.save(str(erp_path))
     wb.close()
