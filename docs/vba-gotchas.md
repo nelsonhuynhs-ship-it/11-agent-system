@@ -127,6 +127,48 @@ End Function
 
 **Detection:** `scripts/check_vba_compile.py` flags this via rule R1. Wired into `verify-erp.bat` step 2 so we catch it pre-commit, not post-deploy.
 
+## 12. VBA identifiers must NOT start with underscore — "Syntax error" at compile
+
+Bug we hit (2026-04-15): after fixing gotcha #11, Nelson hit `Compile error: Syntax error`
+opening ERP_Master_v14.xlsm. Root cause — helper functions were named
+`_CurrentMonthISO`, `_FormatMonthLabel`, `_ShiftMonth` in
+`erp-v14-jobs-automation.bas`. Python allows leading underscore for "private-ish"
+helpers; **VBA rejects it outright**.
+
+```vba
+' BAD — VBA raises "Syntax error" at compile time:
+Private Function _FormatMonthLabel(iso As String) As String
+    ...
+End Function
+
+Private Sub Foo()
+    Debug.Print _FormatMonthLabel("2026-04")   ' also illegal reference
+End Sub
+```
+
+```vba
+' GOOD — drop the leading underscore:
+Private Function FormatMonthLabel(iso As String) As String
+    ...
+End Function
+```
+
+Variables are also illegal:
+```vba
+Private _m_State As String     ' Syntax error
+Private m_State As String      ' OK
+```
+
+**Detection:** `scripts/check_vba_compile.py` rule **R5** flags leading-underscore
+procedure names AND variable declarations. Wired into `verify-erp.bat` step 2.
+
+**Extra safety net — live compile (step 7/7):** `scripts/check_vba_live_compile.py`
+opens the xlsm in a hidden Excel instance and triggers VBE `Debug.Compile`
+(CommandBar Id=578). This catches anything static lint misses (weird references,
+missing type libraries, corrupted VBA project). Without this, linter passes but
+Excel still rejects the file — exactly the "lỗi A → lỗi B" whack-a-mole pattern
+we hit before. Requires "Trust access to VBA project object model" = ON.
+
 ## Pre-commit checklist
 
 Run **before** every commit that touches `.bas` / `.xml` / `active_jobs_cols.py`:

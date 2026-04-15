@@ -18,33 +18,38 @@ echo   %date%  %time%
 echo ================================================================
 echo.
 
-echo [1/6] Close any running Excel...
+echo [1/7] Close any running Excel...
 powershell -NoProfile -Command "Get-Process EXCEL -EA SilentlyContinue | Stop-Process -Force" 2>nul
 powershell -NoProfile -Command "Start-Sleep -Seconds 2" >nul
 
 echo.
-echo [2/6] VBA structural lint (offline — catches compile errors before Excel)...
+echo [2/7] VBA structural lint (offline — catches known compile patterns)...
 "%PY%" "%REPO%\scripts\check_vba_compile.py"
 if errorlevel 1 goto :ERR
 
 echo.
-echo [3/6] XLSM structure (customUI14.xml + vbaProject.bin)...
+echo [3/7] XLSM structure (customUI14.xml + vbaProject.bin)...
 "%PY%" "%REPO%\scripts\check_zip_structure.py" "%ERP%"
 if errorlevel 1 goto :ERR
 
 echo.
-echo [4/6] VBA modules (required present, no duplicates)...
+echo [4/7] VBA modules (required present, no duplicates)...
 "%PY%" "%REPO%\scripts\check_vba_modules.py" "%ERP%"
 if errorlevel 1 goto :ERR
 
 echo.
-echo [5/6] Python core imports (COL, ribbon_guard, email_builder)...
+echo [5/7] Python core imports (COL, ribbon_guard, email_builder)...
 "%PY%" "%REPO%\scripts\check_imports.py"
 if errorlevel 1 goto :ERR
 
 echo.
-echo [6/6] Core pytest (ribbon_guard + schema + email_builder)...
+echo [6/7] Core pytest (ribbon_guard + schema + email_builder)...
 "%PY%" -m pytest tests\test_ribbon_guard.py tests\test_active_jobs_schema.py tests\test_email_builder.py -q --tb=line
+if errorlevel 1 goto :ERR
+
+echo.
+echo [7/7] Live VBA compile (headless Excel — FINAL gate, catches anything linter missed)...
+"%PY%" "%REPO%\scripts\check_vba_live_compile.py" "%ERP%"
 if errorlevel 1 goto :ERR
 
 echo.
