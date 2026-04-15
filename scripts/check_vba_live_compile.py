@@ -92,6 +92,30 @@ def _quit_excel(excel):
         pass
 
 
+def _retry_com(fn, retries: int = 8, base_delay: float = 0.25):
+    """Retry a COM call on RPC_E_CALL_REJECTED (Excel busy).
+
+    Excel rejects COM calls while the VBE is mid-compile — need to
+    back off and retry rather than fail the whole gate. Uses exponential
+    backoff capped at 2s.
+    """
+    last_ex = None
+    for attempt in range(retries):
+        try:
+            return fn()
+        except Exception as ex:
+            last_ex = ex
+            msg = str(ex)
+            # RPC_E_CALL_REJECTED (-2147418111 = 0x80010001) or
+            # RPC_E_SERVERCALL_RETRYLATER (-2147417846)
+            if "rejected by callee" in msg or "-2147418111" in msg or "-2147417846" in msg:
+                time.sleep(min(base_delay * (2 ** attempt), 2.0))
+                pythoncom.PumpWaitingMessages()
+                continue
+            raise
+    raise last_ex  # type: ignore[misc]
+
+
 def main() -> int:
     pythoncom.CoInitialize()
     excel = None
@@ -147,18 +171,29 @@ def main() -> int:
 
     # Module readability check — if project is locked by a compile failure,
     # reading CodeModule.Lines raises (reliable fallback signal).
+    # Wrap iteration in _retry_com because Excel/VBE may still be busy
+    # finalizing compile when we try to enumerate components.
     module_count = 0
     syntax_errors: list[tuple[str, int, str]] = []
-    for comp in vbp.VBComponents:
-        if comp.Type not in (1, 2, 3):  # 1=std 2=cls 3=form
-            continue
-        module_count += 1
+    try:
+        components = _retry_com(lambda: list(vbp.VBComponents))
+    except Exception as ex:
+        print(f"[WARN] VBComponents enumeration failed after retries: {ex}")
+        components = []
+
+    for comp in components:
         try:
-            cm = comp.CodeModule
-            if cm.CountOfLines > 0:
-                _ = cm.Lines(1, cm.CountOfLines)
+            comp_type = _retry_com(lambda c=comp: c.Type)
+            if comp_type not in (1, 2, 3):  # 1=std 2=cls 3=form
+                continue
+            module_count += 1
+            cm = _retry_com(lambda c=comp: c.CodeModule)
+            count = _retry_com(lambda m=cm: m.CountOfLines)
+            if count > 0:
+                _ = _retry_com(lambda m=cm, n=count: m.Lines(1, n))
         except Exception as ex:
-            syntax_errors.append((comp.Name, 0, f"module read failed: {ex}"))
+            name = getattr(comp, "Name", "?")
+            syntax_errors.append((str(name), 0, f"module read failed: {ex}"))
 
     # Always close any surfaced dialogs before quitting Excel — otherwise
     # Excel.Quit() blocks waiting for user input.
