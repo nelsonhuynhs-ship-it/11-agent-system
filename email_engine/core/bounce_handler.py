@@ -1,12 +1,27 @@
 # bounce_handler.py — Scan Outlook NDR, classify bounces, update cnee_master_v2.xlsx
+#
+# UPGRADED 2026-04-16 (Phase 04):
+#   * scan_bounces() now also emits intel events via email_engine.intel.memory.log_event
+#     (optional — guarded by try/except so existing callers never break).
+#   * Existing signature and behaviour preserved.
 import re
 import logging
+from datetime import datetime
 from pathlib import Path
 import pandas as pd
 
 log = logging.getLogger("bounce_handler")
 DATA_DIR = Path(__file__).parent.parent / "data"
 MASTER_V2 = DATA_DIR / "cnee_master_v2.xlsx"
+
+
+# Intel event hook — optional, may not exist yet (built in parallel)
+try:
+    from email_engine.intel.memory import log_event as _intel_log_event  # type: ignore
+except Exception:
+    def _intel_log_event(event_type: str, **fields) -> None:  # type: ignore
+        # No-op stub; real module wires later in integration round.
+        log.debug("[STUB intel.log_event] %s %s", event_type, fields)
 
 HARD_KEYWORDS = [
     "does not exist", "unknown user", "invalid address",
@@ -83,6 +98,17 @@ def scan_bounces() -> list[dict]:
                 bounce_type = classify_bounce(email, body)
                 bounces.append({"email": email, "bounce_type": bounce_type})
                 log.info(f"NDR found: {email} → {bounce_type}")
+                # Emit intel event (no-op if intel module not yet wired)
+                try:
+                    _intel_log_event(
+                        "BOUNCE",
+                        email=email,
+                        severity=bounce_type,
+                        subject=str(msg.Subject or ""),
+                        timestamp=datetime.utcnow().isoformat(),
+                    )
+                except Exception as _e:  # pragma: no cover
+                    log.debug("intel.log_event failed for %s: %s", email, _e)
             except Exception as e:
                 log.debug(f"Skip message: {e}")
     except Exception as e:

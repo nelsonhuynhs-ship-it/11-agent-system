@@ -22,3 +22,6 @@ pyyaml>=6.0
 
 # === Email Parsing (legacy, kept for compatibility) ===
 extract-msg>=0.48.0
+
+# === Scheduler (Phase 04 — scanner/) ===
+apscheduler>=3.10.0
