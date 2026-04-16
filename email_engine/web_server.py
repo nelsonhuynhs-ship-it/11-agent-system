@@ -787,21 +787,66 @@ def wa_log_endpoint(limit: int = 100):
 # These map the v4 dashboard's expected API shape onto web_server's send logic.
 # Outlook COM is called directly — no queue, no worker needed.
 
+# ──────────────────────────────────────────────────────────────────
+# CNEE master cache — load Excel ONCE per mtime.
+# Without this, every /prospects request re-reads a 15MB xlsx file
+# (2-3s per request). Dashboard uses 10s timeout → fetch fails →
+# dashboard falls back to demo mode even though API is live.
+# ──────────────────────────────────────────────────────────────────
+_CNEE_CACHE: dict = {"mtime": 0.0, "df": None, "path": None}
+
+
+def _get_cnee_df():
+    """Return cached CNEE dataframe. Reloads if xlsx mtime changed."""
+    cnee_src = CNEE_V2 if CNEE_V2.exists() else (CNEE_V1 if CNEE_V1.exists() else None)
+    if not cnee_src:
+        return None
+    try:
+        mtime = cnee_src.stat().st_mtime
+    except Exception:
+        mtime = 0.0
+    if (
+        _CNEE_CACHE.get("mtime") == mtime
+        and _CNEE_CACHE.get("path") == str(cnee_src)
+        and _CNEE_CACHE.get("df") is not None
+    ):
+        return _CNEE_CACHE["df"]
+    log.info(f"Loading CNEE master: {cnee_src.name} ({cnee_src.stat().st_size/1024/1024:.1f} MB)")
+    df = pd.read_excel(cnee_src)
+    df.columns = df.columns.str.strip().str.upper()
+    _CNEE_CACHE["mtime"] = mtime
+    _CNEE_CACHE["df"] = df
+    _CNEE_CACHE["path"] = str(cnee_src)
+    log.info(f"CNEE master cached: {len(df):,} rows")
+    return df
+
+
 @app.get("/api/email-rate/campaign/prospects")
 def v4_prospects(campaign: str = "", pol: str = "", destination: str = "",
                  sent_status: str = "", page_size: int = 500):
-    from auto_rate_builder import build_rate_table_for_customer
-    cnee_src = CNEE_V2 if CNEE_V2.exists() else (CNEE_V1 if CNEE_V1.exists() else None)
-    if not cnee_src:
+    """Return prospect list WITHOUT rate computation (fast path).
+
+    Rates are loaded on-demand by dashboard's "Load Rates" button which calls
+    a different endpoint. This endpoint used to call build_rate_table_for_customer()
+    per row (500 × 100ms = 50s), causing dashboard fetch to timeout → demo fallback.
+
+    Performance:
+      - Excel loaded once via _get_cnee_df() cache (module-level, mtime-invalidated)
+      - No per-row Parquet queries
+      - Typical response: <500ms for 500 prospects
+    """
+    df = _get_cnee_df()
+    if df is None:
         return {"prospects": [], "total": 0}
-    df = pd.read_excel(cnee_src)
-    df.columns = df.columns.str.strip().str.upper()
+
     if campaign:
         df = df[df.get("CAMPAIGN_ID", df.get("CMD_NAME", pd.Series())).astype(str).str.upper() == campaign.upper()]
     if pol:
         df = df[df["POL"].astype(str).str.upper() == pol.upper()] if "POL" in df.columns else df
+
     cooldown_map = _load_cooldown_map()
     cutoff = datetime.now() - pd.Timedelta(hours=48)
+
     prospects = []
     for i, row in df.head(page_size).iterrows():
         email = str(row.get("EMAIL", row.get("CNEE_EMAIL", ""))).strip()
@@ -809,26 +854,20 @@ def v4_prospects(campaign: str = "", pol: str = "", destination: str = "",
             continue
         row_pol = str(row.get("POL", "HPH")).strip()
         row_dest = str(row.get("DESTINATION", destination or "USLAX")).strip()
-        try:
-            rates = build_rate_table_for_customer(pol=row_pol, destinations=row_dest, markup=20)
-            rate_20 = rates.get("routes_detail", [{}])[0].get("rate_20gp", 0) if rates.get("routes_detail") else 0
-            rate_40 = rates.get("routes_detail", [{}])[0].get("rate_40hq", 0) if rates.get("routes_detail") else 0
-        except Exception:
-            rate_20, rate_40 = 0, 0
         last_sent = cooldown_map.get(email.lower())
         in_cooldown = bool(last_sent and last_sent > cutoff)
         already_sent = str(row.get("ALREADY_SENT", "N")).strip().upper()
         prospects.append({
-            "id": i,
+            "id": int(i) if not isinstance(i, int) else i,
             "email": email,
             "company": str(row.get("CNEE_NAME", row.get("COMPANY", ""))).strip(),
             "pol": row_pol,
             "destination": row_dest,
             "campaign_id": str(row.get("CAMPAIGN_ID", row.get("CMD_NAME", campaign))).strip(),
             "already_sent": already_sent,
-            "rate_20": rate_20,
-            "rate_40": rate_40,
-            "tier": "",
+            "rate_20": 0,   # loaded on-demand via Load Rates
+            "rate_40": 0,   # loaded on-demand via Load Rates
+            "tier": str(row.get("TIER", "")).strip(),
             "in_cooldown": in_cooldown,
         })
     return {"prospects": prospects, "total": len(prospects)}
