@@ -1,0 +1,65 @@
+# ═════════════════════════════════════════════════════════════════════════════
+# default_routes.yaml — Default POL / POD routing rules per campaign & country
+# Phase 03: Smart Template Engine + Market Intel
+#
+# Used by builder.build_email() when destinations are not explicitly given
+# (e.g. CNEE has no DESTINATION column filled in cnee_master.xlsx).
+#
+# Precedence (most-specific first):
+#   1. Explicit override per CNEE (if set in profile)
+#   2. by_campaign[campaign_name]
+#   3. by_country[country_code]
+#   4. global_default
+# ═════════════════════════════════════════════════════════════════════════════
+
+version: 1
+
+# Port of Loading — Nelson Freight is Vietnam-based, HPH is primary
+pol:
+  primary: HPH
+  fallback: HCM
+
+# Fallback destinations when nothing else matches
+global_default: [USLAX, USLGB, USNYC, USSAV, USHOU]
+
+# Maximum destinations per single email (keep body readable)
+max_destinations_per_email: 5
+
+# Ports to never quote (blacklist — e.g. embargoed, or Nelson has no carrier access)
+forbidden_ports: [IRBND, KPFNJ]
+
+# ─── Per-campaign default destinations (cnee_master.xlsx CMD_NAME) ──────────
+by_campaign:
+  FURNITURE:       [USLAX, USLGB, USOAK, USSEA]       # West Coast heavy
+  FLOORING:        [USNYC, USSAV, USCHS, USHOU]       # East + Gulf
+  PLASTIC:         [USLAX, USLGB, USHOU]              # West + Gulf
+  MALAYSIA:        [USLAX, USLGB, USNYC]              # via SEA transshipment
+  CANDLE:          [USLAX, USLGB, USSAV, USMIA]       # West + East retail hubs
+  GARMENT:         [USLAX, USLGB, USNYC, USSAV]       # mass retail
+  TEXTILE:         [USLAX, USNYC, USCHS]
+  ELECTRONICS:     [USLAX, USLGB, USOAK]              # West Coast only (time-sensitive)
+  FOOD:            [USLAX, USNYC, USMIA, USHOU]       # reefer-capable ports
+  AUTO_PARTS:      [USLAX, USLGB, USHOU, USCHS]       # industrial hubs
+  HARDWARE:        [USLAX, USLGB, USSAV, USHOU]
+  KITCHENWARE:     [USLAX, USLGB, USNYC]
+  BATHROOM:        [USLAX, USNYC, USCHS]
+  LIGHTING:        [USLAX, USLGB, USNYC]
+  PACKAGING:       [USLAX, USLGB, USSAV]
+  TOYS:            [USLAX, USLGB, USSAV, USMIA]
+  BABY:            [USLAX, USLGB, USNYC]
+  SPORTS:          [USLAX, USLGB, USSAV]
+  GIFTS:           [USLAX, USLGB, USMIA]
+  DECOR:           [USLAX, USLGB, USNYC, USSAV]
+
+# ─── Per-country fallback (if campaign not in the list above) ────────────────
+by_country:
+  USA:     [USLAX, USLGB, USNYC, USSAV, USHOU]
+  CANADA:  [CAVAN, CATOR, CAMTR]
+  MEXICO:  [MXVER, MXZLO, MXATM]
+
+# ─── Regional shortcuts (helps template_selector when building match groups) ─
+regions:
+  west_coast: [USLAX, USLGB, USOAK, USSEA, USTAC]
+  east_coast: [USNYC, USSAV, USCHS, USMIA, USBAL, USJAX, USORF]
+  gulf:       [USHOU, USGLS, USNOR]
+  canada:     [CAVAN, CATOR, CAMTR, CAHAL]
