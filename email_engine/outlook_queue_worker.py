@@ -29,7 +29,15 @@ import threading
 import time
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Any
+
+# Ensure root dir on sys.path so `email_engine` resolves as package
+# even when this script is run from within email_engine/ folder (bat file does).
+_THIS_DIR = Path(__file__).resolve().parent
+_ROOT_DIR = _THIS_DIR.parent
+if str(_ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(_ROOT_DIR))
 
 # Local import — atomic SQLite operations
 from email_engine import queue_store
