@@ -1,8 +1,8 @@
 # web_server.py — Email Dashboard Server v2
-import sys, csv, random, logging
+import os, sys, csv, random, logging
 from pathlib import Path
-from datetime import date, datetime
-from typing import List
+from datetime import date, datetime, timedelta
+from typing import List, Optional
 
 BASE_DIR = Path(__file__).parent
 ENGINE_TEST = BASE_DIR.parent
@@ -10,8 +10,8 @@ sys.path.insert(0, str(ENGINE_TEST))
 sys.path.insert(0, str(BASE_DIR / "core"))
 
 import pandas as pd
-from fastapi import FastAPI, BackgroundTasks, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, BackgroundTasks, HTTPException, Query
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -81,7 +81,9 @@ def err(code: int, msg: str):
 app = FastAPI(title="Email Dashboard v2")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8230", "http://localhost:8231", "http://localhost:3000", "http://127.0.0.1:8230", "http://127.0.0.1:8231"],
+    allow_origins=["http://localhost:8230", "http://localhost:8231", "http://localhost:3000",
+                   "http://127.0.0.1:8230", "http://127.0.0.1:8231", "http://localhost:8100",
+                   "http://127.0.0.1:8100", "null"],  # null = file:// origin
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
@@ -779,16 +781,660 @@ def wa_log_endpoint(limit: int = 100):
     return df.sort_values("timestamp", ascending=False).head(limit).to_dict(orient="records")
 
 
+# ── v4 Dashboard Compatibility Endpoints ──────────────────────────────────────
+# These map the v4 dashboard's expected API shape onto web_server's send logic.
+# Outlook COM is called directly — no queue, no worker needed.
+
+@app.get("/api/email-rate/campaign/prospects")
+def v4_prospects(campaign: str = "", pol: str = "", destination: str = "",
+                 sent_status: str = "", page_size: int = 500):
+    from auto_rate_builder import build_rate_table_for_customer
+    cnee_src = CNEE_V2 if CNEE_V2.exists() else (CNEE_V1 if CNEE_V1.exists() else None)
+    if not cnee_src:
+        return {"prospects": [], "total": 0}
+    df = pd.read_excel(cnee_src)
+    df.columns = df.columns.str.strip().str.upper()
+    if campaign:
+        df = df[df.get("CAMPAIGN_ID", df.get("CMD_NAME", pd.Series())).astype(str).str.upper() == campaign.upper()]
+    if pol:
+        df = df[df["POL"].astype(str).str.upper() == pol.upper()] if "POL" in df.columns else df
+    cooldown_map = _load_cooldown_map()
+    cutoff = datetime.now() - pd.Timedelta(hours=48)
+    prospects = []
+    for i, row in df.head(page_size).iterrows():
+        email = str(row.get("EMAIL", row.get("CNEE_EMAIL", ""))).strip()
+        if not email or email.lower() == "nan":
+            continue
+        row_pol = str(row.get("POL", "HPH")).strip()
+        row_dest = str(row.get("DESTINATION", destination or "USLAX")).strip()
+        try:
+            rates = build_rate_table_for_customer(pol=row_pol, destinations=row_dest, markup=20)
+            rate_20 = rates.get("routes_detail", [{}])[0].get("rate_20gp", 0) if rates.get("routes_detail") else 0
+            rate_40 = rates.get("routes_detail", [{}])[0].get("rate_40hq", 0) if rates.get("routes_detail") else 0
+        except Exception:
+            rate_20, rate_40 = 0, 0
+        last_sent = cooldown_map.get(email.lower())
+        in_cooldown = bool(last_sent and last_sent > cutoff)
+        already_sent = str(row.get("ALREADY_SENT", "N")).strip().upper()
+        prospects.append({
+            "id": i,
+            "email": email,
+            "company": str(row.get("CNEE_NAME", row.get("COMPANY", ""))).strip(),
+            "pol": row_pol,
+            "destination": row_dest,
+            "campaign_id": str(row.get("CAMPAIGN_ID", row.get("CMD_NAME", campaign))).strip(),
+            "already_sent": already_sent,
+            "rate_20": rate_20,
+            "rate_40": rate_40,
+            "tier": "",
+            "in_cooldown": in_cooldown,
+        })
+    return {"prospects": prospects, "total": len(prospects)}
+
+
+class V4BulkSendRequest(BaseModel):
+    emails: list
+    campaign_id: str = ""
+    markup: float = 20.0
+    subject: str = ""
+
+
+@app.post("/api/email-rate/campaign/bulk-send", status_code=202)
+def v4_bulk_send(req: V4BulkSendRequest, background_tasks: BackgroundTasks):
+    cnee_src = CNEE_V2 if CNEE_V2.exists() else (CNEE_V1 if CNEE_V1.exists() else None)
+    if not cnee_src:
+        raise HTTPException(404, "cnee_master not found")
+    df = pd.read_excel(cnee_src)
+    df.columns = df.columns.str.strip().str.upper()
+    email_col = "EMAIL" if "EMAIL" in df.columns else "CNEE_EMAIL"
+    targets = df[df[email_col].astype(str).str.lower().isin([e.lower() for e in req.emails])]
+    contacts = []
+    for _, row in targets.iterrows():
+        contacts.append(ContactItem(
+            email=str(row.get(email_col, "")).strip(),
+            pic=str(row.get("CNEE_PIC", "Team")).strip(),
+            company=str(row.get("CNEE_NAME", row.get("COMPANY", ""))).strip(),
+            pol=str(row.get("POL", "HPH")).strip(),
+            dest=str(row.get("DESTINATION", "USLAX,USLGB,USEWR,USSAV")).strip(),
+        ))
+    if not contacts:
+        raise HTTPException(404, "No matching contacts found")
+    v2_req = SendRequest(contacts=contacts, subject=req.subject, markup=req.markup)
+    campaign_id = f"V4_{datetime.now():%Y%m%d_%H%M%S}"
+    SEND_PROGRESS[campaign_id] = {"sent": 0, "total": len(contacts), "errors": [], "status": "queued", "skipped_cooldown": 0}
+    background_tasks.add_task(_do_send, campaign_id, v2_req)
+    return {"sent": len(contacts), "failed": 0, "campaign_id": campaign_id, "status": "queued"}
+
+
+@app.get("/api/email-rate/campaign/stats")
+def v4_stats():
+    return get_history_stats()
+
+
+@app.get("/api/email-rate/follow-up-queue")
+def v4_followup_queue():
+    return {"queue": [], "total": 0}
+
+
+@app.get("/api/email-events/alerts")
+def v4_alerts():
+    return {"alerts": []}
+
+
+@app.get("/api/data/email-log")
+def v4_email_log(limit: int = 100):
+    return get_history(limit=limit)
+
+
 @app.get("/", response_class=HTMLResponse)
 def serve_dashboard():
-    html = ENGINE_TEST / "email_dashboard.html"
-    return html.read_text(encoding="utf-8") if html.exists() else "<h1>Dashboard HTML not found</h1>"
+    # Prefer the v4 dashboard in plans/visuals; fall back to legacy.
+    candidates = [
+        ENGINE_TEST / "plans" / "visuals" / "email-dashboard-v4.html",
+        ENGINE_TEST / "email_dashboard.html",
+    ]
+    for html in candidates:
+        if html.exists():
+            return html.read_text(encoding="utf-8")
+    return "<h1>Dashboard HTML not found</h1>"
+
+
+# ============================================================================
+# ROUND 2 — BATCH / QUEUE / INTEL / MARKET / SCANNER ENDPOINTS
+# ============================================================================
+# Wires Round 1 modules (queue_store, intel/*, intelligence/*, scanner/*)
+# into the dashboard. Each import is try/except-wrapped so the server still
+# boots if one module has issues.
+
+log.info("Initializing Round 2 integration (queue + intel + market + scanner)...")
+
+# ---- Round 1 module imports (graceful) ------------------------------------
+_R1 = {"queue": False, "intel": False, "market": False, "scanner": False,
+       "builder": False, "writeback": False}
+try:
+    from email_engine import queue_store as _queue_store  # type: ignore
+    _R1["queue"] = True
+except Exception as _e:
+    log.warning(f"[R2] queue_store import failed: {_e}")
+    _queue_store = None  # type: ignore
+
+try:
+    from email_engine.intel import memory as _intel_memory  # type: ignore
+    _R1["intel"] = True
+except Exception as _e:
+    log.warning(f"[R2] intel.memory import failed: {_e}")
+    _intel_memory = None  # type: ignore
+
+try:
+    from email_engine.intelligence import market_engine as _market_engine  # type: ignore
+    _R1["market"] = True
+except Exception as _e:
+    log.warning(f"[R2] market_engine import failed: {_e}")
+    _market_engine = None  # type: ignore
+
+try:
+    from email_engine.intelligence import builder as _builder  # type: ignore
+    _R1["builder"] = True
+except Exception as _e:
+    log.warning(f"[R2] intelligence.builder import failed: {_e}")
+    _builder = None  # type: ignore
+
+try:
+    from email_engine.intel import writeback as _writeback  # type: ignore
+    _R1["writeback"] = True
+except Exception as _e:
+    log.warning(f"[R2] intel.writeback import failed: {_e}")
+    _writeback = None  # type: ignore
+
+try:
+    from email_engine.scanner import inbox_scanner as _scanner  # type: ignore
+    _R1["scanner"] = True
+except Exception as _e:
+    log.warning(f"[R2] scanner import failed: {_e}")
+    _scanner = None  # type: ignore
+
+
+# Resolve CNEE master v2 location (OneDrive primary, local fallback)
+def _resolve_cnee_master_v2() -> Path:
+    try:
+        from shared.paths import EMAIL_DATA  # type: ignore
+        p = EMAIL_DATA / "cnee_master_v2.xlsx"
+        if p.exists():
+            return p
+    except Exception:
+        pass
+    for candidate in [
+        Path("D:/OneDrive/NelsonData/email/cnee_master_v2.xlsx"),
+        CNEE_V2,
+    ]:
+        if candidate.exists():
+            return candidate
+    return CNEE_V2  # last-resort (may not exist yet)
+
+
+CNEE_MASTER_V2_PATH = _resolve_cnee_master_v2()
+
+# Default destinations used when a CNEE row has no destination column
+DEFAULT_DESTINATIONS = ["USLAX", "USLGB", "USNYC", "USSAV", "USCHI"]
+
+
+# ---- Startup hook ----------------------------------------------------------
+@app.on_event("startup")
+def _r2_startup():
+    """Initialize Round 1 DBs + background threads + scheduler."""
+    if _queue_store is not None:
+        try:
+            _queue_store.init_db()
+            log.info("[R2] queue_store DB initialized")
+        except Exception as e:
+            log.warning(f"[R2] queue_store init failed: {e}")
+
+    if _intel_memory is not None:
+        try:
+            _intel_memory.init_db()
+            log.info("[R2] intel.memory DB initialized")
+        except Exception as e:
+            log.warning(f"[R2] intel.memory init failed: {e}")
+
+    if _writeback is not None:
+        try:
+            _writeback.start_background_flusher()
+            log.info("[R2] writeback flusher started")
+        except Exception as e:
+            log.warning(f"[R2] writeback flusher failed: {e}")
+
+    if _scanner is not None and os.environ.get("NELSON_DISABLE_SCANNER") != "1":
+        try:
+            app.state.scheduler = _scanner.start_scheduler()
+            log.info("[R2] scanner scheduler started")
+        except Exception as e:
+            log.warning(f"[R2] scanner scheduler skipped: {e}")
+    else:
+        app.state.scheduler = None
+
+    log.info(f"[R2] modules ready: {_R1}")
+
+
+# ============================================================================
+# QUEUE ENDPOINTS
+# ============================================================================
+
+class BatchEnqueueRequest(BaseModel):
+    batch_id: str
+    cnee_emails: List[str] = Field(..., min_length=1)
+    campaign_id: str = ""
+    markup: float = 20.0
+    dry_run: bool = False
+    pol: str = "HPH"
+    destinations: str = ""  # comma/semicolon separated; empty = use row's dest or defaults
+
+
+def _row_to_profile(row: dict) -> dict:
+    """Map a cnee_master_v2 row (dict) to the builder's profile dict."""
+    def _s(k: str, default: str = "") -> str:
+        v = row.get(k)
+        if v is None:
+            return default
+        s = str(v).strip()
+        return default if s.lower() in ("", "nan", "none") else s
+
+    first_name = _s("GREETING") or _s("PIC") or "Team"
+    # Greeting often "Dear John," → strip salutation clutter
+    if first_name.lower().startswith("dear "):
+        first_name = first_name[5:].rstrip(",.").strip()
+
+    return {
+        "first_name": first_name.split()[0] if first_name else "Team",
+        "name": _s("PIC"),
+        "company": _s("COMPANY"),
+        "tier": _s("TIER"),
+        "priority_score": int(float(row.get("PRIORITY_SCORE") or 0)) if str(row.get("PRIORITY_SCORE") or "").replace(".", "").isdigit() else 0,
+        "quality_score": row.get("EMAIL_QUALITY_SCORE"),
+        "pol": _s("POL"),
+        "destination": _s("DESTINATION"),
+        "campaign_id": _s("CAMPAIGN_ID"),
+        "send_count": row.get("SEND_COUNT"),
+        "last_sent_date": _s("LAST_SENT_DATE"),
+    }
+
+
+@app.post("/api/email-rate/batch/enqueue")
+def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
+    """Build smart emails for a list of CNEE emails and enqueue them.
+
+    - Respects KILL_SWITCH.flag (503)
+    - Requires ?confirm=yes for batches > 500
+    - dry_run=True still builds + returns the payload but does NOT persist to DB
+    """
+    if _queue_store is None:
+        raise HTTPException(503, "queue_store module unavailable")
+
+    if _queue_store.kill_switch_active():
+        raise HTTPException(503, "Kill switch active — enqueue refused")
+
+    if len(req.cnee_emails) > 500 and (confirm or "").lower() != "yes":
+        raise HTTPException(
+            400,
+            f"Batch size {len(req.cnee_emails)} exceeds 500 — add ?confirm=yes to proceed",
+        )
+
+    # Load CNEE master v2
+    master_rows: dict[str, dict] = {}
+    try:
+        df = pd.read_excel(CNEE_MASTER_V2_PATH)
+        df.columns = df.columns.str.strip().str.upper()
+        if "EMAIL" in df.columns:
+            df["_el"] = df["EMAIL"].astype(str).str.lower().str.strip()
+            for _, r in df.iterrows():
+                em = r["_el"]
+                if em and em not in master_rows:
+                    master_rows[em] = r.to_dict()
+    except Exception as e:
+        log.warning(f"[R2] cnee_master_v2 load failed: {e}")
+
+    # Resolve destinations (request override → row's column → defaults)
+    requested_dests: List[str] = []
+    if req.destinations:
+        requested_dests = [
+            d.strip().upper() for d in req.destinations.replace(";", ",").split(",")
+            if d.strip()
+        ]
+
+    emails_out: list[dict] = []
+    skipped: list[dict] = []
+
+    for raw_email in req.cnee_emails:
+        em = (raw_email or "").strip().lower()
+        if not em:
+            continue
+        row = master_rows.get(em) or {"EMAIL": em}
+        profile = _row_to_profile(row)
+
+        # Merge intel summary when available
+        if _intel_memory is not None:
+            try:
+                summary = _intel_memory.get_cnee_summary(em)
+                if summary:
+                    profile["last_sent_at"] = summary.get("last_sent_at")
+                    profile["days_since_last"] = summary.get("days_since_last_reply") or ""
+                    if summary.get("current_tier") and not profile.get("tier"):
+                        profile["tier"] = summary["current_tier"]
+            except Exception as e:
+                log.debug(f"intel summary failed for {em}: {e}")
+
+        # Destinations: request > row value > default
+        row_dest = str(row.get("DESTINATION") or "").strip()
+        if requested_dests:
+            dests = requested_dests
+        elif row_dest:
+            dests = [d.strip().upper() for d in row_dest.replace(";", ",").split(",") if d.strip()]
+        else:
+            dests = DEFAULT_DESTINATIONS
+
+        pol = req.pol or str(row.get("POL") or "HPH").strip().upper() or "HPH"
+
+        # Build smart email
+        if _builder is None:
+            skipped.append({"email": em, "reason": "builder module unavailable"})
+            continue
+        try:
+            built = _builder.build_email(
+                cnee_email=em, pol=pol, destinations=dests,
+                markup=float(req.markup), profile=profile,
+            )
+        except Exception as e:
+            skipped.append({"email": em, "reason": f"build failed: {e}"})
+            continue
+
+        meta = built.get("meta") or {}
+        emails_out.append({
+            "cnee_email": em,
+            "subject": built.get("subject", ""),
+            "html_body": built.get("html_body", ""),
+            "tier": profile.get("tier") or "",
+            "priority_score": int(profile.get("priority_score") or 0),
+            "campaign_id": req.campaign_id or profile.get("campaign_id") or "",
+            "meta_json": {
+                **meta,
+                "dry_run": bool(req.dry_run),
+                "profile_first_name": profile.get("first_name"),
+            },
+        })
+
+    if req.dry_run:
+        return {
+            "batch_id": req.batch_id,
+            "queued": 0,
+            "dry_run": True,
+            "would_queue": len(emails_out),
+            "skipped": skipped,
+            "preview": emails_out[:3],  # tiny preview so UI can eyeball
+        }
+
+    try:
+        queued = _queue_store.enqueue_batch(req.batch_id, emails_out)
+    except Exception as e:
+        log.exception("enqueue_batch failed")
+        raise HTTPException(500, f"enqueue failed: {e}")
+
+    return {
+        "batch_id": req.batch_id,
+        "queued": queued,
+        "requested": len(req.cnee_emails),
+        "built": len(emails_out),
+        "skipped": skipped,
+    }
+
+
+@app.get("/api/email-rate/batch/{batch_id}/status")
+def batch_status(batch_id: str):
+    if _queue_store is None:
+        raise HTTPException(503, "queue_store module unavailable")
+    return _queue_store.get_batch_status(batch_id)
+
+
+@app.get("/api/email-rate/queue/pending")
+def queue_pending(worker_id: str = Query(...), limit: int = 1):
+    """Pop the next pending job (worker endpoint)."""
+    if _queue_store is None:
+        raise HTTPException(503, "queue_store module unavailable")
+    jobs = []
+    for _ in range(max(1, int(limit))):
+        j = _queue_store.pop_one(worker_id)
+        if j is None:
+            break
+        jobs.append(j)
+    return {"jobs": jobs, "count": len(jobs)}
+
+
+class MarkFailedRequest(BaseModel):
+    error: str = ""
+
+
+@app.post("/api/email-rate/queue/mark-sent/{job_id}")
+def queue_mark_sent(job_id: int):
+    if _queue_store is None:
+        raise HTTPException(503, "queue_store module unavailable")
+    # Lookup the row so we can log a SENT event into intel
+    meta = {}
+    try:
+        import sqlite3
+        conn = sqlite3.connect(_queue_store._DB_PATH)
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT cnee_email, subject, batch_id, campaign_id, meta_json FROM email_queue WHERE id=?",
+            (job_id,),
+        ).fetchone()
+        conn.close()
+        if row:
+            meta = dict(row)
+    except Exception as e:
+        log.debug(f"lookup job {job_id} for intel event failed: {e}")
+
+    _queue_store.mark_sent(job_id)
+
+    if meta and _intel_memory is not None:
+        try:
+            import json as _json
+            m = meta.get("meta_json")
+            mdata = _json.loads(m) if m else {}
+            _intel_memory.log_event({
+                "event_type": "SENT",
+                "cnee_email": meta.get("cnee_email"),
+                "subject": meta.get("subject"),
+                "template_id": mdata.get("template_id"),
+                "market_state": mdata.get("dominant_state"),
+                "batch_id": meta.get("batch_id"),
+                "campaign_id": meta.get("campaign_id"),
+            })
+        except Exception as e:
+            log.debug(f"intel log_event failed: {e}")
+
+    return {"ok": True, "job_id": job_id}
+
+
+@app.post("/api/email-rate/queue/mark-failed/{job_id}")
+def queue_mark_failed(job_id: int, req: MarkFailedRequest):
+    if _queue_store is None:
+        raise HTTPException(503, "queue_store module unavailable")
+    _queue_store.mark_failed(job_id, req.error or "unknown")
+    return {"ok": True, "job_id": job_id}
+
+
+@app.post("/api/email-rate/queue/reset-stuck")
+def queue_reset_stuck(minutes: int = 10):
+    if _queue_store is None:
+        raise HTTPException(503, "queue_store module unavailable")
+    n = _queue_store.reset_stuck(int(minutes))
+    return {"reset": int(n)}
+
+
+@app.get("/api/email-rate/queue/kill-status")
+def queue_kill_status():
+    if _queue_store is None:
+        return {"active": False}
+    return {"active": _queue_store.kill_switch_active(),
+            "flag_path": _queue_store.KILL_SWITCH_PATH}
+
+
+@app.post("/api/email-rate/queue/kill")
+def queue_kill_engage():
+    """Activate kill switch — creates the flag file."""
+    if _queue_store is None:
+        raise HTTPException(503, "queue_store module unavailable")
+    try:
+        Path(_queue_store.KILL_SWITCH_PATH).parent.mkdir(parents=True, exist_ok=True)
+        Path(_queue_store.KILL_SWITCH_PATH).write_text(
+            f"engaged_at={datetime.now().isoformat()}\n", encoding="utf-8",
+        )
+        return {"ok": True, "active": True}
+    except Exception as e:
+        raise HTTPException(500, f"kill switch write failed: {e}")
+
+
+@app.post("/api/email-rate/queue/kill-clear")
+def queue_kill_clear():
+    """Clear kill switch — deletes the flag file."""
+    if _queue_store is None:
+        raise HTTPException(503, "queue_store module unavailable")
+    try:
+        p = Path(_queue_store.KILL_SWITCH_PATH)
+        if p.exists():
+            p.unlink()
+        return {"ok": True, "active": False}
+    except Exception as e:
+        raise HTTPException(500, f"kill switch clear failed: {e}")
+
+
+# ============================================================================
+# INTEL ENDPOINTS
+# ============================================================================
+
+@app.get("/api/intel/profile")
+def intel_profile(email: str = Query(...)):
+    if _intel_memory is None:
+        return {}
+    try:
+        return _intel_memory.get_cnee_summary(email)
+    except Exception as e:
+        log.warning(f"intel profile error: {e}")
+        return {}
+
+
+@app.get("/api/intel/timeline")
+def intel_timeline(email: str = Query(...), limit: int = 20):
+    if _intel_memory is None:
+        return {"events": []}
+    try:
+        events = _intel_memory.get_timeline(email, limit=int(limit))
+        return {"events": events, "count": len(events)}
+    except Exception as e:
+        log.warning(f"intel timeline error: {e}")
+        return {"events": []}
+
+
+@app.get("/api/intel/stale")
+def intel_stale(days: int = 7, tier: Optional[str] = None):
+    if _intel_memory is None:
+        return {"stale": [], "count": 0}
+    try:
+        rows = _intel_memory.get_stale(days=int(days), tier=tier)
+        return {"stale": rows, "count": len(rows), "days": int(days)}
+    except Exception as e:
+        log.warning(f"intel stale error: {e}")
+        return {"stale": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/intel/recent-replies")
+def intel_recent_replies(since_minutes: int = 60, limit: int = 50):
+    if _intel_memory is None:
+        return {"replies": [], "count": 0}
+    try:
+        events = _intel_memory.recent_events("REPLY", limit=int(limit))
+        cutoff = (datetime.utcnow() - timedelta(minutes=int(since_minutes))) \
+            .strftime("%Y-%m-%d %H:%M:%S")
+        filtered = [e for e in events if (e.get("timestamp") or "") >= cutoff]
+        return {"replies": filtered, "count": len(filtered),
+                "since_minutes": int(since_minutes)}
+    except Exception as e:
+        log.warning(f"intel recent-replies error: {e}")
+        return {"replies": [], "count": 0, "error": str(e)}
+
+
+# ============================================================================
+# MARKET INTEL ENDPOINTS
+# ============================================================================
+
+@app.get("/api/intelligence/lanes")
+def intelligence_lanes(pol: str = "HPH", destinations: Optional[str] = None):
+    if _market_engine is None:
+        raise HTTPException(503, "market_engine unavailable")
+    dests = (
+        [d.strip().upper() for d in destinations.replace(";", ",").split(",") if d.strip()]
+        if destinations
+        else DEFAULT_DESTINATIONS
+    )
+    out = []
+    for dest in dests:
+        try:
+            out.append(_market_engine.analyze_lane(pol, dest))
+        except Exception as e:
+            log.debug(f"market analyze_lane {pol}->{dest} failed: {e}")
+            out.append({"pol": pol.upper(), "destination": dest,
+                        "state": "STABLE", "error": str(e)})
+    return {"pol": pol.upper(), "lanes": out, "count": len(out)}
+
+
+@app.get("/api/intelligence/lane")
+def intelligence_lane(pol: str, dest: str):
+    if _market_engine is None:
+        raise HTTPException(503, "market_engine unavailable")
+    return _market_engine.analyze_lane(pol, dest)
+
+
+# ============================================================================
+# SCANNER ENDPOINTS
+# ============================================================================
+
+@app.post("/api/scanner/run-now")
+def scanner_run_now():
+    if _scanner is None:
+        raise HTTPException(503, "scanner module unavailable")
+    try:
+        stats = _scanner.run_scan()
+        return {"ok": True, "stats": stats}
+    except Exception as e:
+        log.warning(f"scanner run_scan failed: {e}")
+        return {"ok": False, "error": str(e)}
+
+
+@app.get("/api/scanner/status")
+def scanner_status():
+    sched = getattr(app.state, "scheduler", None)
+    if sched is None:
+        return {"scheduler_running": False, "jobs": []}
+    try:
+        jobs = []
+        for job in sched.get_jobs():
+            jobs.append({
+                "id": job.id,
+                "next_run_at": str(job.next_run_time) if job.next_run_time else None,
+                "trigger": str(job.trigger),
+            })
+        return {
+            "scheduler_running": bool(sched.running),
+            "jobs": jobs,
+            "count": len(jobs),
+        }
+    except Exception as e:
+        return {"scheduler_running": False, "jobs": [], "error": str(e)}
+
 
 if __name__ == "__main__":
     import uvicorn
     log.info(f"Parquet: {PARQUET_FILE} (exists={PARQUET_FILE.exists()})")
     log.info(f"Contacts: {len(df_contacts)} | Campaigns: {df_contacts['CMD_NAME'].nunique()}")
     print("\n" + "=" * 50)
-    print("  EMAIL DASHBOARD v3 — http://localhost:8232")
+    print("  EMAIL DASHBOARD v4 — http://localhost:8100")
     print("=" * 50 + "\n")
-    uvicorn.run(app, host="0.0.0.0", port=8232, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8100, log_level="info")
