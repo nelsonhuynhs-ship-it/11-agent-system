@@ -450,17 +450,62 @@ def _build_tokens(
         "rate_table_html": _render_rate_table(lane_intels),
     }
 
-    # Signature from YAML defaults
+    # Signature priority:
+    #   1. config.xlsx SIGNATURE field (HTML — Pudong Prime brand sig with logo cid)
+    #   2. YAML defaults.signature (plain text fallback)
+    sig_html_from_config = _load_signature_html_from_config()
+    if sig_html_from_config:
+        tokens["signature_html"] = sig_html_from_config  # raw HTML, bypass escape
+
     rules = load_rules()
     defaults_cfg = rules.get("defaults") or {}
     sig = defaults_cfg.get("signature")
-    if sig:
-        tokens["signature"] = sig
+    if sig and not sig_html_from_config:
+        tokens["signature"] = sig  # plain text, will be escaped + <br>-wrapped
     sfx = defaults_cfg.get("subject_suffix")
     if sfx:
         tokens["suffix"] = sfx
 
     return tokens
+
+
+# ────────────────────────────────────────────────────────────────────
+# Signature loader — config.xlsx SIGNATURE field (HTML with logo cid)
+# ────────────────────────────────────────────────────────────────────
+_CONFIG_XLSX = (
+    Path(__file__).resolve().parent.parent / "data" / "config.xlsx"
+)
+_SIG_CACHE: dict = {"mtime": 0.0, "html": None}
+
+
+def _load_signature_html_from_config() -> str:
+    """
+    Load the HTML signature from email_engine/data/config.xlsx (SIGNATURE row).
+    Cached by mtime so anh edits file → next email picks up new sig.
+    Returns '' if file missing or no SIGNATURE row.
+    """
+    try:
+        if not _CONFIG_XLSX.exists():
+            return ""
+        mtime = _CONFIG_XLSX.stat().st_mtime
+        if _SIG_CACHE.get("mtime") == mtime and _SIG_CACHE.get("html") is not None:
+            return _SIG_CACHE["html"]
+
+        import openpyxl
+        wb = openpyxl.load_workbook(str(_CONFIG_XLSX), data_only=True)
+        html = ""
+        for row in wb.active.iter_rows(max_col=2, values_only=True):
+            k = str(row[0] or "").strip().lower()
+            if k == "signature":
+                html = str(row[1] or "").strip()
+                break
+
+        _SIG_CACHE["mtime"] = mtime
+        _SIG_CACHE["html"] = html
+        return html
+    except Exception as e:
+        log.warning("[builder] config signature load failed: %s", e)
+        return ""
 
 
 def build_email(

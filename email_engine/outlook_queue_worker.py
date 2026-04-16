@@ -77,8 +77,48 @@ def _get_outlook():
         return None
 
 
+_LOGO_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "assets", "logo.png"
+)
+_LOGO_CID = "pudonglogo"  # must match <img src="cid:pudonglogo"> in signature
+
+
+def _attach_inline_logo(mail) -> None:
+    """Attach Pudong logo as inline CID attachment so <img src='cid:pudonglogo'>
+    in the signature renders. Silently no-ops if file missing.
+
+    Outlook COM trick:
+      1. mail.Attachments.Add(path) attaches the file
+      2. PR_ATTACH_CONTENT_ID (0x3712001F) = CID — sets inline reference
+      3. PR_ATTACHMENT_HIDDEN (0x7FFE000B) = True hides it from recipient's
+         attachment list (purely decorative)
+    """
+    if not os.path.exists(_LOGO_PATH):
+        return
+    try:
+        att = mail.Attachments.Add(_LOGO_PATH)
+        pa = att.PropertyAccessor
+        # PR_ATTACH_CONTENT_ID
+        pa.SetProperty(
+            "http://schemas.microsoft.com/mapi/proptag/0x3712001F",
+            _LOGO_CID,
+        )
+        # PR_ATTACHMENT_HIDDEN
+        pa.SetProperty(
+            "http://schemas.microsoft.com/mapi/proptag/0x7FFE000B",
+            True,
+        )
+    except Exception as exc:
+        log.warning("inline logo attach failed: %s", exc)
+
+
 def _send_via_outlook(job: dict[str, Any]) -> tuple[bool, str | None]:
-    """Send single job via Outlook COM. Returns (success, error)."""
+    """Send single job via Outlook COM. Returns (success, error).
+
+    If job.html_body references 'cid:pudonglogo', the logo file at
+    assets/logo.png is attached inline so Outlook / recipient's mail
+    client renders the brand logo in the signature.
+    """
     outlook = _get_outlook()
     if outlook is None:
         return False, "Outlook unavailable"
@@ -86,7 +126,15 @@ def _send_via_outlook(job: dict[str, Any]) -> tuple[bool, str | None]:
         mail = outlook.CreateItem(0)  # olMailItem
         mail.To = job["cnee_email"]
         mail.Subject = job["subject"]
-        mail.HTMLBody = job["html_body"]
+
+        html_body = job["html_body"] or ""
+        # Only attach logo if signature actually references it
+        if "cid:pudonglogo" in html_body.lower():
+            mail.HTMLBody = html_body
+            _attach_inline_logo(mail)
+        else:
+            mail.HTMLBody = html_body
+
         cc = job.get("cc")
         if cc:
             mail.CC = cc if isinstance(cc, str) else ";".join(cc)
