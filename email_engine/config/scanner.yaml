@@ -1,0 +1,91 @@
+# scanner.yaml — Pattern library for Inbox classifier
+# Loaded by email_engine/scanner/classifier.py via load_patterns()
+#
+# Rule order (classifier.classify):
+#   1. POSTMASTER_PATTERNS sender  OR  BOUNCE_PATTERNS subject         -> BOUNCE
+#   2. UNSUBSCRIBE_PATTERNS (subject+body)                              -> UNSUBSCRIBE
+#   3. AUTO_REPLY_PATTERNS subject                                      -> AUTO_REPLY
+#   4. sender in cnee_master                                            -> REAL_REPLY
+#   5. otherwise                                                        -> IRRELEVANT
+
+scan:
+  # Minutes of inbox history to walk each cycle. run_scan window = scan.window_minutes.
+  window_minutes: 35
+  # Hard cap per cycle (safety against runaway).
+  max_items: 200
+  # Categories tag applied to processed items so we don't double-scan.
+  processed_category: "Nelson-Scanned"
+
+bounce:
+  postmaster_patterns:
+    - "postmaster@"
+    - "mailer-daemon@"
+    - "MAILER-DAEMON@"
+    - "noreply@"
+    - "no-reply@"
+  subject_patterns:
+    - "delivery status notification"
+    - "undelivered mail"
+    - "undeliverable"
+    - "mail delivery failed"
+    - "mail delivery subsystem"
+    - "returned mail"
+    - "failure notice"
+    - "delivery failure"
+  # Sub-classify HARD vs SOFT after matching BOUNCE (used in handlers.extract_bounced_email pipeline).
+  hard_keywords:
+    - "does not exist"
+    - "unknown user"
+    - "invalid address"
+    - "no such user"
+    - "rejected"
+    - "user unknown"
+    - "address rejected"
+    - "not found"
+    - "invalid recipient"
+  soft_keywords:
+    - "mailbox full"
+    - "temporarily"
+    - "try again later"
+    - "quota exceeded"
+    - "over quota"
+    - "service unavailable"
+    - "too many connections"
+
+auto_reply:
+  subject_patterns:
+    - "out of office"
+    - "automatic reply"
+    - "auto-reply"
+    - "auto reply"
+    - "i am on vacation"
+    - "currently out of"
+    - "away from the office"
+    - "ooo"
+    - "đang nghỉ phép"
+    - "vắng mặt"
+
+unsubscribe:
+  patterns:
+    - "unsubscribe"
+    - "stop email"
+    - "stop emailing"
+    - "remove me"
+    - "do not email"
+    - "do not contact"
+    - "không nhận email"
+    - "không gửi email nữa"
+    - "huỷ đăng ký"
+    - "huy dang ky"
+
+# Regex fragments for bounce recipient extraction (handlers.extract_bounced_email).
+bounce_regex:
+  - '(?:could not be delivered|undelivered|failed).*?([\w\.\-]+@[\w\.\-]+)'
+  - 'Final-Recipient:\s*rfc822;\s*([\w\.\-]+@[\w\.\-]+)'
+  - '(?:to|for|recipient)[:\s]+([\w\.\-]+@[\w\.\-]+)'
+  - 'Original-Recipient:\s*rfc822;\s*([\w\.\-]+@[\w\.\-]+)'
+
+telegram:
+  # Batch window: collect alerts within this many seconds before flushing as a single message.
+  batch_window_seconds: 300
+  rate_limit_per_minute: 20
