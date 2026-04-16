@@ -6,8 +6,10 @@ from typing import List, Optional
 
 BASE_DIR = Path(__file__).parent
 ENGINE_TEST = BASE_DIR.parent
-sys.path.insert(0, str(ENGINE_TEST))
+# Order matters: core/ has a file 'email_engine.py' that shadows the package
+# if placed before root. Insert root LAST so it wins (ends up at path[0]).
 sys.path.insert(0, str(BASE_DIR / "core"))
+sys.path.insert(0, str(ENGINE_TEST))
 
 import pandas as pd
 from fastapi import FastAPI, BackgroundTasks, HTTPException, Query
