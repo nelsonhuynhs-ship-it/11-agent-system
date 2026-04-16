@@ -776,5 +776,107 @@ def main() -> None:
     log.info("=" * 60)
 
 
+# =========================================================
+# PHASE-04 UPGRADE: export REPLY events to intel.db
+# ---------------------------------------------------------
+# Re-use the existing Outlook scan + classify_intent machinery and
+# write one REPLY event per prospect reply into email_engine.intel.memory.
+# The xlsx output pipeline above is kept for backward compat.
+# =========================================================
+def export_events_to_intel() -> dict:
+    """
+    Scan Outlook Inbox + TEAM SUNNY for the last SCAN_DAYS (60d) and emit a
+    REPLY event per prospect reply into intel.db.
+
+    Returns
+    -------
+    dict — counts {scanned, events_logged, skipped}
+    """
+    stats = {"scanned": 0, "events_logged": 0, "skipped": 0}
+
+    # 1. Load prospect universe (reuse existing helpers)
+    df_log = load_email_log()
+    if df_log.empty:
+        log.warning("export_events_to_intel: email_log.csv empty — no prospects")
+        return stats
+    prospect_emails = load_prospect_emails(df_log)
+    if not prospect_emails:
+        log.warning("export_events_to_intel: no prospects after active-customer filter")
+        return stats
+
+    # 2. Intel hook (stub if module not yet present)
+    try:
+        from email_engine.intel.memory import log_event as _log_event  # type: ignore
+    except Exception:
+        def _log_event(event_type: str, **fields) -> None:  # type: ignore
+            log.debug("[STUB log_event] %s %s", event_type, fields)
+
+    # 3. Outlook iteration (reuses _find_team_folder + _collect_all_subfolders)
+    try:
+        outlook = win32com.client.Dispatch("Outlook.Application")
+        namespace = outlook.GetNamespace("MAPI")
+        inbox = namespace.GetDefaultFolder(6)
+    except Exception as exc:
+        log.error("export_events_to_intel: cannot connect to Outlook: %s", exc)
+        return stats
+
+    import pywintypes  # noqa: WPS433 (delayed import ok for COM)
+    from datetime import timedelta as _timedelta
+    cutoff = datetime.now() - _timedelta(days=SCAN_DAYS)
+    cutoff_com = pywintypes.Time(cutoff)
+
+    folders = [inbox]
+    team_folder = _find_team_folder(namespace)
+    if team_folder:
+        folders.extend(_collect_all_subfolders(team_folder))
+
+    AUTO_MARKERS = ["automatic reply", "out of office", "auto reply", "auto-reply"]
+    BOUNCE_MARKERS = ["undeliverable", "delivery status notification",
+                      "mail delivery failed", "returned mail"]
+
+    for folder in folders:
+        try:
+            messages = folder.Items
+            messages.Sort("[ReceivedTime]", True)
+        except Exception:
+            continue
+        for msg in messages:
+            try:
+                if msg.ReceivedTime < cutoff_com:
+                    break
+            except Exception:
+                continue
+            stats["scanned"] += 1
+            try:
+                if msg.Class != 43:  # olMail
+                    stats["skipped"] += 1
+                    continue
+                subject = (msg.Subject or "")
+                if any(k in subject.lower() for k in AUTO_MARKERS + BOUNCE_MARKERS):
+                    stats["skipped"] += 1
+                    continue
+                sender = get_sender_smtp(msg)
+                if not sender or sender not in prospect_emails:
+                    stats["skipped"] += 1
+                    continue
+                body = msg.Body or ""
+                intent = classify_intent(subject, body)
+                _log_event(
+                    "REPLY",
+                    email=sender,
+                    subject=subject,
+                    body_preview=body[:800],
+                    intent=intent,
+                    timestamp=datetime.now().isoformat(),
+                    source="process_reply.export_events_to_intel",
+                )
+                stats["events_logged"] += 1
+            except Exception:
+                stats["skipped"] += 1
+
+    log.info("export_events_to_intel: %s", stats)
+    return stats
+
+
 if __name__ == "__main__":
     main()
