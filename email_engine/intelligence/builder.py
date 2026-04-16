@@ -162,7 +162,7 @@ def _render_rate_table(lane_intels: list[dict]) -> str:
     rows.append(
         "<tr style='background:#f8fafc;border-bottom:1px solid #e2e8f0;'>"
         "<td style='padding:10px 16px;color:#64748b;font-size:10px;"
-        "letter-spacing:1.5px;font-weight:700;text-transform:uppercase;'>CARRIER</td>"
+        "letter-spacing:1.5px;font-weight:700;text-transform:uppercase;'>SERVICE</td>"
         "<td style='padding:10px 12px;color:#64748b;font-size:10px;"
         "letter-spacing:1.5px;font-weight:700;text-align:right;'>20GP</td>"
         "<td style='padding:10px 12px;color:#64748b;font-size:10px;"
@@ -200,14 +200,26 @@ def _render_rate_table(lane_intels: list[dict]) -> str:
         delta = lane.get("delta_pct", 0.0) or 0
         delta_sign = "+" if delta > 0 else ""
 
-        # POD chevron row
+        # POD chevron row (with BEST pill right-aligned if applicable)
         routing_hint = lane.get("routing") or "direct service"
+        best_pill_html = ""
+        if is_best:
+            best_pill_html = (
+                "<span style='background:#10b981;color:#ffffff;padding:3px 10px;"
+                "border-radius:12px;font-size:10px;font-weight:800;"
+                "letter-spacing:0.5px;vertical-align:middle;'>BEST</span>"
+            )
         rows.append(
-            "<tr><td colspan='6' style='padding:12px 16px 4px;'>"
+            "<tr><td colspan='6' style='padding:14px 16px 4px;'>"
+            "<table width='100%' cellpadding='0' cellspacing='0'><tr>"
+            "<td style='padding:0;'>"
             "<span style='color:#334155;font-size:14px;font-weight:700;'>"
             f"› {dest_code}"
             f"<span style='color:#64748b;font-weight:400;margin-left:8px;'>"
             f"{dest_full}</span></span>"
+            "</td>"
+            f"<td align='right' style='padding:0;'>{best_pill_html}</td>"
+            "</tr></table>"
             "</td></tr>"
         )
 
@@ -216,25 +228,15 @@ def _render_rate_table(lane_intels: list[dict]) -> str:
             row_bg = "#ecfdf5"
             accent = "#10b981"
             rate_color = "#064e3b"
-            carrier_label = "NELSON"
-            best_pill = (
-                "<span style='background:#10b981;color:#ffffff;padding:2px 8px;"
-                "border-radius:10px;font-size:9px;font-weight:800;margin-left:8px;"
-                "letter-spacing:0.5px;vertical-align:middle;'>BEST</span>"
-            )
         else:
             row_bg = colors["bg"]
             accent = colors["bar"]
             rate_color = colors["text"]
-            carrier_label = "NELSON"
-            best_pill = ""
 
         rows.append(
             f"<tr style='background:{row_bg};border-left:3px solid {accent};'>"
             f"<td style='padding:12px 16px;'>"
-            f"<strong style='color:{rate_color};font-size:13px;'>{carrier_label}</strong>"
-            f"{best_pill}"
-            f"<div style='font-size:11px;color:#94a3b8;margin-top:2px;'>{routing_hint}</div>"
+            f"<div style='font-size:12px;color:#64748b;font-weight:500;'>{routing_hint}</div>"
             f"</td>"
             f"<td style='padding:12px 12px;text-align:right;font-weight:700;"
             f"color:{rate_color};font-size:14px;'>{r20}</td>"
@@ -519,41 +521,14 @@ def build_email(
     # 4. Build tokens
     tokens = _build_tokens(profile, lane_intels, pol, destinations)
 
-    # 5. Render intro/cta/signature as HTML chunks (existing renderer)
+    # 5. Render intro + rate table + cta + signature (standard structure).
+    # The rate table itself IS the Pudong Prime visual upgrade — no shell wrap.
     rendered = render_email(tmpl, tokens)
-
-    # 6. Wrap in Pudong Prime branded shell
-    profile = profile or {}
-    recipient_label = (
-        profile.get("first_name")
-        or profile.get("name")
-        or profile.get("company")
-        or "Valued Client"
-    )
-    if profile.get("first_name") and profile.get("company"):
-        recipient_label = f"{profile['first_name']} @ {profile['company']}"
-
-    # Pull signature HTML from rendered (already escaped) or build from tokens
-    signature_html = ""
-    sig = tokens.get("signature", "")
-    if sig:
-        import html as _html_mod
-        escaped = _html_mod.escape(str(sig), quote=True)
-        signature_html = escaped.replace("\n", "<br>")
-
-    branded_html = _wrap_branded_shell(
-        intro_html=rendered.get("intro_html", ""),
-        rate_table_html=tokens.get("rate_table_html", ""),
-        cta_html=rendered.get("cta_html", ""),
-        signature_html=signature_html,
-        recipient_label=recipient_label,
-        week=tokens.get("week", date.today().isocalendar()[1]),
-    )
 
     return {
         "to": cnee_email,
         "subject": rendered["subject"],
-        "html_body": branded_html,
+        "html_body": rendered["html_body"],
         "meta": {
             "template_id": tmpl.get("id", "unknown"),
             "dominant_state": dom,
@@ -563,6 +538,6 @@ def build_email(
             "pol": pol,
             "destinations": destinations,
             "lane_states": [ln.get("state") for ln in lane_intels],
-            "shell": "pudong_prime_v1",
+            "rate_table": "pudong_prime_v1",
         },
     }
