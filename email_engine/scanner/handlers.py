@@ -29,11 +29,31 @@ log = logging.getLogger(__name__)
 
 # -------------------------------------------------------------------
 # Intel module imports with graceful stubs (Round 2 wires real modules)
+#
+# Adapter layer: scanner was written against stub signatures
+#   log_event(event_type, **fields)
+#   evaluate_event(event_type, email, **fields) -> dict
+# Real dev-intel modules use:
+#   log_event(event: dict)
+#   evaluate_event(event: dict) -> list[dict]
+# We wrap real modules below to preserve the scanner call style.
 # -------------------------------------------------------------------
 try:
-    from email_engine.intel.memory import log_event as _log_event  # type: ignore
+    from email_engine.intel.memory import log_event as _real_log_event  # type: ignore
     from email_engine.intel.memory import get_cnee_summary as _get_cnee_summary  # type: ignore
     _INTEL_MEMORY_AVAILABLE = True
+
+    def _log_event(event_type: str, **fields) -> None:  # type: ignore
+        # Adapt to dev-intel's dict-based API.
+        evt = {"event_type": event_type}
+        # dev-intel uses cnee_email as the key; scanner passes 'email'
+        if "email" in fields:
+            evt["cnee_email"] = fields.pop("email")
+        evt.update(fields)
+        try:
+            _real_log_event(evt)
+        except Exception as e:
+            log.warning("log_event failed: %s", e)
 except Exception:  # ImportError or sub-import failure
     _INTEL_MEMORY_AVAILABLE = False
 
@@ -45,12 +65,31 @@ except Exception:  # ImportError or sub-import failure
 
 
 try:
-    from email_engine.intel.tier_engine import evaluate_event as _evaluate_event  # type: ignore
+    from email_engine.intel.tier_engine import evaluate_event as _real_evaluate_event  # type: ignore
     _INTEL_TIER_AVAILABLE = True
+
+    def _evaluate_event(event_type: str, email: str = "", **fields) -> dict:  # type: ignore
+        evt = {"event_type": event_type, "cnee_email": email}
+        evt.update(fields)
+        try:
+            actions = _real_evaluate_event(evt) or []
+        except Exception as e:
+            log.warning("evaluate_event failed: %s", e)
+            return {"tier": None, "action": None, "changed": False}
+        # Flatten list[dict] → single dict for scanner's use-case
+        if not actions:
+            return {"tier": None, "action": None, "changed": False}
+        first = actions[0]
+        return {
+            "tier": first.get("new_tier"),
+            "action": first.get("new_action"),
+            "changed": True,
+            "reason": first.get("reason"),
+        }
 except Exception:
     _INTEL_TIER_AVAILABLE = False
 
-    def _evaluate_event(event_type: str, email: str, **fields) -> dict:  # type: ignore
+    def _evaluate_event(event_type: str, email: str = "", **fields) -> dict:  # type: ignore
         log.debug("[STUB evaluate_event] %s email=%s", event_type, email)
         return {"tier": None, "action": None, "changed": False}
 
