@@ -1,0 +1,50 @@
+<!--
+  rate_table.html — Jinja-lite partial used by email_engine.intelligence.builder
+
+  This partial is a STATIC REFERENCE for the row structure rendered by
+  builder._render_rate_table(). The builder injects rows programmatically
+  (one per lane, color-coded by market state).
+
+  Color legend (state → row background):
+    URGENT      →  #fee2e2 (light red)      🚨
+    COMPETITIVE →  #fef9c3 (light yellow)   💰
+    STABLE      →  #dcfce7 (light green)    ✓
+    DECLINING   →  #dbeafe (light blue)     🔽
+
+  Tokens available per row:
+    {{pol}}                  port of loading
+    {{destination}}          POD port code
+    {{current_rate_20gp}}    USD per 20GP
+    {{current_rate_40hq}}    USD per 40HQ
+    {{state}}                URGENT / STABLE / COMPETITIVE / DECLINING
+    {{delta_pct}}            WoW % change (signed)
+    {{forecast_next_week}}   USD forecast for next week
+    {{state_icon}}           emoji matching state
+    {{state_color_bg}}       row background hex
+    {{state_color_badge}}    badge text color hex
+-->
+<table style="border-collapse:collapse;margin:12px 0;width:100%;font-family:Segoe UI,Arial,sans-serif;font-size:13px;">
+  <thead>
+    <tr style="background:#1f2937;color:#ffffff;">
+      <th style="padding:8px 12px;border:1px solid #374151;text-align:left;">Route</th>
+      <th style="padding:8px 12px;border:1px solid #374151;">20GP</th>
+      <th style="padding:8px 12px;border:1px solid #374151;">40HQ</th>
+      <th style="padding:8px 12px;border:1px solid #374151;">Market</th>
+      <th style="padding:8px 12px;border:1px solid #374151;">Next Wk Forecast</th>
+    </tr>
+  </thead>
+  <tbody>
+    <!-- Example row — actual rows injected by builder per lane -->
+    <tr style="background:{{state_color_bg}};">
+      <td style="padding:8px 12px;border:1px solid #e5e7eb;"><strong>{{pol}}&rarr;{{destination}}</strong></td>
+      <td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:right;">USD {{current_rate_20gp}}</td>
+      <td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:right;">USD {{current_rate_40hq}}</td>
+      <td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;color:{{state_color_badge}};font-weight:bold;">
+        {{state_icon}} {{state}} {{delta_pct}}%
+      </td>
+      <td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:right;color:#6b7280;font-size:12px;">
+        USD {{forecast_next_week}}
+      </td>
+    </tr>
+  </tbody>
+</table>

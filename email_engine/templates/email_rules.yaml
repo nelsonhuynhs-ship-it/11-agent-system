@@ -1,0 +1,178 @@
+# ═════════════════════════════════════════════════════════════════════════════
+# email_rules.yaml — Nelson Freight smart-email templates
+# Phase 03: Smart Template Engine + Market Intel
+#
+# Match priority (most-specific first):
+#   1. Exact destinations + exact state (e.g. west_coast_urgent)
+#   2. Exact destinations + [any] state
+#   3. [any] destinations + exact state
+#   4. [any] destinations + [any] state  (→ default)
+#
+# Tokens available inside subject / intro / cta:
+#   {{first_name}}              CNEE first name (fallback "Team")
+#   {{company}}                 CNEE company name
+#   {{delta}}                   WoW % change (headline lane)
+#   {{current_rate_40hq}}       Current 40HQ rate USD
+#   {{prev_rate_40hq}}          Previous-week 40HQ rate USD
+#   {{mean_90d}}                90-day mean 40HQ rate
+#   {{gap_to_mean}}             mean_90d - current (positive = below mean)
+#   {{forecast_next_week}}      Predicted 40HQ next week
+#   {{last_rate_quoted}}        From CNEE profile
+#   {{days_since_last}}         From CNEE profile
+#   {{typical_pol}}             POL used this email
+#   {{typical_dest}}            First destination in list
+#   {{week}}                    ISO week number
+#   {{suffix}}                  "NELSON"
+#   {{default_intro}}           Fallback greeting paragraph
+#
+# Nelson edits this file directly → next email uses the new template (no restart).
+# ═════════════════════════════════════════════════════════════════════════════
+
+version: 1
+
+defaults:
+  signature: |
+    Best regards,
+
+    Nelson Huynh — Nelson Freight (NVOCC)
+    Asia-US Ocean Freight Specialist
+    nelsonhuynhs@gmail.com | +84 xxx
+  subject_suffix: "NELSON"
+
+templates:
+  # ─── 1. West Coast URGENT (USLAX/USLGB/USOAK + rates rising) ─────────────
+  - id: west_coast_urgent
+    match:
+      destinations: [USLAX, USLGB, USOAK]
+      states: [URGENT]
+    subject: "🚨 West Coast rates +{{delta}}% next week | Lock NOW | Week {{week}}"
+    intro: |
+      Dear {{first_name}},
+
+      Urgent update for {{company}} — Asia-US West Coast rates are trending
+      up {{delta}}% this week and our forecast points to further increases
+      next Monday.
+
+      Current 40HQ: USD {{current_rate_40hq}} vs 90-day mean USD {{mean_90d}}.
+      Forecast next week: USD {{forecast_next_week}}.
+    cta: |
+      Recommend you secure space this week before the next increase.
+      Reply today to lock rates at current levels.
+
+  # ─── 2. West Coast STABLE (calm week — positioning email) ─────────────────
+  - id: west_coast_stable
+    match:
+      destinations: [USLAX, USLGB, USOAK]
+      states: [STABLE]
+    subject: "Asia-US West Coast Rate Update | Week {{week}} | {{suffix}}"
+    intro: |
+      Dear {{first_name}},
+
+      Weekly update for {{company}}: Asia-US West Coast market is stable
+      at USD {{current_rate_40hq}}/40HQ (90-day mean USD {{mean_90d}}).
+
+      Good window to compare options before any market swing.
+    cta: |
+      Happy to run numbers on your typical {{typical_pol}}→{{typical_dest}}
+      shipments. Reply with your volume and I'll send tailored rates.
+
+  # ─── 3. East / Gulf Coast — any state (USNYC/USSAV/USCHS/USMIA/USHOU) ────
+  - id: east_coast_any
+    match:
+      destinations: [USNYC, USSAV, USCHS, USMIA, USHOU, USBAL, USJAX]
+      states: [any]
+    subject: "Asia-US East & Gulf Coast Rates | Week {{week}}"
+    intro: |
+      Dear {{first_name}},
+
+      East & Gulf Coast weekly update for {{company}}.
+      Current 40HQ to {{typical_dest}}: USD {{current_rate_40hq}}
+      (90-day mean USD {{mean_90d}}).
+    cta: |
+      Let me know your shipping volume and destination preference —
+      I'll send tailored routing options.
+
+  # ─── 4. DECLINING market — any destination (opportunity to renegotiate) ──
+  - id: declining_market
+    match:
+      destinations: [any]
+      states: [DECLINING]
+    subject: "Rates softening {{delta}}% — renegotiate window | Week {{week}}"
+    intro: |
+      Dear {{first_name}},
+
+      Good news — ocean freight rates are dropping {{delta}}% this week.
+      Current 40HQ: USD {{current_rate_40hq}}, which is USD {{gap_to_mean}}
+      below the 90-day mean.
+
+      Forecast next week: USD {{forecast_next_week}} (soft trend continues).
+    cta: |
+      Opportunity to renegotiate your current contracts or lock in
+      lower rates for upcoming shipments. Want me to run the numbers
+      on your typical lanes?
+
+  # ─── 5. COMPETITIVE pricing — current below mean ──────────────────────────
+  - id: competitive_opportunity
+    match:
+      destinations: [any]
+      states: [COMPETITIVE]
+    subject: "Below-market rates now | {{typical_pol}} → {{typical_dest}} | Week {{week}}"
+    intro: |
+      Dear {{first_name}},
+
+      Heads-up for {{company}}: current rate to {{typical_dest}} is
+      USD {{current_rate_40hq}} — USD {{gap_to_mean}} below the 90-day mean.
+
+      Sharp window to book at better-than-average pricing.
+    cta: |
+      Reply with your booking volume and I'll lock these rates for you
+      before the market catches up.
+
+  # ─── 6. Canada lanes (CAVAN + any state) ─────────────────────────────────
+  - id: canada_any
+    match:
+      destinations: [CAVAN, CATOR, CAMTR, CAHAL]
+      states: [any]
+    subject: "Asia → Canada Ocean Freight | Week {{week}}"
+    intro: |
+      Dear {{first_name}},
+
+      Weekly Canada-bound update for {{company}}.
+      Current 40HQ {{typical_pol}} → {{typical_dest}}: USD {{current_rate_40hq}}
+      (90-day mean USD {{mean_90d}}).
+    cta: |
+      Canada routing via Vancouver / Prince Rupert available —
+      happy to compare transit times and pricing.
+
+  # ─── 7. Any + URGENT (fallback when specific lane not matched) ────────────
+  - id: urgent_any_lane
+    match:
+      destinations: [any]
+      states: [URGENT]
+    subject: "🚨 Rates +{{delta}}% this week | Secure space now | Week {{week}}"
+    intro: |
+      Dear {{first_name}},
+
+      Ocean freight rates are spiking +{{delta}}% this week on your typical
+      {{typical_pol}} → {{typical_dest}} lane for {{company}}.
+
+      Current: USD {{current_rate_40hq}} / 40HQ. Forecast next week:
+      USD {{forecast_next_week}}.
+    cta: |
+      Recommend locking space immediately. Reply with your volume
+      and I'll confirm carrier allocations today.
+
+  # ─── 8. Default fallback (must be last) ─────────────────────────────────
+  - id: default
+    match:
+      destinations: [any]
+      states: [any]
+    subject: "Asia-US Ocean Freight Weekly | Week {{week}} | {{suffix}}"
+    intro: |
+      {{default_intro}}
+
+      Current market snapshot for {{typical_pol}} → {{typical_dest}}:
+      USD {{current_rate_40hq}} / 40HQ (90-day mean USD {{mean_90d}}).
+    cta: |
+      Let me know if you need rate quotes, specific routing options,
+      or have questions on the current market.
