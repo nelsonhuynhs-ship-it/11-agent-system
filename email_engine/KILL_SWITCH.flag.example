@@ -1,0 +1,39 @@
+KILL SWITCH — Phase 01 Email Worker
+====================================
+
+USAGE
+-----
+Sự tồn tại của file `email_engine/data/KILL_SWITCH.flag` (KHÔNG phải file
+.example này) sẽ KHIẾN worker DỪNG mọi pop job mới ngay lập tức.
+
+Worker check kill switch trước mỗi vòng pop_one(). Job đang gửi dở
+(status='sending') sẽ chạy nốt rồi worker idle ngủ 30s/round cho đến khi
+flag bị xoá.
+
+CÁCH BẬT (DỪNG SEND)
+---------------------
+PowerShell:
+    New-Item "email_engine\data\KILL_SWITCH.flag" -ItemType File -Force
+
+CMD:
+    type nul > email_engine\data\KILL_SWITCH.flag
+
+CÁCH TẮT (TIẾP TỤC SEND)
+-------------------------
+PowerShell / CMD:
+    del email_engine\data\KILL_SWITCH.flag
+
+KHI NÀO DÙNG
+------------
+- Phát hiện template sai giữa batch
+- Outlook báo throttle (HTTP 421 / Too many requests)
+- Cần dừng gấp để xem lại data
+- Trước khi reboot máy
+
+NOTES
+-----
+- File này (`.example`) chỉ là tài liệu — KHÔNG ảnh hưởng worker.
+- Sau khi xoá KILL_SWITCH.flag, worker tự nhặt lại jobs còn pending
+  (kể cả jobs đã pop nhưng chưa send xong sẽ được reset_stuck() xử lý
+  sau 10 phút nếu cần).
+- Kill switch là LOCAL only — không sync qua remote / VPS.
