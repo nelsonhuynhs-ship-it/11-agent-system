@@ -569,23 +569,28 @@ def build_rate_table_for_customer(
     for pod_code in dest_codes:
         # Map port code to city name for Parquet query
         city_name = port_map.get(pod_code, "")
-        if not city_name:
-            # Try fuzzy: remove "US" prefix and search
-            short = pod_code.replace("US", "")
-            for k, v in port_map.items():
-                if short in k:
-                    city_name = v
-                    break
-
-        if not city_name:
-            log.debug("[AutoRate] No mapping for %s, skipping", pod_code)
-            continue
 
         # Extract just the city part (before comma) for Parquet search
-        search_term = city_name.split(",")[0].strip()
+        search_term = city_name.split(",")[0].strip() if city_name else ""
 
-        # Query Parquet
-        best = _query_best_rates(pol, search_term, df, top_n=top_per_route)
+        # Build alternative search terms from port code itself.
+        # Parquet POD/Place may use "LAX-LGB", "LAX/LGB", "SAVANNAH, GA", etc.
+        # Port map may say "LOS ANGELES, CA" but Parquet says "LAX/LGB".
+        short = pod_code.replace("US", "").replace("CA", "")  # USLAX → LAX
+        alt_terms = [t for t in [search_term, short, pod_code] if t]
+
+        # Try each search term until we find rates
+        best = pd.DataFrame()
+        used_term = ""
+        for term in alt_terms:
+            best = _query_best_rates(pol, term, df, top_n=top_per_route)
+            if not best.empty:
+                used_term = term
+                break
+
+        if best.empty and not city_name:
+            log.debug("[AutoRate] No mapping for %s, skipping", pod_code)
+            continue
 
         if best.empty:
             continue
