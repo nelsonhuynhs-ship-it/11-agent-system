@@ -170,15 +170,13 @@ def _render_rate_table(lane_intels: list[dict]) -> str:
         "<td style='padding:10px 12px;color:#64748b;font-size:10px;"
         "letter-spacing:1.5px;font-weight:700;'>VALID</td>"
         "<td style='padding:10px 12px;color:#64748b;font-size:10px;"
-        "letter-spacing:1.5px;font-weight:700;'>MARKET</td>"
-        "<td style='padding:10px 12px;color:#64748b;font-size:10px;"
-        "letter-spacing:1.5px;font-weight:700;'>FORECAST</td>"
+        "letter-spacing:1.5px;font-weight:700;'>SVC</td>"
         "</tr>"
     )
 
     # ─── POL band (blue full-width) ──────────────────────────────
     rows.append(
-        "<tr><td colspan='6' style='padding:0;'>"
+        "<tr><td colspan='5' style='padding:0;'>"
         "<div style='background:#2553e2;color:#ffffff;padding:12px 16px;"
         "margin:4px 0 0;'>"
         f"<span style='font-size:15px;font-weight:800;letter-spacing:0.5px;'>{pol_code}</span>"
@@ -210,7 +208,7 @@ def _render_rate_table(lane_intels: list[dict]) -> str:
                 "letter-spacing:0.5px;vertical-align:middle;'>BEST</span>"
             )
         rows.append(
-            "<tr><td colspan='6' style='padding:14px 16px 4px;'>"
+            "<tr><td colspan='5' style='padding:14px 16px 4px;'>"
             "<table width='100%' cellpadding='0' cellspacing='0'><tr>"
             "<td style='padding:0;'>"
             "<span style='color:#334155;font-size:14px;font-weight:700;'>"
@@ -233,6 +231,9 @@ def _render_rate_table(lane_intels: list[dict]) -> str:
             accent = colors["bar"]
             rate_color = colors["text"]
 
+        # SVC column: show carrier if available from auto_rate_builder
+        svc = lane.get("carrier") or routing_hint
+
         rows.append(
             f"<tr style='background:{row_bg};border-left:3px solid {accent};'>"
             f"<td style='padding:12px 16px;'>"
@@ -243,19 +244,13 @@ def _render_rate_table(lane_intels: list[dict]) -> str:
             f"<td style='padding:12px 12px;text-align:right;font-weight:700;"
             f"color:{rate_color};font-size:14px;'>{r40}</td>"
             f"<td style='padding:12px 12px;color:#475569;font-size:11px;'>{valid_str}</td>"
-            f"<td style='padding:12px 12px;color:{colors['badge']};"
-            f"font-size:11px;font-weight:700;white-space:nowrap;'>"
-            f"{colors['icon']} {state}"
-            f"{(' ' + delta_sign + str(round(delta,1)) + '%') if delta else ''}"
-            f"</td>"
-            f"<td style='padding:12px 12px;text-align:right;color:#64748b;"
-            f"font-size:11px;'>{fcst}</td>"
+            f"<td style='padding:12px 12px;color:#475569;font-size:11px;'>{svc}</td>"
             f"</tr>"
         )
 
     # ─── Footer info strip ───────────────────────────────────────
     rows.append(
-        "<tr><td colspan='6' style='padding:14px 16px;background:#eff6ff;"
+        "<tr><td colspan='5' style='padding:14px 16px;background:#eff6ff;"
         "border-top:1px solid #dbeafe;'>"
         "<span style='color:#1e3a8a;font-size:12px;'>"
         "› <strong>Local Charge &amp; Handling Fee:</strong> "
@@ -424,13 +419,13 @@ def _build_tokens(
         "days_since_last": profile.get("days_since_last", ""),
         "profile": profile,
 
-        # lane tokens
-        "delta": headline.get("delta_pct", 0),
+        # lane tokens (forecast DISABLED per Nelson's request — "làm hư logic giá")
+        "delta": "",  # disabled — market_engine delta unreliable with current data
         "current_rate_40hq": current or "",
-        "prev_rate_40hq": headline.get("prev_rate_40hq", ""),
-        "mean_90d": mean_90d or "",
-        "forecast_next_week": headline.get("forecast_next_week", ""),
-        "gap_to_mean": gap_to_mean if gap_to_mean is not None else "",
+        "prev_rate_40hq": "",
+        "mean_90d": "",
+        "forecast_next_week": "",  # disabled
+        "gap_to_mean": "",
         "sample_size": headline.get("sample_size", 0),
         "confidence": headline.get("confidence", 0),
         "typical_pol": pol.upper(),
@@ -540,18 +535,56 @@ def build_email(
     pol = (pol or "HPH").strip().upper()
     destinations = [d.strip().upper() for d in (destinations or []) if d and d.strip()]
 
-    # 1. Per-lane market analysis
-    # market_engine returns 40HQ only; we estimate 20GP using industry
-    # rule-of-thumb: 20GP ≈ 40HQ × 0.78 (Asia-US container pricing ratio).
+    # 1. Get REAL rates from auto_rate_builder (proven correct).
+    # auto_rate_builder uses proper Place/POD mapping + Exp>=today filter.
+    # market_engine was returning inflated INLAND rates ($4,282 Nashville
+    # matched as "USLAX"). auto_rate_builder returns actual PORT ocean freight.
+    rate_by_dest: dict[str, dict] = {}
+    rate_html_from_builder = ""
+    try:
+        import sys
+        if str(Path(__file__).resolve().parent.parent / "core") not in sys.path:
+            sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core"))
+        from auto_rate_builder import build_rate_table_for_customer
+        arb_result = build_rate_table_for_customer(
+            pol=pol, destinations=",".join(destinations), markup=float(markup or 0)
+        )
+        rate_html_from_builder = arb_result.get("html", "")
+        for rr in arb_result.get("rates", []):
+            pod = str(rr.get("pod_code", "")).upper()
+            r40 = rr.get("rate_40")
+            r20 = rr.get("rate_20")
+            if pod and r40:
+                # Keep cheapest carrier per destination
+                if pod not in rate_by_dest or r40 < rate_by_dest[pod].get("rate_40", 1e9):
+                    rate_by_dest[pod] = {
+                        "rate_40": int(r40),
+                        "rate_20": int(r20) if r20 else 0,
+                        "carrier": str(rr.get("carrier", "")),
+                        "etd": str(rr.get("exp", ""))[:10] if rr.get("exp") else "",
+                    }
+    except Exception as e:
+        log.warning("[builder] auto_rate_builder unavailable: %s", e)
+
+    # 2. Per-lane market analysis (for STATE classification: URGENT/STABLE/etc.)
+    # market_engine state is used for template selection + subject line only.
+    # Dollar amounts come from auto_rate_builder above (NOT market_engine).
     lane_intels = []
     for dest in destinations:
         intel = analyze_lane(pol, dest)
-        intel["pol"] = pol  # annotate for renderer convenience
-        # Derive 20GP + apply markup
-        r40 = intel.get("current_rate_40hq")
-        if r40:
+        intel["pol"] = pol
+
+        # Override dollar amounts with auto_rate_builder's CORRECT rates
+        arb_rate = rate_by_dest.get(dest, {})
+        if arb_rate.get("rate_40"):
+            intel["current_rate_40hq"] = arb_rate["rate_40"]
+            intel["current_rate_20gp"] = arb_rate.get("rate_20", 0)
+        elif intel.get("current_rate_40hq"):
+            # Fallback: market_engine rate + markup (less accurate but better than nothing)
+            r40 = intel["current_rate_40hq"]
             intel["current_rate_40hq"] = float(r40) + float(markup or 0)
             intel["current_rate_20gp"] = round(float(r40) * 0.78 + float(markup or 0))
+
         fcst = intel.get("forecast_next_week")
         if fcst:
             intel["forecast_next_week"] = float(fcst) + float(markup or 0)
