@@ -1424,7 +1424,7 @@ select option{background:#fffbf3;color:var(--text)}
 const CONFIG = {
   apiBase: 'http://localhost:8100',
   cacheTTL: 5 * 60 * 1000,  // 5 min
-  fetchTimeout: 4000,       // quick fail → mock fallback
+  fetchTimeout: 30000,      // 30s — prospects endpoint can take 2-5s cold build
   batchSize: 5,             // concurrent sends
 };
 
@@ -2415,12 +2415,29 @@ const App = {
     this.bindResize();
     this.bindHistoryPager();
 
-    // initial load
-    this.loadRates();
+    // Auto-populate campaign dropdown from live API (replaces hardcoded list)
+    this.loadCampaigns().then(() => this.loadRates());
     UIRecommend.init();
     UIAnalytics.render();
     UIAlerts.render();
     UIQueue.render();
+  },
+
+  async loadCampaigns() {
+    try {
+      const r = await fetch(`${CONFIG.apiBase}/api/campaigns`, { signal: AbortSignal.timeout(8000) });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const list = await r.json();
+      const sel = document.getElementById('inpCampaign');
+      const current = sel.value || 'ALL';
+      sel.innerHTML = list.map(c => {
+        const label = `${c.name} (${c.count.toLocaleString()})`;
+        return `<option value="${c.name}">${label}</option>`;
+      }).join('');
+      sel.value = list.some(c => c.name === current) ? current : (list[0]?.name || 'ALL');
+    } catch (e) {
+      console.warn('[campaigns] API fetch failed:', e);
+    }
   },
 
   bindNav() {
