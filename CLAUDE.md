@@ -48,15 +48,17 @@ Email: nelsonhuynhs@gmail.com | Company: nelson@pudongprime.vn
 ## Active Projects
 | Project | Status | File |
 |---------|--------|------|
-| **S14A** | 🔨 IN PROGRESS — Fix rate query + freshness badge | api/routers/email_rate_router.py |
-| **S14B** | ⏳ NEXT — Email History + Follow-up Dashboard | webapp/dashboard/email-history |
-| **S14C** | ⏳ PLANNED — Price Delta + Smart Compose | email_rate_router.py |
-| **S14D** | ⏳ PLANNED — Bulk Send Intelligence | email_rate_router.py |
+| **Email Solo Platform** | 🔨 IN PROGRESS — See `plans/260416-email-nelson-solo-platform/` | `email_engine/web_server.py` |
 | **VPS Deploy S13** | ⏳ BLOCKED (SSH issue) | deploy/auto_deploy.bat |
 | **JWT Middleware** | ⏳ PENDING | api/ |
-| **Mentee Dashboard** | ⏳ PENDING | webapp/dashboard/ |
 
-→ Full roadmap: WEBAPP_UPGRADE_ROADMAP.md | memory/projects/
+→ Full roadmap: `plans/260416-email-nelson-solo-platform/plan.md` | memory/projects/
+
+## ⚠ Email Pipeline — Source of Truth (2026-04-17)
+**Email send = `email_engine/web_server.py` (LOCAL PC) → Outlook COM desktop.**
+KHÔNG có API VPS, KHÔNG có webapp Next.js trong chuỗi gửi email.
+**Đọc TRƯỚC khi thêm/sửa bất cứ gì liên quan email:** `docs/EMAIL_PIPELINE_SOURCE_OF_TRUTH.md`
+Cleanup 2026-04-17: deleted `api/routers/email_rate_router.py`, `email_queue_router.py`, `auto_quote_router.py`, `webapp/src/app/dashboard/{rate-send,email-campaign,email-log}/`.
 
 ## System Overview
 Nelson Freight NVOCC — Vietnam→USA/Canada freight forwarding.

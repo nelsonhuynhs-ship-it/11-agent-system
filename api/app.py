@@ -50,31 +50,8 @@ async def lifespan(app: FastAPI):
 
     log.info("All workers started ✓")
 
-    # Pre-warm DuckDB so first user request is fast (cold start fix)
-    try:
-        from routers.email_rate_router import _get_db
-        db = _get_db()
-        db.con.execute("SELECT 1").fetchone()
-        log.info("DuckDB pre-warmed ✓")
-    except Exception as e:
-        log.warning("DuckDB pre-warm skipped: %s", e)
-
-    # Auto-reset stuck email queue jobs (sending > 10 min)
-    try:
-        from database.connection import execute_sync, is_postgres_configured
-        if is_postgres_configured():
-            result = execute_sync(
-                """
-                UPDATE email_queue SET status='pending', picked_at=NULL
-                WHERE status='sending'
-                  AND picked_at < NOW() - interval '10 minutes'
-                RETURNING id
-                """
-            )
-            if result:
-                log.info("Auto-reset %d stuck email queue job(s) ✓", len(result))
-    except Exception as e:
-        log.warning("Stuck job reset skipped: %s", e)
+    # Email send pipeline moved to email_engine/web_server.py (local PC + Outlook COM).
+    # No DuckDB pre-warm or email queue reset here — handled by local worker.
 
     yield
 
@@ -149,11 +126,12 @@ from routers.health_router import router as health_router
 from routers.reports_router import router as reports_router
 from routers.pricing_router import router as pricing_router
 from routers.job_router import router as job_router
-from routers.email_rate_router import router as email_rate_router  # Sprint 13
 from routers.data_router import router as data_router              # Email platform data
-from routers.email_queue_router import router as email_queue_router  # Worker bridge
 from routers.sync_router import router as sync_router                # ERP sync
 from routers.customer_check_router import router as customer_check_router  # Tax code check
+# REMOVED 2026-04-17: email_rate_router, email_queue_router, auto_quote_router
+# Email send pipeline now lives in email_engine/web_server.py (local PC + Outlook COM).
+# See docs/EMAIL_PIPELINE_SOURCE_OF_TRUTH.md
 
 app.include_router(rate_router)
 app.include_router(quote_router)
@@ -168,9 +146,7 @@ app.include_router(health_router)
 app.include_router(reports_router)
 app.include_router(pricing_router)
 app.include_router(job_router)
-app.include_router(email_rate_router)
 app.include_router(data_router)
-app.include_router(email_queue_router)
 app.include_router(sync_router)
 app.include_router(customer_check_router)
 

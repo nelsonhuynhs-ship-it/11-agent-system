@@ -126,16 +126,126 @@ def _pick_best_lane(lane_intels: list[dict]) -> dict | None:
     return min(rated, key=lambda ln: float(ln.get("current_rate_40hq") or 1e9))
 
 
+# ── Rate Table v2 helpers: POD format + SVC derivation ─────────────────────
+
+# Carriers whose FAK rate is shipper-owned container (SOC) by contract convention
+_FAK_SOC_CARRIERS = {"ONE", "CMA", "YML", "HPL"}
+
+
+def _derive_svc(rate_type: str, carrier: str) -> str:
+    """
+    Derive SVC column label from Parquet Rate_Type + carrier.
+
+    Rules (per Nelson 2026-04-17):
+      FAK + ONE/CMA/YML/HPL  → SOC
+      FAK + others           → COC
+      FIX + HPL              → SOC Fixed
+      FIX + others           → FIXED — Provide commodity
+      SCFI                   → SCFI market
+      else                   → direct
+    """
+    rt = (rate_type or "").upper().strip()
+    c = (carrier or "").upper().strip()
+    if rt == "FIX":
+        return "SOC Fixed" if c == "HPL" else "FIXED — Provide commodity"
+    if rt == "FAK":
+        return "SOC" if c in _FAK_SOC_CARRIERS else "COC"
+    if rt == "SCFI":
+        return "SCFI market"
+    return "direct"
+
+
+# Known US/Canada ocean ports (show only port code, no city name)
+_US_OCEAN_PORTS = {
+    "USLAX", "USLGB", "USOAK", "USSEA", "USTIW", "USPDX",   # West Coast
+    "USNYC", "USEWR", "USBAL", "USPHL", "USBOS", "USILG",   # North East
+    "USSAV", "USCHS", "USJAX", "USMIA",                      # South East
+    "USHOU", "USMSY",                                        # Gulf
+    "USORF",                                                 # Mid-Atlantic
+    "CAVAN", "CAPRR", "CAMTR", "CAHAL",                      # Canada ocean
+}
+
+# Common POD → main ocean port routing hint (for inland "via X" display)
+_INLAND_VIA = {
+    "USCHI": "LAX/LGB", "USMEM": "LAX/LGB", "USDAL": "LAX/LGB",
+    "USATL": "SAV",     "USNSH": "SAV",     "USCLT": "CHS",
+    "USSTL": "LAX/LGB", "USKC":  "LAX/LGB", "USMCI": "LAX/LGB",
+    "USDEN": "LAX/LGB", "USMSP": "LAX/LGB", "USDTW": "NYC",
+    "USCLE": "NYC",     "USCOL": "NYC",     "USIAH": "HOU",
+    "USCVG": "NYC",     "CATOR": "VAN",
+}
+
+
+def _is_main_port(pod_code: str) -> bool:
+    """True if POD is a direct ocean port (no inland IPI leg)."""
+    return (pod_code or "").upper() in _US_OCEAN_PORTS
+
+
+def _fmt_pod_header(pod_code: str, place_name: str) -> tuple[str, str]:
+    """
+    Return (main_text, sub_text) for POD chevron header.
+
+    Main port  → ("USLAX", "")                          -- clean code only
+    Inland     → ("CHICAGO, IL", "via LAX/LGB")         -- place + routing hint
+    """
+    code = (pod_code or "").upper()
+    place = (place_name or "").strip()
+
+    if _is_main_port(code):
+        return code, ""  # Clean: no city name duplication
+
+    # Inland — prefer actual place name, fall back to POD name map
+    display_place = place.upper() or _POD_NAMES.get(code, code).upper()
+    via_hint = _INLAND_VIA.get(code, "")
+    sub = f"via {via_hint}" if via_hint else ""
+    return display_place, sub
+
+
+def _fmt_validity(eff, exp) -> str:
+    """Format eff/exp pair as '8 Apr – 30 Apr' or '– 30 Apr' (expiry-only)."""
+    from datetime import date as _d, datetime as _dt
+    def _to_d(v):
+        if v is None or v == "":
+            return None
+        if isinstance(v, _d) and not isinstance(v, _dt):
+            return v
+        try:
+            import pandas as pd  # local import, pandas already loaded upstream
+            if pd.isna(v):
+                return None
+            return pd.to_datetime(v).date()
+        except Exception:
+            try:
+                return _dt.fromisoformat(str(v)[:10]).date()
+            except Exception:
+                return None
+    d_eff = _to_d(eff)
+    d_exp = _to_d(exp)
+    if d_eff and d_exp:
+        return f"{d_eff.strftime('%d %b')} – {d_exp.strftime('%d %b')}"
+    if d_exp:
+        return f"– {d_exp.strftime('%d %b')}"
+    if d_eff:
+        return f"{d_eff.strftime('%d %b')} –"
+    return "—"
+
+
 def _render_rate_table(lane_intels: list[dict]) -> str:
     """
-    Render per-lane rate table — Pudong Prime branded quote style.
+    Render per-lane rate table — Pudong Prime branded quote style (v2).
 
     Layout:
-      [Column header row: CARRIER | 20GP | 40HQ | VALID | SVC | MARKET]
-      [POL band — full-width blue bar with port name]
-      [POD chevron row: › LOS ANGELES, CA  via ...]
-      [Rate row — green highlight for BEST, state-colored for others]
-      ... repeat per POD ...
+      [Column header: CARRIER | 20GP | 40HQ | VALID | SVC]
+      [POL band — full-width blue bar]
+      [POD chevron row per lane]
+      [N carrier rows per POD — cheapest first, BEST pill on global cheapest]
+      [Footer strip — local charges]
+
+    v2 changes (2026-04-17):
+      - Multi-carrier rows per POD (from lane.carriers list)
+      - POD header: main port shows just code; inland shows "PLACE via PORT"
+      - SVC column derived from Rate_Type + carrier (SOC/COC/FIXED)
+      - Per-carrier validity window (real Eff/Exp dates, not synthetic)
     """
     if not lane_intels:
         return (
@@ -146,39 +256,36 @@ def _render_rate_table(lane_intels: list[dict]) -> str:
 
     pol_code = (lane_intels[0].get("pol") or "HPH").upper()
     pol_full = _pol_name(pol_code)
-    best_lane = _pick_best_lane(lane_intels)
-    best_id = id(best_lane) if best_lane else None
 
-    # Validity window: this week Mon → next week Fri (common quote pattern)
-    from datetime import date, timedelta
-    today = date.today()
-    valid_start = today - timedelta(days=today.weekday())  # this Monday
-    valid_end = valid_start + timedelta(days=11)  # next Friday
-    valid_str = f"{valid_start.strftime('%d %b')} – {valid_end.strftime('%d %b')}"
+    # Global BEST = cheapest (carrier, lane) pair across all lanes
+    global_best_40 = float("inf")
+    global_best_key = None
+    for lane in lane_intels:
+        for c in lane.get("carriers") or []:
+            r40 = c.get("rate_40") or 0
+            if r40 and r40 < global_best_40:
+                global_best_40 = r40
+                global_best_key = (id(lane), c.get("carrier", "").upper())
 
     rows = []
 
     # ─── Column header row ────────────────────────────────────────
+    _th = ("padding:10px 12px;color:#64748b;font-size:10px;"
+           "letter-spacing:1.5px;font-weight:700;")
     rows.append(
         "<tr style='background:#f8fafc;border-bottom:1px solid #e2e8f0;'>"
-        "<td style='padding:10px 16px;color:#64748b;font-size:10px;"
-        "letter-spacing:1.5px;font-weight:700;text-transform:uppercase;'>SERVICE</td>"
-        "<td style='padding:10px 12px;color:#64748b;font-size:10px;"
-        "letter-spacing:1.5px;font-weight:700;text-align:right;'>20GP</td>"
-        "<td style='padding:10px 12px;color:#64748b;font-size:10px;"
-        "letter-spacing:1.5px;font-weight:700;text-align:right;'>40HQ</td>"
-        "<td style='padding:10px 12px;color:#64748b;font-size:10px;"
-        "letter-spacing:1.5px;font-weight:700;'>VALID</td>"
-        "<td style='padding:10px 12px;color:#64748b;font-size:10px;"
-        "letter-spacing:1.5px;font-weight:700;'>SVC</td>"
+        f"<td style='{_th}padding-left:16px;text-transform:uppercase;'>CARRIER</td>"
+        f"<td style='{_th}text-align:right;'>20GP</td>"
+        f"<td style='{_th}text-align:right;'>40HQ</td>"
+        f"<td style='{_th}'>VALID</td>"
+        f"<td style='{_th}'>SVC</td>"
         "</tr>"
     )
 
     # ─── POL band (blue full-width) ──────────────────────────────
     rows.append(
         "<tr><td colspan='5' style='padding:0;'>"
-        "<div style='background:#2553e2;color:#ffffff;padding:12px 16px;"
-        "margin:4px 0 0;'>"
+        "<div style='background:#2553e2;color:#ffffff;padding:12px 16px;margin:4px 0 0;'>"
         f"<span style='font-size:15px;font-weight:800;letter-spacing:0.5px;'>{pol_code}</span>"
         f"<span style='color:#c7d2fe;margin-left:12px;font-size:13px;'>{pol_full}</span>"
         "</div></td></tr>"
@@ -186,67 +293,72 @@ def _render_rate_table(lane_intels: list[dict]) -> str:
 
     # ─── Per-POD rows ────────────────────────────────────────────
     for lane in lane_intels:
-        state = str(lane.get("state", "STABLE")).upper()
-        colors = _STATE_COLOR.get(state, _STATE_COLOR["STABLE"])
         dest_code = str(lane.get("destination", "")).upper()
-        dest_full = _pod_name(dest_code)
-        is_best = (id(lane) == best_id)
+        carriers = lane.get("carriers") or []
 
-        r20 = _fmt_rate(lane.get("current_rate_20gp"))
-        r40 = _fmt_rate(lane.get("current_rate_40hq"))
-        fcst = _fmt_rate(lane.get("forecast_next_week"))
-        delta = lane.get("delta_pct", 0.0) or 0
-        delta_sign = "+" if delta > 0 else ""
+        # Determine place from first carrier's parquet_place (reliable), fallback to pod_name
+        first_place = ""
+        if carriers:
+            first_place = carriers[0].get("place_name") or carriers[0].get("parquet_place") or ""
+        if not first_place:
+            first_place = _POD_NAMES.get(dest_code, "")
 
-        # POD chevron row (with BEST pill right-aligned if applicable)
-        routing_hint = lane.get("routing") or "direct service"
-        best_pill_html = ""
-        if is_best:
-            best_pill_html = (
-                "<span style='background:#10b981;color:#ffffff;padding:3px 10px;"
-                "border-radius:12px;font-size:10px;font-weight:800;"
-                "letter-spacing:0.5px;vertical-align:middle;'>BEST</span>"
-            )
+        pod_main, pod_sub = _fmt_pod_header(dest_code, first_place)
+
         rows.append(
             "<tr><td colspan='5' style='padding:14px 16px 4px;'>"
-            "<table width='100%' cellpadding='0' cellspacing='0'><tr>"
-            "<td style='padding:0;'>"
             "<span style='color:#334155;font-size:14px;font-weight:700;'>"
-            f"› {dest_code}"
-            f"<span style='color:#64748b;font-weight:400;margin-left:8px;'>"
-            f"{dest_full}</span></span>"
-            "</td>"
-            f"<td align='right' style='padding:0;'>{best_pill_html}</td>"
-            "</tr></table>"
+            f"› {pod_main}"
+            f"<span style='color:#64748b;font-weight:400;margin-left:8px;font-size:12px;'>"
+            f"{pod_sub}</span></span>"
             "</td></tr>"
         )
 
-        # Rate row — BEST uses green accent; others use state color
-        if is_best:
-            row_bg = "#ecfdf5"
-            accent = "#10b981"
-            rate_color = "#064e3b"
-        else:
-            row_bg = colors["bg"]
-            accent = colors["bar"]
-            rate_color = colors["text"]
+        if not carriers:
+            rows.append(
+                "<tr><td colspan='5' style='padding:8px 16px 12px;"
+                "color:#94a3b8;font-style:italic;font-size:12px;'>"
+                "No rates available for this lane.</td></tr>"
+            )
+            continue
 
-        # SVC column: show carrier if available from auto_rate_builder
-        svc = lane.get("carrier") or routing_hint
+        # Render one row per carrier (cheapest already first — sorted in build_email)
+        for c in carriers:
+            carrier = str(c.get("carrier", "")).upper()
+            is_best = (id(lane), carrier) == global_best_key
 
-        rows.append(
-            f"<tr style='background:{row_bg};border-left:3px solid {accent};'>"
-            f"<td style='padding:12px 16px;'>"
-            f"<div style='font-size:12px;color:#64748b;font-weight:500;'>{routing_hint}</div>"
-            f"</td>"
-            f"<td style='padding:12px 12px;text-align:right;font-weight:700;"
-            f"color:{rate_color};font-size:14px;'>{r20}</td>"
-            f"<td style='padding:12px 12px;text-align:right;font-weight:700;"
-            f"color:{rate_color};font-size:14px;'>{r40}</td>"
-            f"<td style='padding:12px 12px;color:#475569;font-size:11px;'>{valid_str}</td>"
-            f"<td style='padding:12px 12px;color:#475569;font-size:11px;'>{svc}</td>"
-            f"</tr>"
-        )
+            r20 = _fmt_rate(c.get("rate_20"))
+            r40 = _fmt_rate(c.get("rate_40"))
+            valid = _fmt_validity(c.get("eff"), c.get("exp"))
+            svc = _derive_svc(c.get("rate_type"), carrier)
+
+            if is_best:
+                row_bg = "#ecfdf5"
+                accent = "#10b981"
+                rate_color = "#064e3b"
+                carrier_label = (
+                    f"<strong style='color:#064e3b;'>{carrier}</strong> "
+                    "<span style='background:#10b981;color:#ffffff;padding:2px 8px;"
+                    "border-radius:10px;font-size:9px;font-weight:800;"
+                    "letter-spacing:0.5px;margin-left:6px;vertical-align:middle;'>BEST</span>"
+                )
+            else:
+                row_bg = "#ffffff"
+                accent = "#e2e8f0"
+                rate_color = "#334155"
+                carrier_label = f"<strong style='color:#334155;'>{carrier}</strong>"
+
+            rows.append(
+                f"<tr style='background:{row_bg};border-left:3px solid {accent};'>"
+                f"<td style='padding:10px 16px;font-size:13px;'>{carrier_label}</td>"
+                f"<td style='padding:10px 12px;text-align:right;font-weight:700;"
+                f"color:{rate_color};font-size:14px;'>{r20}</td>"
+                f"<td style='padding:10px 12px;text-align:right;font-weight:700;"
+                f"color:{rate_color};font-size:14px;'>{r40}</td>"
+                f"<td style='padding:10px 12px;color:#475569;font-size:11px;'>{valid}</td>"
+                f"<td style='padding:10px 12px;color:#475569;font-size:11px;'>{svc}</td>"
+                "</tr>"
+            )
 
     # ─── Footer info strip ───────────────────────────────────────
     rows.append(
@@ -539,7 +651,8 @@ def build_email(
     # auto_rate_builder uses proper Place/POD mapping + Exp>=today filter.
     # market_engine was returning inflated INLAND rates ($4,282 Nashville
     # matched as "USLAX"). auto_rate_builder returns actual PORT ocean freight.
-    rate_by_dest: dict[str, dict] = {}
+    # Rate Table v2: keep LIST of carriers per POD (not just cheapest) for multi-row display
+    rate_by_dest: dict[str, list[dict]] = {}
     rate_html_from_builder = ""
     try:
         import sys
@@ -554,15 +667,22 @@ def build_email(
             pod = str(rr.get("pod_code", "")).upper()
             r40 = rr.get("rate_40")
             r20 = rr.get("rate_20")
-            if pod and r40:
-                # Keep cheapest carrier per destination
-                if pod not in rate_by_dest or r40 < rate_by_dest[pod].get("rate_40", 1e9):
-                    rate_by_dest[pod] = {
-                        "rate_40": int(r40),
-                        "rate_20": int(r20) if r20 else 0,
-                        "carrier": str(rr.get("carrier", "")),
-                        "etd": str(rr.get("exp", ""))[:10] if rr.get("exp") else "",
-                    }
+            if not (pod and r40):
+                continue
+            rate_by_dest.setdefault(pod, []).append({
+                "rate_40":   int(r40),
+                "rate_20":   int(r20) if r20 else 0,
+                "carrier":   str(rr.get("carrier", "")),
+                "eff":       rr.get("eff"),
+                "exp":       rr.get("exp"),
+                "rate_type": str(rr.get("rate_type", "")).upper(),
+                "place_name": str(rr.get("place_name", "")),
+                "parquet_place": str(rr.get("parquet_place", "")),
+                "parquet_pod":   str(rr.get("parquet_pod", "")),
+            })
+        # Sort each POD's carriers by 40HQ rate ASC (cheapest first)
+        for pod in rate_by_dest:
+            rate_by_dest[pod].sort(key=lambda x: x.get("rate_40", 1e9))
     except Exception as e:
         log.warning("[builder] auto_rate_builder unavailable: %s", e)
 
@@ -574,13 +694,17 @@ def build_email(
         intel = analyze_lane(pol, dest)
         intel["pol"] = pol
 
-        # Override dollar amounts with auto_rate_builder's CORRECT rates
-        arb_rate = rate_by_dest.get(dest, {})
-        if arb_rate.get("rate_40"):
-            intel["current_rate_40hq"] = arb_rate["rate_40"]
-            intel["current_rate_20gp"] = arb_rate.get("rate_20", 0)
+        # Rate Table v2: attach full carrier list (multi-row per POD)
+        carriers = rate_by_dest.get(dest, [])
+        intel["carriers"] = carriers  # list[dict] — may be empty
+
+        # Override dollar amounts with auto_rate_builder's cheapest (first in sorted list)
+        if carriers:
+            top = carriers[0]
+            intel["current_rate_40hq"] = top["rate_40"]
+            intel["current_rate_20gp"] = top.get("rate_20", 0)
+            intel["carrier"] = top.get("carrier", "")
         elif intel.get("current_rate_40hq"):
-            # Fallback: market_engine rate + markup (less accurate but better than nothing)
             r40 = intel["current_rate_40hq"]
             intel["current_rate_40hq"] = float(r40) + float(markup or 0)
             intel["current_rate_20gp"] = round(float(r40) * 0.78 + float(markup or 0))

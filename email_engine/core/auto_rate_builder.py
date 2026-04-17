@@ -185,10 +185,11 @@ def _load_parquet() -> pd.DataFrame:
 
 # ── Query Rates ──────────────────────────────────────────────────────────────
 
-def _query_best_rates(pol: str, place: str, df: pd.DataFrame, top_n: int = 2) -> pd.DataFrame:
+def _query_best_rates(pol: str, place: str, df: pd.DataFrame, top_n: int = 5) -> pd.DataFrame:
     """
     Query Parquet for best rates to a specific place.
     Returns top_n carriers sorted by price for 40HQ.
+    Includes rate_type, contract, note for downstream SVC column derivation.
     """
     if df is None or df.empty:
         return pd.DataFrame()
@@ -265,6 +266,10 @@ def _query_best_rates(pol: str, place: str, df: pd.DataFrame, top_n: int = 2) ->
                 "exp":     _parse_date(exp_val),   # pd.Timestamp or NaT
                 "eff":     _parse_date(eff_val),   # pd.Timestamp or NaT
                 "note":    str(_get_col(best_row, "Note", "note", "Remark")),
+                "rate_type": str(_get_col(best_row, "Rate_Type", "rate_type")).strip().upper(),
+                "contract":  str(_get_col(best_row, "Contract", "contract")).strip(),
+                "place":     str(_get_col(best_row, "Place", "place")).strip(),
+                "pod":       str(_get_col(best_row, "POD", "pod")).strip(),
             }
 
     # Get best rates by carrier for 20GP (same logic: latest Exp first)
@@ -285,12 +290,16 @@ def _query_best_rates(pol: str, place: str, df: pd.DataFrame, top_n: int = 2) ->
     for carrier, data40 in sorted(best_40.items(), key=lambda x: x[1]["rate_40"]):
         rate_20 = best_20.get(carrier, None)
         rows.append({
-            "carrier":  carrier,
-            "rate_20":  rate_20,
-            "rate_40":  data40["rate_40"],
-            "exp":      data40["exp"],   # pd.Timestamp or NaT
-            "eff":      data40["eff"],   # pd.Timestamp or NaT
-            "note":     data40["note"],
+            "carrier":   carrier,
+            "rate_20":   rate_20,
+            "rate_40":   data40["rate_40"],
+            "exp":       data40["exp"],   # pd.Timestamp or NaT
+            "eff":       data40["eff"],   # pd.Timestamp or NaT
+            "note":      data40["note"],
+            "rate_type": data40.get("rate_type", ""),
+            "contract":  data40.get("contract", ""),
+            "place":     data40.get("place", ""),
+            "pod":       data40.get("pod", ""),
         })
 
     return pd.DataFrame(rows[:top_n])
@@ -340,16 +349,64 @@ def _plain_to_html(text: str) -> str:
     return "\n".join(out)
 
 
+# ── Rate Table v2 helpers (2026-04-17) ─────────────────────────────────────
+_FAK_SOC_CARRIERS = {"ONE", "CMA", "YML", "HPL"}
+
+_US_OCEAN_PORTS = {
+    "USLAX", "USLGB", "USOAK", "USSEA", "USTIW", "USPDX",
+    "USNYC", "USEWR", "USBAL", "USPHL", "USBOS", "USILG",
+    "USSAV", "USCHS", "USJAX", "USMIA",
+    "USHOU", "USMSY", "USORF",
+    "CAVAN", "CAPRR", "CAMTR", "CAHAL",
+}
+
+_INLAND_VIA = {
+    "USCHI": "LAX/LGB", "USMEM": "LAX/LGB", "USDAL": "LAX/LGB",
+    "USATL": "SAV",     "USNSH": "SAV",     "USCLT": "CHS",
+    "USSTL": "LAX/LGB", "USKC":  "LAX/LGB", "USMCI": "LAX/LGB",
+    "USDEN": "LAX/LGB", "USMSP": "LAX/LGB", "USDTW": "NYC",
+    "USCLE": "NYC",     "USCOL": "NYC",     "USIAH": "HOU",
+    "USCVG": "NYC",     "CATOR": "VAN",
+}
+
+
+def _derive_svc(rate_type: str, carrier: str) -> str:
+    """FAK+ONE/CMA/YML/HPL→SOC; FAK+other→COC; FIX+HPL→SOC Fixed; FIX→FIXED."""
+    rt = (rate_type or "").upper().strip()
+    c = (carrier or "").upper().strip()
+    if rt == "FIX":
+        return "SOC Fixed" if c == "HPL" else "FIXED"
+    if rt == "FAK":
+        return "SOC" if c in _FAK_SOC_CARRIERS else "COC"
+    if rt == "SCFI":
+        return "SCFI"
+    return "direct"
+
+
+def _fmt_pod_cell(pod_code: str, place_name: str) -> str:
+    """
+    Main port  → just "USLAX"
+    Inland     → "CHICAGO, IL via LAX/LGB"
+    """
+    code = (pod_code or "").upper()
+    place = (place_name or "").strip()
+    if code in _US_OCEAN_PORTS:
+        return code
+    via = _INLAND_VIA.get(code, "")
+    label = place.upper() or code
+    return f"{label} via {via}" if via else label
+
+
 def _build_html_table(rows: list[dict]) -> str:
     """
     Build Outlook-compatible HTML rate table from rate rows.
 
     Each row: {pol, pod_code, place_name, carrier, rate_20, rate_40,
-               eff_str (optional), exp_str (optional), exp (raw, for colour)}
+               eff, exp, rate_type}
 
+    v2 (2026-04-17): adds SVC column + POD format (main vs inland).
     Validity shown as ONE combined column: "Valid Eff/Exp"
-    Format: "01-31Mar" or "01Mar–10Apr" depending on month boundary.
-    Expired rows highlighted red, expiring-today orange.
+    Expired rows highlighted red.
     """
     if not rows:
         return "<p><em>No rates available for this route.</em></p>"
@@ -405,28 +462,43 @@ def _build_html_table(rows: list[dict]) -> str:
     lines = [_TABLE_CSS]
     lines.append('<table class="tg"><thead>')
     lines.append("  <tr>")
-    for col in ["POL", "POD", "Place Of Delivery", "Carrier", "20GP", "40HQ", "Valid Eff/Exp"]:
+    # v2: merged POD column (main vs inland) + new SVC column
+    for col in ["POL", "POD / Destination", "Carrier", "20GP", "40HQ", "Valid", "SVC"]:
         lines.append(f'    <th class="hdr">{col}</th>')
     lines.append("  </tr>")
     lines.append("</thead><tbody>")
+
+    # Find global BEST per POD (cheapest 40HQ) for highlighting
+    pod_best = {}
+    for r in rows:
+        pod = str(r.get("pod_code", "")).upper()
+        r40 = r.get("rate_40") or 0
+        if r40 and (pod not in pod_best or r40 < pod_best[pod]):
+            pod_best[pod] = r40
 
     for r in rows:
         rate_20_str = f"USD {int(r['rate_20']):,}" if r.get("rate_20") else "—"
         rate_40_str = f"USD {int(r['rate_40']):,}" if r.get("rate_40") else "—"
 
-        valid_text, valid_css = _validity_cell(
-            r.get("eff"),   # pd.Timestamp or NaT
-            r.get("exp"),   # pd.Timestamp or NaT
-        )
+        valid_text, valid_css = _validity_cell(r.get("eff"), r.get("exp"))
 
-        lines.append("  <tr>")
+        pod_cell = _fmt_pod_cell(r.get("pod_code", ""), r.get("place_name", ""))
+        svc_label = _derive_svc(r.get("rate_type", ""), r.get("carrier", ""))
+
+        # BEST row highlight (cheapest carrier per POD)
+        pod = str(r.get("pod_code", "")).upper()
+        is_best = r.get("rate_40") == pod_best.get(pod)
+        row_style = ' style="background:#e8f5e9;font-weight:700;"' if is_best else ""
+        best_tag = ' <span style="background:#10b981;color:#fff;padding:1px 6px;border-radius:8px;font-size:9px;margin-left:4px;">BEST</span>' if is_best else ""
+
+        lines.append(f"  <tr{row_style}>")
         lines.append(f'    <td class="val">{r["pol"]}</td>')
-        lines.append(f'    <td class="val">{r["pod_code"]}</td>')
-        lines.append(f'    <td class="val">{r["place_name"]}</td>')
-        lines.append(f'    <td class="val"><strong>{r["carrier"]}</strong></td>')
+        lines.append(f'    <td class="val">{pod_cell}</td>')
+        lines.append(f'    <td class="val"><strong>{r["carrier"]}</strong>{best_tag}</td>')
         lines.append(f'    <td class="val">{rate_20_str}</td>')
         lines.append(f'    <td class="val">{rate_40_str}</td>')
         lines.append(f'    <td class="{valid_css}">{valid_text}</td>')
+        lines.append(f'    <td class="val" style="font-size:11px;color:#555;">{svc_label}</td>')
         lines.append("  </tr>")
 
     lines.append("</tbody></table>")
@@ -524,7 +596,7 @@ def build_rate_table_for_customer(
     pol: str = "HPH",
     destinations: str = "",
     markup: float = MARKUP_MIN,
-    top_per_route: int = 2,
+    top_per_route: int = 5,
     arb_origin: str = None,
 ) -> dict:
     """
@@ -605,14 +677,18 @@ def build_rate_table_for_customer(
             sell_40 = int(r40 + markup) if r40 and pd.notna(r40) else None
 
             all_rows.append({
-                "pol":        pol.upper(),
-                "pod_code":   pod_code,
-                "place_name": city_name,
-                "carrier":    str(rate_row["carrier"]),
-                "rate_20":    sell_20,
-                "rate_40":    sell_40,
-                "eff":        rate_row.get("eff"),
-                "exp":        rate_row.get("exp"),
+                "pol":         pol.upper(),
+                "pod_code":    pod_code,
+                "place_name":  city_name,
+                "carrier":     str(rate_row["carrier"]),
+                "rate_20":     sell_20,
+                "rate_40":     sell_40,
+                "eff":         rate_row.get("eff"),
+                "exp":         rate_row.get("exp"),
+                "rate_type":   str(rate_row.get("rate_type", "")).upper(),
+                "contract":    str(rate_row.get("contract", "")),
+                "parquet_place": str(rate_row.get("place", "")),
+                "parquet_pod":   str(rate_row.get("pod", "")),
             })
             detail_carriers.append(str(rate_row["carrier"]))
 

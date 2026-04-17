@@ -25,15 +25,14 @@ const NAV_ITEMS = [
   {
     label: "TOOLS",
     items: [
-      { name: "Rate & Send", href: "/dashboard/rate-send", icon: SendRateIcon },
       { name: "Data Explorer", href: "/dashboard/data-explorer", icon: TableIcon },
-      { name: "Email Campaign", href: "/dashboard/email-campaign", icon: MailCampaignIcon },
-      { name: "Email Log", href: "/dashboard/email-log", icon: MailLogIcon },
       { name: "AI Assistant", href: "/dashboard/ai", icon: SparkleIcon },
       { name: "Reports", href: "/dashboard/reports", icon: ChartIcon },
     ],
   },
 ];
+// Email pages (Rate & Send, Email Campaign, Email Log) removed 2026-04-17.
+// Use email_engine/web_server.py + dashboard-v4.html (local PC) instead.
 
 interface SidebarProps {
   open: boolean;
