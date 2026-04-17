@@ -68,17 +68,29 @@ CONTAINER_NORMALIZE = {
     "20RF": "20RF", "40RF": "40RF"
 }
 
-# Charge name normalization - map to standard names
+# Charge name normalization now delegates to CARRIER_RATE_MAPPING.json
+# via Pricing_Engine.charge_normalizer. Do NOT hardcode here — see
+# docs/CHARGE_NAME_SOURCE_OF_TRUTH.md for the incident and guardrails.
+try:
+    _engine_root = os.path.dirname(SCRIPT_DIR)
+    if _engine_root not in sys.path:
+        sys.path.insert(0, _engine_root)
+    from Pricing_Engine.charge_normalizer import normalize_charge_name as _normalize_from_json
+    _USE_JSON_MAPPING = True
+except Exception as _imp_err:
+    print(f"  [WARN] charge_normalizer import failed ({_imp_err}); using fallback dict")
+    _USE_JSON_MAPPING = False
+
+# Fallback dict (only used if JSON loader unavailable — should never in prod).
+# Keeps the exact same mapping the JSON defines for FAK + SCFI common cases.
 CHARGE_NORMALIZE = {
-    "BASE O/F": "BASIC O/F",
-    # NOTE: "BASIC O/F" is kept as-is (not merged into Base Ocean Freight)
-    # so the Basic Cost sheet can show the true base O/F separately from ALL IN COST
-    "ALL IN COST": "Total Ocean Freight",  # Keep separate from Basic
-    "HLCU Offer": "Total Ocean Freight",  # SCFI: HLCU Offer = all-in rate
-    "ISPS": "ISPS",
-    "DLF": "DLF",
-    "EMF": "EMF",
-    "COMMISSION": "COMMISSION"
+    "BASE O/F":    "Total Ocean Freight",
+    "ALL IN COST": "Total Ocean Freight",
+    "HLCU Offer":  "HLCU Basic Cost",
+    "ISPS":        "ISPS",
+    "DLF":         "DLF",
+    "EMF":         "EMF",
+    "COMMISSION":  "COMMISSION",
 }
 
 CORE_HEADERS = ["POL", "POD", "Place", "Note", "Group Rate", "Carrier", "Eff", "Exp", "Commodity", "Contract"]
@@ -473,9 +485,16 @@ def parse_file_with_mapping(file_path, file_name, mode):
             
             charge_name = info['charge']
             container_type = info['container']
-            
-            # Normalize charge name
-            if charge_name in CHARGE_NORMALIZE:
+
+            # Normalize charge name via JSON source of truth (fallback to local dict)
+            if _USE_JSON_MAPPING:
+                rate_type_key = "FIX_COC" if mode == "FIX" else mode  # SOC HPL sheet not wired yet
+                normalized = _normalize_from_json(charge_name, rate_type_key)
+                if normalized is None:
+                    print(f"  [DROP] Unknown charge '{charge_name}' ({mode}) — see CARRIER_RATE_MAPPING.json")
+                    continue
+                charge_name = normalized
+            elif charge_name in CHARGE_NORMALIZE:
                 charge_name = CHARGE_NORMALIZE[charge_name]
             
             # Normalize container type

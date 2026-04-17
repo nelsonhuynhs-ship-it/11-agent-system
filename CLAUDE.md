@@ -60,6 +60,14 @@ KHÔNG có API VPS, KHÔNG có webapp Next.js trong chuỗi gửi email.
 **Đọc TRƯỚC khi thêm/sửa bất cứ gì liên quan email:** `docs/EMAIL_PIPELINE_SOURCE_OF_TRUTH.md`
 Cleanup 2026-04-17: deleted `api/routers/email_rate_router.py`, `email_queue_router.py`, `auto_quote_router.py`, `webapp/src/app/dashboard/{rate-send,email-campaign,email-log}/`.
 
+## ⚠ Charge Name — Source of Truth (2026-04-17)
+**Giá báo khách trong Parquet LUÔN ở `Charge_Name = 'Total Ocean Freight'`.**
+KHÔNG dùng `BASIC O/F` / `Base Ocean Freight` / `HLCU Basic Cost` — đây là basic, không phải all-in.
+Mapping Excel → Parquet: `D:/OneDrive/NelsonData/pricing/mapping/CARRIER_RATE_MAPPING.json` (v3).
+Helper: `Pricing_Engine/charge_normalizer.py`. Validator: `python Pricing_Engine/charge_normalizer.py validate`.
+**Đọc TRƯỚC khi sửa rate import / ERP refresh / báo giá:** `docs/CHARGE_NAME_SOURCE_OF_TRUTH.md`
+Fix 2026-04-17: HPL SCFI `BASE O/F` = all-in (không phải basic) — trước kia map ngược gây under-quote $1,561/40HQ.
+
 ## System Overview
 Nelson Freight NVOCC — Vietnam→USA/Canada freight forwarding.
 Repo: github.com/nelsonhuynhs-ship-it/FreightBrian.git

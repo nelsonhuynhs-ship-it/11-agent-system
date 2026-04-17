@@ -859,11 +859,15 @@ def _parse_scfi_rate_table(file_path: Path) -> Optional[pd.DataFrame]:
                 container = str(header_container.iloc[col_idx]).strip()
                 container = cmap.get(container, container)
 
-                # Normalize charge names
-                charge_norm = {
-                    'BASE O/F': 'BASIC O/F',
-                    'HLCU Offer': 'Total Ocean Freight',
-                }.get(charge, charge)
+                # Normalize via JSON source of truth (CARRIER_RATE_MAPPING.json).
+                # See docs/CHARGE_NAME_SOURCE_OF_TRUTH.md for the 2026-04-17 incident.
+                try:
+                    from .charge_normalizer import normalize_charge_name as _norm
+                except ImportError:
+                    from charge_normalizer import normalize_charge_name as _norm  # type: ignore
+                charge_norm = _norm(charge, rate_type="SCFI")
+                if charge_norm is None:
+                    charge_norm = charge  # pass-through for surcharges; helper already warned
 
                 records.append({
                     'POL': 'HCM',  # SCFI always from HCM
