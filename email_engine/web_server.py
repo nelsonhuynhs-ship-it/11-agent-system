@@ -937,10 +937,14 @@ def v4_prospects(campaign: str = "", pol: str = "", destination: str = "",
     if df is None:
         return {"prospects": [], "total": 0}
 
-    if campaign:
+    if campaign and campaign.upper() != "ALL":
         df = df[df.get("CAMPAIGN_ID", df.get("CMD_NAME", pd.Series())).astype(str).str.upper() == campaign.upper()]
-    if pol:
-        df = df[df["POL"].astype(str).str.upper() == pol.upper()] if "POL" in df.columns else df
+    # POL filter: keep rows matching POL OR missing POL (will fallback to default).
+    # Strict POL filter drops 90%+ of 28K CNEE whose POL column is empty/NAN.
+    if pol and "POL" in df.columns:
+        pol_up = pol.upper()
+        row_pol = df["POL"].astype(str).str.upper().str.strip()
+        df = df[row_pol.isin([pol_up, "", "NAN", "NONE"])]
 
     cooldown_map = _load_cooldown_map()
     cutoff = datetime.now() - pd.Timedelta(hours=48)
@@ -950,21 +954,30 @@ def v4_prospects(campaign: str = "", pol: str = "", destination: str = "",
     lanes_needed: set[tuple[str, str]] = set()
     requested_dest = destination.strip().upper() if destination else ""
 
+    # Requested POL (from query param) — used when row's POL is empty/NaN
+    requested_pol = (pol or "HPH").strip().upper() or "HPH"
+
     for i, row in df.head(page_size).iterrows():
         email = str(row.get("EMAIL", row.get("CNEE_EMAIL", ""))).strip()
         if not email or email.lower() == "nan":
             continue
-        row_pol = str(row.get("POL", "HPH")).strip().upper() or "HPH"
+        # Normalize NaN string (pandas reads empty → "nan") → fallback to requested POL
+        row_pol = str(row.get("POL", "")).strip().upper()
+        if not row_pol or row_pol in ("NAN", "NONE"):
+            row_pol = requested_pol
 
-        # DESTINATION may contain "USLAX,USLGB" — pick best match
+        # DESTINATION may contain "USLAX,USLGB" — pick best match; fallback to defaults
         row_dest_raw = str(row.get("DESTINATION", "")).strip()
-        pod_list = [d.strip().upper() for d in row_dest_raw.replace(";", ",").split(",") if d.strip()]
+        if row_dest_raw.lower() in ("", "nan", "none"):
+            row_dest_raw = ""
+        pod_list = [d.strip().upper() for d in row_dest_raw.replace(";", ",").split(",") if d.strip() and d.strip().lower() not in ("nan", "none")]
         if requested_dest and requested_dest in pod_list:
             pod = requested_dest
         elif pod_list:
             pod = pod_list[0]
         else:
             pod = requested_dest or "USLAX"
+            pod_list = DEFAULT_DESTINATIONS.copy()  # so multi-POD email gets all 9 lanes
 
         lanes_needed.add((row_pol, pod))
 
