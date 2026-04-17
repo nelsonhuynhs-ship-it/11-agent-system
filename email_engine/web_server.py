@@ -110,13 +110,16 @@ def err(code: int, msg: str):
     raise HTTPException(status_code=code, detail={"error": msg})
 
 app = FastAPI(title="Email Dashboard v2")
+# Dashboard opens via file:// (Desktop shortcut → start "" "...html"). Some
+# browsers don't send an Origin header for file:// → a restrictive CORS
+# allow-list blocks the request → dashboard falls back to demo mode.
+# Local single-user tool → accept any origin.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8230", "http://localhost:8231", "http://localhost:3000",
-                   "http://127.0.0.1:8230", "http://127.0.0.1:8231", "http://localhost:8100",
-                   "http://127.0.0.1:8100", "null"],  # null = file:// origin
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_origin_regex=".*",
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 import re as _re
