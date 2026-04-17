@@ -1058,7 +1058,9 @@ select option{background:#fffbf3;color:var(--text)}
     <!-- Bulk select bar -->
     <div class="bulk-bar" role="toolbar" aria-label="Bulk selection">
       <button class="btn btn-ghost btn-xs" id="btnSelectAll">☑ Select All Valid</button>
-      <button class="btn btn-ghost btn-xs" id="btnSelect50">Select Top 50</button>
+      <button class="btn btn-ghost btn-xs" id="btnSelect50">Top 50</button>
+      <button class="btn btn-ghost btn-xs" id="btnSelect200">Top 200</button>
+      <button class="btn btn-ghost btn-xs" id="btnSelect1000">Top 1000</button>
       <button class="btn btn-ghost btn-xs" id="btnSelectFiltered">Select Filtered</button>
       <button class="btn btn-ghost btn-xs" id="btnClearSel">✕ Clear</button>
       <span class="bulk-meta" id="bulkMeta">Select contacts to begin</span>
@@ -2478,15 +2480,18 @@ const App = {
       Store.contacts.forEach(c => Guard.validate(c).valid && Store.selected.add(c.id));
       UITable.refresh();
     });
-    document.getElementById('btnSelect50').addEventListener('click', () => {
+    function selectTopN(n) {
       let count = 0;
       for (const c of Store.filtered) {
-        if (count >= 50) break;
+        if (count >= n) break;
         if (Guard.validate(c).valid) { Store.selected.add(c.id); count++; }
       }
       UITable.refresh();
       toast(`Selected top ${count} valid contacts`, 'success', 2500);
-    });
+    }
+    document.getElementById('btnSelect50').addEventListener('click', () => selectTopN(50));
+    document.getElementById('btnSelect200').addEventListener('click', () => selectTopN(200));
+    document.getElementById('btnSelect1000').addEventListener('click', () => selectTopN(1000));
     document.getElementById('btnSelectFiltered').addEventListener('click', () => {
       Store.filtered.forEach(c => Guard.validate(c).valid && Store.selected.add(c.id));
       UITable.refresh();

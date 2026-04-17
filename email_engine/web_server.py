@@ -98,7 +98,7 @@ class ContactItem(BaseModel):
     force_send: bool = False
 
 class SendRequest(BaseModel):
-    contacts: List[ContactItem] = Field(..., min_length=1, max_length=50)
+    contacts: List[ContactItem] = Field(..., min_length=1, max_length=250)
     subject: str = ""
     default_pol: str = "HPH"
     default_dest: str = "USLAX,USLGB,USSAV,USNYC,USORF,USCHS,USTIW,USCHI,USDAL"
@@ -1167,6 +1167,7 @@ def _resolve_cnee_master_v2() -> Path:
     except Exception:
         pass
     for candidate in [
+        Path("D:/OneDrive/NelsonData/email/cnee_master_v2_final.xlsx"),  # 28K full
         Path("D:/OneDrive/NelsonData/email/cnee_master_v2.xlsx"),
         CNEE_V2,
     ]:
@@ -1178,7 +1179,8 @@ def _resolve_cnee_master_v2() -> Path:
 CNEE_MASTER_V2_PATH = _resolve_cnee_master_v2()
 
 # Default destinations used when a CNEE row has no destination column
-DEFAULT_DESTINATIONS = ["USLAX", "USLGB", "USNYC", "USSAV", "USCHI"]
+# 2026-04-17: 9 main lanes (was 5) — covers HPH/HCM→US main port + inland gateways
+DEFAULT_DESTINATIONS = ["USLAX", "USLGB", "USSAV", "USNYC", "USORF", "USCHS", "USTIW", "USCHI", "USDAL"]
 
 
 # ---- Startup hook ----------------------------------------------------------
@@ -1241,10 +1243,13 @@ def _row_to_profile(row: dict) -> dict:
         s = str(v).strip()
         return default if s.lower() in ("", "nan", "none") else s
 
-    first_name = _s("GREETING") or _s("PIC") or "Team"
+    first_name = _s("PIC") or _s("GREETING") or ""
     # Greeting often "Dear John," → strip salutation clutter
     if first_name.lower().startswith("dear "):
         first_name = first_name[5:].rstrip(",.").strip()
+    # Guard against garbage: placeholder words, pure digits, address tokens
+    _pic_bad_tokens = {"hi","hello","dear","team","sir","madam","mr","mrs","ms","customer","na","n/a","null","none","nan"}
+    first_name = _clean_pic(first_name, _s("COMPANY"))
 
     return {
         "first_name": first_name.split()[0] if first_name else "Team",
