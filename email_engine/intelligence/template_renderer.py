@@ -140,11 +140,33 @@ def render_email(template: dict, tokens: dict | None) -> dict:
         if sig:
             signature_html = _newlines_to_html(_html.escape(str(sig), quote=True))
 
+    # Remark disclaimer — red highlighted, above signature
+    remark_html = (
+        "<div style='margin:20px 0 12px;padding:14px 16px;background:#fff5f5;"
+        "border-left:4px solid #dc2626;border-radius:4px;font-size:12px;"
+        "color:#dc2626;line-height:1.6;'>"
+        "<p style='margin:0 0 8px;'>"
+        "This email sent from <strong>Nelson Huynh (Ch&iacute;nh)</strong> from "
+        "<strong>Pudong Prime Vietnam</strong>, Logistics Company specialized "
+        "handle logistics service for export shipment from Vietnam to USA / Canada."
+        "</p>"
+        "<p style='margin:0 0 8px;'>"
+        "Through market research I see your company has business for import "
+        "shipment from Asia to US, that is the reason why I send email."
+        "</p>"
+        "<p style='margin:0;'>"
+        "If this email is not relevant to you or you are not interested, "
+        "please kindly let me know and I will remove you from my mailing list."
+        "</p>"
+        "</div>"
+    )
+
     body_parts = [
         "<div style='font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#1f2937;'>",
         intro_html,
         rate_table_html,
         cta_html,
+        remark_html,
     ]
     if signature_html:
         body_parts.append(
