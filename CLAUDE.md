@@ -54,27 +54,18 @@ Email: nelsonhuynhs@gmail.com | Company: nelson@pudongprime.vn
 
 → Full roadmap: `plans/260416-email-nelson-solo-platform/plan.md` | memory/projects/
 
-## ⚠ Email Pipeline — Source of Truth (2026-04-17)
-**Email send = `email_engine/web_server.py` (LOCAL PC) → Outlook COM desktop.**
-KHÔNG có API VPS, KHÔNG có webapp Next.js trong chuỗi gửi email.
-**Đọc TRƯỚC khi thêm/sửa bất cứ gì liên quan email:** `docs/EMAIL_PIPELINE_SOURCE_OF_TRUTH.md`
-Cleanup 2026-04-17: deleted `api/routers/email_rate_router.py`, `email_queue_router.py`, `auto_quote_router.py`, `webapp/src/app/dashboard/{rate-send,email-campaign,email-log}/`.
+## 🔒 SYSTEM STANDARDS — Single Source of Truth (2026-04-17)
 
-## ⚠ Charge Name — Source of Truth (2026-04-17)
-**Giá báo khách trong Parquet LUÔN ở `Charge_Name = 'Total Ocean Freight'`.**
-KHÔNG dùng `BASIC O/F` / `Base Ocean Freight` / `HLCU Basic Cost` — đây là basic, không phải all-in.
-Mapping Excel → Parquet: `D:/OneDrive/NelsonData/pricing/mapping/CARRIER_RATE_MAPPING.json` (v3).
-Helper: `Pricing_Engine/charge_normalizer.py`. Validator: `python Pricing_Engine/charge_normalizer.py validate`.
-**Đọc TRƯỚC khi sửa rate import / ERP refresh / báo giá:** `docs/CHARGE_NAME_SOURCE_OF_TRUTH.md`
-Fix 2026-04-17: HPL SCFI `BASE O/F` = all-in (không phải basic) — trước kia map ngược gây under-quote $1,561/40HQ.
+**TẤT CẢ chuẩn vận hành hệ thống ở 1 file duy nhất: `docs/SYSTEM_STANDARDS.md`**
 
-## ⚠ ERP VBA Standards (2026-04-17)
-**Ribbon callback launch external process PHẢI dùng WMI `Win32_Process.Create`, KHÔNG `Shell` / `wsh.Run`.**
-Excel 2013+ gom child process vào Job Object → Excel exit → children bị kill → bootstrap chết.
-Canonical .bas ở `D:/OneDrive/NelsonData/erp/`. Mirror backup ở `ERP/vba-v14-mirror/`.
-Re-import workflow: edit .bas OneDrive → `python scripts/reimport-erp-vba-modules.py` → mirror → commit.
-**Đọc TRƯỚC khi sửa VBA / ribbon:** `docs/ERP_V14_VBA_STANDARDS.md` (7 rules + checklist)
-Fix 2026-04-17: Refresh All/Rates button không chạy Python do Shell child bị Job Object kill — Nelson thử hàng chục lần fail. WMI detach = fix.
+**Trước khi sửa BẤT KỲ code nào:**
+1. Đọc section liên quan trong `docs/SYSTEM_STANDARDS.md`
+2. Implement theo RULE
+3. Chạy `python scripts/validate-system.py` — pass mới commit
+
+**Chuẩn mới Nelson chốt → thêm vào file NÀY. Không tạo doc/folder mới.**
+
+File chứa 12 section: canonical paths (Parquet @ OneDrive), charge name mapping (Total Ocean Freight = all-in), Active Jobs schema (col Q cost comment format), rate type cheat sheet (FAK/FIX/SCFI booking requirements), VBA launch pattern (WMI not Shell), email pipeline (web_server.py only), Task Scheduler inventory, desktop shortcuts, tmp cleanup, git discipline, Python module architecture, incident log.
 
 ## System Overview
 Nelson Freight NVOCC — Vietnam→USA/Canada freight forwarding.
