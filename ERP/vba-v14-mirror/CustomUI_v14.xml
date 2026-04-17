@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui"
+  onLoad="RibbonOnLoad">
+  <ribbon startFromScratch="false">
+    <tabs>
+
+      <!-- ========== TAB 1: PRICING (daily workflow: Search → Pick → Margin → Quote) ========== -->
+      <tab id="tabPricing" label="Pricing" visible="true">
+
+        <!-- GROUP 1: SEARCH + CLEAR + FRESHNESS -->
+        <group id="grpSearch" label="Search">
+          <comboBox id="cmbCarrier" label="Carrier" sizeString="00000000"
+                    onChange="OnChange_SearchCarrier"
+                    getText="GetText_SearchCarrier"
+                    getItemCount="GetItemCount_Carrier"
+                    getItemLabel="GetItemLabel_Carrier"/>
+          <comboBox id="cmbPOL" label="POL" sizeString="000000"
+                    onChange="OnChange_SearchPOL"
+                    getText="GetText_SearchPOL"
+                    getItemCount="GetItemCount_POL"
+                    getItemLabel="GetItemLabel_POL"/>
+          <comboBox id="cmbPOD" label="POD" sizeString="000000000000"
+                    onChange="OnChange_SearchPOD"
+                    getText="GetText_SearchPOD"
+                    getItemCount="GetItemCount_POD"
+                    getItemLabel="GetItemLabel_POD"/>
+          <comboBox id="cmbPlace" label="Place" sizeString="000000000000"
+                    onChange="OnChange_SearchPlace"
+                    getText="GetText_SearchPlace"
+                    getItemCount="GetItemCount_Place"
+                    getItemLabel="GetItemLabel_Place"/>
+          <comboBox id="cmbExp" label="Exp" sizeString="0000000000"
+                    onChange="OnChange_SearchExp"
+                    getText="GetText_SearchExp"
+                    getItemCount="GetItemCount_Exp"
+                    getItemLabel="GetItemLabel_Exp"/>
+          <comboBox id="cmbNote" label="Note" sizeString="000000000000000000"
+                    onChange="OnChange_SearchNote"
+                    getText="GetText_SearchNote"
+                    getItemCount="GetItemCount_Note"
+                    getItemLabel="GetItemLabel_Note"/>
+          <button id="btnBestPrice" label="Best Price" size="normal"
+                  imageMso="ConditionalFormattingColorScalesGallery"
+                  onAction="OnAction_HighlightBest"
+                  screentip="Highlight cheapest rate per carrier"/>
+          <button id="btnClearSearch" label="Clear" size="normal"
+                  imageMso="FilterClear" onAction="OnAction_ClearSearch"
+                  screentip="Clear all search filters and comboBoxes"/>
+          <button id="btnRefreshColors" label="Freshness" size="normal"
+                  imageMso="ConditionalFormattingColorScalesGallery" onAction="OnAction_RefreshColors"
+                  screentip="Apply color coding based on rate age"/>
+        </group>
+
+        <!-- GROUP 2: SELECTED ROW (carrier + route + dates + PUC merged) -->
+        <group id="grpRouteInfo" label="Selected Row">
+          <labelControl id="lblCarrier" getLabel="GetLabel_Carrier"/>
+          <labelControl id="lblRoute"   getLabel="GetLabel_Route"/>
+          <labelControl id="lblDates"   getLabel="GetLabel_Dates"/>
+          <labelControl id="lblPUCInfo" getLabel="GetLabel_PUCInfo"/>
+        </group>
+
+        <!-- GROUP 3: MARGIN (unified dry + reefer) -->
+        <group id="grpMargin" label="+ Margin">
+          <editBox id="ebMar20GP"  label="20GP +"  sizeString="00000"
+                   getText="GetText_Mar20GP"  onChange="OnChange_Mar20GP"/>
+          <editBox id="ebMar40GP"  label="40GP +"  sizeString="00000"
+                   getText="GetText_Mar40GP"  onChange="OnChange_Mar40GP"/>
+          <editBox id="ebMar40HC"  label="40HC +"  sizeString="00000"
+                   getText="GetText_Mar40HC"  onChange="OnChange_Mar40HC"/>
+          <editBox id="ebMar45HC"  label="45HC +"  sizeString="00000"
+                   getText="GetText_Mar45HC"  onChange="OnChange_Mar45HC"/>
+          <editBox id="ebMar40NOR" label="40NOR +" sizeString="00000"
+                   getText="GetText_Mar40NOR" onChange="OnChange_Mar40NOR"/>
+          <editBox id="ebMar20RF" label="20RF +" sizeString="00000"
+                   getText="GetText_Mar20RF" onChange="OnChange_Mar20RF"/>
+          <editBox id="ebMar40RF" label="40RF +" sizeString="00000"
+                   getText="GetText_Mar40RF" onChange="OnChange_Mar40RF"/>
+        </group>
+
+        <!-- GROUP 4: SELL RATE (calculated) -->
+        <group id="grpSellRate" label="= Sell Rate">
+          <labelControl id="lblSell20GP"  getLabel="GetLabel_Sell20GP"/>
+          <labelControl id="lblSell40GP"  getLabel="GetLabel_Sell40GP"/>
+          <labelControl id="lblSell40HC"  getLabel="GetLabel_Sell40HC"/>
+          <labelControl id="lblSell45HC"  getLabel="GetLabel_Sell45HC"/>
+          <labelControl id="lblSell40NOR" getLabel="GetLabel_Sell40NOR"/>
+          <labelControl id="lblSell20RF"  getLabel="GetLabel_Sell20RF"/>
+          <labelControl id="lblSell40RF"  getLabel="GetLabel_Sell40RF"/>
+          <separator id="sepProfit"/>
+          <labelControl id="lblProfit" getLabel="GetLabel_Profit"/>
+        </group>
+
+        <!-- GROUP 5: QUOTE ACTION -->
+        <group id="grpQuoteAction" label="Quote">
+          <comboBox id="cmbCustomer" label="Customer" sizeString="000000000000"
+                    onChange="OnChange_Customer"
+                    getItemCount="GetItemCount_Customer"
+                    getItemLabel="GetItemLabel_Customer"/>
+          <separator id="sepQuoteBtns"/>
+          <button id="btnQuote" label="QUOTE" size="large"
+                  imageMso="CreateTable" onAction="OnAction_GenerateQuote"
+                  screentip="Quote 1 row (row dang click)"/>
+          <button id="btnQuoteBatch" label="Batch" size="large"
+                  imageMso="TableSelectRow" onAction="OnAction_GenerateQuoteBatch"
+                  screentip="Select nhieu rows tren Pricing Dry/Reefer -> 1 click tao N quotes cung customer + cung markup"/>
+        </group>
+
+      </tab>
+
+      <!-- ========== TAB 2: OPERATIONS (v4 — 100% mockup match) ========== -->
+      <tab id="tabOperations" label="Operations" visible="true">
+
+        <!-- GROUP 1: THÁNG — month navigator (static labels; filter logic in handlers) -->
+        <group id="grpThang" label="Tháng">
+          <button id="btnMonthPrev" label="&#9664;" size="normal"
+                  imageMso="GoRtlPreviousPage" onAction="OnAction_MonthPrev"
+                  screentip="Tháng trước"/>
+          <button id="btnMonthLabel" label="Tháng hiện tại" size="large"
+                  imageMso="CalendarToday"
+                  onAction="OnAction_MonthReset"
+                  screentip="Nhấn để về tháng hiện tại"/>
+          <button id="btnMonthNext" label="&#9654;" size="normal"
+                  imageMso="GoRtlNextPage" onAction="OnAction_MonthNext"
+                  screentip="Tháng sau"/>
+        </group>
+
+        <!-- GROUP 2: JOBS -->
+        <group id="grpJobs" label="Jobs">
+          <button id="btnJobArchive" label="Archive" size="large"
+                  imageMso="OutlookArchive" onAction="OnAction_ArchiveJob"
+                  screentip="Archive dòng Active Job đã Delivered sang sheet Archive"/>
+          <button id="btnJobEmail" label="Email" size="large"
+                  imageMso="NewMailMessage" onAction="OnAction_EnrichEmail"
+                  screentip="Fill mailto: Request_BKG + SERVICE (CY-CY / CY-DOOR)"/>
+        </group>
+
+        <!-- GROUP 3: TRACKING -->
+        <group id="grpTracking" label="Tracking">
+          <button id="btnTrackStatus" label="Status" size="large"
+                  imageMso="MilestoneInsert" onAction="OnAction_TrackingSync"
+                  screentip="Tính lại TRACKING dots cho mọi Active Job (7 stages BKG→Done)"/>
+          <button id="btnTrackYml" label="YML Scan" size="large"
+                  imageMso="TaskListImport" onAction="OnAction_YmlScan"
+                  screentip="Parse Outlook emails từ YML → update tracking events"/>
+        </group>
+
+        <!-- GROUP 4: ALERTS (static labels; handlers show count in MsgBox) -->
+        <group id="grpAlerts" label="Alerts">
+          <button id="btnAlertPriceWatch" label="Price Watch" size="large"
+                  imageMso="ConditionalFormattingAboveAverage"
+                  onAction="OnAction_PriceWatch"
+                  screentip="Scan PENDING quotes vs Pricing mới — alert khi giá giảm"/>
+          <button id="btnAlertEta" label="ETA Alert" size="large"
+                  imageMso="AlertsMenu"
+                  onAction="OnAction_ReleaseAlert"
+                  screentip="Release emails pending &#8805; 2h không confirm — push khách ngay"/>
+        </group>
+
+        <!-- GROUP 5: REPORT -->
+        <group id="grpReport" label="Report">
+          <button id="btnRptMonth" label="Tháng Rpt" size="large"
+                  imageMso="TableExportToSharePointList"
+                  onAction="OnAction_MonthlyReportV4"
+                  screentip="Export Monthly Performance (24 cột theo template Nelson)"/>
+          <button id="btnRptWeek" label="Tuần Rpt" size="large"
+                  imageMso="ReviewShowReviewersMenu"
+                  onAction="OnAction_WeeklyReport"
+                  screentip="Export Weekly Sales KPI (12 cột)"/>
+        </group>
+
+        <!-- GROUP 6: QUOTE (kept — essential WIN/LOST flow) -->
+        <group id="grpQuoteStatus" label="Quote">
+          <button id="btnWin" label="WIN" size="large"
+                  imageMso="AcceptInvitation" onAction="OnAction_MarkQuoteWin"
+                  screentip="Mark selected quote as WON and create Active Job"/>
+          <button id="btnLost" label="LOST" size="large"
+                  imageMso="DeclineInvitation" onAction="OnAction_MarkQuoteLost"
+                  screentip="Mark selected quote as LOST with reason"/>
+          <separator id="sepQuoteTools"/>
+          <button id="btnQuoteImage" label="Quote Img" size="normal"
+                  imageMso="Camera" onAction="OnAction_QuoteImage"
+                  screentip="Create quote image to clipboard"/>
+          <button id="btnQuoteImageBulk" label="Bulk Img" size="normal"
+                  imageMso="FormulaEvaluate" onAction="OnAction_QuoteImageBulk"
+                  screentip="Select quote rows -> sinh N HTML ca nhan hoa cho N khach (tick 'X' tren sheet BulkRecipients)"/>
+          <button id="btnExpired" label="Expired" size="normal"
+                  imageMso="RecurrenceEdit" onAction="OnAction_CheckAutoLost"
+                  screentip="Auto-expire quotes past Exp date"/>
+          <button id="btnCancelJob" label="Cancel" size="normal"
+                  imageMso="DeleteRecord" onAction="OnAction_CancelJob"
+                  screentip="Move selected Active Job row to Archive sheet"/>
+        </group>
+
+        <!-- GROUP 7: ADVANCED (F4 FAST ID, F7 Reefer, F10 Enrich $) -->
+        <group id="grpAdv" label="Advanced">
+          <button id="btnTransitTime" label="Transit Time" size="normal"
+                  imageMso="AppointmentColor0" onAction="OnAction_TransitTime"
+                  screentip="F9: Auto-compute ETA from ETD (WC/EC/Gulf/Inland rules)"/>
+          <button id="btnFastId" label="FAST ID" size="normal"
+                  imageMso="CheckForIssues" onAction="OnAction_FastIdCheck"
+                  screentip="F4: Validate FAST_ID format"/>
+          <button id="btnReefer" label="Reefer Plug" size="normal"
+                  imageMso="ServerReportSubscriptions" onAction="OnAction_ReeferPlug"
+                  screentip="F7: Optimal drop date for 20RF/40RF"/>
+          <button id="btnEnrichMonthly" label="Enrich $" size="normal"
+                  imageMso="SumSummation" onAction="OnAction_EnrichMonthly"
+                  screentip="F10: Add KICK BACK cols to Monthly report"/>
+        </group>
+
+        <!-- GROUP 3: RATE DATA -->
+        <group id="grpRateData" label="Rate Data">
+          <button id="btnRefreshAll" label="Refresh All" size="large"
+                  imageMso="RefreshAll" onAction="OnAction_RefreshAll"
+                  screentip="ONE-CLICK: scan Outlook + import rate files + rebuild parquet + pull into Excel. Use this when you see new rate emails."/>
+          <button id="btnRefreshRates" label="Refresh Rates" size="normal"
+                  imageMso="Refresh" onAction="OnAction_RefreshRates"
+                  screentip="Only pull parquet into Excel (skip Outlook scan). Faster when you know parquet is already up-to-date."/>
+          <separator id="sepRateVer"/>
+          <labelControl id="lblLastRefresh" getLabel="GetLabel_LastRefresh"/>
+          <labelControl id="lblRateVer1" getLabel="GetLabel_RateVer1"/>
+          <labelControl id="lblRateVer2" getLabel="GetLabel_RateVer2"/>
+          <labelControl id="lblRateVer3" getLabel="GetLabel_RateVer3"/>
+          <labelControl id="lblRateVer4" getLabel="GetLabel_RateVer4"/>
+        </group>
+
+      </tab>
+
+    </tabs>
+  </ribbon>
+</customUI>

@@ -68,6 +68,14 @@ Helper: `Pricing_Engine/charge_normalizer.py`. Validator: `python Pricing_Engine
 **Đọc TRƯỚC khi sửa rate import / ERP refresh / báo giá:** `docs/CHARGE_NAME_SOURCE_OF_TRUTH.md`
 Fix 2026-04-17: HPL SCFI `BASE O/F` = all-in (không phải basic) — trước kia map ngược gây under-quote $1,561/40HQ.
 
+## ⚠ ERP VBA Standards (2026-04-17)
+**Ribbon callback launch external process PHẢI dùng WMI `Win32_Process.Create`, KHÔNG `Shell` / `wsh.Run`.**
+Excel 2013+ gom child process vào Job Object → Excel exit → children bị kill → bootstrap chết.
+Canonical .bas ở `D:/OneDrive/NelsonData/erp/`. Mirror backup ở `ERP/vba-v14-mirror/`.
+Re-import workflow: edit .bas OneDrive → `python scripts/reimport-erp-vba-modules.py` → mirror → commit.
+**Đọc TRƯỚC khi sửa VBA / ribbon:** `docs/ERP_V14_VBA_STANDARDS.md` (7 rules + checklist)
+Fix 2026-04-17: Refresh All/Rates button không chạy Python do Shell child bị Job Object kill — Nelson thử hàng chục lần fail. WMI detach = fix.
+
 ## System Overview
 Nelson Freight NVOCC — Vietnam→USA/Canada freight forwarding.
 Repo: github.com/nelsonhuynhs-ship-it/FreightBrian.git
