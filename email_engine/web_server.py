@@ -893,26 +893,50 @@ def v4_prospects(campaign: str = "", pol: str = "", destination: str = "",
             "in_cooldown": in_cooldown,
         })
 
-    # ── Second pass: batch-analyze unique lanes (market_engine caches 30min) ──
+    # ── Second pass: compute rates using auto_rate_builder (proven correct) ──
+    # auto_rate_builder.build_rate_table_for_customer() uses proper Place/POD
+    # mapping + carrier rules + Exp >= today filter. market_engine.analyze_lane()
+    # was matching INLAND rates (USLAX → Nashville) as PORT rates → inflated.
+    # Batch: 1 call per unique (pol, dest) — typically 3-5 calls, ~500ms total.
     lane_rates: dict[tuple[str, str], dict] = {}
+    # Batch all unique destinations into 1 auto_rate_builder call (it handles multi-dest)
+    all_dests = list({lane[1] for lane in lanes_needed})
+    all_pols = list({lane[0] for lane in lanes_needed})
     try:
-        from email_engine.intelligence.market_engine import analyze_lane
-        for lane in lanes_needed:
+        from auto_rate_builder import build_rate_table_for_customer
+        for p in all_pols:
             try:
-                lane_rates[lane] = analyze_lane(lane[0], lane[1])
-            except Exception:
-                lane_rates[lane] = {}
+                result = build_rate_table_for_customer(
+                    pol=p, destinations=",".join(all_dests), markup=float(markup or 0)
+                )
+                # Extract per-lane rates from all_rows (via "rates" field)
+                for rate_row in result.get("rates", []):
+                    pod = str(rate_row.get("pod_code", "")).upper()
+                    r40 = rate_row.get("rate_40")
+                    r20 = rate_row.get("rate_20")
+                    key = (p, pod)
+                    # Keep cheapest carrier per lane
+                    if key not in lane_rates or (r40 and r40 < lane_rates[key].get("rate_40", 1e9)):
+                        lane_rates[key] = {
+                            "rate_20": int(r20) if r20 else 0,
+                            "rate_40": int(r40) if r40 else 0,
+                            "carrier": str(rate_row.get("carrier", "")),
+                            "etd": str(rate_row.get("exp", ""))[:10] if rate_row.get("exp") else "",
+                        }
+            except Exception as e:
+                log.debug(f"[prospects] auto_rate_builder POL={p}: {e}")
     except Exception as e:
-        log.warning(f"[prospects] market_engine unavailable: {e}")
+        log.warning(f"[prospects] auto_rate_builder unavailable: {e}")
 
     # Apply rates to prospects
     for p in prospects:
         lane = (p["pol"], p["destination"])
-        intel = lane_rates.get(lane, {})
-        r40 = intel.get("current_rate_40hq")
-        if r40:
-            p["rate_40"] = int(float(r40) + float(markup or 0))
-            p["rate_20"] = int(float(r40) * 0.78 + float(markup or 0))
+        info = lane_rates.get(lane, {})
+        if info.get("rate_40"):
+            p["rate_40"] = int(info["rate_40"])
+            p["rate_20"] = int(info.get("rate_20", 0))
+            if info.get("etd"):
+                p["etd"] = str(info["etd"])[:10]
 
     return {"prospects": prospects, "total": len(prospects)}
 
@@ -1207,12 +1231,14 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
             except Exception as e:
                 log.debug(f"intel summary failed for {em}: {e}")
 
-        # Destinations: request > row value > default
+        # Destinations: row value > request filter > default
+        # Each CNEE has their OWN destination in cnee_master.
+        # Only use request dest as fallback when row is empty.
         row_dest = str(row.get("DESTINATION") or "").strip()
-        if requested_dests:
-            dests = requested_dests
-        elif row_dest:
+        if row_dest:
             dests = [d.strip().upper() for d in row_dest.replace(";", ",").split(",") if d.strip()]
+        elif requested_dests:
+            dests = requested_dests
         else:
             dests = DEFAULT_DESTINATIONS
 

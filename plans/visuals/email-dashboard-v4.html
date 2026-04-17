@@ -1032,7 +1032,7 @@ select option{background:#fffbf3;color:var(--text)}
       </div>
       <div class="field-wrap">
         <label for="inpDest">Destination</label>
-        <input type="text" id="inpDest" placeholder="e.g. USLAX, USNYC" value="USLAX">
+        <input type="text" id="inpDest" placeholder="e.g. USLAX, USNYC (blank = use each contact's POD)" value="">
       </div>
       <div class="field-wrap">
         <label for="inpMarkup">Markup $</label>
@@ -2676,7 +2676,7 @@ const R2 = {
     const countEl = document.getElementById('r2BatchCount');
 
     const selected = (Store && Store.selected)
-      ? Array.from(Store.selected).map(i => Store.contacts[i]).filter(Boolean)
+      ? Array.from(Store.selected).map(id => Store.contacts.find(c => c.id === id)).filter(Boolean)
       : [];
 
     totalEl.textContent = selected.length;

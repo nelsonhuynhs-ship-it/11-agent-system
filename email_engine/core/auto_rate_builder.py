@@ -644,6 +644,7 @@ def build_rate_table_for_customer(
         "routes_found":  len(routes_detail),
         "total_rates":   len(all_rows),
         "routes_detail": routes_detail,
+        "rates":         all_rows,  # raw rate data per carrier/lane for API consumption
         "market_context": mkt_ctx,
         "arb_origin":    arb_origin,
     }
