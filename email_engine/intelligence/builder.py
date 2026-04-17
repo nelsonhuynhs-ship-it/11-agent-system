@@ -292,6 +292,19 @@ def _render_rate_table(lane_intels: list[dict]) -> str:
     )
 
     # ─── Per-POD rows ────────────────────────────────────────────
+    # Hard filter: drop any lane whose destination is NaN/empty so the email
+    # never contains a "› NAN  No rates available" section.
+    lane_intels = [
+        ln for ln in lane_intels
+        if str(ln.get("destination") or "").strip().upper() not in ("", "NAN", "NONE")
+    ]
+    if not lane_intels:
+        return (
+            "<p style='color:#94a3b8;font-style:italic;padding:12px 16px;"
+            "border:1px dashed #e2e8f0;border-radius:6px;margin:8px 0;'>"
+            "No rate data available for these lanes.</p>"
+        )
+
     for lane in lane_intels:
         dest_code = str(lane.get("destination", "")).upper()
         carriers = lane.get("carriers") or []
@@ -645,7 +658,14 @@ def build_email(
         }
     """
     pol = (pol or "HPH").strip().upper()
-    destinations = [d.strip().upper() for d in (destinations or []) if d and d.strip()]
+    # Drop NaN/None/empty strings — pandas reads empty cells as "nan" literal
+    destinations = [
+        d.strip().upper()
+        for d in (destinations or [])
+        if d and d.strip() and d.strip().lower() not in ("nan", "none")
+    ]
+    if not destinations:
+        destinations = ["USLAX", "USLGB", "USSAV", "USNYC", "USORF", "USCHS", "USTIW", "USCHI", "USDAL"]
 
     # 1. Get REAL rates from auto_rate_builder (proven correct).
     # auto_rate_builder uses proper Place/POD mapping + Exp>=today filter.

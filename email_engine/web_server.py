@@ -1443,18 +1443,27 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
             except Exception as e:
                 log.debug(f"intel summary failed for {em}: {e}")
 
-        # Destinations: row value > request filter > default
-        # Each CNEE has their OWN destination in cnee_master.
-        # Only use request dest as fallback when row is empty.
+        # Destinations: row value > request filter > default.
+        # Treat "nan"/"none" strings (pandas reads empty cells as NaN) as empty.
         row_dest = str(row.get("DESTINATION") or "").strip()
+        if row_dest.lower() in ("nan", "none"):
+            row_dest = ""
+        dests: list[str] = []
         if row_dest:
-            dests = [d.strip().upper() for d in row_dest.replace(";", ",").split(",") if d.strip()]
-        elif requested_dests:
-            dests = requested_dests
-        else:
-            dests = DEFAULT_DESTINATIONS
+            dests = [
+                d.strip().upper()
+                for d in row_dest.replace(";", ",").split(",")
+                if d.strip() and d.strip().lower() not in ("nan", "none")
+            ]
+        if not dests and requested_dests:
+            dests = [d for d in requested_dests if d.upper() not in ("NAN", "NONE")]
+        if not dests:
+            dests = list(DEFAULT_DESTINATIONS)  # copy so downstream mutation doesn't poison global
 
-        pol = req.pol or str(row.get("POL") or "HPH").strip().upper() or "HPH"
+        row_pol_raw = str(row.get("POL") or "").strip().upper()
+        if row_pol_raw in ("", "NAN", "NONE"):
+            row_pol_raw = ""
+        pol = req.pol or row_pol_raw or "HPH"
 
         # Build smart email
         if _builder is None:
