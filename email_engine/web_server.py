@@ -25,18 +25,46 @@ try:
 except ImportError:
     PARQUET_FILE = ENGINE_TEST / "Pricing_Engine" / "data" / "Cleaned_Master_History.parquet"
 
-DATA_FILE   = BASE_DIR / "data.xlsx"
+# 2026-04-17: load full 28K CNEE from OneDrive canonical file (per data-source-correction
+# memory). Previous data.xlsx local was the 5K subset — we want ALL prospects now.
+# File order: OneDrive v2_final (newest 28K) > v2 > local 5K fallback.
+_ONEDRIVE_EMAIL = Path("D:/OneDrive/NelsonData/email")
+_CNEE_CANDIDATES = [
+    _ONEDRIVE_EMAIL / "cnee_master_v2_final.xlsx",
+    _ONEDRIVE_EMAIL / "cnee_master_v2.xlsx",
+    BASE_DIR / "data.xlsx",  # final fallback
+]
+
+DATA_FILE   = next((p for p in _CNEE_CANDIDATES if p.exists()), _CNEE_CANDIDATES[-1])
 CONFIG_FILE = BASE_DIR / "data" / "config.xlsx"
 LOG_FILE    = BASE_DIR / "logs" / "email_log.csv"
-CNEE_V2     = BASE_DIR / "data" / "cnee_master_v2.xlsx"
-CNEE_V1     = BASE_DIR / "data" / "cnee_master.xlsx"
+CNEE_V2     = _ONEDRIVE_EMAIL / "cnee_master_v2_final.xlsx"
+CNEE_V1     = _ONEDRIVE_EMAIL / "cnee_master.xlsx"
 (BASE_DIR / "logs").mkdir(exist_ok=True)
 
 SEND_PROGRESS: dict = {}  # campaign_id → {sent, total, errors, status}
 
-log.info("Loading data.xlsx...")
+log.info(f"Loading contacts from {DATA_FILE}...")
 df_contacts = pd.read_excel(DATA_FILE)
 df_contacts.columns = df_contacts.columns.str.strip().str.upper()
+
+# Column compatibility: v2_final uses EMAIL/COMPANY/PIC/CAMPAIGN_ID; legacy uses
+# CNEE_EMAIL/CNEE_NAME/CNEE_PIC/CMD_NAME. Normalize to legacy names so downstream
+# filter/query logic stays unchanged.
+_COL_ALIASES = {
+    "EMAIL": "CNEE_EMAIL",
+    "COMPANY": "CNEE_NAME",
+    "PIC": "CNEE_PIC",
+    "CAMPAIGN_ID": "CMD_NAME",
+}
+for src, dst in _COL_ALIASES.items():
+    if src in df_contacts.columns and dst not in df_contacts.columns:
+        df_contacts[dst] = df_contacts[src]
+
+# Drop rows without email or without campaign — they can't be sent anyway.
+df_contacts = df_contacts[df_contacts["CNEE_EMAIL"].notna()]
+if "CMD_NAME" in df_contacts.columns:
+    df_contacts["CMD_NAME"] = df_contacts["CMD_NAME"].fillna("UNCATEGORIZED").astype(str)
 log.info(f"Loaded {len(df_contacts)} contacts, {df_contacts['CMD_NAME'].nunique()} campaigns")
 
 def load_config():
@@ -73,9 +101,10 @@ class SendRequest(BaseModel):
     contacts: List[ContactItem] = Field(..., min_length=1, max_length=50)
     subject: str = ""
     default_pol: str = "HPH"
-    default_dest: str = "USLAX,USLGB,USEWR,USSAV,USCHI"
+    default_dest: str = "USLAX,USLGB,USSAV,USNYC,USORF,USCHS,USTIW,USCHI,USDAL"
     markup: float = Field(default=20.0, ge=0, le=500)
     arb_origin: str = ""  # Optional cross-origin key (e.g. "shanghai")
+    preset: str = ""  # Optional preset: "friday_hpl_scfi_hcm" → force POL=HCM + prefer HPL SCFI rates
 
 def err(code: int, msg: str):
     raise HTTPException(status_code=code, detail={"error": msg})
@@ -90,30 +119,77 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
+import re as _re
+# Email format cleanup (Nelson 2026-04-17): reject junk prefixes like em@, te@, me@
+_EMAIL_BAD_PREFIX = _re.compile(r"^(em|te|me|tel|fax|info|no|noreply|no-reply|unknown|n/?a|null|test|admin|abuse|postmaster|webmaster|hostmaster|mailer-daemon)@", _re.IGNORECASE)
+_EMAIL_RX = _re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
+_PIC_BAD = {"hi", "hello", "dear", "team", "sir", "madam", "mr", "mrs", "ms", "customer", "to whom it may concern", "n/a", "na", "nan", "none", ""}
+
 @app.get("/api/campaigns")
 def get_campaigns():
     cmds = df_contacts.groupby("CMD_NAME").size().reset_index(name="count")
     cmds = cmds.sort_values("count", ascending=False)
-    return [{"name": r["CMD_NAME"], "count": int(r["count"])} for _, r in cmds.iterrows()]
+    result = [{"name": r["CMD_NAME"], "count": int(r["count"])} for _, r in cmds.iterrows()]
+    result.insert(0, {"name": "ALL", "count": int(len(df_contacts))})
+    return result
+
+def _good_email(e: str) -> bool:
+    e = (e or "").strip().lower()
+    if not e or not _EMAIL_RX.match(e):
+        return False
+    if _EMAIL_BAD_PREFIX.match(e):
+        return False
+    return True
+
+def _pic_is_bad(p: str) -> bool:
+    if not p: return True
+    p = p.strip()
+    return (not p
+            or p.lower() in _PIC_BAD
+            or len(p) < 2
+            or p.isdigit()
+            or p[0].isdigit())
+
+def _clean_pic(pic: str, company: str) -> str:
+    p = (pic or "").strip()
+    if not _pic_is_bad(p):
+        return p.title() if p.islower() else p
+    # Fallback: first non-numeric word of company, skipping street-address junk
+    c = (company or "").strip()
+    if c:
+        for tok in c.replace(",", " ").split():
+            tok = tok.strip(".-_").strip()
+            if tok and not tok[0].isdigit() and len(tok) >= 2 and tok.lower() not in {"ltd","llc","inc","corp","co","the","and","of","street","st","ave","avenue","floor","suite","unit"}:
+                return tok.title() if tok.islower() else tok
+    return "Team"
 
 @app.get("/api/contacts")
 def get_contacts(campaign: str):
-    subset = df_contacts[df_contacts["CMD_NAME"] == campaign].copy()
+    subset = df_contacts[df_contacts["CMD_NAME"] == campaign].copy() if campaign != "ALL" else df_contacts.copy()
     subset = subset[subset["CNEE_EMAIL"].notna()]
     subset["_el"] = subset["CNEE_EMAIL"].astype(str).str.lower().str.strip()
     subset = subset.drop_duplicates(subset="_el")
 
     results = []
+    dropped_bad_email = 0
     for _, row in subset.iterrows():
         def clean(field, default=""):
             v = str(row.get(field, "")).strip()
             return default if v.lower() in ("nan", "") else v
+        email = clean("CNEE_EMAIL")
+        if not _good_email(email):
+            dropped_bad_email += 1
+            continue
+        company = clean("CNEE_NAME")
         results.append({
-            "email": clean("CNEE_EMAIL"), "pic": clean("CNEE_PIC", "Team"),
-            "company": clean("CNEE_NAME"), "pol": clean("POL"), "dest": clean("DESTINATION"),
+            "email": email,
+            "pic": _clean_pic(clean("CNEE_PIC"), company),
+            "company": company,
+            "pol": clean("POL"),
+            "dest": clean("DESTINATION"),
         })
     results.sort(key=lambda x: x["company"])
-    return {"contacts": results, "subject": gen_subject(), "total": len(results)}
+    return {"contacts": results, "subject": gen_subject(), "total": len(results), "dropped_bad_email": dropped_bad_email}
 
 @app.get("/api/rate-preview")
 def rate_preview(pol: str, destinations: str, markup: float = 20.0, arb_origin: str = None):
@@ -213,8 +289,21 @@ def _do_send(campaign_id: str, req: SendRequest):
             log.info(f"COOLDOWN -> {c.email} (last: {last_sent})")
             continue
         try:
-            pol  = c.pol or req.default_pol
-            dest = c.dest or req.default_dest
+            # Preset mode override (Mode 2 per Nelson 2026-04-17):
+            #   "friday_hpl_scfi_hcm" → force POL=HCM, builder auto prefers HPL SCFI
+            #   lanes from HCM (the Friday SCFI release).
+            if req.preset == "friday_hpl_scfi_hcm":
+                pol = "HCM"
+                dest = c.dest or req.default_dest
+            else:
+                pol = c.pol or req.default_pol
+                dest = c.dest or req.default_dest
+            # Hard fallback so builder never sees empty/NaN destinations
+            if not dest or str(dest).lower() in ("nan", "none", ""):
+                dest = "USLAX,USLGB,USSAV,USNYC,USORF,USCHS,USTIW,USCHI,USDAL"
+            # Clean PIC so "Dear Hi," / "Dear Team," never leaks out
+            pic = _clean_pic(getattr(c, "pic", ""), getattr(c, "company", ""))
+            c.pic = pic  # write back so downstream template uses clean value
             result = build_rate_table_for_customer(
                 pol=pol, destinations=dest, markup=req.markup,
                 arb_origin=req.arb_origin or None,
@@ -232,10 +321,15 @@ def _do_send(campaign_id: str, req: SendRequest):
                 intro = default_intro
 
             subj = req.subject or gen_subject()
+            # Skip if auto-rate builder produced no real lanes — avoid empty "NAN" emails
+            if not html or "No rates available" in html:
+                prog["skipped"] = prog.get("skipped", 0) + 1
+                log.info(f"SKIP (no rates) -> {c.email}")
+                continue
             m = outlook.CreateItem(0)
             m.To = c.email
             m.Subject = subj
-            body = f"<p>Dear {c.pic},</p><p>{intro}</p>{html}<br><p>{closing}</p>"
+            body = f"<p>Dear {pic},</p><p>{intro}</p>{html}<br><p>{closing}</p>"
             if signature:
                 body += f"<br>{signature}"
             m.HTMLBody = f"<html><body>{body}</body></html>"

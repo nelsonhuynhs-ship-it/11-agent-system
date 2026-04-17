@@ -714,6 +714,12 @@ def build_rate_table_for_customer(
         except Exception as e:
             log.warning("[ARB] Could not apply ARB surcharge (%s) — using base rates", e)
 
+    # Drop rows where POD is NaN / empty so renderer never emits "› NAN"
+    all_rows = [
+        r for r in all_rows
+        if r.get("pod_code") and str(r.get("pod_code")).strip().lower() not in ("nan", "none", "")
+    ]
+
     # Market intelligence badge (optional, graceful fallback)
     mkt_ctx = get_market_context(pol, destinations)
     badge = market_badge_html(mkt_ctx)
