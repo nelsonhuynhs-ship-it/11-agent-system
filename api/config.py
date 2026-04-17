@@ -108,6 +108,7 @@ class Config:
         "http://14.225.207.145:3003",
         "https://nelsonfreight.pro.vn",
         "https://*.nelsonfreight.pro.vn",
+        "null",   # file:// origin — allows standalone HTML dashboards (email-dashboard-v4.html)
     ])
 
     def summary(self) -> dict:

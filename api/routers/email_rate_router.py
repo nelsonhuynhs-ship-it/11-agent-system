@@ -1162,7 +1162,76 @@ def get_campaign_stats():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 6b. GET /api/email-rate/campaign/tier-stats (v2)
+# 6b. GET /api/email-rate/follow-up-queue
+# Returns contacts that need a follow-up action based on email_log.csv.
+# Step logic: 0→7d→14d→30d. Returns max 100 rows sorted by due date.
+# ══════════════════════════════════════════════════════════════════════════════
+
+_FOLLOWUP_STEPS = [
+    (0,  7,  "Friendly check-in"),
+    (7,  14, "Rate update follow-up"),
+    (14, 30, "Quote adjust or nudge"),
+    (30, 999, "Final nudge / re-route"),
+]
+
+@router.get("/follow-up-queue")
+def get_follow_up_queue():
+    """Return contacts due for follow-up, derived from email_log.csv send history."""
+    if not _EMAIL_LOG.exists():
+        return []
+    try:
+        df = pd.read_csv(_EMAIL_LOG)
+        if df.empty or "email" not in df.columns:
+            return []
+
+        # Normalise timestamp column
+        ts_col = "timestamp" if "timestamp" in df.columns else df.columns[0]
+        df[ts_col] = pd.to_datetime(df[ts_col], errors="coerce")
+        df = df.dropna(subset=[ts_col])
+
+        # Most recent send per email
+        sent_only = df[df.get("status", df.iloc[:, -1]).astype(str).str.lower() == "sent"] if "status" in df.columns else df
+        if sent_only.empty:
+            sent_only = df
+        latest = sent_only.sort_values(ts_col).groupby("email", as_index=False).last()
+
+        now = datetime.now()
+        results = []
+        for _, row in latest.iterrows():
+            last_dt = row[ts_col]
+            if pd.isna(last_dt):
+                continue
+            days_ago = (now - last_dt.to_pydatetime()).days
+            step = 0
+            action = _FOLLOWUP_STEPS[-1][2]
+            for s_idx, (lo, hi, act) in enumerate(_FOLLOWUP_STEPS):
+                if lo <= days_ago < hi:
+                    step = s_idx
+                    action = act
+                    break
+            # due = last_sent + lower_bound_of_current_step (i.e., when it became actionable)
+            due_days = _FOLLOWUP_STEPS[step][0]
+            due_date = (last_dt + pd.Timedelta(days=due_days)).strftime("%Y-%m-%d")
+            results.append({
+                "company":    str(row.get("company", row["email"])),
+                "email":      str(row["email"]),
+                "campaign":   str(row.get("campaign_id", "")),
+                "lastSent":   last_dt.strftime("%Y-%m-%d"),
+                "step":       step,
+                "nextAction": action,
+                "dueDate":    due_date,
+            })
+
+        # Sort by due date ascending (most overdue first)
+        results.sort(key=lambda x: x["dueDate"])
+        return results[:100]
+    except Exception as e:
+        log.warning("follow-up-queue error: %s", e)
+        return []
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 6c. GET /api/email-rate/campaign/tier-stats (v2)
 # ══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/campaign/tier-stats")
@@ -1309,16 +1378,33 @@ def campaign_send(req: CampaignSendRequest):
     if not req.email:
         raise HTTPException(status_code=400, detail="email is required")
 
-    # ── Queue into PostgreSQL (worker polls via email_queue_router) ──
-    if not is_postgres_configured():
-        raise HTTPException(503, "PostgreSQL not configured — set DATABASE_URL")
-
-    queue_id = _insert_to_pg_queue(
-        email=req.email,
-        subject=preview["subject"],
-        html_body=preview["html"],
-    )
-    log.info("Campaign email queued for %s (%s) | pg_id: %s", req.email, req.company, queue_id)
+    # ── Queue: PostgreSQL if configured, else JSON file fallback ──
+    if is_postgres_configured():
+        queue_id = _insert_to_pg_queue(
+            email=req.email,
+            subject=preview["subject"],
+            html_body=preview["html"],
+        )
+        log.info("Campaign email queued (pg) for %s (%s) | pg_id: %s", req.email, req.company, queue_id)
+    else:
+        queue = _load_queue()
+        item = {
+            "id": str(uuid.uuid4())[:8],
+            "to": req.email,
+            "cc": req.cc_emails,
+            "subject": preview["subject"],
+            "html_body": preview["html"],
+            "company": req.company,
+            "campaign_id": req.campaign_id,
+            "attach_pdf": False,
+            "status": "pending",
+            "queued_at": datetime.now().isoformat(),
+            "sent_at": None,
+        }
+        queue.append(item)
+        _save_queue(queue)
+        queue_id = item["id"]
+        log.info("Campaign email queued (json) for %s (%s) | id: %s", req.email, req.company, queue_id)
 
     return {
         "status":      "queued",
@@ -1349,8 +1435,7 @@ def campaign_bulk_send(req: CampaignBulkSendRequest):
     if not req.emails:
         raise HTTPException(status_code=400, detail="emails list is empty")
 
-    if not is_postgres_configured():
-        raise HTTPException(503, "PostgreSQL not configured — set DATABASE_URL")
+    use_pg = is_postgres_configured()
 
     # Load CNEE data
     df = _load_cnee()
@@ -1392,13 +1477,32 @@ def campaign_bulk_send(req: CampaignBulkSendRequest):
                 errors.append({"email": email_addr, "company": company, "error": f"Blocked: {preview['warn_msg']}"})
                 continue
 
-            queue_id = _insert_to_pg_queue(
-                email=email_addr,
-                subject=preview["subject"],
-                html_body=preview["html"],
-            )
+            if use_pg:
+                queue_id = _insert_to_pg_queue(
+                    email=email_addr,
+                    subject=preview["subject"],
+                    html_body=preview["html"],
+                )
+            else:
+                q_list = _load_queue()
+                item = {
+                    "id": str(uuid.uuid4())[:8],
+                    "to": email_addr,
+                    "cc": [],
+                    "subject": preview["subject"],
+                    "html_body": preview["html"],
+                    "company": company,
+                    "campaign_id": campaign_id,
+                    "attach_pdf": False,
+                    "status": "pending",
+                    "queued_at": datetime.now().isoformat(),
+                    "sent_at": None,
+                }
+                q_list.append(item)
+                _save_queue(q_list)
+                queue_id = item["id"]
             queued_ok.append({"email": email_addr, "company": company, "subject": preview["subject"], "status": "queued", "queue_id": queue_id})
-            log.info("Bulk queue OK: %s (%s) pg_id=%s", email_addr, company, queue_id)
+            log.info("Bulk queue OK: %s (%s) id=%s", email_addr, company, queue_id)
 
         except Exception as e:
             log.warning("Bulk queue error for %s: %s", email_addr, e)

@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Nelson Email — Safety, Tiers & Defaults</title>
+<style>
+:root {
+  --bg: #07090f;
+  --card: #12151f;
+  --card-hover: #1a1d29;
+  --border: #2a2f3e;
+  --text: #e6e9f0;
+  --text-dim: #8b92a5;
+  --accent: #00d9ff;
+  --green: #10b981;
+  --yellow: #f59e0b;
+  --red: #ef4444;
+  --blue: #3b82f6;
+  --purple: #a855f7;
+  --pink: #ec4899;
+}
+* { box-sizing: border-box; }
+body {
+  font-family: -apple-system, 'Segoe UI', Roboto, system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  margin: 0;
+  line-height: 1.6;
+}
+.container { max-width: 1400px; margin: 0 auto; padding: 40px 24px; }
+header {
+  text-align: center;
+  padding: 40px 0 60px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 60px;
+}
+header h1 {
+  font-size: 42px;
+  margin: 0 0 12px;
+  background: linear-gradient(135deg, var(--accent), var(--purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+header .subtitle { color: var(--text-dim); font-size: 18px; margin: 0; }
+header .slogan {
+  display: inline-block;
+  margin-top: 20px;
+  padding: 10px 24px;
+  background: rgba(0, 217, 255, 0.1);
+  border: 1px solid var(--accent);
+  border-radius: 100px;
+  color: var(--accent);
+  font-weight: 600;
+  letter-spacing: 2px;
+}
+.toc {
+  position: sticky;
+  top: 20px;
+  background: var(--card);
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  margin-bottom: 40px;
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(10px);
+  background: rgba(18, 21, 31, 0.95);
+}
+.toc a {
+  color: var(--text-dim);
+  text-decoration: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+.toc a:hover { background: var(--card-hover); color: var(--accent); }
+section { margin: 60px 0; }
+section h2 {
+  font-size: 32px;
+  margin: 0 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+section .section-sub {
+  color: var(--text-dim);
+  margin: 0 0 32px;
+  font-size: 16px;
+}
+h3 {
+  font-size: 22px;
+  margin: 32px 0 16px;
+  color: var(--accent);
+  border-left: 4px solid var(--accent);
+  padding-left: 12px;
+}
+.grid { display: grid; gap: 16px; }
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+.grid-5 { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 900px) {
+  .grid-2, .grid-3, .grid-4, .grid-5 { grid-template-columns: 1fr; }
+}
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.2s;
+}
+.card:hover { background: var(--card-hover); border-color: var(--accent); }
+.card h4 { margin: 0 0 8px; font-size: 16px; }
+.card p { margin: 0; color: var(--text-dim); font-size: 14px; }
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.b-ok { background: rgba(16, 185, 129, 0.2); color: var(--green); }
+.b-warn { background: rgba(245, 158, 11, 0.2); color: var(--yellow); }
+.b-fail { background: rgba(239, 68, 68, 0.2); color: var(--red); }
+.b-todo { background: rgba(59, 130, 246, 0.2); color: var(--blue); }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  background: var(--card);
+  border-radius: 12px;
+  overflow: hidden;
+}
+th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+th { background: var(--card-hover); font-weight: 600; color: var(--text-dim); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+tbody tr:hover { background: var(--card-hover); }
+tbody tr:last-child td { border-bottom: none; }
+.protection-layer {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+}
+.protection-layer.done { border-left-color: var(--green); }
+.protection-layer.partial { border-left-color: var(--yellow); }
+.protection-layer.missing { border-left-color: var(--red); }
+.protection-layer h4 { margin: 0 0 8px; display: flex; justify-content: space-between; align-items: center; }
+.protection-layer ul { margin: 8px 0 0; padding-left: 20px; }
+.protection-layer li { margin: 4px 0; }
+.tier-box {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  transition: all 0.2s;
+}
+.tier-box:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0, 217, 255, 0.1); }
+.tier-box .tier-icon { font-size: 32px; margin-bottom: 8px; }
+.tier-box .tier-name { font-weight: 700; font-size: 16px; margin-bottom: 4px; }
+.tier-box .tier-rule { font-size: 12px; color: var(--text-dim); line-height: 1.4; }
+.tier-box .tier-count { font-size: 24px; font-weight: 700; color: var(--accent); margin-top: 8px; }
+.callout {
+  background: rgba(0, 217, 255, 0.05);
+  border: 1px solid rgba(0, 217, 255, 0.2);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin: 20px 0;
+}
+.callout-title {
+  color: var(--accent);
+  font-weight: 700;
+  margin: 0 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+pre {
+  background: #000;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  overflow-x: auto;
+  font-size: 13px;
+  color: #c9d1d9;
+}
+code { font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace; }
+.pipeline {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 20px 0;
+  overflow-x: auto;
+}
+.pipeline pre { background: transparent; border: none; padding: 0; }
+footer {
+  text-align: center;
+  padding: 60px 0 40px;
+  color: var(--text-dim);
+  border-top: 1px solid var(--border);
+  margin-top: 80px;
+}
+.key-stat {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin: 4px 0;
+}
+.key-stat strong { color: var(--text); font-size: 16px; }
+.metric-row {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 24px 0;
+}
+.metric {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 24px;
+  text-align: center;
+  min-width: 140px;
+}
+.metric .value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.metric .label {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.flow-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin: 12px 0;
+  padding: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.flow-step .num {
+  background: var(--accent);
+  color: var(--bg);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.flow-step .content { flex: 1; }
+.flow-step h5 { margin: 0 0 4px; }
+.flow-step p { margin: 0; color: var(--text-dim); font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>🛡 Email Safety, Tiers & Defaults</h1>
+  <p class="subtitle">Audit protection layers + phân loại khách + default routing — Nelson Freight Solo Platform</p>
+  <div class="slogan">NHANH · CẠNH TRANH · YÊN TÂM</div>
+  <div class="metric-row">
+    <div class="metric"><div class="value">28,169</div><div class="label">CNEE total (OneDrive v2)</div></div>
+    <div class="metric"><div class="value">48</div><div class="label">Campaigns</div></div>
+    <div class="metric"><div class="value">23,593</div><div class="label">SEND_NOW ready</div></div>
+    <div class="metric"><div class="value">82</div><div class="label">HOT prospects</div></div>
+    <div class="metric"><div class="value">23</div><div class="label">VIP</div></div>
+  </div>
+  <div style="text-align:center; margin-top:16px; color:var(--text-dim); font-size:14px;">
+    📂 Source: <code>D:/OneDrive/NelsonData/email/cnee_master_v2.xlsx</code> (15.8 MB, 21 cols)
+  </div>
+</header>
+
+<!-- Workflow section — NEW -->
+<section>
+  <h2>🌆 Workflow Nelson chốt — Batch Send 4-5 đợt</h2>
+  <p class="section-sub">Tối anh chọn 1000 prospects → tự chia 4-5 đợt × 200 → queue nhớ → worker gửi + scanner clean data.</p>
+
+  <div class="pipeline">
+<pre style="color:#c9d1d9;">
+🌆 7-10pm — TỐI NELSON CHỌN
+┌─────────────────────────────────────────────────────────────────────┐
+│  Dashboard v4 — Send tab                                             │
+│  Filter:  TIER ∈ (VIP, HOT, WARM_A, WARM_B) AND ACTION = SEND_NOW   │
+│  Sort:    PRIORITY_SCORE DESC, EMAIL_QUALITY_SCORE DESC              │
+│  Select:  1000 prospects (tick checkboxes)                           │
+│  Split:   batch_size = 200  →  5 batches                             │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+          ┌───────────┬───────┼───────┬───────────┬───────────┐
+          ▼           ▼       ▼       ▼           ▼
+    ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
+    │Batch 1  │ │Batch 2  │ │Batch 3  │ │Batch 4  │ │Batch 5  │
+    │200 emails│ │200 emails│ │200 emails│ │200 emails│ │200 emails│
+    │[Queue]  │ │[Queue]  │ │[Queue]  │ │[Queue]  │ │[Queue]  │
+    └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘
+         │           │           │           │           │
+         └───────────┴─────┬─────┴───────────┴───────────┘
+                           ▼
+              ┌──────────────────────────┐
+              │   outlook_queue.db        │
+              │   1000 jobs, 5 batch_id  │
+              │   status=pending         │
+              │   ORDER BY priority DESC  │
+              └──────────────┬───────────┘
+                             ▼
+              ┌──────────────────────────┐
+              │  Worker FAST MODE         │
+              │  5 threads parallel       │
+              │  Pop → Outlook → mark-sent│
+              │  Throughput: 40+/phút/thread
+              │  → ~5-10 phút /batch      │
+              └──────────────┬───────────┘
+                             ▼
+              ┌──────────────────────────┐
+              │  intel.db event log       │
+              │  SENT event per email    │
+              └──────────────┬───────────┘
+                             │
+  🔄 MỖI 30 PHÚT — Scanner tự động
+                             ▼
+              ┌──────────────────────────┐
+              │  inbox_scanner.py         │
+              │  Scan Outlook Inbox last  │
+              │  35 phút                  │
+              │                           │
+              │  Classify:                │
+              │  ├─ BOUNCE → update master│
+              │  │    quality_score -15  │
+              │  │    3x → TIER=PARK     │
+              │  ├─ AUTO_REPLY → log only │
+              │  ├─ REAL_REPLY →         │
+              │  │    ├─ Telegram alert  │
+              │  │    ├─ TIER promote    │
+              │  │    ├─ intent classify │
+              │  │    └─ GoClaw draft gen │
+              │  └─ UNSUB → TIER=PARK    │
+              └──────────────┬───────────┘
+                             ▼
+              ┌──────────────────────────┐
+              │  AUTO DATA CLEANUP        │
+              │  OneDrive cnee_master_v2  │
+              │  Fields updated:          │
+              │  • TIER (promote/demote)  │
+              │  • ACTION (SEND_NOW→SKIP) │
+              │  • SEND_COUNT++          │
+              │  • REPLY_STATUS           │
+              │  • EMAIL_QUALITY_SCORE    │
+              │  • LAST_SENT_DATE         │
+              │  • LAST_REPLY_DATE        │
+              └──────────────────────────┘
+
+🌙 9pm — Telegram Daily Report
+  📊 Today: 423 sent, 1.2% bounce, 8 promoted HOT, 1 unsub, 3 parked
+</pre>
+  </div>
+
+  <div class="callout">
+    <div class="callout-title">✅ Anh chốt 4 điểm</div>
+    <ol>
+      <li><strong>Anh tự chia batch</strong>, không để máy auto-split toàn bộ 1000 một lượt. Kiểm soát được.</li>
+      <li><strong>Queue nhớ danh sách đã gửi</strong> (SQLite + batch_id, persistent).</li>
+      <li><strong>Scanner 30 phút auto</strong> detect bounce/reply/unsub — Nelson không phải scan tay.</li>
+      <li><strong>Master v2 tự cleanup</strong> — TIER, ACTION, SCORES auto-update theo event thật.</li>
+    </ol>
+  </div>
+</section>
+
+<nav class="toc">
+  <a href="#protection">🛡 Protection Layers</a>
+  <a href="#tiers">🏷 Phân loại Tier</a>
+  <a href="#defaults">🗺 Default POD/POL</a>
+  <a href="#kill-switch">🚨 Emergency Controls</a>
+  <a href="#roadmap">📋 Roadmap</a>
+</nav>
+
+<!-- ═══════════════════════════════════════════════ -->
+<section id="protection">
+  <h2>🛡 Layer 1 — Protection Layers</h2>
+  <p class="section-sub">6 tầng bảo vệ cần có. Em đánh dấu hiện trạng: ✅ đã có / ⚠️ 1 phần / ❌ chưa có.</p>
+
+  <div class="protection-layer partial">
+    <h4>🔎 Tầng 0 — Pre-flight (trước khi enqueue)
+      <span class="badge b-warn">⚠️ 1 PHẦN</span>
+    </h4>
+    <ul>
+      <li><span class="badge b-ok">✅ ĐÃ CÓ</span> Suppression list: HARD_BOUNCE, INVALID, NO_MX (từ cnee_master.EMAIL_STATUS)</li>
+      <li><span class="badge b-ok">✅ ĐÃ CÓ</span> Cooldown 48h flat (từ email_log.csv)</li>
+      <li><span class="badge b-ok">✅ ĐÃ CÓ</span> Bounce count tracking (BOUNCE_COUNT column)</li>
+      <li><span class="badge b-ok">✅ ĐÃ CÓ</span> LEAD_SCORE per CNEE</li>
+      <li><span class="badge b-fail">❌ CHƯA</span> Daily rate limit total (max 500/ngày toàn hệ thống)</li>
+      <li><span class="badge b-fail">❌ CHƯA</span> Per-domain rate limit (max 10 email/@gmail.com/ngày)</li>
+      <li><span class="badge b-fail">❌ CHƯA</span> Batch size approval gate (>100 yêu cầu confirm modal)</li>
+      <li><span class="badge b-fail">❌ CHƯA</span> Compliance check (gov domain, competitor blacklist)</li>
+      <li><span class="badge b-fail">❌ CHƯA</span> Content filter (spam trigger words)</li>
+      <li><span class="badge b-fail">❌ CHƯA</span> Preview modal bắt buộc cho subject mới</li>
+    </ul>
+  </div>
+
+  <div class="protection-layer missing">
+    <h4>🚪 Tầng 1 — Queue-time (trong queue)
+      <span class="badge b-fail">❌ CHƯA</span>
+    </h4>
+    <ul>
+      <li><span class="badge b-fail">❌</span> Unique constraint chống duplicate (cùng email + subject + 1h window)</li>
+      <li><span class="badge b-fail">❌</span> Re-validate cooldown tại thời điểm pop (defense in depth)</li>
+      <li><span class="badge b-fail">❌</span> Kill Switch flag (biến môi trường → reject mọi enqueue)</li>
+      <li><span class="badge b-fail">❌</span> Dry-run mode (enqueue nhưng không gửi, chỉ log)</li>
+    </ul>
+  </div>
+
+  <div class="protection-layer partial">
+    <h4>📤 Tầng 2 — Send-time (trong worker)
+      <span class="badge b-warn">⚠️ 1 PHẦN</span>
+    </h4>
+    <ul>
+      <li><span class="badge b-ok">✅</span> Try/except per email (1 fail không làm đứt batch)</li>
+      <li><span class="badge b-fail">❌</span> Throttle detection (Exchange 421 error → auto slow down)</li>
+      <li><span class="badge b-fail">❌</span> Retry backoff (hiện fail là xong, không retry)</li>
+      <li><span class="badge b-fail">❌</span> Per-worker rate throttle (max 60/phút/worker)</li>
+    </ul>
+  </div>
+
+  <div class="protection-layer partial">
+    <h4>📝 Tầng 3 — Post-send (log + update)
+      <span class="badge b-warn">⚠️ 1 PHẦN</span>
+    </h4>
+    <ul>
+      <li><span class="badge b-ok">✅</span> Immutable log email_log.csv (append only)</li>
+      <li><span class="badge b-ok">✅</span> LAST_SENT_DATE update in master</li>
+      <li><span class="badge b-fail">❌</span> Event log chi tiết (template_id, market_state, error)</li>
+      <li><span class="badge b-fail">❌</span> Auto-update BOUNCE_COUNT khi bounce từ scanner (cần Phase 04)</li>
+      <li><span class="badge b-fail">❌</span> Auto-suppress khi BOUNCE_COUNT >= 3</li>
+      <li><span class="badge b-fail">❌</span> Reply detection → update LAST_REPLY (cần Phase 04)</li>
+    </ul>
+  </div>
+
+  <div class="protection-layer missing">
+    <h4>📊 Tầng 4 — Monitoring (real-time health)
+      <span class="badge b-fail">❌ CHƯA</span>
+    </h4>
+    <ul>
+      <li><span class="badge b-fail">❌</span> Real-time bounce rate monitor (auto-pause nếu >5%)</li>
+      <li><span class="badge b-fail">❌</span> Complaint rate tracking</li>
+      <li><span class="badge b-fail">❌</span> Daily health alert Telegram</li>
+      <li><span class="badge b-fail">❌</span> Anomaly detection (bỗng dưng 50% fail)</li>
+      <li><span class="badge b-fail">❌</span> Sender reputation check (Outlook blacklist status)</li>
+    </ul>
+  </div>
+
+  <div class="protection-layer missing">
+    <h4>🚨 Tầng 5 — Emergency (panic button)
+      <span class="badge b-fail">❌ CHƯA</span>
+    </h4>
+    <ul>
+      <li><span class="badge b-fail">❌</span> Kill Switch button dashboard (dừng toàn bộ queue)</li>
+      <li><span class="badge b-fail">❌</span> Batch rollback (cancel pending jobs của batch X)</li>
+      <li><span class="badge b-fail">❌</span> Quarantine mode (pause mọi auto send, chỉ manual)</li>
+      <li><span class="badge b-fail">❌</span> Audit log review dashboard (ai gửi gì khi nào)</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="callout-title">🎯 Kết luận protection</div>
+    <p>Hệ thống có <strong>4/20 bảo vệ</strong> cơ bản (suppression, cooldown, bounce tracking, error isolation). Còn thiếu <strong>16 layer quan trọng</strong> để safe send 1000/click. <strong>Risk cao nếu gửi bulk ngay bây giờ không thêm layers.</strong></p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ -->
+<section id="tiers">
+  <h2>🏷 Layer 2 — Phân loại Tier (5 chiều)</h2>
+  <p class="section-sub">Mỗi CNEE được gắn 5 tag đồng thời. Hệ thống dùng combo tag để quyết định: gửi / không / template gì / ưu tiên bao nhiêu.</p>
+
+  <div class="callout" style="background: rgba(245, 158, 11, 0.08); border-color: rgba(245, 158, 11, 0.3);">
+    <div class="callout-title" style="color: var(--yellow);">⚠️ CORRECTION 2026-04-16</div>
+    <p>Em nhầm trước đây: đã CÓ SẴN tier system trong OneDrive v2. <strong>Không build lại D1 engagement tier — REUSE 6 bậc có sẵn:</strong> VIP / HOT / WARM_A / WARM_B / COOL / PARK. Phase 02 chỉ bổ sung: event chain + auto-update rules + populate REPLY_STATUS.</p>
+  </div>
+
+  <h3>🏷 D1 — Engagement Tier (EXISTING — REUSE)</h3>
+  <p style="color:var(--text-dim)">Data thật từ <code>cnee_master_v2.xlsx</code> OneDrive — 28,169 CNEE đã được phân loại.</p>
+  <div class="grid grid-3">
+    <div class="tier-box" style="border-color: var(--purple);">
+      <div class="tier-icon">👑</div>
+      <div class="tier-name">VIP</div>
+      <div class="tier-rule">Direct Nelson customer<br>ACTION=PERSONALIZED</div>
+      <div class="tier-count">23</div>
+    </div>
+    <div class="tier-box" style="border-color: var(--red);">
+      <div class="tier-icon">🔥</div>
+      <div class="tier-name">HOT</div>
+      <div class="tier-rule">Nóng, cần chăm sóc<br>ACTION=FOLLOW_UP</div>
+      <div class="tier-count">82</div>
+    </div>
+    <div class="tier-box" style="border-color: var(--yellow);">
+      <div class="tier-icon">⭐</div>
+      <div class="tier-name">WARM_A</div>
+      <div class="tier-rule">Prospect ấm tốt<br>ACTION mix: SEND_NOW + SEQUENCE</div>
+      <div class="tier-count">4,378</div>
+    </div>
+    <div class="tier-box" style="border-color: var(--accent);">
+      <div class="tier-icon">🌟</div>
+      <div class="tier-name">WARM_B</div>
+      <div class="tier-rule">Prospect ấm<br>ACTION=SEND_NOW (20,698/20,724)</div>
+      <div class="tier-count">20,724</div>
+    </div>
+    <div class="tier-box" style="border-color: #6b7280;">
+      <div class="tier-icon">🧊</div>
+      <div class="tier-name">COOL</div>
+      <div class="tier-rule">Nguội, cooldown dài<br>71% SEND_NOW / 24% SEQUENCE</div>
+      <div class="tier-count">2,412</div>
+    </div>
+    <div class="tier-box" style="border-color: var(--red); opacity: 0.7;">
+      <div class="tier-icon">🚫</div>
+      <div class="tier-name">PARK</div>
+      <div class="tier-rule">Đã dừng hoàn toàn<br>ACTION=SKIP</div>
+      <div class="tier-count">550</div>
+    </div>
+  </div>
+
+  <h3>⚡ ACTION Routing (EXISTING — REUSE)</h3>
+  <table>
+    <thead><tr><th>ACTION</th><th>Count</th><th>Ý nghĩa</th><th>Gửi khi</th></tr></thead>
+    <tbody>
+      <tr><td><code>SEND_NOW</code></td><td>23,593</td><td>Gửi ngay, không sequence</td><td>Bulk send tối nay</td></tr>
+      <tr><td><code>SEQUENCE_NEXT</code></td><td>2,729</td><td>Đang trong chuỗi follow-up</td><td>Đúng step day 3/7/14</td></tr>
+      <tr><td><code>COOLDOWN</code></td><td>1,192</td><td>Chờ hết cooldown</td><td>SKIP trong bulk</td></tr>
+      <tr><td><code>FOLLOW_UP</code></td><td>82</td><td>HOT cần chăm sóc tay</td><td>Manual Nelson</td></tr>
+      <tr><td><code>PERSONALIZED</code></td><td>23</td><td>VIP viết riêng</td><td>Manual Nelson</td></tr>
+      <tr><td><code>SKIP</code></td><td>550</td><td>Không gửi (PARK)</td><td>Never</td></tr>
+    </tbody>
+  </table>
+
+  <h3>🔄 TIER Auto-Update Rules (Phase 02 + 04 implement)</h3>
+  <div class="grid grid-2">
+    <div class="card" style="border-left: 4px solid var(--green);">
+      <h4>⬆ Promotion (lên tier)</h4>
+      <ul>
+        <li>REPLY + sentiment POSITIVE + intent (booking, price_inquiry) → WARM_B → WARM_A → HOT</li>
+        <li>Any REPLY → COOL → WARM_B</li>
+        <li>TOTAL_SHIPMENT > 5 + reply → promote 1 bậc</li>
+      </ul>
+    </div>
+    <div class="card" style="border-left: 4px solid var(--red);">
+      <h4>⬇ Demotion (xuống tier)</h4>
+      <ul>
+        <li>BOUNCE HARD 3x → PARK (ACTION=SKIP vĩnh viễn)</li>
+        <li>UNSUBSCRIBE → PARK</li>
+        <li>180+ ngày không reply (từ HOT/WARM_A) → COOL</li>
+        <li>BOUNCE 1x → EMAIL_QUALITY_SCORE -15</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout">
+    <p><strong>Áp dụng:</strong> Bulk send filter default <code>TIER ∈ (HOT, WARM_A, WARM_B, COOL) AND ACTION = SEND_NOW</code> → 23,593 eligible. Priority sort: VIP/HOT trước. Cooldown: HOT 24h / WARM_A 48h / WARM_B 72h / COOL 5 ngày.</p>
+  </div>
+
+  <h3>🟢 D2 — Quality Tier (email health)</h3>
+  <div class="grid grid-4">
+    <div class="tier-box" style="border-color: var(--green);">
+      <div class="tier-icon">🟢</div>
+      <div class="tier-name">CLEAN</div>
+      <div class="tier-rule">VERIFY_STATUS=VALID<br>BOUNCE_COUNT=0</div>
+      <div class="tier-count">~5,296</div>
+    </div>
+    <div class="tier-box" style="border-color: var(--yellow);">
+      <div class="tier-icon">🟡</div>
+      <div class="tier-name">UNCERTAIN</div>
+      <div class="tier-rule">Chưa verify<br>hoặc 1 soft bounce</div>
+      <div class="tier-count">~2</div>
+    </div>
+    <div class="tier-box" style="border-color: var(--red);">
+      <div class="tier-icon">🔴</div>
+      <div class="tier-name">RISKY</div>
+      <div class="tier-rule">BOUNCE_COUNT ≥ 2<br>spam trap risk</div>
+      <div class="tier-count">~?</div>
+    </div>
+    <div class="tier-box" style="border-color: #444;">
+      <div class="tier-icon">⛔</div>
+      <div class="tier-name">BLOCKED</div>
+      <div class="tier-rule">HARD_BOUNCE<br>hoặc opt-out</div>
+      <div class="tier-count">~18</div>
+    </div>
+  </div>
+  <div class="callout">
+    <p><strong>Áp dụng:</strong> BLOCKED = 0% chance gửi (hard suppress). RISKY = warn modal trước bulk. UNCERTAIN = verify trước, hoặc skip. CLEAN = gửi bình thường.</p>
+  </div>
+
+  <h3>👑 D3 — Business Priority (giá trị khách)</h3>
+  <div class="grid grid-4">
+    <div class="tier-box" style="border-color: var(--purple);">
+      <div class="tier-icon">👑</div>
+      <div class="tier-name">VIP</div>
+      <div class="tier-rule">Nelson direct customer<br>(customer_rules.json)</div>
+      <div class="tier-count">~?</div>
+    </div>
+    <div class="tier-box" style="border-color: var(--accent);">
+      <div class="tier-icon">⭐</div>
+      <div class="tier-name">GOLD</div>
+      <div class="tier-rule">TOTAL_SHIPMENT > 5</div>
+      <div class="tier-count">~?</div>
+    </div>
+    <div class="tier-box" style="border-color: #888;">
+      <div class="tier-icon">🥈</div>
+      <div class="tier-name">SILVER</div>
+      <div class="tier-rule">TOTAL_SHIPMENT 1-5</div>
+      <div class="tier-count">~?</div>
+    </div>
+    <div class="tier-box">
+      <div class="tier-icon">🆕</div>
+      <div class="tier-name">PROSPECT</div>
+      <div class="tier-rule">Chưa ship lần nào</div>
+      <div class="tier-count">~?</div>
+    </div>
+  </div>
+  <div class="callout">
+    <p><strong>Áp dụng:</strong> VIP → template riêng "Dear John (VIP)", giá ưu đãi. GOLD → urgent alerts khi market biến động. SILVER → weekly update. PROSPECT → introductory template.</p>
+  </div>
+
+  <h3>⚖️ D4 — Compliance Tier (legal/ethical)</h3>
+  <div class="grid grid-3">
+    <div class="tier-box" style="border-color: var(--green);">
+      <div class="tier-icon">✅</div>
+      <div class="tier-name">OK</div>
+      <div class="tier-rule">Standard OK to email</div>
+    </div>
+    <div class="tier-box" style="border-color: var(--yellow);">
+      <div class="tier-icon">⚠️</div>
+      <div class="tier-name">REVIEW</div>
+      <div class="tier-rule">Gov domain, regulated<br>hoặc 1st time</div>
+    </div>
+    <div class="tier-box" style="border-color: var(--red);">
+      <div class="tier-icon">🚫</div>
+      <div class="tier-name">NEVER</div>
+      <div class="tier-rule">Unsubscribed<br>competitor, complaint</div>
+    </div>
+  </div>
+  <div class="callout">
+    <p><strong>Áp dụng:</strong> Email chứa "unsubscribe", "stop" trong reply → auto đổi sang NEVER. NEVER = hard suppress vĩnh viễn. REVIEW = anh duyệt tay trước bulk.</p>
+  </div>
+
+  <h3>🏭 D5 — Campaign Category (đã có)</h3>
+  <table>
+    <thead><tr><th>Campaign</th><th>Số lượng</th><th>Chiếm</th><th>Default ports gợi ý</th></tr></thead>
+    <tbody>
+      <tr><td>FLOORING</td><td>1,057</td><td>19.9%</td><td>USNYC, USSAV, USCHS, USHOU (East/Gulf)</td></tr>
+      <tr><td>FURNITURE</td><td>745</td><td>14.0%</td><td>USLAX, USLGB, USOAK (West Coast)</td></tr>
+      <tr><td>PLASTIC</td><td>590</td><td>11.1%</td><td>USHOU, USLAX, USNYC (Mixed)</td></tr>
+      <tr><td>MALAYSIA</td><td>562</td><td>10.6%</td><td>USLAX, USLGB, USNYC</td></tr>
+      <tr><td>CANDLE</td><td>495</td><td>9.3%</td><td>USLAX, USNYC</td></tr>
+      <tr><td>LCHFURNITURE</td><td>336</td><td>6.3%</td><td>USLAX, USLGB, USOAK</td></tr>
+      <tr><td>PLYWOOD</td><td>312</td><td>5.9%</td><td>USLAX, USNYC, USSAV</td></tr>
+      <tr><td>FOODSTUFF</td><td>259</td><td>4.9%</td><td>USLGB, USOAK, USSEA</td></tr>
+      <tr><td>RUBBER</td><td>180</td><td>3.4%</td><td>USHOU, USLAX</td></tr>
+      <tr><td>FROZEN</td><td>111</td><td>2.1%</td><td>USLGB, USOAK (Reefer)</td></tr>
+      <tr><td>+ 13 khác</td><td>669</td><td>12.6%</td><td>Theo routing pattern riêng</td></tr>
+    </tbody>
+  </table>
+
+  <h3>🎯 Combo Tag System — Ví dụ thực tế</h3>
+  <div class="grid grid-2">
+    <div class="card">
+      <h4>👤 John Smith @ ABC Furniture</h4>
+      <p><strong>Tags:</strong> <span class="badge b-ok">🔥HOT</span> <span class="badge b-ok">🟢CLEAN</span> <span class="badge b-ok">⭐GOLD</span> <span class="badge b-ok">✅OK</span> <span class="badge b-todo">FURNITURE</span></p>
+      <p>Cooldown 24h, template "west_coast_urgent", ưu tiên top 50 khi bulk send, personalized salutation.</p>
+    </div>
+    <div class="card">
+      <h4>👤 Random @ competitor-logistics.com</h4>
+      <p><strong>Tags:</strong> <span class="badge b-warn">🧊DEAD</span> <span class="badge b-fail">⛔BLOCKED</span> <span class="badge b-fail">🚫NEVER</span></p>
+      <p>Hard suppress vĩnh viễn. Không bao giờ enqueue dù Nelson vô tình chọn.</p>
+    </div>
+    <div class="card">
+      <h4>👤 Alice @ new-prospect.com</h4>
+      <p><strong>Tags:</strong> <span class="badge b-todo">🆕FRESH</span> <span class="badge b-warn">🟡UNCERTAIN</span> <span class="badge b-todo">🆕PROSPECT</span> <span class="badge b-warn">⚠️REVIEW</span></p>
+      <p>Chưa verify → verify trước. First-time sender → anh duyệt preview. Introductory template.</p>
+    </div>
+    <div class="card">
+      <h4>👤 Ethan @ longtime-customer.com</h4>
+      <p><strong>Tags:</strong> <span class="badge b-ok">⭐WARM</span> <span class="badge b-ok">🟢CLEAN</span> <span class="badge b-ok">👑VIP</span> <span class="badge b-ok">✅OK</span></p>
+      <p>VIP template, giá ưu đãi markup -5%, cc Nelson personal phone in signature.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ -->
+<section id="defaults">
+  <h2>🗺 Layer 3 — Default POD/POL Routing</h2>
+  <p class="section-sub">Khi CNEE chưa có POL/DEST hoặc data thiếu (mới import), hệ thống dùng rule sau.</p>
+
+  <div class="callout">
+    <div class="callout-title">📊 Hiện trạng data</div>
+    <p><strong>Tin tốt:</strong> 5,316 CNEE hiện tại đã có đủ POL + DESTINATION (0 missing). Rule default chỉ áp dụng cho CNEE <strong>mới import</strong> từ Panjiva hoặc data entry tay.</p>
+  </div>
+
+  <h3>🇻🇳 POL (Port of Loading) — Default</h3>
+  <table>
+    <thead><tr><th>Rule</th><th>Cảng</th><th>Lý do</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Primary default</strong></td><td><code>HPH</code> (Hải Phòng)</td><td>Main port Bắc, volume lớn nhất Nelson</td></tr>
+      <tr><td>Fallback</td><td><code>HCM</code> (Hồ Chí Minh)</td><td>Nếu khách ở Nam VN (based on COUNTRY + profile)</td></tr>
+      <tr><td>Override</td><td>Nhận từ COUNTRY field</td><td>Nếu CNEE ghi rõ POL khác (VD: MYPKG cho khách Malaysia)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>🇺🇸 DESTINATION — Default theo Campaign</h3>
+  <p style="color:var(--text-dim)">Hệ thống tự chọn 3-5 cảng gửi báo giá dựa vào ngành hàng của CNEE.</p>
+  <table>
+    <thead><tr><th>Campaign</th><th>Port cluster</th><th>Default destinations (priority order)</th><th>Lý do</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>FURNITURE</strong></td>
+        <td>West Coast</td>
+        <td><code>USLAX, USLGB, USOAK, USSEA</code></td>
+        <td>Đồ gỗ thường về LA/LB (showroom furniture West Coast nhiều)</td>
+      </tr>
+      <tr>
+        <td><strong>LCHFURNITURE</strong></td>
+        <td>West Coast</td>
+        <td><code>USLAX, USLGB, USOAK</code></td>
+        <td>Tương tự FURNITURE</td>
+      </tr>
+      <tr>
+        <td><strong>FLOORING</strong></td>
+        <td>East Coast + Gulf</td>
+        <td><code>USNYC, USSAV, USCHS, USHOU</code></td>
+        <td>Flooring distribution hub miền Đông + Texas</td>
+      </tr>
+      <tr>
+        <td><strong>PLASTIC</strong></td>
+        <td>Mixed</td>
+        <td><code>USHOU, USLAX, USNYC</code></td>
+        <td>Plastic manufacturing rải rác, focus Houston (petrochemical)</td>
+      </tr>
+      <tr>
+        <td><strong>PLYWOOD</strong></td>
+        <td>Mixed</td>
+        <td><code>USLAX, USNYC, USSAV</code></td>
+        <td>Construction supply cả 2 coasts</td>
+      </tr>
+      <tr>
+        <td><strong>CANDLE</strong></td>
+        <td>Major ports</td>
+        <td><code>USLAX, USNYC</code></td>
+        <td>Retail candle importers tại 2 hub chính</td>
+      </tr>
+      <tr>
+        <td><strong>FOODSTUFF</strong></td>
+        <td>West Coast (cold chain)</td>
+        <td><code>USLGB, USOAK, USSEA</code></td>
+        <td>Cold chain logistics mạnh West Coast</td>
+      </tr>
+      <tr>
+        <td><strong>RUBBER</strong></td>
+        <td>Industrial</td>
+        <td><code>USHOU, USLAX</code></td>
+        <td>Rubber industrial hub Houston + LA</td>
+      </tr>
+      <tr>
+        <td><strong>FROZEN</strong></td>
+        <td>Reefer-friendly</td>
+        <td><code>USLGB, USOAK</code></td>
+        <td>Reefer container + cold storage West Coast</td>
+      </tr>
+      <tr>
+        <td><strong>MALAYSIA</strong></td>
+        <td>Major gateway</td>
+        <td><code>USLAX, USLGB, USNYC</code></td>
+        <td>Origin Malaysia → US major hubs</td>
+      </tr>
+      <tr>
+        <td><strong>Global Default</strong> (không match campaign)</td>
+        <td>All 5 major</td>
+        <td><code>USLAX, USLGB, USNYC, USSAV, USHOU</code></td>
+        <td>5 cảng bao phủ 80%+ US trade</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>🌏 DESTINATION — Default theo Country khách nhận</h3>
+  <table>
+    <thead><tr><th>Country khách</th><th>Default destinations</th></tr></thead>
+    <tbody>
+      <tr><td>🇺🇸 USA</td><td><code>USLAX, USLGB, USNYC, USSAV, USHOU</code> (5 ports)</td></tr>
+      <tr><td>🇨🇦 CANADA</td><td><code>CAVAN, CAMTR, CAPRR</code> (Vancouver, Montreal, Prince Rupert)</td></tr>
+      <tr><td>🇲🇽 MEXICO</td><td><code>MXZLO, MXVER, MXMIT</code> (Manzanillo, Veracruz, Mazatlan)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>📋 Config file đề xuất: <code>email_engine/config/default_routes.yaml</code></h3>
+  <pre><code>version: 1
+defaults:
+  pol:
+    primary: HPH
+    fallback: HCM
+
+  # Khi CNEE không có DESTINATION, dùng list này
+  global_default: [USLAX, USLGB, USNYC, USSAV, USHOU]
+
+# Override theo campaign (priority: campaign > country > global)
+by_campaign:
+  FURNITURE:    [USLAX, USLGB, USOAK, USSEA]
+  LCHFURNITURE: [USLAX, USLGB, USOAK]
+  FLOORING:     [USNYC, USSAV, USCHS, USHOU]
+  PLASTIC:      [USHOU, USLAX, USNYC]
+  PLYWOOD:      [USLAX, USNYC, USSAV]
+  CANDLE:       [USLAX, USNYC]
+  FOODSTUFF:    [USLGB, USOAK, USSEA]
+  RUBBER:       [USHOU, USLAX]
+  FROZEN:       [USLGB, USOAK]
+  MALAYSIA:     [USLAX, USLGB, USNYC]
+
+# Override theo country
+by_country:
+  USA:    [USLAX, USLGB, USNYC, USSAV, USHOU]
+  CANADA: [CAVAN, CAMTR, CAPRR]
+  MEXICO: [MXZLO, MXVER, MXMIT]
+
+# Max destinations gửi trong 1 email (tránh table quá dài)
+max_destinations_per_email: 5
+
+# Ports không bao giờ gửi (sanctioned, blocked)
+forbidden_ports: [IRBND, KPFNJ, CUSCU]
+</code></pre>
+
+  <div class="callout">
+    <div class="callout-title">🎯 Priority resolution order</div>
+    <ol style="margin:0;">
+      <li><strong>CNEE.DESTINATION</strong> có sẵn → dùng trực tiếp (hiện 100% CNEE có)</li>
+      <li>Nếu thiếu → lookup <strong>by_campaign[CNEE.CAMPAIGN_ID]</strong></li>
+      <li>Nếu vẫn không match → lookup <strong>by_country[CNEE.COUNTRY]</strong></li>
+      <li>Fallback cuối → <strong>global_default</strong> (5 US ports)</li>
+      <li>Filter ra <strong>forbidden_ports</strong> trước khi build rate table</li>
+      <li>Cap max 5 destinations (tránh email quá dài)</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ -->
+<section id="kill-switch">
+  <h2>🚨 Layer 4 — Emergency Controls</h2>
+  <p class="section-sub">Những nút "panic" Nelson cần có sẵn khi hệ thống sai.</p>
+
+  <div class="grid grid-2">
+    <div class="card" style="border-color: var(--red);">
+      <h4>🛑 Kill Switch (global stop)</h4>
+      <p><strong>Dashboard button</strong> + <strong>file flag</strong> <code>KILL_SWITCH.txt</code> tồn tại → worker refuse mọi job, web_server refuse enqueue. Recovery: xóa file + click "Resume".</p>
+    </div>
+    <div class="card" style="border-color: var(--red);">
+      <h4>↩️ Batch Rollback</h4>
+      <p>Dashboard "Cancel batch X" → UPDATE queue SET status='cancelled' WHERE batch_id=X AND status='pending'. Đã sent thì không rollback được (Outlook không recall external).</p>
+    </div>
+    <div class="card" style="border-color: var(--yellow);">
+      <h4>⚠️ Quarantine Mode</h4>
+      <p>Environment flag <code>QUARANTINE=true</code> → mọi email phải manual approve 1-by-1. Dùng khi phát hiện anomaly (VD: subject sai, list nhầm).</p>
+    </div>
+    <div class="card" style="border-color: var(--blue);">
+      <h4>📜 Audit Log Viewer</h4>
+      <p>Dashboard tab "Audit" xem: ai/bot enqueue bao nhiêu, khi nào, reason. Search by CNEE email. Immutable (append only).</p>
+    </div>
+    <div class="card" style="border-color: var(--purple);">
+      <h4>🧪 Dry-Run Mode</h4>
+      <p>Toggle "Dry-run" trong bulk-send → enqueue với flag dry_run=true → worker log "WOULD SEND TO X" nhưng không gọi Outlook. Dùng test template mới.</p>
+    </div>
+    <div class="card" style="border-color: var(--accent);">
+      <h4>📢 Telegram Panic Alert</h4>
+      <p>Khi bounce rate >5% trong 10 phút / khi 3+ email fail liên tiếp / khi Outlook disconnect → GoClaw bot alert Nelson Telegram ngay.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ -->
+<section id="roadmap">
+  <h2>📋 Roadmap — Implement vào Phase nào</h2>
+  <p class="section-sub">Gắn các protection + tier + default vào 7 phase của plan chính.</p>
+
+  <table>
+    <thead><tr><th>Phase</th><th>Add what</th><th>Priority</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Phase 01</strong><br>Fast Bulk Send</td>
+        <td>
+          • SQLite unique constraint (chống duplicate)<br>
+          • Kill Switch flag check<br>
+          • Dry-run mode<br>
+          • Batch size approval gate (&gt;100)<br>
+          • Per-worker rate throttle
+        </td>
+        <td><span class="badge b-fail">HIGH</span></td>
+      </tr>
+      <tr>
+        <td><strong>Phase 02</strong><br>Intel Memory</td>
+        <td>
+          • Tier computation (D1-D4) từ event log<br>
+          • cnee_intel.tier column<br>
+          • Rank by combo tags
+        </td>
+        <td><span class="badge b-fail">HIGH</span></td>
+      </tr>
+      <tr>
+        <td><strong>Phase 03</strong><br>Smart Template</td>
+        <td>
+          • Template variant theo D1 tier (HOT/WARM/COLD)<br>
+          • Template variant theo D3 (VIP/GOLD/SILVER)<br>
+          • Default POD/POL config file (default_routes.yaml)<br>
+          • Per-campaign destination logic
+        </td>
+        <td><span class="badge b-fail">HIGH</span></td>
+      </tr>
+      <tr>
+        <td><strong>Phase 04</strong><br>Reply Scanner</td>
+        <td>
+          • Bounce detection → update D2 tier<br>
+          • Unsubscribe detection → mark NEVER (D4)<br>
+          • Auto-suppress after 3 bounces<br>
+          • Bounce rate monitor + auto-pause
+        </td>
+        <td><span class="badge b-warn">MED</span></td>
+      </tr>
+      <tr>
+        <td><strong>Phase 06</strong><br>Dashboard</td>
+        <td>
+          • Kill Switch button<br>
+          • Batch rollback UI<br>
+          • Quarantine toggle<br>
+          • Audit log viewer<br>
+          • Tier filter trong prospect table<br>
+          • Bounce rate widget
+        </td>
+        <td><span class="badge b-warn">MED</span></td>
+      </tr>
+      <tr>
+        <td><strong>NEW Phase 08</strong><br>Content Safety</td>
+        <td>
+          • Spam trigger word filter<br>
+          • Preview modal bắt buộc cho subject mới<br>
+          • Domain blacklist (gov, competitor)<br>
+          • Warm-up mode (ramp up volume)
+        </td>
+        <td><span class="badge b-todo">LOW</span></td>
+      </tr>
+      <tr>
+        <td><strong>NEW Phase 09</strong><br>Health Monitor</td>
+        <td>
+          • Real-time bounce rate monitor<br>
+          • Telegram panic alert<br>
+          • Daily health report<br>
+          • Sender reputation check
+        </td>
+        <td><span class="badge b-todo">LOW</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <div class="callout-title">⭐ Em đề xuất thêm 2 phase mới</div>
+    <p>Phase 08 (Content Safety) + Phase 09 (Health Monitor) — cần thêm vào plan chính <code>plan.md</code>. Effort +6-8h. Tổng plan sau update: 27-36h.</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ -->
+<section>
+  <h2>🎯 Câu trả lời 3 câu hỏi của anh</h2>
+
+  <div class="flow-step">
+    <div class="num">1</div>
+    <div class="content">
+      <h5>"Hệ thống đã có layer bảo vệ chưa? đã hạn chế được rủi ro spam email khách hàng chưa?"</h5>
+      <p><strong>Trả lời:</strong> Có 4/20 layer cơ bản (suppression, cooldown, bounce tracking, error isolation). <strong>Thiếu 16 layer quan trọng</strong>: rate limit daily/domain, batch approval gate, kill switch, bounce rate monitor, unsubscribe handling, content filter, audit log, quarantine mode, warm-up, dry-run, throttle detection, v.v. <strong>KHÔNG nên bulk send 1000 email trước khi thêm Phase 01 + Phase 04 layers.</strong></p>
+    </div>
+  </div>
+
+  <div class="flow-step">
+    <div class="num">2</div>
+    <div class="content">
+      <h5>"Hệ thống cần được tách biệt các tầng email khách hàng"</h5>
+      <p><strong>Trả lời:</strong> Em đề xuất <strong>5 chiều phân loại</strong> (D1 Engagement, D2 Quality, D3 Business Priority, D4 Compliance, D5 Campaign). Mỗi CNEE = 5 tag đồng thời. Dashboard filter/sort được theo từng chiều. Implement ở Phase 02 (Intel Memory). Data hiện có đã đủ (LAST_REPLY, BOUNCE_COUNT, EMAIL_STATUS, TOTAL_SHIPMENT, CAMPAIGN_ID) để compute tier tự động.</p>
+    </div>
+  </div>
+
+  <div class="flow-step">
+    <div class="num">3</div>
+    <div class="content">
+      <h5>"Khách chưa có POD/POL thì default gửi gì?"</h5>
+      <p><strong>Trả lời:</strong> Hiện tại 100% CNEE đã có POL + DEST (không có gap). Nhưng cho CNEE mới import, em propose file config <code>default_routes.yaml</code>:<br>
+      • <strong>POL default:</strong> HPH (primary) → HCM (fallback)<br>
+      • <strong>DEST default:</strong> lookup theo priority (campaign → country → global 5 US ports)<br>
+      • <strong>Per-campaign:</strong> FURNITURE→West Coast, FLOORING→East/Gulf, PLASTIC→Mixed, FROZEN→Reefer-friendly ports<br>
+      • <strong>Max 5 destinations</strong>/email + filter forbidden ports.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>Generated 2026-04-16 · Nelson Solo Platform · <a href="../plan.md" style="color: var(--accent);">Plan.md</a> · <a href="../phase-01-fast-bulk-send.md" style="color: var(--accent);">Phase 01</a></p>
+  <p style="margin-top:8px; font-size:12px;">NHANH · CẠNH TRANH · YÊN TÂM</p>
+</footer>
+
+</div>
+</body>
+</html>

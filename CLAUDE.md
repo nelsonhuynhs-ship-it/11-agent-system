@@ -244,7 +244,8 @@ Engine_test/memory/context/system-architecture.md            ← infra & deploy
 
 ### 📂 Base paths
 ```
-Claudekit skills : Engine_test/claudekit-skills/.claude/skills/[skill-name]/SKILL.md
+Claudekit skills : Engine_test/.claude/skills/[skill-name]/SKILL.md    ← CORRECT (108 skills installed)
+                   (legacy wrong path: Engine_test/claudekit-skills/.claude/skills/ — does NOT exist)
 Cowork skills   : /sessions/.../mnt/.claude/skills/[skill-name]/SKILL.md
 ```
 

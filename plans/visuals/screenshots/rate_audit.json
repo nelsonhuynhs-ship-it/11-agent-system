@@ -1,0 +1,112 @@
+{
+  "USLAX": [
+    {
+      "pol": "HPH",
+      "pod_code": "USLAX",
+      "place_name": "LOS ANGLES, CA",
+      "carrier": "WHL",
+      "rate_20": 2140,
+      "rate_40": 2670,
+      "eff": "2026-04-15 00:00:00",
+      "exp": "2026-04-30 00:00:00"
+    },
+    {
+      "pol": "HPH",
+      "pod_code": "USLAX",
+      "place_name": "LOS ANGLES, CA",
+      "carrier": "ONE",
+      "rate_20": 2192,
+      "rate_40": 2732,
+      "eff": "2026-04-09 00:00:00",
+      "exp": "2026-04-30 00:00:00"
+    }
+  ],
+  "USLGB": [
+    {
+      "pol": "HPH",
+      "pod_code": "USLGB",
+      "place_name": "LONG BEACH, CALIFORNIA",
+      "carrier": "WHL",
+      "rate_20": 2140,
+      "rate_40": 2670,
+      "eff": "2026-04-15 00:00:00",
+      "exp": "2026-04-30 00:00:00"
+    },
+    {
+      "pol": "HPH",
+      "pod_code": "USLGB",
+      "place_name": "LONG BEACH, CALIFORNIA",
+      "carrier": "ONE",
+      "rate_20": 2192,
+      "rate_40": 2732,
+      "eff": "2026-04-09 00:00:00",
+      "exp": "2026-04-30 00:00:00"
+    }
+  ],
+  "USSAV": [
+    {
+      "pol": "HPH",
+      "pod_code": "USSAV",
+      "place_name": "Savannah, GA",
+      "carrier": "YML",
+      "rate_20": 2978,
+      "rate_40": 3696,
+      "eff": "2026-04-08 00:00:00",
+      "exp": "2026-04-30 00:00:00"
+    },
+    {
+      "pol": "HPH",
+      "pod_code": "USSAV",
+      "place_name": "Savannah, GA",
+      "carrier": "HPL",
+      "rate_20": 2699,
+      "rate_40": 3749,
+      "eff": "2026-04-08 00:00:00",
+      "exp": "2026-04-30 00:00:00"
+    }
+  ],
+  "USNYC": [
+    {
+      "pol": "HPH",
+      "pod_code": "USNYC",
+      "place_name": "New York",
+      "carrier": "YML",
+      "rate_20": 2989,
+      "rate_40": 3718,
+      "eff": "2026-04-08 00:00:00",
+      "exp": "2026-04-30 00:00:00"
+    },
+    {
+      "pol": "HPH",
+      "pod_code": "USNYC",
+      "place_name": "New York",
+      "carrier": "ZIM",
+      "rate_20": 3021,
+      "rate_40": 3783,
+      "eff": "2026-04-16 00:00:00",
+      "exp": "2026-04-30 00:00:00"
+    }
+  ],
+  "USHOU": [
+    {
+      "pol": "HPH",
+      "pod_code": "USHOU",
+      "place_name": "HOUSTON, TX",
+      "carrier": "HPL",
+      "rate_20": 2839,
+      "rate_40": 3849,
+      "eff": "2026-04-08 00:00:00",
+      "exp": "2026-04-30 00:00:00"
+    },
+    {
+      "pol": "HPH",
+      "pod_code": "USHOU",
+      "place_name": "HOUSTON, TX",
+      "carrier": "COSCO",
+      "rate_20": 3293,
+      "rate_40": 3925,
+      "eff": "2026-04-15 00:00:00",
+      "exp": "2026-04-30 00:00:00"
+    }
+  ]
+}
