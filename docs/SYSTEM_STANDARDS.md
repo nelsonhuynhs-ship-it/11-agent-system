@@ -327,16 +327,20 @@ Mỗi lần chuẩn bị vi phạm / gây bug → ghi vào đây để AI/dev fu
 
 ---
 
-## Known Deprecated Code (cần cleanup — list trong PR tiếp theo)
+## Cleanup History
 
-- `ERP/core/build_erp_v13_ribbon.py` — v13 legacy
-- `ERP/core/refresh.py` — stub redirect (CLAUDE.md đã claim xoá nhưng còn)
-- `.agent/` folder — old agent system
-- `scripts/check_vba_compile.py`, `check_vba_live_compile.py`, `check_vba_modules.py`, `check_zip_structure.py`, `inject_workbook_open.py` — dev tools superseded
-- `scripts/reimport-erp-vba.py` (no `-modules` suffix) — old version
-- `scripts/backfill_intel_from_csv.py`, `backfill_intel_from_inbox.py`, `migrate-markup-store.py`, `build_uat_checklist.py` — one-shot scripts
-- `scripts/handoff-update.sh`, `handoff-update.ps1`, `cloud_sync.ps1` — legacy ops
-- `email_engine/outlook_send_agent.py`, `email_engine/ingest/send_with_rates.py`, `email_engine/run_outlook_agent.bat`, `email_engine/tests/test_integration.py` — gọi VPS API đã chết
+**2026-04-17 — Cleaned up 20 dead code items** ✅
+- `ERP/core/build_erp_v13_ribbon.py` + `refresh.py` — v13 legacy
+- `.agent/` folder (~50 files) — old GSD agent system (different from `.claude/` claudekit)
+- `scripts/check_vba_*.py` (3 files) + `check_zip_structure.py` + `inject_workbook_open.py` — dev tools superseded by `reimport-erp-vba-modules.py`
+- `scripts/reimport-erp-vba.py` (non-`-modules` old version)
+- `scripts/backfill_intel_from_*.py` (2 one-shots) + `migrate-markup-store.py` + `build_uat_checklist.py`
+- `scripts/handoff-update.sh` + `.ps1` — legacy handoff (replaced by memory/ auto-load)
+- `scripts/cloud_sync.ps1` — legacy (OneDrive + rclone handles sync now)
+- `email_engine/outlook_send_agent.py` + `ingest/send_with_rates.py` + `run_outlook_agent.bat` + `tests/test_integration.py` — VPS API dependencies (all 4 hit dead `14.225.207.145:8100`)
+
+Next cleanup candidates (detected but not deleted — may still be referenced):
+- `intelligence/rag_engine.py` — loads from deleted `.agent/skills/` folder. Orphan now.
 
 ---
 
