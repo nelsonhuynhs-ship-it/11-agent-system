@@ -125,6 +125,90 @@ _EMAIL_BAD_PREFIX = _re.compile(r"^(em|te|me|tel|fax|info|no|noreply|no-reply|un
 _EMAIL_RX = _re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
 _PIC_BAD = {"hi", "hello", "dear", "team", "sir", "madam", "mr", "mrs", "ms", "customer", "to whom it may concern", "n/a", "na", "nan", "none", ""}
 
+# ── Excluded customers (active customers / converted / do-not-contact) ──────
+# Stored in email_engine/data/excluded_customers.json so it survives restarts
+# and can be edited by Nelson directly (or via /api/customer/exclude).
+_EXCLUSION_FILE = BASE_DIR / "data" / "excluded_customers.json"
+
+def _load_exclusions() -> set[str]:
+    """Return set of lowercase emails to never contact."""
+    try:
+        import json as _json
+        data = _json.loads(_EXCLUSION_FILE.read_text(encoding="utf-8"))
+        return {e.lower().strip() for e in data.get("excluded", {}).keys() if e}
+    except Exception:
+        return set()
+
+EXCLUDED_EMAILS: set[str] = _load_exclusions()
+log.info(f"Excluded customers loaded: {len(EXCLUDED_EMAILS)} emails")
+
+def _reload_exclusions():
+    """Re-read the JSON (used after /api/customer/exclude mutates it)."""
+    global EXCLUDED_EMAILS
+    EXCLUDED_EMAILS = _load_exclusions()
+
+@app.get("/api/customer/excluded")
+def list_excluded():
+    """List all emails on the do-not-contact list."""
+    try:
+        import json as _json
+        data = _json.loads(_EXCLUSION_FILE.read_text(encoding="utf-8"))
+        return {"total": len(data.get("excluded", {})), "excluded": data.get("excluded", {})}
+    except Exception as exc:
+        return {"total": 0, "excluded": {}, "error": str(exc)}
+
+@app.post("/api/customer/exclude")
+def add_excluded(email: str, reason: str = "active customer", company: str = "", campaign: str = "", added_by: str = "API"):
+    """Add an email to the permanent do-not-contact list. Affects ALL send endpoints."""
+    import json as _json
+    em = (email or "").strip().lower()
+    if not em or "@" not in em:
+        raise HTTPException(400, "invalid email")
+    try:
+        data = _json.loads(_EXCLUSION_FILE.read_text(encoding="utf-8")) if _EXCLUSION_FILE.exists() else {"excluded": {}}
+    except Exception:
+        data = {"excluded": {}}
+    data.setdefault("excluded", {})[em] = {
+        "reason": reason,
+        "company": company,
+        "campaign": campaign,
+        "added_at": datetime.now().strftime("%Y-%m-%d"),
+        "added_by": added_by,
+    }
+    _EXCLUSION_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _EXCLUSION_FILE.write_text(_json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    _reload_exclusions()
+    # Also try to scrub any pending queue entries for this email
+    cleaned_queue = 0
+    try:
+        import sqlite3 as _sq
+        qdb = BASE_DIR / "data" / "outlook_queue.db"
+        if qdb.exists():
+            con = _sq.connect(str(qdb))
+            cur = con.execute("DELETE FROM email_queue WHERE LOWER(cnee_email)=? AND status IN ('pending','sending')", (em,))
+            cleaned_queue = cur.rowcount
+            con.commit(); con.close()
+    except Exception as e:
+        log.warning(f"Queue scrub failed: {e}")
+    return {"status": "excluded", "email": em, "total_excluded": len(EXCLUDED_EMAILS), "queue_entries_removed": cleaned_queue}
+
+@app.delete("/api/customer/exclude")
+def remove_excluded(email: str):
+    """Remove an email from the do-not-contact list (re-allow prospecting)."""
+    import json as _json
+    em = (email or "").strip().lower()
+    try:
+        data = _json.loads(_EXCLUSION_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        raise HTTPException(404, "exclusion file missing")
+    removed = data.get("excluded", {}).pop(em, None)
+    if not removed:
+        raise HTTPException(404, f"email '{em}' not in exclusion list")
+    _EXCLUSION_FILE.write_text(_json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    _reload_exclusions()
+    return {"status": "removed", "email": em, "total_excluded": len(EXCLUDED_EMAILS)}
+
+
 @app.get("/api/campaigns")
 def get_campaigns():
     cmds = df_contacts.groupby("CMD_NAME").size().reset_index(name="count")
@@ -180,6 +264,8 @@ def get_contacts(campaign: str):
         if not _good_email(email):
             dropped_bad_email += 1
             continue
+        if email.lower() in EXCLUDED_EMAILS:
+            continue  # active customer / opt-out — never contact
         company = clean("CNEE_NAME")
         results.append({
             "email": email,
@@ -276,8 +362,14 @@ def _do_send(campaign_id: str, req: SendRequest):
         log.warning(f"Could not load suppression list: {ex}")
 
     for c in req.contacts:
+        em_lower = c.email.strip().lower()
+        # Excluded customers (active / opt-out) — ALWAYS skip, even with force_send
+        if em_lower in EXCLUDED_EMAILS:
+            prog["skipped"] = prog.get("skipped", 0) + 1
+            log.info(f"EXCLUDED -> {c.email} (active customer)")
+            continue
         # Suppression check: skip hard bounced / invalid / no-MX emails
-        if c.email.strip().lower() in suppressed_emails and not c.force_send:
+        if em_lower in suppressed_emails and not c.force_send:
             prog["skipped"] = prog.get("skipped", 0) + 1
             log.info(f"SUPPRESSED -> {c.email}")
             continue
@@ -961,6 +1053,8 @@ def v4_prospects(campaign: str = "", pol: str = "", destination: str = "",
         email = str(row.get("EMAIL", row.get("CNEE_EMAIL", ""))).strip()
         if not email or email.lower() == "nan":
             continue
+        if email.lower() in EXCLUDED_EMAILS:
+            continue  # active customer — do not contact
         # Normalize NaN string (pandas reads empty → "nan") → fallback to requested POL
         row_pol = str(row.get("POL", "")).strip().upper()
         if not row_pol or row_pol in ("NAN", "NONE"):
@@ -1327,6 +1421,9 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
     for raw_email in req.cnee_emails:
         em = (raw_email or "").strip().lower()
         if not em:
+            continue
+        if em in EXCLUDED_EMAILS:
+            skipped.append({"email": em, "reason": "excluded (active customer / opt-out)"})
             continue
         row = master_rows.get(em) or {"EMAIL": em}
         profile = _row_to_profile(row)

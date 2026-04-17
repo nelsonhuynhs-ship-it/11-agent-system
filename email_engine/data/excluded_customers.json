@@ -1,0 +1,16 @@
+{
+  "_meta": {
+    "purpose": "Emails to exclude from ALL prospecting. Already customers, converted, do-not-contact, or opt-out. Never re-send to these.",
+    "version": 1,
+    "format": "email (lowercase) → {reason, added_at, campaign, company?}"
+  },
+  "excluded": {
+    "rhosyerin@vitacoco.com": {
+      "reason": "active customer",
+      "company": "ALL MARKET INC.",
+      "campaign": "FLOORING",
+      "added_at": "2026-04-17",
+      "added_by": "Nelson"
+    }
+  }
+}
