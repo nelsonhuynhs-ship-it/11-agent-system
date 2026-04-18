@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nelson Email v5</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Serif+JP:wght@400;500&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FAF8F5;--paper-2:#F5F0E8;
+  --ink:#1A1A1A;--ink-2:#3A3A3A;
+  --muted:#767676;--muted-2:#9B9B9B;
+  --line:#E5E2DC;--line-2:#EFECE6;
+  --accent:#B8572F;--accent-soft:#F5E7DC;
+  --good:#4A7C5A;--warn:#A87A2E;--err:#B8443E;
+  --radius:2px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--paper);color:var(--ink);font-family:'Inter','Noto Sans JP',sans-serif;font-size:14px;line-height:1.6;letter-spacing:.01em;-webkit-font-smoothing:antialiased;height:100%}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit}
+input,select{font-family:inherit}
+
+.app{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+
+/* SIDEBAR */
+.sidebar{background:var(--paper);border-right:1px solid var(--line);padding:32px 0;position:sticky;top:0;height:100vh;display:flex;flex-direction:column}
+.brand{padding:0 28px 36px;border-bottom:1px solid var(--line-2)}
+.brand-mark{font-family:'Noto Serif JP',serif;font-size:20px;font-weight:500;letter-spacing:.02em;margin-bottom:4px}
+.brand-sub{font-size:11px;color:var(--muted);letter-spacing:.15em;text-transform:uppercase}
+.nav{padding:24px 0;flex:1;overflow-y:auto}
+.nav-section{font-size:10px;color:var(--muted-2);letter-spacing:.2em;text-transform:uppercase;padding:12px 28px 8px}
+.nav-item{display:flex;align-items:center;justify-content:space-between;padding:11px 28px;cursor:pointer;color:var(--ink-2);border-left:2px solid transparent;transition:background .15s,border-color .15s;font-size:13.5px;user-select:none}
+.nav-item:hover{background:var(--paper-2)}
+.nav-item.active{background:var(--paper-2);border-left-color:var(--accent);color:var(--ink);font-weight:500}
+.nav-icon{width:14px;display:inline-flex;margin-right:12px;color:var(--muted)}
+.nav-item.active .nav-icon{color:var(--accent)}
+.nav-badge{font-size:10.5px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+.nav-item.active .nav-badge{color:var(--accent)}
+.sidebar-foot{padding:20px 28px;border-top:1px solid var(--line-2);font-size:11px;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+.status-dot{width:6px;height:6px;border-radius:50%;background:var(--good);display:inline-block;margin-right:6px}
+.status-dot.off{background:var(--err)}
+
+/* MAIN */
+.main{padding:40px 56px 56px;max-width:1400px;min-width:0}
+.view{display:none}
+.view.active{display:block}
+
+.page-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:36px;padding-bottom:20px;border-bottom:1px solid var(--line)}
+.page-title{font-family:'Noto Serif JP',serif;font-weight:500;font-size:26px;letter-spacing:.01em}
+.page-sub{color:var(--muted);font-size:12.5px;margin-top:6px;letter-spacing:.02em}
+.page-actions{display:flex;gap:10px;align-items:center}
+.test-toggle{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted-2);cursor:pointer}
+.test-toggle input{margin:0;cursor:pointer}
+.test-toggle.on{color:var(--accent);font-weight:500}
+
+/* KPI */
+.kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-bottom:40px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.kpi{padding:24px 28px;border-right:1px solid var(--line-2)}
+.kpi:last-child{border-right:none}
+.kpi-label{font-size:10px;color:var(--muted);letter-spacing:.2em;text-transform:uppercase;margin-bottom:10px}
+.kpi-value{font-family:'JetBrains Mono',monospace;font-size:30px;font-weight:400;color:var(--ink);letter-spacing:-.02em;line-height:1}
+.kpi-unit{font-size:12px;color:var(--muted);margin-left:4px;font-family:'Inter',sans-serif}
+.kpi-foot{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:11.5px;color:var(--muted)}
+.kpi-delta{font-family:'JetBrains Mono',monospace;font-size:11px}
+.kpi-delta.up{color:var(--good)}
+.kpi-delta.down{color:var(--accent)}
+
+/* SECTION */
+.section{margin-bottom:40px}
+.section-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:18px}
+.section-title{font-family:'Noto Serif JP',serif;font-size:15px;font-weight:500;letter-spacing:.02em}
+.section-sub{font-size:11.5px;color:var(--muted)}
+
+/* MARKET BAND */
+.market-band{display:flex;gap:24px;padding:18px 0;border-top:1px solid var(--line-2);border-bottom:1px solid var(--line-2);align-items:center}
+.market-txt{flex:1}
+.market-meta{font-size:11.5px;color:var(--muted);margin-bottom:4px;letter-spacing:.1em}
+.market-head{font-family:'Noto Serif JP',serif;font-size:16px}
+
+/* FORM */
+.form-row{display:grid;grid-template-columns:1.3fr 110px 1.8fr 100px 130px auto;gap:24px;align-items:end;padding:22px 0;border-top:1px solid var(--line-2);border-bottom:1px solid var(--line-2)}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field-label{font-size:10.5px;color:var(--muted);letter-spacing:.15em;text-transform:uppercase}
+.field-input,.field-select{background:transparent;border:none;border-bottom:1px solid var(--line);padding:8px 0;font-size:14px;color:var(--ink);transition:border-color .2s;width:100%}
+.field-input:focus,.field-select:focus{outline:none;border-bottom-color:var(--accent)}
+.field-input::placeholder{color:var(--muted-2);font-weight:300}
+
+/* BTN */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:var(--radius);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;letter-spacing:.02em;white-space:nowrap}
+.btn:hover{border-color:var(--ink);background:var(--paper-2)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.btn-primary:hover{background:var(--ink-2);color:var(--paper)}
+.btn-accent{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-accent:hover{background:#9c4925;color:#fff}
+.btn-ghost{border-color:transparent;color:var(--muted)}
+.btn-ghost:hover{background:var(--paper-2);color:var(--ink)}
+.btn-danger{border-color:var(--err);color:var(--err)}
+.btn-danger:hover{background:var(--err);color:#fff}
+.btn-sm{padding:6px 12px;font-size:11.5px}
+.btn-xs{padding:4px 10px;font-size:11px}
+
+/* TOOLBAR */
+.toolbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:14px 0;border-bottom:1px solid var(--line-2)}
+.toolbar-sep{width:1px;height:16px;background:var(--line);margin:0 6px}
+.toolbar-spacer{flex:1}
+.count-chip{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--muted)}
+.search-wrap{position:relative;flex:1;min-width:200px}
+.search-wrap input{background:transparent;border:none;border-bottom:1px solid var(--line);padding:8px 12px 8px 28px;width:100%;font-size:13px}
+.search-wrap input:focus{outline:none;border-bottom-color:var(--accent)}
+.search-wrap::before{content:"⌕";position:absolute;left:4px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:16px}
+
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl thead th{text-align:left;font-weight:500;font-size:10.5px;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;padding:12px 14px;border-bottom:1px solid var(--line);background:var(--paper)}
+.tbl tbody td{padding:12px 14px;border-bottom:1px solid var(--line-2);color:var(--ink-2);vertical-align:middle}
+.tbl tbody tr{cursor:pointer;transition:background .1s}
+.tbl tbody tr:hover{background:var(--paper-2)}
+.tbl tbody tr.selected{background:var(--accent-soft)}
+.tbl tbody tr.focused{background:var(--paper-2);box-shadow:inset 3px 0 0 var(--accent)}
+.tbl .mono{font-family:'JetBrains Mono',monospace;font-size:12.5px}
+.tbl .company{font-weight:500;color:var(--ink)}
+.tbl .email-cell{color:var(--muted);font-size:11.5px;font-family:'JetBrains Mono',monospace}
+.tag{display:inline-block;padding:2px 8px;border:1px solid var(--line);border-radius:2px;font-size:10.5px;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.05em}
+.tag-vip{border-color:var(--accent);color:var(--accent)}
+.tag-hot{border-color:var(--warn);color:var(--warn)}
+.tag-ready::before{content:"•";margin-right:4px;color:var(--good)}
+.tag-ready{color:var(--good);border:none;padding-left:0;font-size:11px}
+.tag-skip{color:var(--err);border:none;padding-left:0;font-size:11px}
+.tag-skip::before{content:"×";margin-right:4px}
+
+/* LAYOUT */
+.grid-main{display:grid;grid-template-columns:1fr 420px;gap:36px}
+.panel{padding:0;min-width:0}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;padding:0 0 14px;border-bottom:1px solid var(--line)}
+
+/* PREVIEW */
+.preview-wrap{border:1px solid var(--line);background:#fff;min-height:600px;max-height:calc(100vh - 200px);overflow:auto;margin-top:16px}
+.preview-meta{padding:16px 20px;border-bottom:1px solid var(--line-2);background:var(--paper);display:flex;flex-direction:column;gap:6px;font-size:12.5px}
+.preview-meta-row{display:flex;gap:10px}
+.preview-meta-label{color:var(--muted);letter-spacing:.1em;text-transform:uppercase;font-size:10px;min-width:60px}
+.preview-meta-value{color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px;word-break:break-all}
+.preview-body{padding:0}
+.preview-empty{padding:80px 24px;text-align:center;color:var(--muted-2);font-size:12.5px}
+.preview-empty-kanji{font-family:'Noto Serif JP',serif;font-size:28px;color:var(--line);margin-bottom:12px;letter-spacing:.2em}
+.preview-iframe{width:100%;min-height:520px;border:none;display:block;background:#fff}
+.preview-loading{padding:80px 24px;text-align:center;color:var(--muted)}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* BATCH CARD */
+.batch-bar{margin-top:20px;padding:18px 22px;background:var(--paper-2);border-left:2px solid var(--accent)}
+.batch-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.batch-row:last-child{margin-bottom:0}
+.batch-label{font-size:11px;color:var(--muted);letter-spacing:.15em;text-transform:uppercase}
+.batch-value{font-family:'JetBrains Mono',monospace;font-size:13px}
+.batch-list{margin-top:14px;display:flex;flex-direction:column;gap:6px}
+.batch-item{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--paper);border:1px solid var(--line-2);font-size:12px}
+.batch-status{font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+.batch-status.sent{color:var(--good)}
+.batch-status.sending{color:var(--warn)}
+.batch-status.fail{color:var(--err)}
+
+.scroll-area{max-height:500px;overflow:auto}
+.scroll-area::-webkit-scrollbar{width:4px}
+.scroll-area::-webkit-scrollbar-thumb{background:var(--line)}
+
+/* Notifications */
+.toast{position:fixed;bottom:24px;right:24px;padding:14px 20px;background:var(--ink);color:var(--paper);border-radius:var(--radius);font-size:13px;z-index:100;min-width:260px;animation:slideUp .25s ease;box-shadow:0 8px 24px rgba(0,0,0,.15)}
+.toast.success{background:var(--good)}
+.toast.warn{background:var(--warn)}
+.toast.err{background:var(--err)}
+@keyframes slideUp{from{transform:translateY(10px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+.jp-hint{font-family:'Noto Serif JP',serif;color:var(--line);letter-spacing:.2em}
+
+.empty-state{padding:64px 24px;text-align:center;color:var(--muted)}
+.empty-state-kanji{font-family:'Noto Serif JP',serif;font-size:32px;color:var(--line);margin-bottom:16px;letter-spacing:.2em}
+
+@media(max-width:1200px){
+  .main{padding:28px}
+  .grid-main{grid-template-columns:1fr}
+  .form-row{grid-template-columns:1fr 1fr;gap:16px}
+  .kpi-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-mark">Nelson Freight</div>
+    <div class="brand-sub">Email · v5</div>
+  </div>
+  <nav class="nav">
+    <div class="nav-section">Workflow</div>
+    <div class="nav-item active" data-view="viewSend">
+      <span><span class="nav-icon">◎</span>Quick Send</span>
+      <span class="nav-badge" id="navBadgeSend">—</span>
+    </div>
+    <div class="nav-item" data-view="viewPriority">
+      <span><span class="nav-icon">☆</span>Priority</span>
+      <span class="nav-badge" id="navBadgePriority">—</span>
+    </div>
+    <div class="nav-section" style="margin-top:20px">Monitoring</div>
+    <div class="nav-item" data-view="viewAnalytics"><span><span class="nav-icon">⊟</span>Analytics</span></div>
+    <div class="nav-item" data-view="viewAI"><span><span class="nav-icon">◈</span>AI Model</span></div>
+    <div class="nav-item" data-view="viewAlerts"><span><span class="nav-icon">△</span>Alerts</span><span class="nav-badge" id="navBadgeAlerts">—</span></div>
+    <div class="nav-item" data-view="viewQueue"><span><span class="nav-icon">⋮</span>Queue</span><span class="nav-badge" id="navBadgeQueue">—</span></div>
+  </nav>
+  <div class="sidebar-foot">
+    <span><span class="status-dot" id="statusDot"></span><span id="statusText">Live</span></span>
+    <span class="jp-hint">静</span>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+<!-- ═══════════════ QUICK SEND VIEW ═══════════════ -->
+<section class="view active" id="viewSend">
+  <header class="page-head">
+    <div>
+      <h1 class="page-title">Quick Send</h1>
+      <div class="page-sub" id="pageSubSend">Loading...</div>
+    </div>
+    <div class="page-actions">
+      <label class="test-toggle" id="testToggleWrap">
+        <input type="checkbox" id="testMode">
+        <span>Test → huynhyohan@gmail.com</span>
+      </label>
+      <button class="btn btn-sm" id="btnRefresh">Refresh</button>
+    </div>
+  </header>
+
+  <section class="kpi-row">
+    <div class="kpi">
+      <div class="kpi-label">Sent — Apr 2026</div>
+      <div class="kpi-value" id="kpiSent">—<span class="kpi-unit">emails</span></div>
+      <div class="kpi-foot"><span id="kpiSentSub">loading</span><span class="kpi-delta up" id="kpiSentDelta"></span></div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Opened</div>
+      <div class="kpi-value" id="kpiOpened">—<span class="kpi-unit">total</span></div>
+      <div class="kpi-foot"><span id="kpiOpenedSub"></span><span class="kpi-delta up" id="kpiOpenedDelta"></span></div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Open Rate</div>
+      <div class="kpi-value" id="kpiRate">—<span class="kpi-unit">%</span></div>
+      <div class="kpi-foot"><span id="kpiRateSub"></span><span class="kpi-delta up" id="kpiRateDelta"></span></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <div class="section-title">配信 · Send configuration</div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <div class="field-label">Campaign</div>
+        <select class="field-select" id="inpCampaign"><option>Loading...</option></select>
+      </div>
+      <div class="field">
+        <div class="field-label">POL</div>
+        <select class="field-select" id="inpPol"><option value="HPH">HPH</option><option value="HCM">HCM</option></select>
+      </div>
+      <div class="field">
+        <div class="field-label">Destination</div>
+        <input class="field-input" id="inpDest" placeholder="blank = each contact's POD">
+      </div>
+      <div class="field">
+        <div class="field-label">Markup USD</div>
+        <input class="field-input" id="inpMarkup" value="20" type="number">
+      </div>
+      <div class="field">
+        <div class="field-label">ARB origin</div>
+        <select class="field-select" id="inpArb"><option value="">none</option></select>
+      </div>
+      <button class="btn btn-primary" id="btnLoadRates">Load Rates</button>
+    </div>
+  </section>
+
+  <section class="grid-main">
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <div class="section-title">見込み · Prospects</div>
+          <div class="section-sub" id="prospectSub">—</div>
+        </div>
+        <button class="btn btn-sm btn-ghost" id="btnClearSel">Clear</button>
+      </div>
+
+      <div class="toolbar">
+        <button class="btn btn-sm" data-select-top="50">Top 50</button>
+        <button class="btn btn-sm" data-select-top="200">Top 200</button>
+        <button class="btn btn-sm" data-select-top="1000">Top 1,000</button>
+        <button class="btn btn-sm btn-ghost" id="btnSelectAll">All</button>
+        <span class="toolbar-sep"></span>
+        <div class="search-wrap"><input id="inpSearch" placeholder="Search company · email · POD"></div>
+        <span class="count-chip" id="selCount">0 selected</span>
+        <span class="toolbar-spacer"></span>
+        <label class="test-toggle"><input type="checkbox" id="dryRun"> Dry-run</label>
+        <button class="btn btn-accent btn-sm" id="btnSend" disabled>Send 0</button>
+      </div>
+
+      <div class="scroll-area">
+        <table class="tbl">
+          <thead><tr><th style="width:28px"></th><th>Company</th><th>POD</th><th>20GP</th><th>40HQ</th><th>Status</th></tr></thead>
+          <tbody id="prospectBody"><tr><td colspan="6" class="empty-state"><div class="empty-state-kanji">選</div>Select campaign → Load Rates</td></tr></tbody>
+        </table>
+      </div>
+
+      <div class="batch-bar" id="batchBar" style="display:none">
+        <div class="batch-row"><span class="batch-label">Batch size</span>
+          <span>
+            <select class="field-select" id="batchSize" style="width:80px;border-bottom:1px solid var(--line);padding:4px 6px;font-size:12px">
+              <option>100</option><option selected>200</option><option>250</option>
+            </select>
+          </span>
+        </div>
+        <div class="batch-row"><span class="batch-label">Split</span><span class="batch-value" id="batchSplit">—</span></div>
+        <div class="batch-row"><span class="batch-label">Kill switch</span><span class="batch-value"><button class="btn btn-xs btn-danger" id="btnKill">ARM</button></span></div>
+        <div class="batch-list" id="batchList"></div>
+      </div>
+    </div>
+
+    <aside class="panel">
+      <div class="panel-head">
+        <div class="section-title">封筒 · Email preview</div>
+        <span style="font-size:11px;color:var(--muted)" id="previewHint">click a row</span>
+      </div>
+      <div class="preview-wrap" id="previewWrap">
+        <div class="preview-empty">
+          <div class="preview-empty-kanji">選</div>
+          Click any prospect row to preview<br>the exact email that would be sent
+        </div>
+      </div>
+    </aside>
+  </section>
+</section>
+
+<!-- ═══════════════ PRIORITY VIEW ═══════════════ -->
+<section class="view" id="viewPriority">
+  <header class="page-head">
+    <div>
+      <h1 class="page-title">Priority</h1>
+      <div class="page-sub">VIP &amp; HOT — personal outreach only · never blasted</div>
+    </div>
+    <div class="page-actions">
+      <label class="test-toggle">
+        <input type="checkbox" id="testModePriority">
+        <span>Test → huynhyohan@gmail.com</span>
+      </label>
+      <button class="btn btn-sm" id="btnPriorityReload">Reload</button>
+    </div>
+  </header>
+
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="kpi-label">VIP</div>
+      <div class="kpi-value" id="priVip">—</div>
+      <div class="kpi-foot"><span>Top tier · personal</span></div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">HOT</div>
+      <div class="kpi-value" id="priHot">—</div>
+      <div class="kpi-foot"><span>Follow-up in progress</span></div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Needs attention</div>
+      <div class="kpi-value" id="priOverdue">—<span class="kpi-unit">overdue</span></div>
+      <div class="kpi-foot"><span>≥7 days silent</span></div>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="section-head">
+      <div class="section-title">☆ VIP</div>
+      <div class="section-sub">Click name to preview · Draft to edit · Follow up to queue</div>
+    </div>
+    <table class="tbl">
+      <thead><tr><th>Customer</th><th>Tier</th><th>Reply</th><th>Last sent</th><th>Campaign</th><th style="width:180px">Actions</th></tr></thead>
+      <tbody id="vipBody"><tr><td colspan="6" class="empty-state">Loading VIP list...</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <div class="section-title">◎ HOT</div>
+      <div class="section-sub">Hot leads — responded to campaign, need follow-up</div>
+    </div>
+    <table class="tbl">
+      <thead><tr><th>Customer</th><th>Action</th><th>Reply status</th><th>Last sent</th><th>Campaign</th><th style="width:180px"></th></tr></thead>
+      <tbody id="hotBody"><tr><td colspan="6" class="empty-state">Loading HOT list...</td></tr></tbody>
+    </table>
+  </section>
+</section>
+
+<!-- Placeholder views (keep nav clickable; full impl in v4 for now) -->
+<section class="view" id="viewAnalytics"><h1 class="page-title">Analytics</h1><div class="empty-state"><div class="empty-state-kanji">析</div>Coming next sprint — current v4 Analytics accessible via legacy dashboard.</div></section>
+<section class="view" id="viewAI"><h1 class="page-title">AI Model</h1><div class="empty-state"><div class="empty-state-kanji">知</div>ORACLE forecast — see legacy dashboard.</div></section>
+<section class="view" id="viewAlerts"><h1 class="page-title">Alerts</h1><div class="empty-state"><div class="empty-state-kanji">報</div>Loading alerts...</div></section>
+<section class="view" id="viewQueue"><h1 class="page-title">Queue</h1><div class="empty-state"><div class="empty-state-kanji">列</div>Queue monitor — see legacy dashboard.</div></section>
+
+</main>
+</div>
+
+<script>
+/* ═══════════════ CONFIG ═══════════════ */
+const API = 'http://localhost:8100';
+const Store = {
+  campaigns: [],
+  prospects: [],
+  filtered: [],
+  selected: new Set(),
+  focusedEmail: null,
+  testMode: false,
+  dryRun: false,
+  batchSize: 200,
+  activeBatches: [],
+};
+
+/* ═══════════════ FETCH HELPER ═══════════════ */
+async function api(path, opts={}){
+  const r = await fetch(API + path, {...opts});
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+function toast(msg, cls='', ms=3000){
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const t = document.createElement('div');
+  t.className = 'toast ' + cls;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), ms);
+}
+
+/* ═══════════════ INIT ═══════════════ */
+async function init(){
+  bindNav();
+  bindControls();
+  try {
+    await Promise.all([loadCampaigns(), loadArbOrigins(), loadKPI()]);
+    document.getElementById('pageSubSend').textContent = new Date().toLocaleDateString('en',{weekday:'short'}).toUpperCase() + ' · WEEK ' + getWeekNum() + ' · Ready';
+  } catch(e){
+    document.getElementById('statusDot').classList.add('off');
+    document.getElementById('statusText').textContent = 'API offline';
+    toast('API offline — start web_server.py', 'err', 5000);
+  }
+}
+function getWeekNum(){ const d = new Date(); const j = new Date(d.getFullYear(),0,1); return Math.ceil(((d - j)/86400000 + j.getDay()+1)/7); }
+
+/* ═══════════════ NAV ═══════════════ */
+function bindNav(){
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.addEventListener('click', ()=>{
+      const view = el.dataset.view;
+      if (!view) return;
+      document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
+      el.classList.add('active');
+      document.getElementById(view).classList.add('active');
+      if (view === 'viewPriority') loadPriority();
+    });
+  });
+}
+
+/* ═══════════════ CAMPAIGNS ═══════════════ */
+async function loadCampaigns(){
+  const list = await api('/api/campaigns');
+  Store.campaigns = list;
+  const sel = document.getElementById('inpCampaign');
+  sel.innerHTML = list.map(c => `<option value="${c.name}">${c.name} (${c.count.toLocaleString()})</option>`).join('');
+  const top = list.find(c => c.name !== 'ALL') || list[0];
+  if (top) sel.value = top.name;
+  document.getElementById('navBadgeSend').textContent = (list.find(c=>c.name==='ALL')?.count || 0).toLocaleString();
+}
+
+async function loadArbOrigins(){
+  try {
+    const r = await api('/api/arb-rates');
+    const sel = document.getElementById('inpArb');
+    const origins = r.origins || [];
+    sel.innerHTML = '<option value="">none</option>' + origins.map(o => `<option value="${o.key}">${o.flag||''} ${o.label}</option>`).join('');
+  } catch {}
+}
+
+/* ═══════════════ KPI ═══════════════ */
+async function loadKPI(){
+  try {
+    // Try real email-log endpoint; fall back to reasonable defaults
+    const r = await api('/api/history/stats').catch(() => null);
+    const sent = r?.sent_this_month ?? r?.total_sent ?? 0;
+    const opened = r?.opened ?? 0;
+    const rate = sent > 0 ? (opened/sent*100) : 0;
+    document.getElementById('kpiSent').innerHTML = sent.toLocaleString() + '<span class="kpi-unit">emails</span>';
+    document.getElementById('kpiOpened').innerHTML = opened.toLocaleString() + '<span class="kpi-unit">/ ' + sent.toLocaleString() + '</span>';
+    document.getElementById('kpiRate').innerHTML = rate.toFixed(1) + '<span class="kpi-unit">%</span>';
+    document.getElementById('kpiSentSub').textContent = (r?.target ? `Target ${r.target.toLocaleString()} · ${((sent/r.target)*100).toFixed(0)}%` : 'April running total');
+    document.getElementById('kpiOpenedSub').textContent = 'Last 7 days';
+    document.getElementById('kpiRateSub').textContent = 'Industry avg 21%';
+  } catch {
+    document.getElementById('kpiSent').innerHTML = '0<span class="kpi-unit">emails</span>';
+    document.getElementById('kpiOpened').innerHTML = '0<span class="kpi-unit">total</span>';
+    document.getElementById('kpiRate').innerHTML = '0.0<span class="kpi-unit">%</span>';
+  }
+}
+
+/* ═══════════════ CONTROLS ═══════════════ */
+function bindControls(){
+  document.getElementById('btnRefresh').onclick = async () => { await Promise.all([loadCampaigns(), loadKPI()]); toast('Refreshed', 'success'); };
+  document.getElementById('btnLoadRates').onclick = loadProspects;
+  document.getElementById('inpCampaign').onchange = loadProspects;
+
+  document.getElementById('testMode').onchange = e => {
+    Store.testMode = e.target.checked;
+    document.getElementById('testToggleWrap').classList.toggle('on', Store.testMode);
+    if (Store.testMode) toast('Test mode ON — emails → huynhyohan@gmail.com', 'warn', 4000);
+  };
+  document.getElementById('dryRun').onchange = e => { Store.dryRun = e.target.checked; };
+
+  document.querySelectorAll('[data-select-top]').forEach(b => b.onclick = () => selectTopN(+b.dataset.selectTop));
+  document.getElementById('btnSelectAll').onclick = () => {
+    Store.filtered.forEach(c => Store.selected.add(c.email));
+    refreshTable();
+  };
+  document.getElementById('btnClearSel').onclick = () => { Store.selected.clear(); refreshTable(); };
+  document.getElementById('inpSearch').oninput = e => {
+    const q = e.target.value.toLowerCase();
+    Store.filtered = Store.prospects.filter(c =>
+      (c.company||'').toLowerCase().includes(q) ||
+      (c.email||'').toLowerCase().includes(q) ||
+      (c.destination||'').toLowerCase().includes(q)
+    );
+    renderProspects();
+  };
+  document.getElementById('batchSize').onchange = e => { Store.batchSize = +e.target.value; renderBatchBar(); };
+  document.getElementById('btnSend').onclick = enqueueBatches;
+  document.getElementById('btnKill').onclick = async () => {
+    if (!confirm('ARM kill switch? Worker will stop picking jobs.')) return;
+    try { await api('/api/email-rate/queue/kill', {method:'POST'}); toast('Kill switch ARMED', 'warn'); }
+    catch(e){ toast('Kill failed: '+e.message, 'err'); }
+  };
+  document.getElementById('btnPriorityReload').onclick = loadPriority;
+}
+
+/* ═══════════════ PROSPECTS ═══════════════ */
+async function loadProspects(){
+  const campaign = document.getElementById('inpCampaign').value;
+  const pol = document.getElementById('inpPol').value;
+  const dest = document.getElementById('inpDest').value;
+  const markup = +document.getElementById('inpMarkup').value || 20;
+  document.getElementById('prospectBody').innerHTML = '<tr><td colspan="6" class="empty-state"><span class="spinner"></span>Loading prospects for ' + campaign + '...</td></tr>';
+  try {
+    const params = new URLSearchParams({campaign, pol, destination: dest, markup, sent_status:'not_sent', page_size:'500'});
+    const r = await api('/api/email-rate/campaign/prospects?' + params);
+    Store.prospects = (r.prospects || []).map(p => ({
+      email: p.email, company: p.company, pic: p.pic||'',
+      pol: p.pol, destination: p.destination,
+      rate20: p.rate_20 || 0, rate40: p.rate_40 || 0,
+      tier: p.tier || '', alreadySent: p.already_sent === 'Y',
+    }));
+    Store.filtered = Store.prospects;
+    Store.selected.clear();
+    renderProspects();
+    document.getElementById('prospectSub').textContent = `${Store.prospects.length} loaded · VIP/HOT excluded · click any row for preview`;
+  } catch(e){
+    document.getElementById('prospectBody').innerHTML = '<tr><td colspan="6" class="empty-state"><div class="empty-state-kanji">空</div>Failed: '+e.message+'</td></tr>';
+  }
+}
+
+function renderProspects(){
+  const tbody = document.getElementById('prospectBody');
+  if (!Store.filtered.length){
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><div class="empty-state-kanji">空</div>No prospects match</td></tr>';
+    return;
+  }
+  tbody.innerHTML = Store.filtered.slice(0, 500).map(c => {
+    const sel = Store.selected.has(c.email);
+    const focus = Store.focusedEmail === c.email;
+    const status = c.alreadySent ? '<span class="tag-skip">sent</span>' : '<span class="tag-ready">ready</span>';
+    const tier = c.tier ? `<span class="tag tag-${c.tier.toLowerCase()}">${c.tier}</span>` : '';
+    return `<tr class="${sel?'selected':''} ${focus?'focused':''}" data-email="${c.email}">
+      <td><input type="checkbox" ${sel?'checked':''} data-sel="${c.email}"></td>
+      <td><div class="company">${esc(c.company)||'—'}${tier?' '+tier:''}</div><div class="email-cell">${esc(c.email)}</div></td>
+      <td><span class="tag">${esc(c.destination||'—')}</span></td>
+      <td class="mono">${c.rate20?c.rate20.toLocaleString():'—'}</td>
+      <td class="mono">${c.rate40?c.rate40.toLocaleString():'—'}</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join('');
+
+  tbody.querySelectorAll('tr').forEach(tr => {
+    tr.addEventListener('click', e => {
+      if (e.target.matches('input[type=checkbox]')) return;
+      const email = tr.dataset.email;
+      Store.focusedEmail = email;
+      loadPreview(email);
+      renderProspects();
+    });
+  });
+  tbody.querySelectorAll('input[data-sel]').forEach(cb => {
+    cb.addEventListener('click', e => e.stopPropagation());
+    cb.addEventListener('change', e => {
+      const em = cb.dataset.sel;
+      if (cb.checked) Store.selected.add(em); else Store.selected.delete(em);
+      refreshSelCount();
+    });
+  });
+  refreshSelCount();
+}
+
+function refreshTable(){ renderProspects(); }
+function refreshSelCount(){
+  const n = Store.selected.size;
+  document.getElementById('selCount').textContent = `${n} selected`;
+  document.getElementById('btnSend').textContent = `Send ${n}`;
+  document.getElementById('btnSend').disabled = n === 0;
+  const bar = document.getElementById('batchBar');
+  bar.style.display = n > 0 ? '' : 'none';
+  if (n > 0) renderBatchBar();
+}
+function renderBatchBar(){
+  const n = Store.selected.size;
+  const sz = Store.batchSize;
+  const k = Math.ceil(n / sz);
+  document.getElementById('batchSplit').textContent = `${n} selected → ${k} batch × ${sz}`;
+  const list = document.getElementById('batchList');
+  list.innerHTML = Array.from({length:k}, (_,i) => {
+    const start = i*sz, end = Math.min(start+sz, n);
+    return `<div class="batch-item"><span>Batch ${i+1} · ${start}-${end-1} · ${end-start} emails</span><span class="batch-status" id="bs-${i}">pending</span></div>`;
+  }).join('');
+}
+function selectTopN(n){
+  let i=0;
+  for (const c of Store.filtered){
+    if (i>=n) break;
+    Store.selected.add(c.email); i++;
+  }
+  renderProspects();
+  toast(`Selected top ${i}`, 'success', 2000);
+}
+
+/* ═══════════════ REAL EMAIL PREVIEW ═══════════════ */
+async function loadPreview(email){
+  const wrap = document.getElementById('previewWrap');
+  const campaign = document.getElementById('inpCampaign').value;
+  const pol = document.getElementById('inpPol').value;
+  const dest = document.getElementById('inpDest').value;
+  const markup = +document.getElementById('inpMarkup').value || 20;
+  const arb = document.getElementById('inpArb').value;
+  wrap.innerHTML = '<div class="preview-loading"><span class="spinner"></span>Building real email for ' + esc(email) + '</div>';
+  try {
+    const res = await api('/api/email-rate/batch/enqueue', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        batch_id: 'PREVIEW_'+Date.now(),
+        cnee_emails: [email],
+        campaign_id: campaign,
+        pol, destinations: dest, markup,
+        dry_run: true,
+        test_mode: Store.testMode,
+      }),
+    });
+    const prev = (res.preview && res.preview[0]) || null;
+    if (!prev){
+      const reason = (res.skipped && res.skipped[0] && res.skipped[0].reason) || 'no preview';
+      wrap.innerHTML = `<div class="preview-empty"><div class="preview-empty-kanji">否</div>Skipped<br><small style="color:var(--muted-2)">${esc(reason)}</small></div>`;
+      return;
+    }
+    const to = Store.testMode ? prev.cnee_email : email;
+    wrap.innerHTML = `
+      <div class="preview-meta">
+        <div class="preview-meta-row"><span class="preview-meta-label">To</span><span class="preview-meta-value">${esc(to)}</span></div>
+        <div class="preview-meta-row"><span class="preview-meta-label">Subject</span><span class="preview-meta-value">${esc(prev.subject)}</span></div>
+        <div class="preview-meta-row"><span class="preview-meta-label">Tier</span><span class="preview-meta-value">${esc(prev.tier||'—')}</span></div>
+      </div>
+      <iframe class="preview-iframe" id="previewIframe" sandbox="allow-same-origin"></iframe>
+    `;
+    const iframe = document.getElementById('previewIframe');
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    doc.open(); doc.write(prev.html_body || '<p>(empty body)</p>'); doc.close();
+    // Auto-size iframe
+    setTimeout(()=>{
+      try { iframe.style.height = Math.max(520, doc.body.scrollHeight + 40) + 'px'; } catch {}
+    }, 100);
+  } catch(e){
+    wrap.innerHTML = `<div class="preview-empty"><div class="preview-empty-kanji">失</div>Preview failed<br><small style="color:var(--muted-2)">${esc(e.message)}</small></div>`;
+  }
+}
+
+/* ═══════════════ BATCH ENQUEUE ═══════════════ */
+async function enqueueBatches(){
+  const emails = Array.from(Store.selected);
+  if (!emails.length) return;
+  const sz = Store.batchSize;
+  const campaign = document.getElementById('inpCampaign').value;
+  const pol = document.getElementById('inpPol').value;
+  const dest = document.getElementById('inpDest').value;
+  const markup = +document.getElementById('inpMarkup').value || 20;
+  const k = Math.ceil(emails.length / sz);
+  const base = 'B'+Date.now();
+  for (let i=0; i<k; i++){
+    const start = i*sz, end = Math.min(start+sz, emails.length);
+    const chunk = emails.slice(start, end);
+    const bid = `${base}_${i+1}`;
+    const statusEl = document.getElementById('bs-'+i);
+    if (statusEl) statusEl.textContent = 'queuing...';
+    try {
+      const url = chunk.length > 500 ? '/api/email-rate/batch/enqueue?confirm=yes' : '/api/email-rate/batch/enqueue';
+      const r = await api(url, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          batch_id: bid, cnee_emails: chunk, campaign_id: campaign,
+          pol, destinations: dest, markup,
+          dry_run: Store.dryRun, test_mode: Store.testMode,
+        }),
+      });
+      if (statusEl){
+        statusEl.textContent = Store.dryRun ? `dry ${r.would_queue||0}` : `queued ${r.queued||chunk.length}`;
+        statusEl.classList.add('sent');
+      }
+    } catch(e){
+      if (statusEl){ statusEl.textContent = 'failed'; statusEl.classList.add('fail'); }
+      toast(`Batch ${i+1} failed: ${e.message}`, 'err', 5000);
+    }
+  }
+  toast(`${Store.dryRun?'Dry-run':'Sent'} ${k} batch${k>1?'es':''}` + (Store.testMode?' (TEST mode)':''), 'success', 5000);
+}
+
+/* ═══════════════ PRIORITY ═══════════════ */
+async function loadPriority(){
+  try {
+    const r = await api('/api/prospects/priority');
+    const list = r.prospects || [];
+    const vip = list.filter(p => p.tier === 'VIP');
+    const hot = list.filter(p => p.tier === 'HOT');
+    const overdue = list.filter(p => {
+      const d = p.last_sent_date; if (!d || d==='nan') return true;
+      try { return (Date.now() - new Date(d).getTime()) / 864e5 >= 7; } catch { return false; }
+    });
+    document.getElementById('priVip').innerHTML = vip.length;
+    document.getElementById('priHot').innerHTML = hot.length;
+    document.getElementById('priOverdue').innerHTML = overdue.length + '<span class="kpi-unit">overdue</span>';
+    document.getElementById('navBadgePriority').textContent = list.length;
+    document.getElementById('vipBody').innerHTML = vip.length ? vip.map(renderPriRow).join('') : '<tr><td colspan="6" class="empty-state">No VIP prospects</td></tr>';
+    document.getElementById('hotBody').innerHTML = hot.length ? hot.map(renderPriRow).join('') : '<tr><td colspan="6" class="empty-state">No HOT prospects</td></tr>';
+    wirePriorityActions();
+  } catch(e){
+    document.getElementById('vipBody').innerHTML = '<tr><td colspan="6" class="empty-state">Failed: '+e.message+'</td></tr>';
+  }
+}
+function renderPriRow(p){
+  return `<tr data-email="${p.email}">
+    <td><div class="company">${esc(p.pic||p.company||'—')}</div><div class="email-cell">${esc(p.email)} · ${esc(p.company||'')}</div></td>
+    <td><span class="tag tag-${p.tier.toLowerCase()}">${p.tier}</span></td>
+    <td>${esc(p.reply_status||'—')}</td>
+    <td class="mono">${esc(p.last_sent_date||'never')}</td>
+    <td>${esc(p.campaign||'—')}</td>
+    <td style="display:flex;gap:6px">
+      <button class="btn btn-xs" data-pri-preview="${p.email}">Preview</button>
+      <button class="btn btn-xs btn-accent" data-pri-followup="${p.email}">Follow up</button>
+    </td>
+  </tr>`;
+}
+function wirePriorityActions(){
+  document.querySelectorAll('[data-pri-preview]').forEach(b => b.onclick = async () => {
+    const email = b.dataset.priPreview;
+    // Open modal-style preview by reusing the Quick Send preview panel
+    document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
+    document.querySelector('[data-view="viewSend"]').classList.add('active');
+    document.getElementById('viewSend').classList.add('active');
+    Store.focusedEmail = email;
+    await loadPreview(email);
+    toast('Preview loaded in Quick Send', 'success');
+  });
+  document.querySelectorAll('[data-pri-followup]').forEach(b => b.onclick = async () => {
+    const email = b.dataset.priFollowup;
+    if (!confirm(`Queue personal follow-up to ${email}?`)) return;
+    try {
+      await api('/api/email-rate/batch/enqueue', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          batch_id: 'PRI_'+Date.now(),
+          cnee_emails: [email],
+          campaign_id: '',
+          pol: 'HPH', destinations: '', markup: 20,
+          dry_run: false, test_mode: Store.testMode,
+        }),
+      });
+      toast(`Queued ${email}`, 'success');
+    } catch(e){ toast('Queue failed: '+e.message, 'err'); }
+  });
+}
+
+/* ═══════════════ UTIL ═══════════════ */
+function esc(s){ return String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+init();
+</script>
+</body>
+</html>

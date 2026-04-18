@@ -1,10 +1,10 @@
 @echo off
-title Nelson Email Dashboard v4
+title Nelson Email Dashboard v5
 cd /d "%~dp0\.."
 
 echo.
 echo ================================================
-echo   NELSON EMAIL DASHBOARD v4
+echo   NELSON EMAIL DASHBOARD v5
 echo   API: http://localhost:8100
 echo ================================================
 echo.
@@ -26,7 +26,7 @@ timeout /t 3 /nobreak >nul
 start "Nelson Worker" /min cmd /c "cd /d email_engine && python outlook_queue_worker.py --workers 3 --loop 2>&1"
 
 :: Open dashboard in browser
-start "" "plans\visuals\email-dashboard-v4.html"
+start "" "plans\visuals\email-dashboard-v5.html"
 
 echo [OK] API started on :8100
 echo [OK] FAST worker started (3 threads, loop)

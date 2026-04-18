@@ -1279,7 +1279,8 @@ def v4_email_log(limit: int = 100):
 def serve_dashboard():
     # Prefer the v4 dashboard in plans/visuals; fall back to legacy.
     candidates = [
-        ENGINE_TEST / "plans" / "visuals" / "email-dashboard-v4.html",
+        ENGINE_TEST / "plans" / "visuals" / "email-dashboard-v5.html",   # 2026-04-18 Japanese minimal
+        ENGINE_TEST / "plans" / "visuals" / "email-dashboard-v4.html",   # fallback
         ENGINE_TEST / "email_dashboard.html",
     ]
     for html in candidates:
