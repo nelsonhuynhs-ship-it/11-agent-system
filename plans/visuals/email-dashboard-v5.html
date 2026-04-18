@@ -402,10 +402,133 @@ input,select{font-family:inherit}
 </section>
 
 <!-- Placeholder views (keep nav clickable; full impl in v4 for now) -->
-<section class="view" id="viewAnalytics"><h1 class="page-title">Analytics</h1><div class="empty-state"><div class="empty-state-kanji">析</div>Coming next sprint — current v4 Analytics accessible via legacy dashboard.</div></section>
-<section class="view" id="viewAI"><h1 class="page-title">AI Model</h1><div class="empty-state"><div class="empty-state-kanji">知</div>ORACLE forecast — see legacy dashboard.</div></section>
-<section class="view" id="viewAlerts"><h1 class="page-title">Alerts</h1><div class="empty-state"><div class="empty-state-kanji">報</div>Loading alerts...</div></section>
-<section class="view" id="viewQueue"><h1 class="page-title">Queue</h1><div class="empty-state"><div class="empty-state-kanji">列</div>Queue monitor — see legacy dashboard.</div></section>
+<!-- ═══════════════ ANALYTICS VIEW ═══════════════ -->
+<section class="view" id="viewAnalytics">
+  <header class="page-head">
+    <div>
+      <h1 class="page-title">Analytics</h1>
+      <div class="page-sub">Send history · open rate · campaign breakdown</div>
+    </div>
+    <div class="page-actions">
+      <button class="btn btn-sm" id="btnAnalyticsReload">Refresh</button>
+    </div>
+  </header>
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-label">Total sent</div><div class="kpi-value" id="anTotal">—</div><div class="kpi-foot"><span id="anTotalSub">lifetime</span></div></div>
+    <div class="kpi"><div class="kpi-label">Today</div><div class="kpi-value" id="anToday">—<span class="kpi-unit">emails</span></div><div class="kpi-foot"><span>24h</span></div></div>
+    <div class="kpi"><div class="kpi-label">Active campaigns</div><div class="kpi-value" id="anCampaigns">—</div><div class="kpi-foot"><span id="anCampaignsSub">with sent history</span></div></div>
+  </div>
+  <section class="section">
+    <div class="section-head"><div class="section-title">送信 · Send rate</div><div class="section-sub">Reply rate · Bounce rate · Avg lead score</div></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+      <div class="kpi"><div class="kpi-label">Reply rate</div><div class="kpi-value" id="anReply">—<span class="kpi-unit">%</span></div><div class="kpi-foot"><span>lifetime</span></div></div>
+      <div class="kpi"><div class="kpi-label">Bounce rate</div><div class="kpi-value" id="anBounce">—<span class="kpi-unit">%</span></div><div class="kpi-foot"><span>hard + soft</span></div></div>
+      <div class="kpi"><div class="kpi-label">Lead score</div><div class="kpi-value" id="anLead">—<span class="kpi-unit">avg</span></div><div class="kpi-foot"><span>0-100 scale</span></div></div>
+    </div>
+  </section>
+  <section class="section">
+    <div class="section-head"><div class="section-title">実績 · 7-day timeline</div></div>
+    <div id="anTimeline" style="padding:24px 0;border-top:1px solid var(--line-2);border-bottom:1px solid var(--line-2)">
+      <div class="empty-state"><div class="empty-state-kanji">空</div>No send activity yet</div>
+    </div>
+  </section>
+  <section class="section">
+    <div class="section-head"><div class="section-title">キャンペーン · Campaign breakdown</div></div>
+    <table class="tbl">
+      <thead><tr><th>Campaign</th><th>Sent</th><th>Opened</th><th>Reply</th><th>Bounce</th></tr></thead>
+      <tbody id="anCampaignBody"><tr><td colspan="5" class="empty-state">Loading...</td></tr></tbody>
+    </table>
+  </section>
+</section>
+
+<!-- ═══════════════ AI MODEL VIEW ═══════════════ -->
+<section class="view" id="viewAI">
+  <header class="page-head">
+    <div>
+      <h1 class="page-title">AI Model</h1>
+      <div class="page-sub">ORACLE forecast — rate direction per corridor · retrain weekly</div>
+    </div>
+    <div class="page-actions">
+      <button class="btn btn-sm" id="btnAIReload">Refresh</button>
+      <button class="btn btn-sm btn-accent" id="btnAITrain">Retrain</button>
+    </div>
+  </header>
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-label">Status</div><div class="kpi-value" id="aiStatus" style="font-size:18px;font-family:'Inter',sans-serif">—</div><div class="kpi-foot"><span id="aiTrainedAt">loading</span></div></div>
+    <div class="kpi"><div class="kpi-label">Directional accuracy</div><div class="kpi-value" id="aiAcc">—<span class="kpi-unit">%</span></div><div class="kpi-foot"><span id="aiAccSub">walk-forward</span></div></div>
+    <div class="kpi"><div class="kpi-label">Corridors</div><div class="kpi-value" id="aiCorr">—</div><div class="kpi-foot"><span id="aiCorrSub">trained lanes</span></div></div>
+  </div>
+  <section class="section">
+    <div class="section-head"><div class="section-title">予測 · Next week forecast</div><div class="section-sub">Enter a corridor — ORACLE predicts direction + change %</div></div>
+    <div class="form-row">
+      <div class="field"><div class="field-label">POL</div>
+        <select class="field-select" id="aiPol"><option>HPH</option><option>HCM</option></select>
+      </div>
+      <div class="field"><div class="field-label">POD</div>
+        <select class="field-select" id="aiPod">
+          <option>USLAX</option><option>USLGB</option><option>USNYC</option>
+          <option>USSAV</option><option>USHOU</option><option>USCHS</option>
+          <option>USCHI</option><option>USSEA</option><option>CAVAN</option>
+        </select>
+      </div>
+      <div class="field"></div><div class="field"></div><div class="field"></div>
+      <button class="btn btn-primary" id="btnAIPredict">Predict</button>
+    </div>
+    <div id="aiForecast" style="padding:24px 0">
+      <div class="empty-state"><div class="empty-state-kanji">問</div>Pick a lane → Predict</div>
+    </div>
+  </section>
+</section>
+
+<!-- ═══════════════ ALERTS VIEW ═══════════════ -->
+<section class="view" id="viewAlerts">
+  <header class="page-head">
+    <div>
+      <h1 class="page-title">Alerts</h1>
+      <div class="page-sub">Replies · bounces · follow-up reminders</div>
+    </div>
+    <div class="page-actions">
+      <button class="btn btn-sm" id="btnAlertsReload">Refresh</button>
+    </div>
+  </header>
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-label">Unread alerts</div><div class="kpi-value" id="alTotal">—</div><div class="kpi-foot"><span>last 7 days</span></div></div>
+    <div class="kpi"><div class="kpi-label">Replies</div><div class="kpi-value" id="alReplies">—</div><div class="kpi-foot"><span>real replies</span></div></div>
+    <div class="kpi"><div class="kpi-label">Bounces</div><div class="kpi-value" id="alBounces">—</div><div class="kpi-foot"><span>hard + invalid</span></div></div>
+  </div>
+  <section class="section">
+    <div class="section-head"><div class="section-title">通知 · Recent alerts</div><div class="section-sub">Click to mark read</div></div>
+    <table class="tbl">
+      <thead><tr><th>Time</th><th>Type</th><th>From</th><th>Subject / snippet</th><th style="width:120px"></th></tr></thead>
+      <tbody id="alertsBody"><tr><td colspan="5" class="empty-state">Loading...</td></tr></tbody>
+    </table>
+  </section>
+</section>
+
+<!-- ═══════════════ QUEUE VIEW ═══════════════ -->
+<section class="view" id="viewQueue">
+  <header class="page-head">
+    <div>
+      <h1 class="page-title">Follow-up Queue</h1>
+      <div class="page-sub">Prospects needing action — grouped by tier</div>
+    </div>
+    <div class="page-actions">
+      <button class="btn btn-sm" id="btnQueueReload">Refresh</button>
+    </div>
+  </header>
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-label">In queue</div><div class="kpi-value" id="qTotal">—</div><div class="kpi-foot"><span>awaiting action</span></div></div>
+    <div class="kpi"><div class="kpi-label">Overdue</div><div class="kpi-value" id="qOverdue">—<span class="kpi-unit">≥7d</span></div><div class="kpi-foot"><span>need priority</span></div></div>
+    <div class="kpi"><div class="kpi-label">Due today</div><div class="kpi-value" id="qToday">—</div><div class="kpi-foot"><span>today's list</span></div></div>
+  </div>
+  <section class="section">
+    <div class="section-head"><div class="section-title">順番 · Queue</div><div class="section-sub">Click Draft to compose · Follow up to enqueue</div></div>
+    <table class="tbl">
+      <thead><tr><th>Customer</th><th>Tier</th><th>Last sent</th><th>Reason</th><th>Campaign</th><th style="width:180px"></th></tr></thead>
+      <tbody id="queueBody"><tr><td colspan="6" class="empty-state">Loading...</td></tr></tbody>
+    </table>
+  </section>
+</section>
 
 </main>
 </div>
@@ -466,8 +589,197 @@ function bindNav(){
       el.classList.add('active');
       document.getElementById(view).classList.add('active');
       if (view === 'viewPriority') loadPriority();
+    if (view === 'viewAnalytics') loadAnalytics();
+    if (view === 'viewAI') loadAIModel();
+    if (view === 'viewAlerts') loadAlerts();
+    if (view === 'viewQueue') loadQueue();
     });
   });
+}
+
+/* ═══════════════ ANALYTICS ═══════════════ */
+async function loadAnalytics(){
+  try {
+    const o = await api('/api/analytics/overview');
+    document.getElementById('anTotal').textContent = (o.total_sent||0).toLocaleString();
+    document.getElementById('anTotalSub').textContent = `${(o.total_contacts||0).toLocaleString()} contacts total`;
+    document.getElementById('anToday').innerHTML = (o.emails_today||0).toLocaleString() + '<span class="kpi-unit">emails</span>';
+    document.getElementById('anCampaigns').textContent = o.campaigns_active||0;
+    document.getElementById('anReply').innerHTML = ((o.reply_rate||0)*100).toFixed(1) + '<span class="kpi-unit">%</span>';
+    document.getElementById('anBounce').innerHTML = ((o.bounce_rate||0)*100).toFixed(1) + '<span class="kpi-unit">%</span>';
+    document.getElementById('anLead').innerHTML = (o.avg_lead_score||0).toFixed(0) + '<span class="kpi-unit">avg</span>';
+  } catch(e){ toast('Analytics: '+e.message, 'err'); }
+
+  try {
+    const tl = await api('/api/analytics/timeline?days=7');
+    const div = document.getElementById('anTimeline');
+    if (!tl || !tl.length){
+      div.innerHTML = '<div class="empty-state"><div class="empty-state-kanji">空</div>No send activity in the last 7 days</div>';
+    } else {
+      const max = Math.max(...tl.map(d => d.sent||0), 1);
+      div.innerHTML = '<div style="display:flex;gap:12px;align-items:flex-end;height:180px;padding:0 8px">' +
+        tl.map(d => {
+          const h = Math.max(2, (d.sent||0)/max*160);
+          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)">${d.sent||0}</div>
+            <div style="width:100%;height:${h}px;background:var(--accent);opacity:.7;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.7"></div>
+            <div style="font-size:10px;color:var(--muted);letter-spacing:.1em">${(d.date||'').slice(5)}</div>
+          </div>`;
+        }).join('') + '</div>';
+    }
+  } catch {}
+
+  try {
+    const cs = await api('/api/analytics/campaign-stats');
+    const tbody = document.getElementById('anCampaignBody');
+    if (!cs || !cs.length){
+      tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No campaign send history yet</td></tr>';
+    } else {
+      tbody.innerHTML = cs.map(c => `<tr>
+        <td><div class="company">${esc(c.campaign||c.name||'—')}</div></td>
+        <td class="mono">${(c.sent||0).toLocaleString()}</td>
+        <td class="mono">${(c.opened||0).toLocaleString()}</td>
+        <td class="mono">${(c.replied||0).toLocaleString()}</td>
+        <td class="mono">${(c.bounced||0).toLocaleString()}</td>
+      </tr>`).join('');
+    }
+  } catch {}
+}
+
+/* ═══════════════ AI MODEL (ORACLE) ═══════════════ */
+async function loadAIModel(){
+  try {
+    const m = await api('/api/model-status');
+    document.getElementById('aiStatus').textContent = m.trained ? '● Trained' : '○ Not trained';
+    document.getElementById('aiStatus').style.color = m.trained ? 'var(--good)' : 'var(--muted)';
+    document.getElementById('aiTrainedAt').textContent = m.trained_at || 'never';
+    const da = (m.metrics?.directional_accuracy || 0) * 100;
+    document.getElementById('aiAcc').innerHTML = da.toFixed(1) + '<span class="kpi-unit">%</span>';
+    document.getElementById('aiAccSub').textContent = `F1 ${(m.metrics?.f1||0).toFixed(3)} · MAPE ${(m.metrics?.mape||0).toFixed(1)}%`;
+    document.getElementById('aiCorr').textContent = m.corridors || 0;
+    document.getElementById('aiCorrSub').textContent = m.loaded_in_memory ? 'loaded · ready' : 'not loaded';
+  } catch(e){ toast('AI Model: '+e.message, 'err'); }
+}
+async function predictLane(){
+  const pol = document.getElementById('aiPol').value;
+  const pod = document.getElementById('aiPod').value;
+  const div = document.getElementById('aiForecast');
+  div.innerHTML = '<div class="preview-loading"><span class="spinner"></span>Predicting ' + pol + ' → ' + pod + '</div>';
+  try {
+    const p = await api(`/api/predict?pol=${pol}&pod=${pod}`);
+    const dir = p.overall_direction || 'STABLE';
+    const conf = ((p.overall_confidence||0)*100).toFixed(1);
+    const corr = (p.corridors||[])[0] || {};
+    const chg = (corr.predicted_change_pct || 0).toFixed(2);
+    const factors = (corr.top_factors || []).slice(0,5);
+    const color = dir === 'UP' ? 'var(--accent)' : dir === 'DOWN' ? 'var(--good)' : 'var(--muted)';
+    const arrow = dir === 'UP' ? '▲' : dir === 'DOWN' ? '▼' : '→';
+    div.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+        <div class="kpi"><div class="kpi-label">Direction</div><div class="kpi-value" style="color:${color}">${arrow} ${dir}</div><div class="kpi-foot"><span>next 7 days</span></div></div>
+        <div class="kpi"><div class="kpi-label">Confidence</div><div class="kpi-value">${conf}<span class="kpi-unit">%</span></div><div class="kpi-foot"><span>${conf > 65 ? 'strong' : 'weak'} signal</span></div></div>
+        <div class="kpi"><div class="kpi-label">Change</div><div class="kpi-value" style="color:${color}">${chg >= 0 ? '+' : ''}${chg}<span class="kpi-unit">%</span></div><div class="kpi-foot"><span>${pol} → ${pod}</span></div></div>
+      </div>
+      <div style="margin-top:20px">
+        <div class="section-sub" style="margin-bottom:10px">Top factors</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${factors.map(f => `<span class="tag" style="padding:4px 10px">${esc(f)}</span>`).join('')}</div>
+      </div>
+      <div style="margin-top:16px;font-size:12px;color:var(--muted);font-style:italic">${esc(corr.signal || '')}</div>
+    `;
+  } catch(e){
+    div.innerHTML = `<div class="preview-empty"><div class="preview-empty-kanji">失</div>${esc(e.message)}</div>`;
+  }
+}
+
+/* ═══════════════ ALERTS ═══════════════ */
+async function loadAlerts(){
+  try {
+    const r = await api('/api/email-events/alerts?limit=50');
+    const alerts = r.alerts || r || [];
+    document.getElementById('alTotal').textContent = alerts.length;
+    const replies = alerts.filter(a => (a.type||'').toLowerCase().includes('repl')).length;
+    const bounces = alerts.filter(a => (a.type||'').toLowerCase().includes('bounc')).length;
+    document.getElementById('alReplies').textContent = replies;
+    document.getElementById('alBounces').textContent = bounces;
+    document.getElementById('navBadgeAlerts').textContent = alerts.length || '—';
+    const tbody = document.getElementById('alertsBody');
+    if (!alerts.length){
+      tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><div class="empty-state-kanji">無</div>No alerts — inbox quiet</td></tr>';
+    } else {
+      tbody.innerHTML = alerts.map(a => {
+        const t = a.time || a.created_at || a.received_at || '';
+        return `<tr>
+          <td class="mono">${esc(String(t).slice(5,16))}</td>
+          <td><span class="tag">${esc(a.type||'info')}</span></td>
+          <td><div class="company">${esc(a.from || a.sender || '—')}</div></td>
+          <td><div class="email-cell">${esc((a.subject||a.snippet||'').slice(0,80))}</div></td>
+          <td><button class="btn btn-xs btn-ghost">Mark</button></td>
+        </tr>`;
+      }).join('');
+    }
+  } catch(e){
+    document.getElementById('alertsBody').innerHTML = `<tr><td colspan="5" class="empty-state">${esc(e.message)}</td></tr>`;
+  }
+}
+
+/* ═══════════════ QUEUE ═══════════════ */
+async function loadQueue(){
+  try {
+    const r = await api('/api/email-rate/follow-up-queue?limit=200');
+    const items = r.queue || r.items || r || [];
+    document.getElementById('qTotal').textContent = items.length;
+    const now = Date.now();
+    let overdue = 0, today = 0;
+    for (const it of items){
+      const last = it.last_sent_date || it.last_sent;
+      if (!last) { overdue++; continue; }
+      try {
+        const days = (now - new Date(last).getTime())/864e5;
+        if (days >= 7) overdue++;
+        if (days <= 1) today++;
+      } catch {}
+    }
+    document.getElementById('qOverdue').innerHTML = overdue + '<span class="kpi-unit">≥7d</span>';
+    document.getElementById('qToday').textContent = today;
+    document.getElementById('navBadgeQueue').textContent = items.length || '—';
+    const tbody = document.getElementById('queueBody');
+    if (!items.length){
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><div class="empty-state-kanji">完</div>Queue empty — nothing overdue</td></tr>';
+    } else {
+      tbody.innerHTML = items.map(it => `<tr data-email="${esc(it.email)}">
+        <td><div class="company">${esc(it.pic || it.company || '—')}</div><div class="email-cell">${esc(it.email)}</div></td>
+        <td>${it.tier ? `<span class="tag tag-${(it.tier||'').toLowerCase()}">${esc(it.tier)}</span>` : '—'}</td>
+        <td class="mono">${esc(String(it.last_sent_date || it.last_sent || 'never').slice(0,10))}</td>
+        <td>${esc(it.reason || it.action || '—')}</td>
+        <td>${esc(it.campaign || '—')}</td>
+        <td style="display:flex;gap:6px">
+          <button class="btn btn-xs" data-q-preview="${esc(it.email)}">Preview</button>
+          <button class="btn btn-xs btn-accent" data-q-send="${esc(it.email)}">Follow up</button>
+        </td>
+      </tr>`).join('');
+      document.querySelectorAll('[data-q-preview]').forEach(b => b.onclick = async () => {
+        document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
+        document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
+        document.querySelector('[data-view="viewSend"]').classList.add('active');
+        document.getElementById('viewSend').classList.add('active');
+        Store.focusedEmail = b.dataset.qPreview;
+        await loadPreview(b.dataset.qPreview);
+      });
+      document.querySelectorAll('[data-q-send]').forEach(b => b.onclick = async () => {
+        const em = b.dataset.qSend;
+        if (!confirm(`Queue follow-up to ${em}?`)) return;
+        try {
+          await api('/api/email-rate/batch/enqueue', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({batch_id:'Q_'+Date.now(), cnee_emails:[em], campaign_id:'', pol:'HPH', destinations:'', markup:20, dry_run:false, test_mode: Store.testMode}),
+          });
+          toast(`Queued ${em}`, 'success');
+        } catch(e){ toast('Failed: '+e.message, 'err'); }
+      });
+    }
+  } catch(e){
+    document.getElementById('queueBody').innerHTML = `<tr><td colspan="6" class="empty-state">${esc(e.message)}</td></tr>`;
+  }
 }
 
 /* ═══════════════ CAMPAIGNS ═══════════════ */
@@ -547,6 +859,17 @@ function bindControls(){
     catch(e){ toast('Kill failed: '+e.message, 'err'); }
   };
   document.getElementById('btnPriorityReload').onclick = loadPriority;
+  document.getElementById('btnAnalyticsReload').onclick = loadAnalytics;
+  document.getElementById('btnAIReload').onclick = loadAIModel;
+  document.getElementById('btnAlertsReload').onclick = loadAlerts;
+  document.getElementById('btnQueueReload').onclick = loadQueue;
+  document.getElementById('btnAIPredict').onclick = predictLane;
+  document.getElementById('btnAITrain').onclick = async () => {
+    if (!confirm('Retrain ORACLE model? Takes 2-5 minutes.')) return;
+    toast('Training started...', 'warn', 4000);
+    try { await api('/api/train-model', {method:'POST'}); toast('Training done', 'success'); loadAIModel(); }
+    catch(e){ toast('Train failed: '+e.message, 'err'); }
+  };
 }
 
 /* ═══════════════ PROSPECTS ═══════════════ */
