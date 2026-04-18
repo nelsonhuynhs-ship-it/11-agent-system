@@ -160,6 +160,17 @@ def match_customer(
                 log.debug("[customer_sort] Match P3 (prefix %s): → %s", prefix, cid)
                 return cid, ctype
 
+        # ── Priority 3.5: customer name (folder name / cid) in subject+body ──
+        # Catches emails from internal Pudong staff referencing customer by name.
+        # Require customer name ≥4 chars to avoid false positive ('ACT', 'HML').
+        customer_name = cust.get("folder_name") or cid
+        if customer_name and len(customer_name) >= 4:
+            # Word-boundary match, case-insensitive
+            name_pattern = rf"\b{re.escape(customer_name.upper())}\b"
+            if re.search(name_pattern, search_text.upper()):
+                log.debug("[customer_sort] Match P3.5 (name %s): → %s", customer_name, cid)
+                return cid, ctype
+
     # ── Priority 4: detection_rules keywords (cross-customer fallback) ───────
     detection = rules.get("detection_rules", {})
     for dtype, drule in detection.items():
