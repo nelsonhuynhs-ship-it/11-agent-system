@@ -1355,9 +1355,75 @@ def v4_followup_queue():
     return {"queue": [], "total": 0}
 
 
+_ALERTS_CSV = BASE_DIR / "logs" / "followup_alerts.csv"
+
+
+def _read_alerts_csv(limit: int = 50, days: int = 7) -> list[dict]:
+    """Read followup_alerts.csv, return last N rows within last `days`.
+
+    CSV columns: scan_date, email, campaign_id, tier, intent, alert_label,
+                 days_stale, last_sent
+    """
+    if not _ALERTS_CSV.exists():
+        return []
+    try:
+        import csv as _csv
+        cutoff = datetime.now() - pd.Timedelta(days=days)
+        out: list[dict] = []
+        with open(_ALERTS_CSV, "r", encoding="utf-8", newline="") as fh:
+            for row in _csv.DictReader(fh):
+                raw_date = (row.get("scan_date") or "").strip()
+                try:
+                    dt = datetime.strptime(raw_date, "%Y-%m-%d %H:%M")
+                    if dt < cutoff:
+                        continue
+                except ValueError:
+                    pass
+                label = row.get("alert_label") or ""
+                # Classify coarse "type" for the dashboard filter
+                lbl_up = label.upper()
+                if "BOUNCE" in lbl_up:
+                    atype = "bounce"
+                elif "REPL" in lbl_up or "RESPONDED" in lbl_up:
+                    atype = "reply"
+                elif "URGENT" in lbl_up or "HIGH" in lbl_up:
+                    atype = "followup_urgent"
+                else:
+                    atype = "followup"
+                out.append({
+                    "time": raw_date,
+                    "type": atype,
+                    "from": row.get("email") or "",
+                    "sender": row.get("email") or "",
+                    "subject": label,
+                    "snippet": label,
+                    "tier": row.get("tier") or "",
+                    "campaign_id": row.get("campaign_id") or "",
+                    "days_stale": row.get("days_stale") or "",
+                })
+        # Newest first
+        out.sort(key=lambda a: a.get("time") or "", reverse=True)
+        return out[:max(1, int(limit))]
+    except Exception as e:
+        log.warning(f"alerts CSV read failed: {e}")
+        return []
+
+
 @app.get("/api/email-events/alerts")
-def v4_alerts():
-    return {"alerts": []}
+def v4_alerts(limit: int = 50, days: int = 7):
+    return {"alerts": _read_alerts_csv(limit=limit, days=days)}
+
+
+@app.get("/api/email-events/alerts/count")
+def v4_alerts_count(days: int = 7):
+    """Cheap count endpoint — dashboard polls this every 60s to detect new alerts."""
+    alerts = _read_alerts_csv(limit=1000, days=days)
+    return {
+        "total": len(alerts),
+        "replies": sum(1 for a in alerts if a["type"] == "reply"),
+        "bounces": sum(1 for a in alerts if a["type"] == "bounce"),
+        "followups": sum(1 for a in alerts if a["type"].startswith("followup")),
+    }
 
 
 @app.get("/api/data/email-log")
@@ -1455,9 +1521,27 @@ def _resolve_cnee_master_v2() -> Path:
 
 CNEE_MASTER_V2_PATH = _resolve_cnee_master_v2()
 
-# Default destinations used when a CNEE row has no destination column
-# 2026-04-17: 9 main lanes (was 5) — covers HPH/HCM→US main port + inland gateways
-DEFAULT_DESTINATIONS = ["USLAX", "USLGB", "USSAV", "USNYC", "USORF", "USCHS", "USTIW", "USCHI", "USDAL"]
+# Default destinations used when a CNEE row has no destination column.
+# Loaded from config/default_routes.yaml (key: fast_bulk_default) so Nelson can
+# edit without code change. Fallback baked-in if YAML missing/corrupt.
+_FALLBACK_DESTINATIONS = ["USLAX", "USLGB", "USSAV", "USNYC", "USORF", "USCHS", "USTIW", "USCHI", "USDAL"]
+
+def _load_default_destinations() -> list[str]:
+    path = BASE_DIR / "config" / "default_routes.yaml"
+    try:
+        import yaml as _yaml
+        with open(path, "r", encoding="utf-8") as fh:
+            data = _yaml.safe_load(fh) or {}
+        dests = data.get("fast_bulk_default") or data.get("global_default") or []
+        cleaned = [str(d).strip().upper() for d in dests if str(d).strip()]
+        if cleaned:
+            log.info(f"DEFAULT_DESTINATIONS loaded from YAML: {len(cleaned)} lanes")
+            return cleaned
+    except Exception as e:
+        log.warning(f"default_routes.yaml load failed ({e}) — using fallback 9 lanes")
+    return list(_FALLBACK_DESTINATIONS)
+
+DEFAULT_DESTINATIONS = _load_default_destinations()
 
 
 # ---- Startup hook ----------------------------------------------------------
@@ -1511,6 +1595,11 @@ class BatchEnqueueRequest(BaseModel):
     destinations: str = ""  # comma/semicolon separated; empty = use row's dest or defaults
     test_mode: bool = False  # redirect ALL emails to test_to_email (template verification)
     test_to_email: str = "huynhyohan@gmail.com"
+    # Subject policy: "random" = new subject per email (default, anti-spam),
+    # "shared" = one random subject for the whole batch (branding consistent),
+    # "fixed" = use subject_override text verbatim for all emails.
+    subject_policy: str = "random"
+    subject_override: str = ""  # Only used when subject_policy="fixed"
 
 
 def _row_to_profile(row: dict) -> dict:
@@ -1590,6 +1679,18 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
     emails_out: list[dict] = []
     skipped: list[dict] = []
 
+    # Resolve subject policy once (before loop) — share/fixed produce one string
+    # applied to every email; random falls through to per-email generation.
+    policy = (req.subject_policy or "random").strip().lower()
+    shared_subject: Optional[str] = None
+    if policy == "shared":
+        shared_subject = gen_subject()
+    elif policy == "fixed":
+        shared_subject = (req.subject_override or "").strip() or gen_subject()
+    elif policy != "random":
+        log.warning(f"unknown subject_policy={policy!r} — falling back to random")
+        policy = "random"
+
     for raw_email in req.cnee_emails:
         em = (raw_email or "").strip().lower()
         if not em:
@@ -1598,6 +1699,13 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
             skipped.append({"email": em, "reason": "excluded (active customer / opt-out)"})
             continue
         row = master_rows.get(em) or {"EMAIL": em}
+        # Safety: block competitors BEFORE building email (bypass in test_mode to Nelson).
+        if not req.test_mode:
+            company_name = str(row.get("COMPANY") or row.get("CNEE_NAME") or "").strip()
+            is_comp, comp_reason = is_competitor(em, company_name)
+            if is_comp:
+                skipped.append({"email": em, "reason": f"competitor blocked ({comp_reason})"})
+                continue
         # Guard: VIP/HOT are personal-outreach only — never blast (unless test_mode).
         row_tier = str(row.get("TIER") or "").strip().upper()
         if row_tier in ("VIP", "HOT") and not req.test_mode:
@@ -1651,7 +1759,8 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
         # verification. Subject is tagged "[TEST -> original@domain.com]" so
         # Nelson can see which recipient would have received each message.
         actual_to = em
-        subject_out = built.get("subject", "")
+        # Apply subject policy: shared/fixed override the builder's per-email subject.
+        subject_out = shared_subject if shared_subject is not None else built.get("subject", "")
         if req.test_mode:
             actual_to = (req.test_to_email or "huynhyohan@gmail.com").strip().lower()
             subject_out = f"[TEST -> {em}] {subject_out}"
@@ -1701,6 +1810,52 @@ def batch_status(batch_id: str):
     if _queue_store is None:
         raise HTTPException(503, "queue_store module unavailable")
     return _queue_store.get_batch_status(batch_id)
+
+
+@app.post("/api/email-rate/admin/reset-stuck")
+def admin_reset_stuck(older_than_min: int = 10):
+    """Manually reset jobs stuck in 'sending' state (Outlook crash recovery)."""
+    if _queue_store is None:
+        raise HTTPException(503, "queue_store module unavailable")
+    n = _queue_store.reset_stuck(max(1, int(older_than_min)))
+    return {"reset": n, "older_than_min": older_than_min}
+
+
+# ─── Open-tracking (1x1 transparent GIF pixel) ────────────────────────────
+# 43-byte transparent GIF89a — smallest valid tracking pixel.
+_PIXEL_GIF = bytes.fromhex(
+    "47494638396101000100800000ffffff00000021f90401000000002c"
+    "00000000010001000002024401003b"
+)
+
+
+@app.get("/t/o/{job_id}.gif")
+def track_open(job_id: int):
+    """Email open-tracking beacon. Returns 1x1 transparent GIF and records
+    the open in email_queue (opened_at + open_count). Always returns 200
+    even on failure — we never want the recipient's mail client to retry."""
+    from fastapi.responses import Response
+    if _queue_store is not None:
+        try:
+            _queue_store.mark_opened(int(job_id))
+        except Exception as e:
+            log.debug(f"mark_opened({job_id}) failed: {e}")
+    return Response(
+        content=_PIXEL_GIF,
+        media_type="image/gif",
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+        },
+    )
+
+
+@app.get("/api/email-rate/analytics/opens")
+def analytics_opens(days: int = 7):
+    """Real open-rate metrics for Analytics dashboard (last N days)."""
+    if _queue_store is None:
+        raise HTTPException(503, "queue_store module unavailable")
+    return _queue_store.open_stats(days=max(1, int(days)))
 
 
 @app.get("/api/email-rate/queue/pending")

@@ -22,6 +22,11 @@ pol:
 # Fallback destinations when nothing else matches
 global_default: [USLAX, USLGB, USNYC, USSAV, USHOU]
 
+# Bulk blast default (Rate & Send / Quick Send) — used when CNEE row has no
+# DESTINATION column. 9 main lanes covering HPH/HCM → US main ports + inland.
+# Edit this list to change bulk-send defaults without touching code.
+fast_bulk_default: [USLAX, USLGB, USSAV, USNYC, USORF, USCHS, USTIW, USCHI, USDAL]
+
 # Maximum destinations per single email (keep body readable)
 max_destinations_per_email: 5
 

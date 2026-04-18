@@ -62,6 +62,8 @@ CREATE TABLE IF NOT EXISTS email_queue (
     sent_at         TIMESTAMP,
     worker_id       TEXT,
     meta_json       TEXT,
+    opened_at       TIMESTAMP,
+    open_count      INTEGER NOT NULL DEFAULT 0,
     UNIQUE(cnee_email, batch_id)
 );
 CREATE INDEX IF NOT EXISTS idx_queue_status_priority
@@ -71,6 +73,13 @@ CREATE INDEX IF NOT EXISTS idx_queue_batch
 CREATE INDEX IF NOT EXISTS idx_queue_picked
     ON email_queue(status, picked_at);
 """
+
+# Back-compat ALTER for databases created before open-tracking was added.
+# SQLite ALTER TABLE ADD COLUMN fails silently via try/except — idempotent.
+_MIGRATION_SQL = [
+    "ALTER TABLE email_queue ADD COLUMN opened_at TIMESTAMP",
+    "ALTER TABLE email_queue ADD COLUMN open_count INTEGER NOT NULL DEFAULT 0",
+]
 
 # Resolved DB path (set by init_db). Tests pass tmp paths; production uses default.
 _DB_PATH: str = DEFAULT_DB_PATH
@@ -114,6 +123,53 @@ def init_db(db_path: str | None = None) -> None:
     Path(_DB_PATH).parent.mkdir(parents=True, exist_ok=True)
     with _connect(_DB_PATH) as conn:
         conn.executescript(SCHEMA_SQL)
+        # Run idempotent back-compat migrations (silently skip if column exists)
+        for sql in _MIGRATION_SQL:
+            try:
+                conn.execute(sql)
+            except sqlite3.OperationalError:
+                pass
+
+
+def mark_opened(job_id: int) -> bool:
+    """Record an email-open event. Sets opened_at on first open, always
+    increments open_count. Returns True if row existed."""
+    with _DB_LOCK:
+        with _connect() as conn:
+            cur = conn.execute(
+                """UPDATE email_queue
+                   SET opened_at = COALESCE(opened_at, ?),
+                       open_count = open_count + 1
+                   WHERE id = ?""",
+                (_now_iso(), job_id),
+            )
+            return (cur.rowcount or 0) > 0
+
+
+def open_stats(days: int = 7) -> dict[str, Any]:
+    """Aggregate open-rate metrics for Analytics dashboard."""
+    cutoff = (datetime.utcnow() - timedelta(days=days)) \
+        .strftime("%Y-%m-%d %H:%M:%S")
+    with _connect() as conn:
+        row = conn.execute(
+            """SELECT
+                   COUNT(*) FILTER (WHERE status='sent' AND sent_at >= ?)      AS sent,
+                   COUNT(*) FILTER (WHERE opened_at IS NOT NULL AND sent_at >= ?) AS opened,
+                   COALESCE(SUM(open_count) FILTER (WHERE sent_at >= ?), 0)    AS total_opens
+                 FROM email_queue""",
+            (cutoff, cutoff, cutoff),
+        ).fetchone()
+    sent = int(row["sent"] or 0)
+    opened = int(row["opened"] or 0)
+    total_opens = int(row["total_opens"] or 0)
+    open_rate = (opened / sent * 100.0) if sent > 0 else 0.0
+    return {
+        "window_days": days,
+        "sent": sent,
+        "opened": opened,
+        "total_opens": total_opens,
+        "open_rate_pct": round(open_rate, 1),
+    }
 
 
 def enqueue_batch(batch_id: str, emails: list[dict[str, Any]]) -> int:

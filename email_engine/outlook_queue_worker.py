@@ -52,6 +52,20 @@ RATE_LIMIT_PER_MIN = 60          # max sends per worker per rolling 60s
 KILL_SWITCH_SLEEP = 30           # seconds when kill switch is active
 EMPTY_QUEUE_SLEEP = 2            # seconds when no job available
 LOG_EVERY_N = 10                 # progress log cadence per worker
+STUCK_RESET_INTERVAL = 300       # seconds between periodic stuck-job sweeps
+STUCK_AGE_MIN = 10               # reset jobs stuck in 'sending' longer than this
+
+# Public base URL for open-tracking pixel. Must be reachable from recipient's
+# mail client. Default localhost works when Nelson tests against his own inbox
+# on the same machine. For production (email sent to real recipients), set:
+#   export NELSON_TRACK_BASE_URL=http://14.225.207.145:8100  (VPS)
+TRACK_BASE_URL = os.environ.get(
+    "NELSON_TRACK_BASE_URL",
+    "http://localhost:8100",
+).rstrip("/")
+
+_last_stuck_sweep = 0.0
+_stuck_sweep_lock = threading.Lock()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -120,6 +134,28 @@ def _attach_inline_logo(mail) -> None:
         log.warning("inline logo attach failed: %s", exc)
 
 
+def _inject_tracking_pixel(html_body: str, job_id: int) -> str:
+    """Append invisible 1x1 open-tracking pixel right before </body> (or EOF).
+    Pixel URL: {TRACK_BASE_URL}/t/o/{job_id}.gif — server records the open.
+    No-op if html_body already contains the pixel (defensive against retries)."""
+    if not html_body or not job_id:
+        return html_body
+    marker = f"/t/o/{job_id}.gif"
+    if marker in html_body:
+        return html_body
+    pixel = (
+        f'<img src="{TRACK_BASE_URL}/t/o/{job_id}.gif" '
+        f'width="1" height="1" border="0" alt="" '
+        f'style="display:block;width:1px;height:1px;border:0;">'
+    )
+    # Prefer to insert before </body> so it's part of the document flow
+    low = html_body.lower()
+    idx = low.rfind("</body>")
+    if idx >= 0:
+        return html_body[:idx] + pixel + html_body[idx:]
+    return html_body + pixel
+
+
 def _send_via_outlook(job: dict[str, Any]) -> tuple[bool, str | None]:
     """Send single job via Outlook COM. Returns (success, error).
 
@@ -136,6 +172,8 @@ def _send_via_outlook(job: dict[str, Any]) -> tuple[bool, str | None]:
         mail.Subject = job["subject"]
 
         html_body = job["html_body"] or ""
+        # Inject open-tracking pixel (adds /t/o/{id}.gif beacon at end).
+        html_body = _inject_tracking_pixel(html_body, job.get("id") or 0)
         # Only attach logo if signature actually references it
         if "cid:pudonglogo" in html_body.lower():
             mail.HTMLBody = html_body
@@ -182,6 +220,21 @@ def worker_loop(worker_id: str, dry_run: bool, loop: bool) -> int:
              worker_id, dry_run, loop)
 
     while not _shutdown.is_set():
+        # 0. Periodic stuck-job sweep (Outlook crash recovery while worker lives)
+        global _last_stuck_sweep
+        now_mono = time.monotonic()
+        if now_mono - _last_stuck_sweep > STUCK_RESET_INTERVAL:
+            if _stuck_sweep_lock.acquire(blocking=False):
+                try:
+                    if now_mono - _last_stuck_sweep > STUCK_RESET_INTERVAL:
+                        n = queue_store.reset_stuck(STUCK_AGE_MIN)
+                        if n:
+                            log.warning("[%s] periodic sweep reset %d stuck job(s)",
+                                        worker_id, n)
+                        _last_stuck_sweep = now_mono
+                finally:
+                    _stuck_sweep_lock.release()
+
         # 1. Kill switch check
         if queue_store.kill_switch_active():
             log.warning("[%s] KILL_SWITCH active — sleeping %ds",
