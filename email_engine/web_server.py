@@ -155,20 +155,27 @@ def _reload_exclusions():
 # ── Competitor blacklist (filters Panjiva/scraped imports BEFORE merge) ────
 _COMPETITOR_FILE = BASE_DIR / "data" / "competitor_blacklist.json"
 
+_PUDONG_WHITELIST_DOMAINS = {"pudongprime.vn"}  # fallback if JSON missing
+
+
 def _load_competitor_blacklist() -> dict:
     try:
         import json as _json
         data = _json.loads(_COMPETITOR_FILE.read_text(encoding="utf-8"))
+        whitelist = set(d.lower().strip() for d in data.get("whitelist_domains", []) if d)
+        whitelist |= _PUDONG_WHITELIST_DOMAINS  # always include Pudong
         return {
             "domains": set(d.lower().strip() for d in data.get("domains", []) if d),
             "emails":  set(e.lower().strip() for e in data.get("emails", []) if e),
             "keywords": [k.upper().strip() for k in data.get("keywords_in_company", []) if k],
+            "whitelist_domains": whitelist,
         }
     except Exception:
-        return {"domains": set(), "emails": set(), "keywords": []}
+        return {"domains": set(), "emails": set(), "keywords": [],
+                "whitelist_domains": set(_PUDONG_WHITELIST_DOMAINS)}
 
 COMPETITOR_BL = _load_competitor_blacklist()
-log.info(f"Competitor blacklist: {len(COMPETITOR_BL['domains'])} domains, {len(COMPETITOR_BL['emails'])} emails, {len(COMPETITOR_BL['keywords'])} keywords")
+log.info(f"Competitor blacklist: {len(COMPETITOR_BL['domains'])} domains, {len(COMPETITOR_BL['emails'])} emails, {len(COMPETITOR_BL['keywords'])} keywords, whitelist: {len(COMPETITOR_BL['whitelist_domains'])}")
 
 # ── Destination text → POD code resolver (Panjiva cleanup) ───────────────────
 # CNEE DESTINATION column often stores verbose text like
@@ -261,18 +268,32 @@ def _normalize_dest_text(text: str) -> list[str]:
     return out
 
 def is_competitor(email: str, company: str = "") -> tuple[bool, str]:
-    """Return (True, reason) if email belongs to a competitor, else (False, '')."""
+    """Return (True, reason) if email belongs to a competitor, else (False, '').
+
+    Match priority (narrow → broad):
+    1. Email in emails[] (exact)
+    2. Domain in domains[] (exact) — Nelson-managed whitelist of forwarder domains
+    3. Company name contains any keyword in keywords_in_company (substring, case-insensitive)
+
+    NOTE: domain substring match was REMOVED (2026-04-18) per Nelson concern —
+    was causing false positives for legit CNEEs whose contact email happened to
+    be at a forwarder domain. If you want to block a specific logistics domain,
+    add it explicitly to domains[].
+    """
     em = (email or "").lower().strip()
     if not em or "@" not in em:
         return False, ""
+    domain = em.split("@", 1)[1]
+    # Priority 0: whitelist bypass (Pudong's own domain never blocked)
+    if domain in COMPETITOR_BL.get("whitelist_domains", set()):
+        return False, ""
     if em in COMPETITOR_BL["emails"]:
         return True, f"blacklisted email"
-    domain = em.split("@", 1)[1]
     if domain in COMPETITOR_BL["domains"]:
         return True, f"competitor domain: {domain}"
     co = (company or "").upper()
     for kw in COMPETITOR_BL["keywords"]:
-        if kw in co:
+        if kw.upper() in co:
             return True, f"company contains '{kw}'"
     return False, ""
 
