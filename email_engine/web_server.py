@@ -89,6 +89,27 @@ def gen_subject():
     wk = date.today().isocalendar()[1]
     return f"{random.choice(templates)} // {suffix} WEEK {wk}"
 
+
+def gen_intro():
+    """Random-pick 1 of N unique intro templates (cold-email skill patterns).
+    Tokens ({{first_name}}, {{company}}, {{typical_pol}}, {{typical_dest}}, {{week}})
+    are substituted downstream by template_renderer.render_text()."""
+    templates = [t.strip() for t in CFG.get("INTROTEMPLATES", CFG.get("IntroTemplates", "")).split("|") if t.strip()]
+    if not templates:
+        # Fallback to legacy single IntroText
+        legacy = CFG.get("INTROTEXT", CFG.get("IntroText", "")).strip()
+        return legacy or "Dear {{first_name}},\nWeekly Asia-US ocean freight update for {{company}}."
+    return random.choice(templates)
+
+
+def gen_closing():
+    """Random-pick 1 of N unique closing templates (CTA variation)."""
+    templates = [t.strip() for t in CFG.get("CLOSINGTEMPLATES", CFG.get("ClosingTemplates", "")).split("|") if t.strip()]
+    if not templates:
+        legacy = CFG.get("CLOSINGTEXT", CFG.get("ClosingText", "")).strip()
+        return legacy or ""
+    return random.choice(templates)
+
 class ContactItem(BaseModel):
     email: str
     pic: str = "Team"

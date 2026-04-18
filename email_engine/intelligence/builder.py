@@ -562,9 +562,10 @@ def _build_tokens(
         "date": today.isoformat(),
         "suffix": "NELSON",
 
-        # fallback intro (used by default template)
-        "default_intro": f"Dear {profile.get('first_name', 'Team')},\n"
-                        f"Weekly Asia-US ocean freight update for {profile.get('company', 'your team')}.",
+        # fallback intro — random pick from IntroTemplates pool (config.xlsx)
+        # Each send gets different angle (Observation/Problem/Proof/Question/etc)
+        "default_intro": _random_intro(profile),
+        "default_closing": _random_closing(),
 
         # HTML chunks
         "rate_table_html": _render_rate_table(lane_intels),
@@ -596,6 +597,56 @@ _CONFIG_XLSX = (
     Path(__file__).resolve().parent.parent / "data" / "config.xlsx"
 )
 _SIG_CACHE: dict = {"mtime": 0.0, "html": None}
+_TEMPLATE_CACHE: dict = {"mtime": 0.0, "intros": [], "closings": []}
+
+
+def _load_intro_closing_templates() -> tuple[list[str], list[str]]:
+    """Load IntroTemplates + ClosingTemplates from config.xlsx (pipe-split).
+    Cached by mtime. Returns ([intros], [closings]) — fallback empty lists."""
+    try:
+        if not _CONFIG_XLSX.exists():
+            return [], []
+        mtime = _CONFIG_XLSX.stat().st_mtime
+        if _TEMPLATE_CACHE.get("mtime") == mtime and _TEMPLATE_CACHE.get("intros"):
+            return _TEMPLATE_CACHE["intros"], _TEMPLATE_CACHE["closings"]
+
+        import openpyxl
+        wb = openpyxl.load_workbook(str(_CONFIG_XLSX), data_only=True)
+        intros, closings = [], []
+        for row in wb.active.iter_rows(max_col=2, values_only=True):
+            k = str(row[0] or "").strip().lower()
+            v = str(row[1] or "").strip()
+            if k == "introtemplates" and v:
+                intros = [t.strip() for t in v.split("|") if t.strip()]
+            elif k == "closingtemplates" and v:
+                closings = [t.strip() for t in v.split("|") if t.strip()]
+
+        _TEMPLATE_CACHE["mtime"] = mtime
+        _TEMPLATE_CACHE["intros"] = intros
+        _TEMPLATE_CACHE["closings"] = closings
+        return intros, closings
+    except Exception as e:
+        log.warning("[builder] intro/closing templates load failed: %s", e)
+        return [], []
+
+
+def _random_intro(profile: dict) -> str:
+    """Random pick from IntroTemplates pool, fallback to legacy default."""
+    import random as _r
+    intros, _ = _load_intro_closing_templates()
+    if intros:
+        return _r.choice(intros)
+    return (f"Dear {profile.get('first_name', 'Team')},\n"
+            f"Weekly Asia-US ocean freight update for {profile.get('company', 'your team')}.")
+
+
+def _random_closing() -> str:
+    """Random pick from ClosingTemplates pool, empty fallback."""
+    import random as _r
+    _, closings = _load_intro_closing_templates()
+    if closings:
+        return _r.choice(closings)
+    return ""
 
 
 def _load_signature_html_from_config() -> str:
