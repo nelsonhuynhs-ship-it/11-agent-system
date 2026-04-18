@@ -31,8 +31,16 @@ RULES_PATH = Path("D:/OneDrive/NelsonData/email/customer_rules.json")
 # Maps customer type → top-level Outlook folder name
 TYPE_TO_FOLDER: dict[str, str] = {
     "DIRECT": "DIRECT",
-    "FWD":    "FW",
-    # CNEE skipped for Phase 01
+    "FWD":    "FWD",   # Actual Outlook folder name (not "FW")
+    "CNEE":   "CNEE",
+}
+
+# Generic email providers — never match as domain alone (too ambiguous).
+# P1 sender exact still works for these; P2 domain is skipped.
+GENERIC_EMAIL_DOMAINS: set[str] = {
+    "gmail.com", "yahoo.com", "yahoo.com.vn", "hotmail.com", "outlook.com",
+    "live.com", "icloud.com", "me.com", "aol.com", "proton.me", "protonmail.com",
+    "163.com", "qq.com", "126.com", "foxmail.com",
 }
 
 MAX_ITEMS_PER_RUN = 200
@@ -135,9 +143,11 @@ def match_customer(
             log.debug("[customer_sort] Match P1 (sender exact): %s → %s", sender_smtp, cid)
             return cid, ctype
 
-        # ── Priority 2: sender domain match ────────────────────────────────
+        # ── Priority 2: sender domain match (skip generic free-email providers) ──
         domains = [d.strip().lower() for d in cust.get("email_domains", [])]
-        if domains and sender_domain and sender_domain in domains:
+        if (domains and sender_domain
+                and sender_domain in domains
+                and sender_domain not in GENERIC_EMAIL_DOMAINS):
             log.debug("[customer_sort] Match P2 (domain): %s → %s", sender_domain, cid)
             return cid, ctype
 
@@ -320,7 +330,7 @@ def run(dry_run: bool = False) -> dict:
     for msg in items_snapshot:
         result["total_scanned"] += 1
         try:
-            _process_item(msg, rules, mailbox_root, dry_run, result)
+            _process_item(msg, rules, inbox, dry_run, result)
         except Exception as exc:
             result["errors"] += 1
             try:
@@ -376,7 +386,7 @@ def _snapshot_inbox_root(inbox, cap: int) -> list:
     return snapshot
 
 
-def _process_item(msg, rules: dict, mailbox_root, dry_run: bool, result: dict) -> None:
+def _process_item(msg, rules: dict, inbox, dry_run: bool, result: dict) -> None:
     """Classify and optionally move a single MailItem."""
     try:
         subject = msg.Subject or ""
@@ -399,7 +409,8 @@ def _process_item(msg, rules: dict, mailbox_root, dry_run: bool, result: dict) -
     folder_root = TYPE_TO_FOLDER[ctype]   # "DIRECT" or "FW"
     folder_path = f"{folder_root}/{cid}"
 
-    target = navigate_folder(mailbox_root, folder_path)
+    # Folders DIRECT/FW/CNEE live UNDER Inbox (not mailbox root).
+    target = navigate_folder(inbox, folder_path)
     if target is None:
         log.warning(
             "[customer_sort] Target folder '%s' not found — leaving '%s' in Inbox",
