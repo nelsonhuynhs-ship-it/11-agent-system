@@ -105,6 +105,8 @@ class SendRequest(BaseModel):
     markup: float = Field(default=20.0, ge=0, le=500)
     arb_origin: str = ""  # Optional cross-origin key (e.g. "shanghai")
     preset: str = ""  # Optional preset: "friday_hpl_scfi_hcm" → force POL=HCM + prefer HPL SCFI rates
+    test_mode: bool = False  # If True, redirect all recipients to test_to_email
+    test_to_email: str = "huynhyohan@gmail.com"  # Nelson's personal email for template verification
 
 def err(code: int, msg: str):
     raise HTTPException(status_code=code, detail={"error": msg})
@@ -149,6 +151,70 @@ def _reload_exclusions():
     """Re-read the JSON (used after /api/customer/exclude mutates it)."""
     global EXCLUDED_EMAILS
     EXCLUDED_EMAILS = _load_exclusions()
+
+# ── Competitor blacklist (filters Panjiva/scraped imports BEFORE merge) ────
+_COMPETITOR_FILE = BASE_DIR / "data" / "competitor_blacklist.json"
+
+def _load_competitor_blacklist() -> dict:
+    try:
+        import json as _json
+        data = _json.loads(_COMPETITOR_FILE.read_text(encoding="utf-8"))
+        return {
+            "domains": set(d.lower().strip() for d in data.get("domains", []) if d),
+            "emails":  set(e.lower().strip() for e in data.get("emails", []) if e),
+            "keywords": [k.upper().strip() for k in data.get("keywords_in_company", []) if k],
+        }
+    except Exception:
+        return {"domains": set(), "emails": set(), "keywords": []}
+
+COMPETITOR_BL = _load_competitor_blacklist()
+log.info(f"Competitor blacklist: {len(COMPETITOR_BL['domains'])} domains, {len(COMPETITOR_BL['emails'])} emails, {len(COMPETITOR_BL['keywords'])} keywords")
+
+def is_competitor(email: str, company: str = "") -> tuple[bool, str]:
+    """Return (True, reason) if email belongs to a competitor, else (False, '')."""
+    em = (email or "").lower().strip()
+    if not em or "@" not in em:
+        return False, ""
+    if em in COMPETITOR_BL["emails"]:
+        return True, f"blacklisted email"
+    domain = em.split("@", 1)[1]
+    if domain in COMPETITOR_BL["domains"]:
+        return True, f"competitor domain: {domain}"
+    co = (company or "").upper()
+    for kw in COMPETITOR_BL["keywords"]:
+        if kw in co:
+            return True, f"company contains '{kw}'"
+    return False, ""
+
+@app.get("/api/prospects/priority")
+def priority_prospects(tier: str = "VIP,HOT", limit: int = 500):
+    """Return VIP+HOT prospects for personal-outreach panel (NOT for blast)."""
+    try:
+        df = _get_cnee_df() if callable(globals().get("_get_cnee_df")) else df_contacts
+    except Exception:
+        df = df_contacts
+    if df is None or "TIER" not in df.columns:
+        return {"prospects": [], "total": 0}
+    tiers = [t.strip().upper() for t in tier.split(",") if t.strip()]
+    sub = df[df["TIER"].astype(str).str.upper().isin(tiers)].copy()
+    results = []
+    for _, row in sub.head(limit).iterrows():
+        em = str(row.get("EMAIL", row.get("CNEE_EMAIL", ""))).strip()
+        if not em or em.lower() == "nan" or em.lower() in EXCLUDED_EMAILS:
+            continue
+        results.append({
+            "email": em,
+            "company": str(row.get("COMPANY", row.get("CNEE_NAME", ""))).strip(),
+            "pic": str(row.get("PIC", row.get("CNEE_PIC", ""))).strip(),
+            "tier": str(row.get("TIER", "")).strip().upper(),
+            "action": str(row.get("ACTION", "")).strip().upper(),
+            "reply_status": str(row.get("REPLY_STATUS", "")).strip(),
+            "last_sent_date": str(row.get("LAST_SENT_DATE", "")).strip(),
+            "send_count": int(row.get("SEND_COUNT", 0) or 0) if str(row.get("SEND_COUNT", "")).replace(".","").isdigit() else 0,
+            "campaign": str(row.get("CAMPAIGN_ID", row.get("CMD_NAME", ""))).strip(),
+        })
+    return {"prospects": results, "total": len(results), "by_tier": {t: sum(1 for p in results if p["tier"]==t) for t in tiers}}
+
 
 @app.get("/api/customer/excluded")
 def list_excluded():
@@ -422,7 +488,12 @@ def _do_send(campaign_id: str, req: SendRequest):
                 log.info(f"SKIP (no rates) -> {c.email}")
                 continue
             m = outlook.CreateItem(0)
-            m.To = c.email
+            # Test mode: redirect to Nelson's personal email, tag subject
+            if req.test_mode:
+                m.To = req.test_to_email or "huynhyohan@gmail.com"
+                subj = f"[TEST -> {c.email}] {subj}"
+            else:
+                m.To = c.email
             m.Subject = subj
             body = f"<p>Dear {pic},</p><p>{intro}</p>{html}<br><p>{closing}</p>"
             if signature:
@@ -1040,6 +1111,11 @@ def v4_prospects(campaign: str = "", pol: str = "", destination: str = "",
         pol_up = pol.upper()
         row_pol = df["POL"].astype(str).str.upper().str.strip()
         df = df[row_pol.isin([pol_up, "", "NAN", "NONE"])]
+    # 2026-04-17 (Nelson): blast list must NOT include VIP/HOT. Those are
+    # personal-outreach tiers — they get their own /api/prospects/priority
+    # endpoint + separate dashboard panel.
+    if "TIER" in df.columns:
+        df = df[~df["TIER"].astype(str).str.upper().isin(["VIP", "HOT"])]
 
     cooldown_map = _load_cooldown_map()
     cutoff = datetime.now() - pd.Timedelta(hours=48)
@@ -1342,6 +1418,8 @@ class BatchEnqueueRequest(BaseModel):
     dry_run: bool = False
     pol: str = "HPH"
     destinations: str = ""  # comma/semicolon separated; empty = use row's dest or defaults
+    test_mode: bool = False  # redirect ALL emails to test_to_email (template verification)
+    test_to_email: str = "huynhyohan@gmail.com"
 
 
 def _row_to_profile(row: dict) -> dict:
@@ -1429,6 +1507,11 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
             skipped.append({"email": em, "reason": "excluded (active customer / opt-out)"})
             continue
         row = master_rows.get(em) or {"EMAIL": em}
+        # Guard: VIP/HOT are personal-outreach only — never blast (unless test_mode).
+        row_tier = str(row.get("TIER") or "").strip().upper()
+        if row_tier in ("VIP", "HOT") and not req.test_mode:
+            skipped.append({"email": em, "reason": f"tier={row_tier} — personal outreach only, use /api/prospects/priority"})
+            continue
         profile = _row_to_profile(row)
 
         # Merge intel summary when available
@@ -1479,9 +1562,17 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
             continue
 
         meta = built.get("meta") or {}
+        # Test mode: redirect every email to Nelson's personal inbox for template
+        # verification. Subject is tagged "[TEST -> original@domain.com]" so
+        # Nelson can see which recipient would have received each message.
+        actual_to = em
+        subject_out = built.get("subject", "")
+        if req.test_mode:
+            actual_to = (req.test_to_email or "huynhyohan@gmail.com").strip().lower()
+            subject_out = f"[TEST -> {em}] {subject_out}"
         emails_out.append({
-            "cnee_email": em,
-            "subject": built.get("subject", ""),
+            "cnee_email": actual_to,
+            "subject": subject_out,
             "html_body": built.get("html_body", ""),
             "tier": profile.get("tier") or "",
             "priority_score": int(profile.get("priority_score") or 0),
@@ -1489,6 +1580,8 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
             "meta_json": {
                 **meta,
                 "dry_run": bool(req.dry_run),
+                "test_mode": bool(req.test_mode),
+                "original_recipient": em if req.test_mode else None,
                 "profile_first_name": profile.get("first_name"),
             },
         })

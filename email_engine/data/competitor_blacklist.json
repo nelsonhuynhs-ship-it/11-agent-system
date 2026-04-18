@@ -1,0 +1,42 @@
+{
+  "_meta": {
+    "purpose": "Competitor forwarders / brokers. Filter these domains + emails BEFORE merging Panjiva / scraped data into cnee_master. Never prospect competitors — they will forward our rates to their sales team.",
+    "version": 1,
+    "usage": "On any new CNEE import (Panjiva, Bloomberg, scraped), match email domain against 'domains' list and full email against 'emails' list. Drop matches before writing to cnee_master_v2.xlsx."
+  },
+  "domains": [
+    "flexport.com",
+    "seacomsc.com",
+    "fortrans.com",
+    "apllogistics.com",
+    "dhl.com",
+    "dbschenker.com",
+    "kuehne-nagel.com",
+    "expeditors.com",
+    "damco.com",
+    "ceva.com",
+    "geodis.com",
+    "nippon-express.com",
+    "yusen-logistics.com",
+    "bollore-logistics.com",
+    "logistics.com",
+    "freightamigo.com",
+    "shipbob.com",
+    "cargoflip.com",
+    "pudong-logistics.com",
+    "ocean-worldwide.com",
+    "usfreightways.com"
+  ],
+  "emails": [
+  ],
+  "keywords_in_company": [
+    "FORWARDER",
+    "FREIGHT FORWARDER",
+    "LOGISTICS INTERNATIONAL",
+    "NVOCC",
+    "3PL",
+    "4PL",
+    "SHIPPING LINE",
+    "CUSTOMS BROKER"
+  ]
+}
