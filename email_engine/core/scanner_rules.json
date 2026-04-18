@@ -60,6 +60,13 @@
       "notify_on_error": true,
       "auto_cleanup_processed": true,
       "per_customer_parquet": true
+    },
+    "nelson_customer_sort": {
+      "enabled": false,
+      "description": "Move khách Nelson emails (8 customers) to DIRECT/FW folders — Pass 2 after MenteeSort",
+      "timeout_seconds": 120,
+      "notify_on_error": true,
+      "_note": "Enable after dry-run test passes. Set enabled=true to activate."
     }
   },
   "notifications": {

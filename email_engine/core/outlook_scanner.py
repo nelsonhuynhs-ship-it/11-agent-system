@@ -175,12 +175,40 @@ def run_knowledge_ingest(config: dict, dry_run: bool = False) -> dict:
         return {"status": "error", "error": str(e)}
 
 
+def run_nelson_customer_sort(config: dict, dry_run: bool = False) -> dict:
+    """Run Nelson Customer Sort — move khách Nelson emails to DIRECT/FW folders."""
+    if dry_run:
+        # In dry-run mode we still call the sorter with dry_run=True so it
+        # logs "Would move" lines without touching the mailbox.
+        pass
+
+    try:
+        from nelson_customer_sort import run as sort_run
+        result = sort_run(dry_run=dry_run)
+
+        if result.get("status") == "error":
+            return {"status": "error", "error": result.get("error", "unknown")}
+
+        return {
+            "status": "dry_run" if dry_run else "ok",
+            "moved_direct":  result.get("moved_direct", 0),
+            "moved_fw":      result.get("moved_fw", 0),
+            "skipped":       result.get("skipped", 0),
+            "errors":        result.get("errors", 0),
+            "total_scanned": result.get("total_scanned", 0),
+        }
+    except Exception as e:
+        log.error("[nelson_customer_sort] Error: %s\n%s", e, traceback.format_exc())
+        return {"status": "error", "error": str(e)}
+
+
 # Job name → runner function mapping
 _JOB_RUNNERS = {
-    "mentee_classification": run_mentee_classification,
-    "pricing_import":        run_pricing_import,
-    "shipment_brain":        run_shipment_brain,
-    "knowledge_ingest":      run_knowledge_ingest,
+    "mentee_classification":  run_mentee_classification,
+    "pricing_import":         run_pricing_import,
+    "shipment_brain":         run_shipment_brain,
+    "knowledge_ingest":       run_knowledge_ingest,
+    "nelson_customer_sort":   run_nelson_customer_sort,
 }
 
 
@@ -285,6 +313,15 @@ def send_telegram_summary(results: dict, rules: dict) -> bool:
             total = result.get("total_emails", 0)
             custs = len(result.get("customers_updated", []))
             detail = f" | +{new_e} emails, {total} total, {custs} customers"
+
+        elif job_name == "nelson_customer_sort" and status == "ok":
+            direct = result.get("moved_direct", 0)
+            fw     = result.get("moved_fw", 0)
+            moved  = direct + fw
+            if moved > 0:
+                detail = f" | {moved} moved (DIRECT:{direct} FW:{fw})"
+            else:
+                detail = " | No emails to sort"
 
         if status == "error":
             err = result.get("error", "unknown")[:60]

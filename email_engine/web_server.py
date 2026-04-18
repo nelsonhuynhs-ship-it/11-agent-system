@@ -2095,6 +2095,20 @@ def scanner_status():
         return {"scheduler_running": False, "jobs": [], "error": str(e)}
 
 
+# ============================================================================
+# PHASE 03 — SHIPMENT BRAIN RETRIEVAL ROUTER (R3)
+# ============================================================================
+# Mounts /api/shipment/* endpoints.  Depends on Phase 02 (shipment_db, llm_client).
+# If Phase 02 is not yet deployed the import below silently skips and individual
+# endpoint calls return HTTP 503 with a helpful message.
+try:
+    from email_engine.api.shipment_brief import router as _shipment_brief_router
+    app.include_router(_shipment_brief_router)
+    log.info("[R3] shipment_brief router mounted (/api/shipment/*)")
+except ImportError as _e:
+    log.warning(f"[R3] shipment_brief router unavailable: {_e}")
+
+
 if __name__ == "__main__":
     import uvicorn
     log.info(f"Parquet: {PARQUET_FILE} (exists={PARQUET_FILE.exists()})")
