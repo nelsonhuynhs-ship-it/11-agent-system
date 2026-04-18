@@ -170,6 +170,96 @@ def _load_competitor_blacklist() -> dict:
 COMPETITOR_BL = _load_competitor_blacklist()
 log.info(f"Competitor blacklist: {len(COMPETITOR_BL['domains'])} domains, {len(COMPETITOR_BL['emails'])} emails, {len(COMPETITOR_BL['keywords'])} keywords")
 
+# ── Destination text → POD code resolver (Panjiva cleanup) ───────────────────
+# CNEE DESTINATION column often stores verbose text like
+# "The Port of Los Angeles, Los Angeles, California" — 3 comma-separated tokens
+# all pointing to the same port. auto_rate_builder needs canonical POD codes
+# (USLAX, USSAV, ...) to query Parquet. Without normalization it tries to match
+# literal "CALIFORNIA" which doesn't exist -> "No rates available for this lane".
+_CITY_TO_POD = {
+    # West Coast
+    "LOS ANGELES": "USLAX", "LONG BEACH": "USLAX", "LAX": "USLAX", "LGB": "USLAX",
+    "OAKLAND": "USOAK",
+    "SEATTLE": "USSEA", "TACOMA": "USTIW",
+    "SAN FRANCISCO": "USOAK",
+    "PORTLAND": "USPDX",
+    # East Coast / North East
+    "NEW YORK": "USNYC", "NEWARK": "USNYC", "NEW JERSEY": "USNYC", "NYC": "USNYC", "JFK": "USNYC",
+    "BALTIMORE": "USBAL", "PHILADELPHIA": "USPHL", "BOSTON": "USBOS", "NORFOLK": "USORF",
+    "VIRGINIA": "USORF",
+    # South East
+    "SAVANNAH": "USSAV", "CHARLESTON": "USCHS", "JACKSONVILLE": "USJAX",
+    "MIAMI": "USMIA", "PORT EVERGLADES": "USMIA", "FORT LAUDERDALE": "USMIA",
+    "TAMPA": "USTPA",
+    # Gulf
+    "HOUSTON": "USHOU", "NEW ORLEANS": "USMSY", "MOBILE": "USMOB",
+    # Inland
+    "CHICAGO": "USCHI", "ILLINOIS": "USCHI",
+    "DALLAS": "USDAL", "FORT WORTH": "USDAL",
+    "MEMPHIS": "USMEM",
+    "ATLANTA": "USATL",
+    "CINCINNATI": "USCVG",
+    "DETROIT": "USDTW",
+    "KANSAS CITY": "USMCI",
+    "LOUISVILLE": "USSDF",
+    "SALT LAKE CITY": "USSLC",
+    "OMAHA": "USOMA",
+    # Canada
+    "VANCOUVER": "CAVAN",
+    "MONTREAL": "CAMTR",
+    "TORONTO": "CATOR",
+    "HALIFAX": "CAHAL",
+    "PRINCE RUPERT": "CAPRR",
+}
+# Blocked tokens — state names / country names that must NOT become PODs.
+_DEST_JUNK_TOKENS = {
+    "CALIFORNIA", "CA", "TEXAS", "TX", "FLORIDA", "FL", "GEORGIA", "GA",
+    "WASHINGTON", "WA", "NEW YORK STATE", "MARYLAND", "MD", "OHIO", "OH",
+    "TENNESSEE", "TN", "KENTUCKY", "KY", "MISSOURI", "MO", "MICHIGAN", "MI",
+    "UTAH", "UT", "NEBRASKA", "NE", "ILLINOIS STATE", "NEW JERSEY STATE",
+    "SOUTH CAROLINA", "SC", "NORTH CAROLINA", "NC", "PENNSYLVANIA", "PA",
+    "MASSACHUSETTS", "MA", "VIRGINIA STATE", "LOUISIANA", "LA STATE",
+    "PUERTO RICO", "CANADA", "USA", "US", "UNITED STATES",
+    "AIRPORT", "SEAPORT", "INTERNATIONAL", "PORT OF ENTRY", "SERVICE PORT",
+    "THE PORT OF", "PORT OF", "PORT OF ENTRY-",
+}
+
+def _normalize_dest_text(text: str) -> list[str]:
+    """Convert CNEE.DESTINATION text → ordered unique POD codes.
+
+    Handles: 'The Port of Los Angeles, Los Angeles, California' → ['USLAX']
+    Handles: 'USCHI' (already a code)                           → ['USCHI']
+    Handles: 'New York/Newark Area, Newark, New Jersey'         → ['USNYC']
+    """
+    if not text or str(text).strip().lower() in ("", "nan", "none"):
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    # Split on comma, semicolon, slash
+    parts = [p.strip() for p in str(text).replace(";", ",").replace("/", ",").split(",")]
+    for part in parts:
+        token = part.strip().upper()
+        if not token or token.lower() in ("nan", "none"):
+            continue
+        # Already a port code (e.g. USLAX, CAVAN) — keep as-is
+        if len(token) == 5 and token[:2].isalpha() and token[2:].isalpha():
+            code = token
+        elif token in _DEST_JUNK_TOKENS:
+            continue
+        else:
+            # Try to find a city keyword inside the token (case-insensitive)
+            code = None
+            for city, pod in _CITY_TO_POD.items():
+                if city in token:
+                    code = pod
+                    break
+            if not code:
+                continue
+        if code not in seen:
+            seen.add(code)
+            out.append(code)
+    return out
+
 def is_competitor(email: str, company: str = "") -> tuple[bool, str]:
     """Return (True, reason) if email belongs to a competitor, else (False, '')."""
     em = (email or "").lower().strip()
@@ -1532,13 +1622,7 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
         row_dest = str(row.get("DESTINATION") or "").strip()
         if row_dest.lower() in ("nan", "none"):
             row_dest = ""
-        dests: list[str] = []
-        if row_dest:
-            dests = [
-                d.strip().upper()
-                for d in row_dest.replace(";", ",").split(",")
-                if d.strip() and d.strip().lower() not in ("nan", "none")
-            ]
+        dests: list[str] = _normalize_dest_text(row_dest)
         if not dests and requested_dests:
             dests = [d for d in requested_dests if d.upper() not in ("NAN", "NONE")]
         if not dests:
