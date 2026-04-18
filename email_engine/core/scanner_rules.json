@@ -62,11 +62,11 @@
       "per_customer_parquet": true
     },
     "nelson_customer_sort": {
-      "enabled": false,
-      "description": "Move khách Nelson emails (8 customers) to DIRECT/FW folders — Pass 2 after MenteeSort",
+      "enabled": true,
+      "description": "Move khách Nelson emails (59 customers) to DIRECT/FWD/CNEE folders — Pass 2 after MenteeSort",
       "timeout_seconds": 120,
       "notify_on_error": true,
-      "_note": "Enable after dry-run test passes. Set enabled=true to activate."
+      "_note": "LIVE since 2026-04-18 21:00 — verified 25/25 correct on first run. 3 bug fixes applied (folder path, gmail domain, FWD vs FW)."
     }
   },
   "notifications": {
