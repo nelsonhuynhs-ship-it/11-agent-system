@@ -83,6 +83,9 @@ Private m_BulkOutputPath As String
 
 ' Constants
 Private Const DATA_START_ROW As Integer = 2
+' Row where Quotes data begins (rows 1-3 = KPI dashboard, row 4 = header)
+Private Const QUOTES_DATA_START As Long = 5
+Private Const QUOTES_HEADER_ROW As Long = 4
 Private Const COL_POL As Integer = 1
 Private Const COL_POD As Integer = 2
 Private Const COL_PLACE As Integer = 3
@@ -1145,8 +1148,8 @@ Public Sub OnAction_GenerateQuote(Optional control As IRibbonControl = Nothing)
         Exit Sub
     End If
 
-    ' Ensure headers exist
-    If IsEmpty(wsQ.Cells(1, 1).Value) Then
+    ' Ensure headers exist at QUOTES_HEADER_ROW (row 4 — below KPI rows 1-3)
+    If IsEmpty(wsQ.Cells(QUOTES_HEADER_ROW, 1).Value) Then
         Dim h As Variant
         h = Array("QuoteID", "Date", "Customer", "Carrier", "POL", "POD", _
                   "Place", "Via", "Eff", "Exp", "Source", _
@@ -1156,23 +1159,28 @@ Public Sub OnAction_GenerateQuote(Optional control As IRibbonControl = Nothing)
                   "Sell_20GP", "Sell_40GP", "Sell_40HC", "Sell_45HC", "Sell_40NOR", "Sell_20RF", "Sell_40RF", _
                   "Status", "Remark", "StatusDate")
         Dim hi As Integer
-        For hi = 0 To UBound(h): wsQ.Cells(1, hi + 1).Value = h(hi): Next hi
-        wsQ.Range("A1:AL1").Font.Bold = True
+        For hi = 0 To UBound(h): wsQ.Cells(QUOTES_HEADER_ROW, hi + 1).Value = h(hi): Next hi
+        wsQ.Range("A" & QUOTES_HEADER_ROW & ":AL" & QUOTES_HEADER_ROW).Font.Bold = True
     End If
 
     ' Generate Quote ID + QuoteGroupID
     Dim qid As String
     qid = UCase(Format(Date, "DDMMM")) & "-" & Format(Int((999 - 100 + 1) * Rnd + 100), "000")
-    Dim nr As Long: nr = wsQ.Cells(wsQ.Rows.Count, 1).End(xlUp).Row + 1
-    If nr < 2 Then nr = 2
+
+    ' Insert a blank row at QUOTES_DATA_START (row 5), pushing all existing data down.
+    ' This keeps newest quotes at the top so Nelson never has to scroll down.
+    wsQ.Rows(QUOTES_DATA_START).Insert Shift:=xlDown, CopyOrigin:=xlFormatFromLeftOrAbove
+    Dim nr As Long: nr = QUOTES_DATA_START
 
     ' QuoteGroupID: same group while same customer in same session
-    ' Stored in col 43 (AQ). Reuse last group if same customer + same day
+    ' Stored in col 43 (AQ). After insert-at-top the previous quote now lives at
+    ' row QUOTES_DATA_START + 1 (it was just shifted down by one).
     Dim qgid As String: qgid = ""
-    If nr > 2 Then
-        Dim prevCust As String: prevCust = UCase(Trim(wsQ.Cells(nr - 1, 3).Value))
-        Dim prevDate As String: prevDate = Format(wsQ.Cells(nr - 1, 2).Value, "DDMMM")
-        Dim prevGid As String: prevGid = Trim(wsQ.Cells(nr - 1, 43).Value)
+    Dim prevCheckRow As Long: prevCheckRow = QUOTES_DATA_START + 1
+    If Not IsEmpty(wsQ.Cells(prevCheckRow, 1).Value) Then
+        Dim prevCust As String: prevCust = UCase(Trim(wsQ.Cells(prevCheckRow, 3).Value))
+        Dim prevDate As String: prevDate = Format(wsQ.Cells(prevCheckRow, 2).Value, "DDMMM")
+        Dim prevGid As String: prevGid = Trim(wsQ.Cells(prevCheckRow, 43).Value)
         If prevCust = UCase(Trim(m_Customer)) And prevDate = UCase(Format(Date, "DDMMM")) And prevGid <> "" Then
             qgid = prevGid  ' reuse same group
         End If
@@ -1345,8 +1353,13 @@ Public Sub OnAction_GenerateQuoteBatch(Optional control As IRibbonControl = Noth
     Dim qgid As String
     qgid = "QG-" & UCase(Format(Date, "DDMMM")) & "-" & Format(Int((99 - 10 + 1) * Rnd + 10), "00")
 
-    Dim nr As Long: nr = wsQ.Cells(wsQ.Rows.Count, 1).End(xlUp).Row + 1
-    If nr < 2 Then nr = 2
+    ' Insert rowCount blank rows at QUOTES_DATA_START in one operation (faster,
+    ' less flicker than inserting one row per quote).  After this block, rows
+    ' QUOTES_DATA_START .. QUOTES_DATA_START+rowCount-1 are blank and ready to
+    ' receive the batch data; existing data has been shifted down by rowCount.
+    wsQ.Rows(QUOTES_DATA_START & ":" & QUOTES_DATA_START + rowCount - 1).Insert _
+        Shift:=xlDown, CopyOrigin:=xlFormatFromLeftOrAbove
+    Dim nr As Long: nr = QUOTES_DATA_START
 
     Dim writtenCount As Long: writtenCount = 0
     Dim skippedNoRate As Long: skippedNoRate = 0
@@ -1448,6 +1461,15 @@ Public Sub OnAction_GenerateQuoteBatch(Optional control As IRibbonControl = Noth
 ContinueRow:
     Next i
 
+    ' Remove blank rows that were pre-inserted but not used (skipped rows).
+    ' nr now points to the first unused inserted row; rows from nr to
+    ' QUOTES_DATA_START + rowCount - 1 are blank and must be deleted.
+    Dim unusedStart As Long: unusedStart = nr
+    Dim unusedEnd As Long: unusedEnd = QUOTES_DATA_START + rowCount - 1
+    If unusedStart <= unusedEnd Then
+        wsQ.Rows(unusedStart & ":" & unusedEnd).Delete Shift:=xlUp
+    End If
+
     Application.ScreenUpdating = True
 
     Dim msg As String
@@ -1472,7 +1494,8 @@ End Sub
 
 ' Shared helper — used by both single and batch Generate Quote flows.
 Private Sub EnsureQuotesHeaders(wsQ As Worksheet)
-    If Not IsEmpty(wsQ.Cells(1, 1).Value) Then Exit Sub
+    ' Headers live at QUOTES_HEADER_ROW (row 4) — KPI occupies rows 1-3.
+    If Not IsEmpty(wsQ.Cells(QUOTES_HEADER_ROW, 1).Value) Then Exit Sub
     Dim h As Variant
     h = Array("QuoteID", "Date", "Customer", "Carrier", "POL", "POD", _
               "Place", "Via", "Eff", "Exp", "Source", _
@@ -1482,8 +1505,8 @@ Private Sub EnsureQuotesHeaders(wsQ As Worksheet)
               "Sell_20GP", "Sell_40GP", "Sell_40HC", "Sell_45HC", "Sell_40NOR", "Sell_20RF", "Sell_40RF", _
               "Status", "Remark", "StatusDate")
     Dim hi As Integer
-    For hi = 0 To UBound(h): wsQ.Cells(1, hi + 1).Value = h(hi): Next hi
-    wsQ.Range("A1:AL1").Font.Bold = True
+    For hi = 0 To UBound(h): wsQ.Cells(QUOTES_HEADER_ROW, hi + 1).Value = h(hi): Next hi
+    wsQ.Range("A" & QUOTES_HEADER_ROW & ":AL" & QUOTES_HEADER_ROW).Font.Bold = True
 End Sub
 
 ' PUC lookup that outputs via ByRef params without mutating m_PUC* state.
