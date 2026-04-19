@@ -6,6 +6,14 @@ from typing import List, Optional
 
 BASE_DIR = Path(__file__).parent
 ENGINE_TEST = BASE_DIR.parent
+
+# Load .env early so LLM keys + SMTP creds available to all downstream modules.
+try:
+    from dotenv import load_dotenv as _load_dotenv
+    _load_dotenv(BASE_DIR / ".env", override=False)
+    _load_dotenv(ENGINE_TEST / "api" / ".env", override=False)
+except ImportError:
+    pass
 # Order matters: core/ has a file 'email_engine.py' that shadows the package
 # if placed before root. Insert root LAST so it wins (ends up at path[0]).
 sys.path.insert(0, str(BASE_DIR / "core"))

@@ -39,7 +39,7 @@ log = logging.getLogger(__name__)
 
 # ── MiniMax endpoint (reuse same config as llm_client.py) ────────────────────
 _DEFAULT_ENDPOINT = "https://api.minimax.io/v1/text/chatcompletion_v2"
-_MODEL = "MiniMax-Text-01"
+_MODEL = os.environ.get("MINIMAX_MODEL", "MiniMax-M2")  # Nelson key supports M2
 _MAX_RETRIES = 3
 _BACKOFF_BASE = 2.0
 

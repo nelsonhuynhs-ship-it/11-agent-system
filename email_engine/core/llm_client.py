@@ -32,7 +32,7 @@ log = logging.getLogger(__name__)
 
 # ─── MiniMax endpoint ─────────────────────────────────────────────────────────
 _DEFAULT_ENDPOINT = "https://api.minimax.io/v1/text/chatcompletion_v2"
-_MODEL = "MiniMax-Text-01"   # MiniMax 2.7 model slug (update if vendor renames)
+_MODEL = os.environ.get("MINIMAX_MODEL", "MiniMax-M2")  # Nelson key supports M2
 
 # ─── Retry config ─────────────────────────────────────────────────────────────
 _MAX_RETRIES = 3

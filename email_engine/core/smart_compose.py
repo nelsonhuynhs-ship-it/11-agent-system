@@ -45,7 +45,7 @@ _CNEE_MASTER_V2 = _ONEDRIVE_EMAIL / "cnee_master_v2_final.xlsx"
 
 # ─── LLM config (reuse llm_client pattern) ────────────────────────────────────
 _DEFAULT_ENDPOINT = "https://api.minimax.io/v1/text/chatcompletion_v2"
-_MODEL = "MiniMax-Text-01"
+_MODEL = os.environ.get("MINIMAX_MODEL", "MiniMax-M2")  # Nelson key supports M2
 _MAX_TOKENS = 800
 _TEMPERATURE = 0.4
 _HTTP_TIMEOUT = 40  # seconds
