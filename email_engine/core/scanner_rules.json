@@ -67,6 +67,26 @@
       "timeout_seconds": 120,
       "notify_on_error": true,
       "_note": "LIVE since 2026-04-18 21:00 — verified 25/25 correct on first run. 3 bug fixes applied (folder path, gmail domain, FWD vs FW)."
+    },
+    "reply_processing": {
+      "enabled": true,
+      "description": "Scan Outlook Inbox — process real replies, bounces, auto-replies from CNEE prospects. Calls inbox_scanner.run_scan().",
+      "timeout_seconds": 120,
+      "notify_on_error": true,
+      "_note": "Job #6 — wired 2026-04-19. Code in handlers.py was written but never called from scheduler."
+    },
+    "panjiva_weekly_check": {
+      "enabled": false,
+      "description": "Monday 06:00 — scan data_panjiva/incoming/ for new .xlsx files, run panjiva_clean pipeline automatically",
+      "timeout_seconds": 300,
+      "notify_on_error": true,
+      "schedule_override": {
+        "day_of_week": "monday",
+        "hour": 6,
+        "minute": 0
+      },
+      "source_tag_prefix": "PANJIVA_AUTO",
+      "_note": "Disabled by default. Enable when you want Monday auto-import. Upload via /api/panjiva/upload for manual runs."
     }
   },
   "notifications": {

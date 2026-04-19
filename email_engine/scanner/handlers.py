@@ -113,6 +113,107 @@ except Exception:
         return {"sentiment": "UNKNOWN", "intent": "general", "confidence": 0.0}
 
 
+# CNEE Memory vault (A1 — added 2026-04-19)
+try:
+    from email_engine.core.cnee_memory import append_event as _mem_append  # type: ignore
+    _CNEE_MEMORY_AVAILABLE = True
+except Exception:
+    _CNEE_MEMORY_AVAILABLE = False
+    def _mem_append(*args, **kwargs) -> bool:  # type: ignore
+        return False
+
+# LLM structured reply extractor (A1 — added 2026-04-19)
+try:
+    from email_engine.core.llm_extract_reply import extract_reply_context as _llm_extract  # type: ignore
+    _LLM_EXTRACT_AVAILABLE = True
+except Exception:
+    _LLM_EXTRACT_AVAILABLE = False
+    def _llm_extract(subject: str, body: str, cnee_email: str = "") -> dict:  # type: ignore
+        return {}
+
+
+# customer_rules.json for preference enrichment
+import json as _json_mod
+import pathlib as _pathlib_mod
+
+_CUSTOMER_RULES_PATH = _pathlib_mod.Path(__file__).parent.parent / "data" / "customer_rules.json"
+
+
+def _load_customer_rules() -> dict:
+    """Load customer_rules.json. Returns {} on any error."""
+    try:
+        return _json_mod.loads(_CUSTOMER_RULES_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _save_customer_rules(rules: dict) -> bool:
+    """Write customer_rules.json atomically. Returns success flag."""
+    try:
+        _CUSTOMER_RULES_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp = _CUSTOMER_RULES_PATH.with_suffix(".json.tmp")
+        tmp.write_text(_json_mod.dumps(rules, indent=2, ensure_ascii=False), encoding="utf-8")
+        import os as _os
+        _os.replace(tmp, _CUSTOMER_RULES_PATH)
+        return True
+    except Exception as exc:
+        log.warning("_save_customer_rules failed: %s", exc)
+        return False
+
+
+def _merge_cnee_preferences(cnee_email: str, structured: dict) -> None:
+    """If CNEE is a known customer (matched by seen_senders), enrich their
+    preferred_pods / preferred_carriers in customer_rules.json.
+    Skips silently if not found (prospect-only flow handled by vault).
+    """
+    if not structured or not cnee_email:
+        return
+    pods = structured.get("preferred_pods") or []
+    carriers = structured.get("preferred_carriers") or []
+    if not pods and not carriers:
+        return
+
+    try:
+        rules = _load_customer_rules()
+        customers = rules.get("customers", {})
+        matched_key = None
+
+        # Search for matching customer by seen_senders list
+        for key, cust_data in customers.items():
+            senders = cust_data.get("seen_senders", [])
+            if any(s.lower().strip() == cnee_email.lower().strip() for s in senders):
+                matched_key = key
+                break
+
+        if not matched_key:
+            return  # prospect — handled by vault only
+
+        cust = customers[matched_key]
+        changed = False
+
+        if pods:
+            existing_pods = set(cust.get("preferred_pods", []))
+            new_pods = existing_pods | set(pods)
+            if new_pods != existing_pods:
+                cust["preferred_pods"] = sorted(new_pods)
+                changed = True
+
+        if carriers:
+            existing_carriers = set(cust.get("preferred_carriers", []))
+            new_carriers = existing_carriers | set(carriers)
+            if new_carriers != existing_carriers:
+                cust["preferred_carriers"] = sorted(new_carriers)
+                changed = True
+
+        if changed:
+            rules["customers"][matched_key] = cust
+            if _save_customer_rules(rules):
+                log.info("customer_rules enriched for %s: pods=%s carriers=%s",
+                         matched_key, pods, carriers)
+    except Exception as exc:
+        log.warning("_merge_cnee_preferences error: %s", exc)
+
+
 # -------------------------------------------------------------------
 # Public helpers
 # -------------------------------------------------------------------
@@ -197,6 +298,19 @@ def handle_bounce(item: Any, bounced_email: str) -> None:
         },
     )
 
+    # === A1 BEGIN — CNEE Memory bounce trace ===
+    try:
+        _mem_append(
+            cnee_email=target,
+            event_type="BOUNCED",
+            structured={"severity": severity},
+            narrative=f"Email bounced ({severity}). Subject: {subject[:120]}",
+            source_msg_id=str(getattr(item, "EntryID", "") or "") or None,
+        )
+    except Exception as exc:
+        log.warning("handle_bounce vault error: %s", exc)
+    # === A1 END ===
+
     tg.send_alert(
         f"<b>Bounce ({severity})</b>\n{target}\n<i>{subject[:140]}</i>"
     )
@@ -269,6 +383,47 @@ def handle_real_reply(item: Any, cnee_row: dict) -> None:
             **({"ACTION": decision["action"]} if decision.get("action") else {}),
         },
     )
+
+    # === A1 BEGIN — CNEE Memory + LLM extract ===
+    try:
+        # LLM structured extraction
+        llm_structured: dict = {}
+        if _LLM_EXTRACT_AVAILABLE:
+            llm_result = _llm_extract(subject, body, cnee_email=email)
+            if llm_result:
+                llm_structured = llm_result
+
+        # Override with basic fields from rule-based analysis
+        structured_for_vault = dict(llm_structured)
+        structured_for_vault["intent"] = intent
+        structured_for_vault["sentiment"] = sentiment
+        structured_for_vault["confidence"] = round(confidence, 3)
+
+        # Build narrative summary
+        narrative = (
+            f"Intent: {intent} · Sentiment: {sentiment} · Confidence: {confidence:.0%}"
+        )
+        if llm_structured.get("urgency"):
+            narrative += f" · Urgency: {llm_structured['urgency']}"
+        if llm_structured.get("volume_est"):
+            narrative += f" · Volume: {llm_structured['volume_est']}"
+
+        # Write to vault
+        msg_id = str(getattr(item, "EntryID", "") or "")
+        _mem_append(
+            cnee_email=email,
+            event_type="REPLIED",
+            structured=structured_for_vault,
+            narrative=narrative,
+            source_msg_id=msg_id or None,
+        )
+
+        # Enrich customer_rules.json if known customer
+        _merge_cnee_preferences(email, llm_structured)
+
+    except Exception as exc:
+        log.warning("handle_real_reply vault/LLM error: %s", exc)
+    # === A1 END ===
 
     # Hot-lead alert for booking / negotiating / price inquiry
     if intent in ("booking_intent", "negotiating", "price_inquiry"):

@@ -175,6 +175,33 @@ def run_knowledge_ingest(config: dict, dry_run: bool = False) -> dict:
         return {"status": "error", "error": str(e)}
 
 
+def run_reply_processing(config: dict, dry_run: bool = False) -> dict:
+    """Run inbox reply/bounce scanner — calls inbox_scanner.run_scan().
+
+    This is job #6. Processes real replies, bounces, auto-replies from the
+    Outlook Inbox so that handle_real_reply + handle_bounce actually execute
+    every 30 min (the code existed but was never wired into the scheduler).
+    """
+    if dry_run:
+        return {"status": "dry_run", "description": config["description"]}
+
+    try:
+        from email_engine.scanner.inbox_scanner import run_scan  # type: ignore
+        result = run_scan()
+        return {
+            "status": "ok",
+            "scanned":      result.get("scanned", 0),
+            "bounces":      result.get("bounces", 0),
+            "real_replies": result.get("real_replies", 0),
+            "auto_replies": result.get("auto_replies", 0),
+            "unsubs":       result.get("unsubs", 0),
+            "errors":       result.get("errors", 0),
+        }
+    except Exception as e:
+        log.error("[reply_processing] Error: %s\n%s", e, traceback.format_exc())
+        return {"status": "error", "error": str(e)}
+
+
 def run_nelson_customer_sort(config: dict, dry_run: bool = False) -> dict:
     """Run Nelson Customer Sort — move khách Nelson emails to DIRECT/FW folders."""
     if dry_run:
@@ -209,6 +236,7 @@ _JOB_RUNNERS = {
     "shipment_brain":         run_shipment_brain,
     "knowledge_ingest":       run_knowledge_ingest,
     "nelson_customer_sort":   run_nelson_customer_sort,
+    "reply_processing":       run_reply_processing,   # job #6 — inbox reply/bounce handler
 }
 
 
@@ -322,6 +350,15 @@ def send_telegram_summary(results: dict, rules: dict) -> bool:
                 detail = f" | {moved} moved (DIRECT:{direct} FW:{fw})"
             else:
                 detail = " | No emails to sort"
+
+        elif job_name == "reply_processing" and status == "ok":
+            scanned = result.get("scanned", 0)
+            bounces = result.get("bounces", 0)
+            replies = result.get("real_replies", 0)
+            if scanned > 0:
+                detail = f" | {scanned} scanned · {replies} replies · {bounces} bounces"
+            else:
+                detail = " | Inbox quiet"
 
         if status == "error":
             err = result.get("error", "unknown")[:60]

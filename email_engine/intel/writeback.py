@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_MASTER_PATH = os.environ.get(
     "INTEL_MASTER_V2_PATH",
-    r"D:/OneDrive/NelsonData/email/cnee_master_v2.xlsx",
+    r"D:/OneDrive/NelsonData/email/cnee_master_v2_final.xlsx",  # canonical 22K-row file
 )
 EMAIL_COLUMN = "EMAIL"
 
