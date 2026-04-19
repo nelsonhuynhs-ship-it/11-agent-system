@@ -2173,10 +2173,19 @@ except ImportError as _e:
 
 
 if __name__ == "__main__":
+    # pythonw.exe (no console) has sys.stdout/stderr = None → uvicorn's default
+    # log formatter crashes on sys.stdout.isatty(). Redirect to devnull so
+    # pythonw can run web_server headless (for hidden-window launch via bat).
+    import sys as _sys, os as _os
+    if _sys.stdout is None:
+        _sys.stdout = open(_os.devnull, "w", encoding="utf-8")
+    if _sys.stderr is None:
+        _sys.stderr = open(_os.devnull, "w", encoding="utf-8")
+
     import uvicorn
     log.info(f"Parquet: {PARQUET_FILE} (exists={PARQUET_FILE.exists()})")
     log.info(f"Contacts: {len(df_contacts)} | Campaigns: {df_contacts['CMD_NAME'].nunique()}")
     print("\n" + "=" * 50)
-    print("  EMAIL DASHBOARD v4 — http://localhost:8100")
+    print("  EMAIL DASHBOARD v5 — http://localhost:8100")
     print("=" * 50 + "\n")
     uvicorn.run(app, host="0.0.0.0", port=8100, log_level="info")
