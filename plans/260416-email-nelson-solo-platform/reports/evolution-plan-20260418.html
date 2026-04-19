@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nelson Freight — Dashboard v5 Evolution Plan · 2026-04-18</title>
+<style>
+  :root {
+    --paper: #FAF8F5; --sumi: #1A1A1A; --accent: #B8572F;
+    --line: #E8E3DA; --muted: #6B6560; --good: #2D6A4F; --warn: #B8572F;
+    --card: #FFFFFF; --skip: #B8572F; --defer: #9B7B3A; --go: #2D6A4F;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--sumi);
+    font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+    line-height: 1.6; font-size: 15px;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 56px 32px 96px; }
+  header { border-bottom: 1px solid var(--line); padding-bottom: 24px; margin-bottom: 40px; }
+  .brand { font-family: 'Noto Serif JP', 'Georgia', serif; font-size: 13px; letter-spacing: .2em; color: var(--muted); text-transform: uppercase; }
+  h1 { font-family: 'Noto Serif JP', 'Georgia', serif; font-size: 34px; font-weight: 400; margin: 8px 0 4px; letter-spacing: -.01em; }
+  .subtitle { color: var(--muted); font-size: 14px; }
+  .date { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); }
+
+  section { margin-bottom: 48px; }
+  h2 { font-family: 'Noto Serif JP', 'Georgia', serif; font-size: 24px; font-weight: 400; margin: 0 0 8px; }
+  h2 .kanji { color: var(--accent); margin-right: 12px; font-size: 20px; }
+  h3 { font-size: 17px; font-weight: 600; margin: 24px 0 8px; }
+  .section-sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+
+  .tldr { background: var(--card); border: 1px solid var(--line); border-radius: 2px; padding: 24px; }
+  .tldr-row { display: flex; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
+  .tldr-row:last-child { border-bottom: none; }
+  .tldr-topic { flex: 0 0 160px; font-weight: 600; }
+  .tldr-verdict { flex: 0 0 90px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; letter-spacing: .1em; }
+  .tldr-verdict.skip { color: var(--skip); }
+  .tldr-verdict.defer { color: var(--defer); }
+  .tldr-verdict.go { color: var(--go); }
+  .tldr-why { flex: 1; color: var(--muted); font-size: 14px; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 2px; padding: 24px; margin-bottom: 16px; }
+  .verdict-pill { display: inline-block; padding: 4px 10px; border-radius: 2px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .1em; font-weight: 600; }
+  .verdict-pill.skip { background: rgba(184,87,47,.08); color: var(--skip); border: 1px solid var(--skip); }
+  .verdict-pill.defer { background: rgba(155,123,58,.08); color: var(--defer); border: 1px solid var(--defer); }
+  .verdict-pill.go { background: rgba(45,106,79,.08); color: var(--go); border: 1px solid var(--go); }
+
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 14px; }
+  th { font-size: 11px; letter-spacing: .1em; color: var(--muted); font-weight: 600; text-transform: uppercase; border-bottom: 2px solid var(--sumi); }
+  td.mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .fit-HIGH { color: var(--go); font-weight: 600; }
+  .fit-MEDIUM { color: var(--defer); font-weight: 600; }
+
+  ul { padding-left: 20px; }
+  li { margin: 6px 0; }
+  code { background: rgba(0,0,0,.04); padding: 2px 6px; border-radius: 2px; font-size: 13px; font-family: 'JetBrains Mono', monospace; }
+  pre { background: var(--sumi); color: #eee; padding: 16px; border-radius: 2px; overflow-x: auto; font-size: 12px; }
+  pre code { background: transparent; color: inherit; padding: 0; }
+
+  .callout { border-left: 3px solid var(--accent); padding: 12px 20px; background: rgba(184,87,47,.04); margin: 16px 0; font-size: 14px; }
+  .callout.info { border-color: var(--defer); background: rgba(155,123,58,.04); }
+  .callout.ok { border-color: var(--good); background: rgba(45,106,79,.04); }
+
+  .roadmap { display: grid; grid-template-columns: 100px 1fr; gap: 12px; margin: 16px 0; }
+  .roadmap-week { font-family: 'Noto Serif JP', serif; font-size: 14px; color: var(--accent); padding-top: 4px; }
+  .roadmap-body { border-left: 1px solid var(--line); padding-left: 20px; padding-bottom: 16px; }
+  .roadmap-body strong { display: block; margin-bottom: 4px; }
+  .roadmap-body ul { margin: 4px 0; }
+
+  footer { margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+  .muted { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand">NELSON FREIGHT · INTERNAL STRATEGY DOC</div>
+  <h1>Dashboard v5 — Evolution Plan</h1>
+  <div class="subtitle">Deep research verdict: MindsDB / Karpathy Second Brain / 5 bonus additions</div>
+  <div class="date">2026-04-18 · SAT · WEEK 17 · Post Phase A+B+C ship</div>
+</header>
+
+<section>
+  <h2><span class="kanji">要</span>TL;DR — 3 verdicts</h2>
+  <div class="tldr">
+    <div class="tldr-row">
+      <div class="tldr-topic">MindsDB for data cleaning</div>
+      <div class="tldr-verdict skip">SKIP</div>
+      <div class="tldr-why">4-6 GB Docker overhead cho task giải được bằng 50 dòng pyjanitor + rapidfuzz. Verdict không đổi sau re-eval MindsDB M25.</div>
+    </div>
+    <div class="tldr-row">
+      <div class="tldr-topic">Karpathy Second Brain</div>
+      <div class="tldr-verdict defer">DEFER</div>
+      <div class="tldr-why">Architecture đã proven (viral 4+ fork), nhưng 2-tháng-window cần tập trung sales. Prerequisite: bật <code>process_reply.py v3.0</code> để có reply data trước.</div>
+    </div>
+    <div class="tldr-row">
+      <div class="tldr-topic">3 bonus additions</div>
+      <div class="tldr-verdict go">GO NEXT</div>
+      <div class="tldr-why">Reply Auto-Drafter + Rate Anomaly Push + Panjiva Auto-Import — đều HIGH fit, mỗi cái ~30-60 dòng, phục vụ thẳng KPI 10 leads/tháng.</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="kanji">壱</span>Topic 1 — MindsDB for raw data cleaning</h2>
+  <div class="section-sub">Re-evaluation sau research 2026-04-16 (đã SKIP lần 1)</div>
+  <div class="card">
+    <div style="margin-bottom:12px"><span class="verdict-pill skip">VERDICT · SKIP</span></div>
+
+    <h3>MindsDB 2025-2026 — có gì mới?</h3>
+    <ul>
+      <li><strong>Pivot sang "Agentic Web infrastructure"</strong> — MCP support, Knowledge Base hybrid search, SOC2</li>
+      <li><strong>Vẫn heavy</strong>: ~4-6 GB RAM, Docker-only setup, Windows không phải first-class</li>
+      <li><strong>Files handler</strong>: hỗ trợ XLSX/CSV qua SQL nhưng có bug đã biết — <a href="https://github.com/mindsdb/mindsdb/issues/10092">multi-sheet bug #10092</a></li>
+      <li><strong>Chính docs họ</strong> khuyến nghị pre-clean bằng Power Query TRƯỚC khi import → nghĩa là MindsDB không thay thế được pipeline làm sạch</li>
+    </ul>
+
+    <h3>Alternative 50-line cho Panjiva cleaning</h3>
+    <pre><code>import pandas as pd, janitor  # pyjanitor
+from rapidfuzz import fuzz, process
+
+df = pd.read_excel("panjiva_export.xlsx")
+df = (df.clean_names()                          # snake_case columns
+        .remove_empty()
+        .dropna(subset=["consignee"])
+        .drop_duplicates(subset=["consignee", "email"]))
+
+master = pd.read_excel("cnee_master_v2_final.xlsx")
+def match_existing(name):
+    m, score, _ = process.extractOne(name, master["COMPANY"], scorer=fuzz.WRatio)
+    return m if score > 85 else None
+df["matched_master"] = df["consignee"].apply(match_existing)
+# Rows with NULL matched_master = new prospects → append with tier=NEW
+df.to_csv("cleaned.csv", index=False)</code></pre>
+
+    <h3>Khi nào cân nhắc MindsDB (Month 3+)?</h3>
+    <div class="callout info">Chỉ có giá trị khi cần <strong>multi-source SQL agent</strong> đồng thời — join Panjiva + Parquet rates + Softek CRM + email_log trong 1 câu query LLM. Chưa cần với solo workflow 2026-Q2.</div>
+
+    <h3>Nguồn tham khảo</h3>
+    <ul>
+      <li><a href="https://mindsdb.com/blog/mindsdb-in-2025-from-sql-to-the-universal-ai-data-hub">MindsDB 2025 roadmap blog</a></li>
+      <li><a href="https://github.com/pyjanitor-devs/pyjanitor">pyjanitor — clean data in one fluent pipe</a></li>
+      <li><a href="https://docs.mindsdb.com/setup/self-hosted/docker">MindsDB Docker setup (RAM footprint)</a></li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2><span class="kanji">弐</span>Topic 2 — Karpathy Second Brain</h2>
+  <div class="section-sub">Bộ não thứ hai cho toàn hệ thống — customer + code + trouble log</div>
+  <div class="card">
+    <div style="margin-bottom:12px"><span class="verdict-pill defer">VERDICT · DEFER TO PHASE 02</span></div>
+
+    <h3>State of the art 2026</h3>
+    <ul>
+      <li>Gist Karpathy viral đầu 2026 → <strong>4+ OSS fork</strong> xuất hiện trong vài tuần</li>
+      <li>Pattern đã battle-tested: 3 ops — <strong>Ingest</strong> (1 nguồn → 10-15 trang update), <strong>Query</strong> (kết quả lưu thành trang mới), <strong>Lint</strong> (weekly dedup/fix)</li>
+      <li>Vector DB <strong>không cần</strong> dưới ~500K từ — plain markdown + grep hoặc DuckDB FTS là đủ</li>
+    </ul>
+
+    <h3>Map vô use case Nelson (28K CNEE email → living notes)</h3>
+    <table>
+      <tr><th>Layer</th><th>Implementation</th></tr>
+      <tr><td>Raw</td><td><code>email_log.csv</code> + reply emails via <code>process_reply.py v3.0</code></td></tr>
+      <tr><td>Vault</td><td><code>/vault/cnee/{CNEE_ID}.md</code> — "likes FOB, hates HPH, replies Tuesdays"</td></tr>
+      <tr><td>Retrieval</td><td>DuckDB FTS hoặc grep đơn giản</td></tr>
+    </table>
+
+    <h3>Local LLM vs API</h3>
+    <div class="callout">
+      <strong>Ollama local llama3.1:8b được chọn</strong> — batch 100 email trong 2-3 phút, offline, PII không rời máy. Claude API nhanh hơn 10× ($0.10/1K email) nhưng không đáng đổi privacy.
+    </div>
+
+    <h3>Pre-built OSS để fork</h3>
+    <ul>
+      <li><a href="https://github.com/lucasastorian/llmwiki">lucasastorian/llmwiki</a> — gần nhất, built cho research docs. Fork effort ~2-3 ngày cho MVP email parser + CNEE schema</li>
+      <li><a href="https://gist.github.com/rohitg00/2067ab416f7bbe447c1977edaaa681e2">LLM Wiki v2 gist</a> — extension của Karpathy pattern</li>
+    </ul>
+
+    <h3>Privacy (solo operator standard 2026)</h3>
+    <ul>
+      <li><strong>Local disk + BitLocker (Windows)</strong> = đủ cho solo B2B NVOCC</li>
+      <li><strong>VPS vault</strong>: encrypt với <code>age</code> CLI</li>
+      <li>Không cần enterprise tooling — không có team, không có GDPR audit</li>
+    </ul>
+
+    <div class="callout info">
+      <strong>Tại sao DEFER?</strong> Architecture đã rõ và không thay đổi. Nhưng 2-month window = phải <strong>gửi đủ mail + chốt đủ lead</strong>, không phải build infra. Chờ đến <strong>Month 3</strong> khi pipeline ổn định, lúc đó fork llmwiki trong 3 ngày.
+    </div>
+
+    <h3>Prerequisite BẮT BUỘC trước khi bắt đầu</h3>
+    <div class="callout ok">
+      Enable <code>process_reply.py v3.0</code> (đã có trong repo nhưng <strong>chưa chạy</strong>) để có structured reply data. Không có reply data = không có material để build vault.
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="kanji">参</span>Topic 3 — 5 bonus additions cho 30 ngày tới</h2>
+  <div class="section-sub">Không có trong backlog cũ — đều phục vụ thẳng KPI 10 leads/tháng</div>
+
+  <table>
+    <tr>
+      <th>#</th><th>Feature</th><th>Fit</th><th>Effort</th><th>Rationale</th>
+    </tr>
+    <tr>
+      <td class="mono">1</td>
+      <td><strong>LLM Reply Auto-Drafter</strong><br><span class="muted">Scanner phát hiện reply → Claude soạn draft theo tier+last rate</span></td>
+      <td class="fit-HIGH">HIGH</td>
+      <td>~1 ngày</td>
+      <td>Trực tiếp serve 10 leads/tháng. Giảm 70% thời gian Sếp soạn reply.</td>
+    </tr>
+    <tr>
+      <td class="mono">2</td>
+      <td><strong>Rate-Change Anomaly Push</strong><br><span class="muted">DuckDB: rate drops &gt;$50/40HQ vs 7-day avg → Telegram alert</span></td>
+      <td class="fit-HIGH">HIGH</td>
+      <td>~30 dòng</td>
+      <td>SENTINEL-lite. Tái dùng Parquet + notify-telegram.py đã có. Chặn Sếp quote giá sai.</td>
+    </tr>
+    <tr>
+      <td class="mono">3</td>
+      <td><strong>Panjiva Auto-Import Pipeline</strong><br><span class="muted">Watch OneDrive/Panjiva/ → pyjanitor clean → fuzzy match → append tier=NEW</span></td>
+      <td class="fit-HIGH">HIGH</td>
+      <td>~50 dòng</td>
+      <td>Đóng data-freshness gap. Không cần MindsDB (thấy Topic 1).</td>
+    </tr>
+    <tr>
+      <td class="mono">4</td>
+      <td><strong>Conversational CNEE Search</strong><br><span class="muted">NL query ("FURNITURE LA cold &gt;60 days") → Claude tool call → DuckDB SQL</span></td>
+      <td class="fit-MEDIUM">MEDIUM</td>
+      <td>~2 ngày</td>
+      <td>UX tốt nhưng Sếp đã biết SQL + filter tay. Phase 3.</td>
+    </tr>
+    <tr>
+      <td class="mono">5</td>
+      <td><strong>Weekly ROI Report</strong><br><span class="muted">Monday auto-gen: emails sent/opened/replied + pipeline value → Telegram/PDF</span></td>
+      <td class="fit-MEDIUM">MEDIUM</td>
+      <td>~1 ngày</td>
+      <td>Chỉ có giá trị sau khi click-tracking + reply scanner stable. Phase 3.</td>
+    </tr>
+  </table>
+</section>
+
+<section>
+  <h2><span class="kanji">道</span>Roadmap đề xuất — 30 ngày tới</h2>
+
+  <div class="roadmap">
+    <div class="roadmap-week">Week 1<br><span class="muted" style="font-size:11px">4/20-4/26</span></div>
+    <div class="roadmap-body">
+      <strong>Bật Reply Pipeline (prerequisite cho mọi thứ)</strong>
+      <ul>
+        <li>Enable <code>process_reply.py v3.0</code> trên Task Scheduler (30 phút/lần)</li>
+        <li>Verify: LAST_REPLY field có data sau 24h</li>
+        <li>Ship click-tracking deferred từ Phase C (link wrapper + /t/c endpoint)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="roadmap">
+    <div class="roadmap-week">Week 2<br><span class="muted" style="font-size:11px">4/27-5/3</span></div>
+    <div class="roadmap-body">
+      <strong>Rate Anomaly Push + Panjiva Import (quick wins)</strong>
+      <ul>
+        <li>Rate Anomaly: 30 dòng DuckDB + <code>notify-telegram.py</code></li>
+        <li>Panjiva pipeline: pyjanitor + rapidfuzz, watch OneDrive folder</li>
+        <li>Wire Telegram Chat ID (em đang chờ Sếp paste)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="roadmap">
+    <div class="roadmap-week">Week 3<br><span class="muted" style="font-size:11px">5/4-5/10</span></div>
+    <div class="roadmap-body">
+      <strong>LLM Reply Auto-Drafter (biggest-impact)</strong>
+      <ul>
+        <li>Claude Sonnet 4.6 tool integration trong scanner/handlers.py</li>
+        <li>Draft reply → lưu vô <code>outlook_queue.db</code> với status='draft'</li>
+        <li>Dashboard tab mới "Drafts" cạnh Queue — Sếp approve 1-click</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="roadmap">
+    <div class="roadmap-week">Week 4<br><span class="muted" style="font-size:11px">5/11-5/17</span></div>
+    <div class="roadmap-body">
+      <strong>Fork llmwiki → Customer Second Brain MVP</strong>
+      <ul>
+        <li>Fork <a href="https://github.com/lucasastorian/llmwiki">llmwiki</a></li>
+        <li>Adapter: email_log.csv → Ollama extractor → <code>vault/cnee/{id}.md</code></li>
+        <li>Dashboard sidebar: click CNEE → render vault note</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="kanji">問</span>Unresolved questions</h2>
+  <ul>
+    <li><code>process_reply.py v3.0</code> đang có trong repo — blocker nào khiến chưa chạy? (cần Sếp check Task Scheduler)</li>
+    <li>VPS có đủ RAM/VRAM cho Ollama llama3.1:8b không? Cần <code>nvidia-smi</code> check</li>
+    <li>Sếp có sẵn sàng dùng Obsidian làm vault reader, hay muốn render vault thẳng trong dashboard?</li>
+    <li>MindsDB MCP as multi-source SQL gateway — worth testing Month 3 nếu Panjiva pipeline live</li>
+  </ul>
+</section>
+
+<footer>
+  <div>Generated 2026-04-18 · Research by deep-research agent · Compiled by Claude Code</div>
+  <div>File path: <code>plans/260416-email-nelson-solo-platform/reports/evolution-plan-20260418.html</code></div>
+  <div>Source research: <code>research-next-phase-20260418.md</code></div>
+  <div style="margin-top:8px">Commit <code>7995fa1</code> (Phase A+B+C) pushed to <code>main</code> · github.com/nelsonhuynhs-ship-it/FrieghtBrian</div>
+</footer>
+
+</div>
+</body>
+</html>

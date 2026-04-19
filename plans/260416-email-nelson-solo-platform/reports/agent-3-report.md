@@ -139,6 +139,10 @@ context_summary:
 3. Confirm `body_override` honored by worker (or extend `BatchEnqueueRequest` to skip template when override present).
 4. Cache `cnee_master_v2_final.xlsx` at server start (avoid per-request read).
 
+## Commit note
+
+Khi commit, git log subject line vô tình bị gắn sang message A4 do session race (A4 commit chạy gần như cùng lúc). 4 file A3 đã trong commit `13d1027` (smart_compose.py, web_server.py A3 fence, agent-3-report.md, dashboard-v5.html A3 changes). Commit body cần sửa message title bằng 1 fixup commit nếu muốn trail sạch trước khi push.
+
 **Status:** DONE_WITH_CONCERNS
 **Summary:** Smart Compose backend + endpoint + UI modal shipped. 3 scenarios tested via TestClient (all 200). Fallback path fully functional without A1/LLM dependency. Concerns: A1 memory integration needs real data test, body_override worker support, per-request xlsx read latency.
 **Concerns/Blockers:** See sections "Concerns" 1-5. None is a blocker for merging — UI is usable cold today, will auto-upgrade to personalized once A1 + MiniMax key land.
