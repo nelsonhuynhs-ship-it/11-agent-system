@@ -556,10 +556,8 @@ def _do_send(campaign_id: str, req: SendRequest):
     suppressed_emails: set = set()
     SUPPRESSED_STATUSES = {"HARD_BOUNCE", "INVALID", "NO_MX"}
     try:
-        cnee_src = CNEE_V2 if CNEE_V2.exists() else (CNEE_V1 if CNEE_V1.exists() else None)
-        if cnee_src:
-            _cnee = pd.read_excel(cnee_src, usecols=["EMAIL", "EMAIL_STATUS"])
-            _cnee.columns = _cnee.columns.str.upper()
+        _cnee = _get_cnee_df()
+        if _cnee is not None and "EMAIL_STATUS" in _cnee.columns:
             _bad = _cnee[_cnee["EMAIL_STATUS"].isin(SUPPRESSED_STATUSES)]
             suppressed_emails = set(_bad["EMAIL"].astype(str).str.lower().str.strip())
             log.info(f"Suppression list loaded: {len(suppressed_emails)} emails")
@@ -733,12 +731,11 @@ def verify_progress():
 @app.get("/api/data-health")
 def data_health():
     """Returns contact quality stats from cnee_master_v2 (falls back to v1)."""
-    cnee_src = CNEE_V2 if CNEE_V2.exists() else (CNEE_V1 if CNEE_V1.exists() else None)
-    if not cnee_src:
-        return {"error": "cnee_master not found", "total_contacts": 0}
     try:
-        df = pd.read_excel(cnee_src)
-        df.columns = df.columns.str.strip().str.upper()
+        df = _get_cnee_df()
+        if df is None:
+            return {"error": "cnee_master not found", "total_contacts": 0}
+        df = df.copy()
         total = len(df)
         statuses = df.get("EMAIL_STATUS", pd.Series(["VALID"] * total))
         valid = int((statuses == "VALID").sum())
@@ -971,12 +968,11 @@ def wa_send(req: WASendRequest):
         raise HTTPException(status_code=503, detail={"error": "WhatsApp not configured"})
     if req.template_name not in TEMPLATE_NAMES:
         raise HTTPException(status_code=400, detail={"error": f"Unknown template: {req.template_name}"})
-    cnee_src = CNEE_V2 if CNEE_V2.exists() else (CNEE_V1 if CNEE_V1.exists() else None)
-    if not cnee_src:
-        raise HTTPException(status_code=404, detail={"error": "cnee_master not found"})
     try:
-        cdf = pd.read_excel(cnee_src)
-        cdf.columns = cdf.columns.str.strip().str.upper()
+        cdf = _get_cnee_df()
+        if cdf is None:
+            raise HTTPException(status_code=404, detail={"error": "cnee_master not found"})
+        cdf = cdf.copy()
         if "CMD_NAME" in cdf.columns:
             cdf = cdf[cdf["CMD_NAME"] == req.campaign_id]
         cdf = cdf.head(req.limit)
@@ -1370,11 +1366,10 @@ class V4BulkSendRequest(BaseModel):
 
 @app.post("/api/email-rate/campaign/bulk-send", status_code=202)
 def v4_bulk_send(req: V4BulkSendRequest, background_tasks: BackgroundTasks):
-    cnee_src = CNEE_V2 if CNEE_V2.exists() else (CNEE_V1 if CNEE_V1.exists() else None)
-    if not cnee_src:
+    df = _get_cnee_df()
+    if df is None:
         raise HTTPException(404, "cnee_master not found")
-    df = pd.read_excel(cnee_src)
-    df.columns = df.columns.str.strip().str.upper()
+    df = df.copy()
     email_col = "EMAIL" if "EMAIL" in df.columns else "CNEE_EMAIL"
     targets = df[df[email_col].astype(str).str.lower().isin([e.lower() for e in req.emails])]
     contacts = []
@@ -1650,6 +1645,11 @@ class BatchEnqueueRequest(BaseModel):
     # "fixed" = use subject_override text verbatim for all emails.
     subject_policy: str = "random"
     subject_override: str = ""  # Only used when subject_policy="fixed"
+    # Body override: when non-empty, use this HTML/text verbatim as the email
+    # body for ALL recipients in this batch. Primary use case: Smart Compose
+    # single-CNEE drafts (A3) that bypass the rate-table builder. Text input
+    # is wrapped in <p> tags; HTML is passed through as-is.
+    body_override: str = ""
 
 
 def _row_to_profile(row: dict) -> dict:
@@ -1704,12 +1704,12 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
             f"Batch size {len(req.cnee_emails)} exceeds 500 — add ?confirm=yes to proceed",
         )
 
-    # Load CNEE master v2
+    # Load CNEE master v2 (cached — see _get_cnee_df)
     master_rows: dict[str, dict] = {}
     try:
-        df = pd.read_excel(CNEE_MASTER_V2_PATH)
-        df.columns = df.columns.str.strip().str.upper()
-        if "EMAIL" in df.columns:
+        df = _get_cnee_df()
+        if df is not None and "EMAIL" in df.columns:
+            df = df.copy()
             df["_el"] = df["EMAIL"].astype(str).str.lower().str.strip()
             for _, r in df.iterrows():
                 em = r["_el"]
@@ -1827,10 +1827,24 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
         if req.test_mode:
             actual_to = (req.test_to_email or "huynhyohan@gmail.com").strip().lower()
             subject_out = f"[TEST -> {em}] {subject_out}"
+        # Body override: Smart Compose / custom drafts pass verbatim body.
+        # Plain text (no '<' tag) → wrap paragraphs. HTML → pass through.
+        if req.body_override:
+            _ov = req.body_override.strip()
+            if "<" in _ov and ">" in _ov:
+                html_body_out = _ov
+            else:
+                _paras = [p.strip() for p in _ov.split("\n\n") if p.strip()]
+                html_body_out = "".join(
+                    f"<p style='margin:0 0 12px;line-height:1.55'>{p.replace(chr(10),'<br>')}</p>"
+                    for p in _paras
+                )
+        else:
+            html_body_out = built.get("html_body", "")
         emails_out.append({
             "cnee_email": actual_to,
             "subject": subject_out,
-            "html_body": built.get("html_body", ""),
+            "html_body": html_body_out,
             "tier": profile.get("tier") or "",
             "priority_score": int(profile.get("priority_score") or 0),
             "campaign_id": req.campaign_id or profile.get("campaign_id") or "",
