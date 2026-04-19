@@ -1921,6 +1921,111 @@ def analytics_opens(days: int = 7):
     return _queue_store.open_stats(days=max(1, int(days)))
 
 
+# ---------------------------------------------------------------------------
+# Open Tracker tab (Phase 08) — feed / hot leaderboard / campaign breakdown
+# ---------------------------------------------------------------------------
+
+def _open_tracker_db_path() -> str:
+    """Resolve outlook_queue.db path — reuse queue_store DEFAULT_DB_PATH."""
+    if _queue_store is None:
+        raise HTTPException(503, "queue_store module unavailable")
+    return getattr(_queue_store, "_DB_PATH", None) or _queue_store.DEFAULT_DB_PATH
+
+
+def _open_tracker_query(sql: str, params: tuple = ()) -> list[dict]:
+    import sqlite3
+    path = _open_tracker_db_path()
+    conn = sqlite3.connect(path, timeout=10.0)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(sql, params).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+@app.get("/api/opens/feed")
+def opens_feed(days: int = 30, limit: int = 50):
+    """Recent opens feed — sorted by opened_at DESC."""
+    days = max(1, min(int(days), 365))
+    limit = max(1, min(int(limit), 500))
+    sql = """
+        SELECT id, cnee_email, subject, campaign_id, open_count,
+               datetime(sent_at,   'localtime') AS sent_at,
+               datetime(opened_at, 'localtime') AS opened_at
+          FROM email_queue
+         WHERE opened_at IS NOT NULL
+           AND opened_at >= datetime('now', ?)
+         ORDER BY opened_at DESC
+         LIMIT ?
+    """
+    items = _open_tracker_query(sql, (f"-{days} days", limit))
+    return {"items": items, "count": len(items),
+            "days": days, "generated_at": datetime.utcnow().isoformat() + "Z"}
+
+
+@app.get("/api/opens/hot")
+def opens_hot(days: int = 30, limit: int = 20):
+    """Hot leaderboard — CNEE with most opens (≥2) grouped by email."""
+    days = max(1, min(int(days), 365))
+    limit = max(1, min(int(limit), 100))
+    sql = """
+        SELECT cnee_email,
+               MAX(open_count)                          AS opens,
+               datetime(MAX(opened_at), 'localtime')    AS last_open,
+               MAX(campaign_id)                         AS campaign_id,
+               COUNT(*)                                 AS email_count
+          FROM email_queue
+         WHERE opened_at IS NOT NULL
+           AND opened_at >= datetime('now', ?)
+         GROUP BY cnee_email
+        HAVING opens >= 2
+         ORDER BY opens DESC, last_open DESC
+         LIMIT ?
+    """
+    items = _open_tracker_query(sql, (f"-{days} days", limit))
+    return {"items": items, "count": len(items),
+            "days": days, "generated_at": datetime.utcnow().isoformat() + "Z"}
+
+
+@app.get("/api/opens/by-campaign")
+def opens_by_campaign(days: int = 30):
+    """Campaign open rate breakdown — sent vs opened %."""
+    days = max(1, min(int(days), 365))
+    sql = """
+        SELECT COALESCE(campaign_id, '(none)')                              AS campaign_id,
+               COUNT(*) FILTER (WHERE status='sent')                        AS sent,
+               COUNT(*) FILTER (WHERE opened_at IS NOT NULL)                AS opened,
+               ROUND(100.0 * COUNT(*) FILTER (WHERE opened_at IS NOT NULL)
+                     / NULLIF(COUNT(*) FILTER (WHERE status='sent'), 0), 1) AS rate_pct
+          FROM email_queue
+         WHERE sent_at >= datetime('now', ?)
+         GROUP BY campaign_id
+        HAVING sent > 0
+         ORDER BY rate_pct DESC NULLS LAST, sent DESC
+    """
+    items = _open_tracker_query(sql, (f"-{days} days",))
+    return {"items": items, "count": len(items),
+            "days": days, "generated_at": datetime.utcnow().isoformat() + "Z"}
+
+
+@app.get("/api/opens/email/{job_id}")
+def opens_email_detail(job_id: int):
+    """Fetch full email row for modal preview."""
+    sql = """
+        SELECT id, cnee_email, subject, html_body, campaign_id,
+               tier, priority_score, open_count,
+               datetime(sent_at,   'localtime') AS sent_at,
+               datetime(opened_at, 'localtime') AS opened_at
+          FROM email_queue
+         WHERE id = ?
+    """
+    rows = _open_tracker_query(sql, (int(job_id),))
+    if not rows:
+        raise HTTPException(404, f"job_id {job_id} not found")
+    return rows[0]
+
+
 @app.get("/api/email-rate/queue/pending")
 def queue_pending(worker_id: str = Query(...), limit: int = 1):
     """Pop the next pending job (worker endpoint)."""
@@ -2170,6 +2275,585 @@ try:
     log.info("[R3] shipment_brief router mounted (/api/shipment/*)")
 except ImportError as _e:
     log.warning(f"[R3] shipment_brief router unavailable: {_e}")
+
+
+# === A2 BEGIN ===
+# Send-time State Rules — optimal VN hour per US/CA state based on local 9h arrival.
+# Agent A2 | 2026-04-19
+
+import json as _json_a2
+
+_SEND_TIME_RULES_FILE = BASE_DIR / "config" / "send_time_rules.json"
+
+def _load_send_time_rules() -> dict:
+    """Load send_time_rules.json → {state_code: rule_dict}."""
+    try:
+        raw = _json_a2.loads(_SEND_TIME_RULES_FILE.read_text(encoding="utf-8"))
+        return raw.get("states", {})
+    except Exception as _e:
+        log.warning(f"[A2] send_time_rules.json load failed: {_e}")
+        return {}
+
+_SEND_TIME_RULES: dict = _load_send_time_rules()
+log.info(f"[A2] send_time_rules loaded: {len(_SEND_TIME_RULES)} states")
+
+
+def _get_state_for_cnee(row: "pd.Series") -> "str | None":
+    """Extract state from a CNEE row.
+
+    Priority:
+    1. STATE column (if A1 migration added it)
+    2. Parse on-fly from DESTINATION via state_parser.parse_state()
+    """
+    # 1. Pre-parsed STATE column (fast path)
+    state_val = row.get("STATE") if hasattr(row, "get") else None
+    if state_val and str(state_val).strip().upper() not in ("", "NAN", "NONE"):
+        return str(state_val).strip().upper()
+
+    # 2. On-fly parse from DESTINATION
+    dest_col = None
+    for col in ("DESTINATION", "DEST", "POD", "CNEE_DEST"):
+        val = row.get(col) if hasattr(row, "get") else None
+        if val and str(val).strip().upper() not in ("", "NAN", "NONE"):
+            dest_col = str(val)
+            break
+
+    if dest_col:
+        try:
+            from email_engine.core.state_parser import parse_state as _parse_state
+        except ImportError:
+            try:
+                from state_parser import parse_state as _parse_state
+            except ImportError:
+                return None
+        return _parse_state(dest_col)
+
+    return None
+
+
+@app.get("/api/send-time/suggest")
+def send_time_suggest(campaign: str = "", region: str = ""):
+    """Return optimal VN send-hour suggestions grouped by timezone region.
+
+    Query params:
+      campaign — filter by CAMPAIGN_ID / CMD_NAME (optional)
+      region   — filter by DESTINATION_REGION column (optional)
+
+    Response:
+      suggestions: list sorted by count desc, each with hour_vn, count, states, region, rationale
+      best_hour: hour_vn of top suggestion
+      total_cnee: total contacts analysed
+      generated_at: ISO timestamp
+    """
+    import warnings
+    df = df_contacts.copy()
+
+    # Filter by campaign
+    if campaign:
+        cam_up = campaign.upper()
+        mask = (
+            (df.get("CMD_NAME", pd.Series(dtype=str)).astype(str).str.upper() == cam_up) |
+            (df.get("CAMPAIGN_ID", pd.Series(dtype=str)).astype(str).str.upper() == cam_up)
+        )
+        df = df[mask]
+
+    # Filter by region
+    if region:
+        reg_up = region.upper()
+        if "DESTINATION_REGION" in df.columns:
+            df = df[df["DESTINATION_REGION"].astype(str).str.upper() == reg_up]
+
+    if df.empty:
+        return {
+            "suggestions": [],
+            "best_hour": None,
+            "total_cnee": 0,
+            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "warning": "No contacts matched filters",
+        }
+
+    # Check if STATE column exists (A1 migration done)
+    has_state_col = "STATE" in df.columns
+    if not has_state_col:
+        log.warning("[A2] STATE column missing — parsing on-fly from DESTINATION (slower)")
+
+    # Build state → count map
+    from collections import defaultdict as _dd
+    state_counts: dict[str, int] = _dd(int)
+    unparseable = 0
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for _, row in df.iterrows():
+            st = _get_state_for_cnee(row)
+            if st and st in _SEND_TIME_RULES:
+                state_counts[st] += 1
+            else:
+                unparseable += 1
+
+    if not state_counts:
+        return {
+            "suggestions": [],
+            "best_hour": None,
+            "total_cnee": len(df),
+            "unparseable": unparseable,
+            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "warning": "Could not determine state for any contact",
+        }
+
+    # Group by optimal_send_hour_vn
+    hour_groups: dict[int, dict] = {}
+    for state, cnt in state_counts.items():
+        rule = _SEND_TIME_RULES[state]
+        hvn = rule["optimal_send_hour_vn"]
+        if hvn not in hour_groups:
+            hour_groups[hvn] = {
+                "hour_vn": hvn,
+                "count": 0,
+                "states": [],
+                "region": rule["region"],
+                "rationale": rule["rationale"],
+                "timezone": rule["timezone"],
+            }
+        hour_groups[hvn]["count"] += cnt
+        hour_groups[hvn]["states"].append(state)
+
+    suggestions = sorted(hour_groups.values(), key=lambda x: x["count"], reverse=True)
+    best_hour = suggestions[0]["hour_vn"] if suggestions else None
+
+    return {
+        "suggestions": suggestions,
+        "best_hour": best_hour,
+        "total_cnee": len(df),
+        "parsed_cnee": sum(state_counts.values()),
+        "unparseable": unparseable,
+        "has_state_col": has_state_col,
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+    }
+
+
+@app.get("/api/send-time/state-breakdown")
+def send_time_state_breakdown():
+    """Return full state → CNEE count map for data quality diagnostics.
+
+    Response:
+      states: {state_code: count}  — sorted by count desc
+      unparseable: int              — rows where state could not be determined
+      total: int
+      has_state_col: bool           — True if A1 STATE column present
+    """
+    import warnings
+    df = df_contacts.copy()
+    has_state_col = "STATE" in df.columns
+    if not has_state_col:
+        log.warning("[A2] state-breakdown: STATE column missing — parsing on-fly")
+
+    from collections import defaultdict as _dd2
+    state_counts: dict[str, int] = _dd2(int)
+    unparseable = 0
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for _, row in df.iterrows():
+            st = _get_state_for_cnee(row)
+            if st:
+                state_counts[st] += 1
+            else:
+                unparseable += 1
+
+    sorted_states = dict(
+        sorted(state_counts.items(), key=lambda x: x[1], reverse=True)
+    )
+
+    return {
+        "states": sorted_states,
+        "unparseable": unparseable,
+        "total": len(df),
+        "has_state_col": has_state_col,
+        "parsed_pct": round(sum(state_counts.values()) / max(len(df), 1) * 100, 1),
+    }
+
+# === A2 END ===
+
+
+# === A3 BEGIN ===
+# Smart Compose with Customer Memory — POST /api/draft/smart
+# Reads vault/cnee/{email}/memory.md (via A1 cnee_memory) + customer_rules.json
+# and synthesizes a personalized email subject+body via LLM (fallback to template).
+# Agent A3 | 2026-04-19
+
+from pydantic import BaseModel as _A3BaseModel
+from typing import Optional as _A3Optional, List as _A3List
+
+try:
+    from email_engine.core.smart_compose import compose_for_cnee as _a3_compose, body_text_to_html as _a3_text_to_html
+    _A3_AVAILABLE = True
+except Exception as _a3_imp_exc:
+    log.warning(f"[A3] smart_compose import failed: {_a3_imp_exc}")
+    _A3_AVAILABLE = False
+
+
+class _A3DraftRequest(_A3BaseModel):
+    cnee_email: str
+    override_pod: _A3Optional[_A3List[str]] = None
+    override_markup: _A3Optional[int] = None
+
+
+@app.post("/api/draft/smart")
+def a3_draft_smart(req: _A3DraftRequest):
+    """
+    Generate a personalized email draft for one CNEE.
+
+    Returns JSON:
+      {
+        subject: str,
+        body_text: str,
+        body_html: str,
+        rationale: str,
+        memory_used: bool,
+        fallback: bool,
+        context_summary: {...},
+        error_note?: str
+      }
+    Never 500s — on LLM failure returns fallback with error_note.
+    """
+    if not _A3_AVAILABLE:
+        # Soft fail — return a minimal shell so UI still renders
+        return {
+            "subject": "Ocean freight update",
+            "body_text": "Dear partner,\n\nSmart compose module offline. Please try again shortly.\n\nBest regards,\nNelson",
+            "body_html": "<p>Dear partner,</p><p>Smart compose module offline. Please try again shortly.</p><p>Best regards,<br>Nelson</p>",
+            "rationale": "smart_compose module not importable on this server",
+            "memory_used": False,
+            "fallback": True,
+            "context_summary": {},
+            "error_note": "module_offline",
+        }
+
+    ctx = {}
+    if req.override_pod:
+        ctx["override_pod"] = [p.strip().upper() for p in req.override_pod if p and p.strip()]
+    if req.override_markup is not None:
+        ctx["override_markup"] = int(req.override_markup)
+
+    try:
+        draft = _a3_compose(req.cnee_email, context=ctx)
+    except Exception as exc:
+        log.warning(f"[A3] compose_for_cnee raised: {exc}")
+        return {
+            "subject": "Ocean freight update",
+            "body_text": "Dear partner,\n\nWe will get back to you shortly with updated rates.\n\nBest regards,\nNelson",
+            "body_html": "<p>Dear partner,</p><p>We will get back to you shortly with updated rates.</p><p>Best regards,<br>Nelson</p>",
+            "rationale": f"compose error: {exc}",
+            "memory_used": False,
+            "fallback": True,
+            "context_summary": {},
+            "error_note": "compose_exception",
+        }
+
+    body_text = draft.get("body") or ""
+    body_html = _a3_text_to_html(body_text)
+    out = {
+        "subject": draft.get("subject") or "",
+        "body_text": body_text,
+        "body_html": body_html,
+        "rationale": draft.get("rationale") or "",
+        "memory_used": bool(draft.get("memory_used")),
+        "fallback": bool(draft.get("fallback")),
+        "context_summary": draft.get("context_summary") or {},
+    }
+    if "error_note" in draft:
+        out["error_note"] = draft["error_note"]
+    return out
+
+# === A3 END ===
+
+
+# =============================================================================
+# === A1 BEGIN — Foundation + Customer Memory Phase 1 endpoints ===
+# =============================================================================
+
+# ── Data Health (enhanced) ────────────────────────────────────────────────────
+@app.get("/api/data-health/v2")
+def data_health_v2():
+    """Enhanced data health with EMAIL_STATUS + STATE breakdown.
+    Reads cnee_master_v2_final.xlsx and returns KPIs used in Insights tab.
+    """
+    cnee_src = CNEE_V2 if CNEE_V2.exists() else (CNEE_V1 if CNEE_V1.exists() else None)
+    if not cnee_src:
+        return {"error": "cnee_master not found", "total": 0}
+    try:
+        df = pd.read_excel(cnee_src, engine="openpyxl")
+        df.columns = df.columns.str.strip().str.upper()
+        total = len(df)
+
+        # EMAIL_STATUS breakdown
+        if "EMAIL_STATUS" in df.columns:
+            statuses = df["EMAIL_STATUS"].fillna("").astype(str).str.strip().str.upper()
+            hard_bounce = int(statuses.isin(["HARD_BOUNCE"]).sum())
+            soft_bounce = int(statuses.isin(["SOFT_BOUNCE", "SOFT_SUPPRESSED"]).sum())
+            unsub = int(statuses.isin(["UNSUBSCRIBED"]).sum())
+            invalid = int(statuses.isin(["INVALID", "NO_MX"]).sum())
+            clean = int(statuses.isin(["", "VALID", "CLEAN"]).sum())
+        else:
+            hard_bounce = soft_bounce = unsub = invalid = 0
+            clean = total
+
+        unsent = 0
+        if "LAST_SENT_DATE" in df.columns:
+            unsent = int(df["LAST_SENT_DATE"].isna().sum())
+        elif "SEND_COUNT" in df.columns:
+            unsent = int((df["SEND_COUNT"].fillna(0) == 0).sum())
+
+        # STATE distribution
+        state_dist: dict = {}
+        if "STATE" in df.columns:
+            state_dist = (
+                df["STATE"]
+                .fillna("")
+                .astype(str)
+                .str.strip()
+                .replace("", "UNKNOWN")
+                .value_counts()
+                .head(15)
+                .to_dict()
+            )
+
+        return {
+            "source": cnee_src.name,
+            "total": total,
+            "clean": clean,
+            "clean_pct": round(clean / total * 100, 1) if total else 0,
+            "hard_bounce": hard_bounce,
+            "hard_bounce_pct": round(hard_bounce / total * 100, 2) if total else 0,
+            "soft_bounce": soft_bounce,
+            "unsubscribed": unsub,
+            "invalid": invalid,
+            "unsent": unsent,
+            "unsent_pct": round(unsent / total * 100, 1) if total else 0,
+            "state_distribution": state_dist,
+            "has_email_status_col": "EMAIL_STATUS" in df.columns,
+            "has_state_col": "STATE" in df.columns,
+        }
+    except Exception as e:
+        log.error(f"data-health/v2 error: {e}")
+        return {"error": str(e), "total": 0}
+
+
+# ── Bounce scan trigger ───────────────────────────────────────────────────────
+@app.post("/api/inbox/scan-bounce")
+def scan_bounce_now(background_tasks: BackgroundTasks):
+    """Trigger an immediate inbox scan for bounces and replies.
+
+    Calls inbox_scanner.run_scan() synchronously (via background task with
+    timeout). Returns {scanned, bounces_new, replies_new, duration_sec}.
+    """
+    import time as _time
+
+    result_holder: dict = {}
+
+    def _run():
+        t0 = _time.time()
+        try:
+            import sys as _sys
+            _scan_path = BASE_DIR.parent
+            if str(_scan_path) not in _sys.path:
+                _sys.path.insert(0, str(_scan_path))
+            from email_engine.scanner.inbox_scanner import run_scan  # type: ignore
+            counters = run_scan()
+            elapsed = round(_time.time() - t0, 2)
+            result_holder.update({
+                "status": "ok",
+                "scanned": counters.get("scanned", 0),
+                "bounces_new": counters.get("bounces", 0),
+                "replies_new": counters.get("real_replies", 0),
+                "duration_sec": elapsed,
+            })
+        except Exception as exc:
+            elapsed = round(_time.time() - t0, 2)
+            result_holder.update({
+                "status": "error",
+                "error": str(exc),
+                "duration_sec": elapsed,
+            })
+
+    # Run synchronously with a 60s implied cap (FastAPI background_tasks
+    # fire-and-forget, but we return immediately and let the client poll).
+    # For a quick result, run inline (blocking but max ~10s for inbox scan).
+    try:
+        _run()
+    except Exception as exc:
+        return {"status": "error", "error": str(exc)}
+
+    return result_holder
+
+
+# ── CNEE Memory endpoint ──────────────────────────────────────────────────────
+@app.get("/api/cnee/memory/{email:path}")
+def get_cnee_memory(email: str):
+    """Return memory vault for a CNEE email.
+
+    Returns 404 if no memory exists yet.
+    Response: {markdown, structured, last_event_at, event_count}
+    """
+    email = (email or "").strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Invalid email")
+
+    try:
+        from email_engine.core.cnee_memory import read_memory  # type: ignore
+        mem = read_memory(email)
+    except Exception as exc:
+        log.error(f"cnee/memory error: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    if not mem.get("exists"):
+        raise HTTPException(status_code=404, detail=f"No memory for {email}")
+
+    return {
+        "email": email,
+        "markdown": mem["markdown_text"],
+        "structured": mem["structured_fields"],
+        "last_event_at": mem["last_event_at"],
+        "event_count": mem["event_count"],
+    }
+
+# === A1 END ===
+
+
+# === A4 BEGIN ===
+# Pattern Learning / AI Model — email engagement pattern analysis
+# Agent A4 | 2026-04-19
+# Endpoints: /api/patterns/top-templates, /api/patterns/hot-industries,
+#            /api/patterns/heatmap, /api/patterns/strategy
+
+import time as _time_a4
+from typing import Optional as _OptA4
+
+# In-memory cache: key -> (payload, expires_at)
+_PATTERN_CACHE: dict = {}
+_PATTERN_CACHE_TTL = 600  # 10 minutes
+
+
+def _a4_cache_get(key: str):
+    entry = _PATTERN_CACHE.get(key)
+    if entry and _time_a4.monotonic() < entry[1]:
+        return entry[0]
+    return None
+
+
+def _a4_cache_set(key: str, value) -> None:
+    _PATTERN_CACHE[key] = (value, _time_a4.monotonic() + _PATTERN_CACHE_TTL)
+
+
+@app.get("/api/patterns/top-templates")
+def patterns_top_templates(
+    days: int = 30,
+    limit: int = 10,
+    x_force_refresh: _OptA4[str] = None,
+):
+    """Top subject templates ranked by reply rate.
+    Query: ?days=30&limit=10 | Header X-Force-Refresh: 1 to bypass cache.
+    """
+    cache_key = f"top_templates:{days}:{limit}"
+    if x_force_refresh != "1":
+        cached = _a4_cache_get(cache_key)
+        if cached is not None:
+            return cached
+    try:
+        from email_engine.intelligence.pattern_learner import top_templates as _pt
+        data = _pt(days=days, limit=limit)
+        result = {"templates": data, "count": len(data), "days": days}
+        _a4_cache_set(cache_key, result)
+        return result
+    except Exception as e:
+        log.error(f"[A4] top-templates error: {e}")
+        return {"templates": [], "count": 0, "days": days, "error": str(e)}
+
+
+@app.get("/api/patterns/hot-industries")
+def patterns_hot_industries(
+    days: int = 30,
+    x_force_refresh: _OptA4[str] = None,
+):
+    """Campaign industries ranked by composite engagement score.
+    Query: ?days=30
+    """
+    cache_key = f"hot_industries:{days}"
+    if x_force_refresh != "1":
+        cached = _a4_cache_get(cache_key)
+        if cached is not None:
+            return cached
+    try:
+        from email_engine.intelligence.pattern_learner import hot_industries as _hi
+        data = _hi(days=days)
+        result = {"industries": data, "count": len(data), "days": days}
+        _a4_cache_set(cache_key, result)
+        return result
+    except Exception as e:
+        log.error(f"[A4] hot-industries error: {e}")
+        return {"industries": [], "count": 0, "days": days, "error": str(e)}
+
+
+@app.get("/api/patterns/heatmap")
+def patterns_heatmap(
+    days: int = 30,
+    x_force_refresh: _OptA4[str] = None,
+):
+    """7x24 send/open heatmap in VN timezone. Query: ?days=30"""
+    cache_key = f"heatmap:{days}"
+    if x_force_refresh != "1":
+        cached = _a4_cache_get(cache_key)
+        if cached is not None:
+            return cached
+    try:
+        from email_engine.intelligence.pattern_learner import send_heatmap as _sh
+        data = _sh(days=days)
+        _a4_cache_set(cache_key, data)
+        return data
+    except Exception as e:
+        log.error(f"[A4] heatmap error: {e}")
+        return {
+            "days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+            "hours": list(range(24)),
+            "matrix": [],
+            "best_slot": {},
+            "error": str(e),
+        }
+
+
+@app.get("/api/patterns/strategy")
+def patterns_strategy(
+    campaign: str = "",
+    days: int = 30,
+    x_force_refresh: _OptA4[str] = None,
+):
+    """Strategy suggestion for a campaign.
+    Query: ?campaign=FURNITURE&days=30
+    """
+    cache_key = f"strategy:{campaign}:{days}"
+    if x_force_refresh != "1":
+        cached = _a4_cache_get(cache_key)
+        if cached is not None:
+            return cached
+    try:
+        from email_engine.intelligence.pattern_learner import strategy_suggestion as _ss
+        data = _ss(campaign_id=campaign, days=days)
+        _a4_cache_set(cache_key, data)
+        return data
+    except Exception as e:
+        log.error(f"[A4] strategy error: {e}")
+        return {
+            "campaign_id": campaign,
+            "best_template_pattern": "",
+            "best_send_hour_vn": 9,
+            "predicted_reply_rate": 0,
+            "confidence": 0,
+            "rationale_vn": f"Error: {e}",
+            "error": str(e),
+        }
+
+# === A4 END ===
 
 
 if __name__ == "__main__":

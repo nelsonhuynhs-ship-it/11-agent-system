@@ -211,11 +211,17 @@ input,select{font-family:inherit}
       <span><span class="nav-icon">☆</span>Priority</span>
       <span class="nav-badge" id="navBadgePriority">—</span>
     </div>
-    <div class="nav-section" style="margin-top:20px">Monitoring</div>
-    <div class="nav-item" data-view="viewAnalytics"><span><span class="nav-icon">⊟</span>Analytics</span></div>
-    <div class="nav-item" data-view="viewAI"><span><span class="nav-icon">◈</span>AI Model</span></div>
-    <div class="nav-item" data-view="viewAlerts"><span><span class="nav-icon">△</span>Alerts</span><span class="nav-badge" id="navBadgeAlerts">—</span></div>
-    <div class="nav-item" data-view="viewQueue"><span><span class="nav-icon">⋮</span>Queue</span><span class="nav-badge" id="navBadgeQueue">—</span></div>
+    <div class="nav-item" data-view="viewInbox">
+      <span><span class="nav-icon">📬</span>Inbox</span>
+      <span class="nav-badge" id="navBadgeInbox">—</span>
+    </div>
+    <div class="nav-section" style="margin-top:20px">Intelligence</div>
+    <div class="nav-item" data-view="viewInsights"><span><span class="nav-icon">⊟</span>Insights</span></div>
+    <div class="nav-item" data-view="viewSettings"><span><span class="nav-icon">⚙</span>Settings</span></div>
+    <!-- legacy hidden badges for backward compat with JS pollAlertCount -->
+    <span id="navBadgeAlerts" style="display:none">—</span>
+    <span id="navBadgeOpens" style="display:none">—</span>
+    <span id="navBadgeQueue" style="display:none">—</span>
   </nav>
   <div class="sidebar-foot">
     <span><span class="status-dot" id="statusDot"></span><span id="statusText">Live</span></span>
@@ -299,6 +305,18 @@ input,select{font-family:inherit}
       </div>
       <button class="btn btn-primary" id="btnLoadRates">Load Rates</button>
     </div>
+
+    <!-- A4: Strategy hint per campaign -->
+    <div id="qsStrategyHint" style="display:none;margin-top:12px;padding:12px 16px;background:var(--paper-2);border:1px solid var(--line);border-radius:2px;font-size:12.5px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+        <div id="qsStrategyText" style="flex:1;color:var(--ink-2)">Loading strategy...</div>
+        <button onclick="document.getElementById('qsStrategyHint').style.display='none'" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;line-height:1;flex-shrink:0">&times;</button>
+      </div>
+      <div id="qsStrategyRationale" style="margin-top:6px;color:var(--muted);font-size:11.5px;display:none"></div>
+      <div style="margin-top:6px">
+        <button onclick="toggleStrategyRationale()" style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:11.5px;padding:0">Vi sao? (expand)</button>
+      </div>
+    </div>
   </section>
 
   <section class="grid-main">
@@ -365,6 +383,11 @@ input,select{font-family:inherit}
       </div>
     </aside>
   </section>
+
+  <!-- A2: Send-time hint — populated by loadSendTimeHint() -->
+  <div id="qsSendTimeHint" style="margin-top:24px;padding:16px 20px;border:1px solid var(--line);background:var(--paper-2);border-radius:var(--radius);min-height:52px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <span style="color:var(--muted);font-size:12.5px">Đang tải gợi ý giờ gửi...</span>
+  </div>
 </section>
 
 <!-- ═══════════════ PRIORITY VIEW ═══════════════ -->
@@ -422,7 +445,41 @@ input,select{font-family:inherit}
       <tbody id="hotBody"><tr><td colspan="6" class="empty-state">Loading HOT list...</td></tr></tbody>
     </table>
   </section>
+
+  <section class="section" id="priOverdueSection">
+    <div class="section-head">
+      <div class="section-title">⏰ Overdue ≥7d</div>
+      <div class="section-sub">Sent but no reply — silent ≥ 7 days · needs follow-up</div>
+    </div>
+    <table class="tbl">
+      <thead><tr><th>Customer</th><th>Tier</th><th>Last sent</th><th>Days silent</th><th>Campaign</th><th style="width:180px"></th></tr></thead>
+      <tbody id="overdueBody"><tr><td colspan="6" class="empty-state">Loading...</td></tr></tbody>
+    </table>
+  </section>
+
+  <!-- placeholder: A3 Smart Draft hook -->
+  <div id="priSmartDraftHook"></div>
 </section>
+
+<!-- ═══════════════ CNEE MEMORY MODAL (A1 + A3 hook) ═══════════════ -->
+<div id="priMemoryModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:999;align-items:center;justify-content:center">
+  <div style="background:var(--paper);border:1px solid var(--line);max-width:680px;width:92%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25)">
+    <div style="padding:18px 24px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:10px;color:var(--muted-2);letter-spacing:.2em;text-transform:uppercase">Customer Memory</div>
+        <div id="memModalEmail" style="font-size:15px;font-weight:500;margin-top:4px;font-family:'JetBrains Mono',monospace">—</div>
+      </div>
+      <button class="btn btn-xs btn-ghost" id="memModalClose">✕ Close</button>
+    </div>
+    <!-- Structured summary card -->
+    <div id="memModalSummary" style="padding:16px 24px;border-bottom:1px solid var(--line-2);background:var(--paper-2)">
+      <div class="empty-state" style="padding:12px 0">Loading memory...</div>
+    </div>
+    <!-- Markdown timeline (scrollable) -->
+    <div id="memModalTimeline" style="flex:1;overflow:auto;padding:16px 24px;font-size:13px;line-height:1.7;white-space:pre-wrap;font-family:'JetBrains Mono',monospace;color:var(--ink-2)">
+    </div>
+  </div>
+</div>
 
 <!-- Placeholder views (keep nav clickable; full impl in v4 for now) -->
 <!-- ═══════════════ ANALYTICS VIEW ═══════════════ -->
@@ -501,6 +558,51 @@ input,select{font-family:inherit}
       <div class="empty-state"><div class="empty-state-kanji">問</div>Pick a lane → Predict</div>
     </div>
   </section>
+
+  <!-- A4: Pattern Learning - insightsPatterns -->
+  <div id="insightsPatterns">
+
+  <section class="section">
+    <div class="section-head">
+      <div class="section-title">Top Subject Templates</div>
+      <div class="section-sub" id="tplSub">Top templates by reply rate · last 30 days</div>
+    </div>
+    <table class="tbl" id="tplTable">
+      <thead>
+        <tr>
+          <th style="cursor:pointer" onclick="sortTpl('template_pattern')">Template</th>
+          <th style="cursor:pointer;width:70px;text-align:right" onclick="sortTpl('sent')">Sent</th>
+          <th style="cursor:pointer;width:80px;text-align:right" onclick="sortTpl('open_rate_pct')">Open%</th>
+          <th style="cursor:pointer;width:80px;text-align:right" onclick="sortTpl('reply_rate_pct')">Reply%</th>
+          <th style="cursor:pointer;width:70px;text-align:right" onclick="sortTpl('score')">Score</th>
+        </tr>
+      </thead>
+      <tbody id="tplBody"><tr><td colspan="5" class="empty-state">Loading...</td></tr></tbody>
+    </table>
+    <div id="tplExpandArea" style="margin-top:10px;font-size:12px;color:var(--muted);display:none;background:var(--paper-2);padding:12px;border-radius:2px"></div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <div class="section-title">Hot Industries</div>
+      <div class="section-sub">Campaign ranking · score = (reply% x 2 + open%) / 3</div>
+    </div>
+    <div id="hotIndustriesChart" style="display:flex;flex-direction:column;gap:5px;padding:8px 0">
+      <div class="empty-state">Loading...</div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <div class="section-title">Send Heatmap</div>
+      <div class="section-sub" id="heatmapSub">Open rate by hour x day · VN timezone (UTC+7)</div>
+    </div>
+    <div id="heatmapWrap" style="overflow-x:auto;padding-bottom:8px">
+      <div class="empty-state">Loading...</div>
+    </div>
+  </section>
+
+  </div><!-- end #insightsPatterns -->
 </section>
 
 <!-- ═══════════════ ALERTS VIEW ═══════════════ -->
@@ -527,6 +629,120 @@ input,select{font-family:inherit}
     </table>
   </section>
 </section>
+
+<!-- ═══════════════ OPEN TRACKER VIEW ═══════════════ -->
+<section class="view" id="viewOpenTracker">
+  <header class="page-head">
+    <div>
+      <h1 class="page-title">Open Tracker</h1>
+      <div class="page-sub">Ai đã mở email · real-time pixel tracking</div>
+    </div>
+    <div class="page-actions">
+      <div class="scope-toggle" id="otScopeToggle" style="display:inline-flex;gap:0;border:1px solid var(--line);border-radius:6px;overflow:hidden">
+        <button class="btn btn-xs btn-ghost" data-scope="1"  style="border-radius:0;border:none">24h</button>
+        <button class="btn btn-xs btn-ghost" data-scope="7"  style="border-radius:0;border:none">7d</button>
+        <button class="btn btn-xs btn-ghost active" data-scope="30" style="border-radius:0;border:none;background:var(--accent);color:#fff">30d</button>
+      </div>
+      <button class="btn btn-sm" id="btnOpensReload">Refresh</button>
+    </div>
+  </header>
+
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-label">Opens (scope)</div><div class="kpi-value" id="otTotal">—</div><div class="kpi-foot"><span id="otScopeLabel">last 30 days</span></div></div>
+    <div class="kpi"><div class="kpi-label">Unique CNEE</div><div class="kpi-value" id="otUnique">—</div><div class="kpi-foot"><span>distinct emails</span></div></div>
+    <div class="kpi"><div class="kpi-label">HOT ≥ 2×</div><div class="kpi-value" id="otHot">—</div><div class="kpi-foot"><span>worth follow-up</span></div></div>
+    <div class="kpi"><div class="kpi-label">Overall open rate</div><div class="kpi-value" id="otRate">—<span class="kpi-unit">%</span></div><div class="kpi-foot"><span>sent → opened</span></div></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:38% 1fr;gap:20px;margin-top:8px">
+    <!-- LEFT column: Hot + Campaign -->
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <section class="section">
+        <div class="section-head">
+          <div class="section-title">🔥 HOT · top openers</div>
+          <div class="section-sub">open_count ≥ 2 · sorted by engagement</div>
+        </div>
+        <div id="otHotList" style="padding:4px 0"><div class="empty-state">Loading...</div></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <div class="section-title">📊 By campaign</div>
+          <div class="section-sub">open rate %</div>
+        </div>
+        <div id="otCampaignList" style="padding:4px 0"><div class="empty-state">Loading...</div></div>
+      </section>
+    </div>
+    <!-- RIGHT column: Recent feed -->
+    <section class="section">
+      <div class="section-head">
+        <div class="section-title">📬 Recent feed</div>
+        <div class="section-sub">click row → preview email cũ</div>
+      </div>
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th style="width:120px">Opened</th>
+            <th>CNEE</th>
+            <th style="width:70px">Opens</th>
+            <th>Subject</th>
+            <th style="width:170px">Action</th>
+          </tr>
+        </thead>
+        <tbody id="otFeedBody"><tr><td colspan="5" class="empty-state">Loading...</td></tr></tbody>
+      </table>
+    </section>
+  </div>
+</section>
+
+<!-- Modal for email preview -->
+<div id="otModal" class="ot-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:999;align-items:center;justify-content:center">
+  <div style="background:var(--paper);border:1px solid var(--line);max-width:760px;width:90%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="padding:18px 24px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:10px;color:var(--muted-2);letter-spacing:.2em;text-transform:uppercase">Email Preview</div>
+        <div id="otModalSubject" style="font-size:15px;font-weight:500;margin-top:4px">—</div>
+        <div id="otModalMeta" style="font-size:11px;color:var(--muted);margin-top:4px;font-family:'JetBrains Mono',monospace">—</div>
+      </div>
+      <button class="btn btn-xs btn-ghost" id="otModalClose">✕ Close</button>
+    </div>
+    <iframe id="otModalBody" sandbox="allow-same-origin" style="flex:1;border:none;width:100%;min-height:400px;background:#fff"></iframe>
+  </div>
+</div>
+
+<!-- ═══════════════ A3 SMART DRAFT MODAL ═══════════════ -->
+<!-- Agent A3 | 2026-04-19 — Smart Compose with Customer Memory -->
+<div id="smartDraftModal" class="sd-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:var(--paper);border:1px solid var(--line);max-width:820px;width:92%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.35)">
+    <div style="padding:18px 24px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;color:var(--muted-2);letter-spacing:.2em;text-transform:uppercase;display:flex;gap:6px;align-items:center">
+          <span>Smart Draft</span>
+          <span id="sdBadge" class="tag" style="font-size:9px;padding:1px 6px">—</span>
+        </div>
+        <div id="sdCnee" style="font-size:13px;color:var(--muted);margin-top:4px;font-family:'JetBrains Mono',monospace">—</div>
+        <input id="sdSubject" type="text" placeholder="Subject"
+               style="width:100%;margin-top:8px;padding:8px 10px;border:1px solid var(--line);font-size:14px;font-weight:500;background:#fff" />
+      </div>
+      <button class="btn btn-xs btn-ghost" id="sdClose">✕ Close</button>
+    </div>
+    <div style="padding:14px 24px;display:flex;gap:8px;border-bottom:1px solid var(--line);align-items:center;font-size:12px">
+      <label style="display:flex;gap:4px;align-items:center"><input type="radio" name="sdMode" value="html" checked> HTML</label>
+      <label style="display:flex;gap:4px;align-items:center"><input type="radio" name="sdMode" value="text"> Plain text</label>
+      <span style="flex:1"></span>
+      <button class="btn btn-xs" id="sdRegen">🔄 Regenerate</button>
+      <button class="btn btn-xs btn-accent" id="sdSend">📤 Send now</button>
+    </div>
+    <div style="flex:1;overflow:auto;background:#fff;min-height:300px;display:flex;flex-direction:column">
+      <iframe id="sdBodyHtml" sandbox="allow-same-origin" style="width:100%;flex:1;min-height:300px;border:none;background:#fff"></iframe>
+      <textarea id="sdBodyText" style="display:none;width:100%;flex:1;min-height:300px;border:none;padding:16px 24px;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.5;resize:none;background:#fff"></textarea>
+    </div>
+    <details style="border-top:1px solid var(--line);padding:10px 24px;background:var(--paper)">
+      <summary style="cursor:pointer;font-size:11px;color:var(--muted);letter-spacing:.15em;text-transform:uppercase">💭 Vì sao AI soạn vậy?</summary>
+      <div id="sdRationale" style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5">—</div>
+      <div id="sdContext" style="font-size:11px;color:var(--muted-2);margin-top:6px;font-family:'JetBrains Mono',monospace">—</div>
+    </details>
+  </div>
+</div>
 
 <!-- ═══════════════ QUEUE VIEW ═══════════════ -->
 <section class="view" id="viewQueue">
@@ -602,6 +818,12 @@ async function init(){
   startAlertPolling();
   // Kick off kill-switch status polling (15s) — shows ARM/DISARM state
   startKillStatusPolling();
+  // Open Tracker: bind controls (scope toggle, refresh, modal close, polling)
+  bindOpenTrackerControls();
+  // A2: load send-time hint on startup (non-blocking)
+  loadSendTimeHint().catch(() => {});
+  // A2: re-load hint when campaign filter changes
+  document.getElementById('inpCampaign')?.addEventListener('change', () => loadSendTimeHint().catch(() => {}));
 }
 
 /* ═══════════════ KILL SWITCH STATUS (polls every 15s when armed, 60s otherwise) ═══════════════ */
@@ -666,6 +888,7 @@ function bindNav(){
     if (view === 'viewAnalytics') loadAnalytics();
     if (view === 'viewAI') loadAIModel();
     if (view === 'viewAlerts') loadAlerts();
+    if (view === 'viewOpenTracker') loadOpenTracker();
     if (view === 'viewQueue') loadQueue();
     });
   });
@@ -1208,8 +1431,9 @@ function renderPriRow(p){
     <td>${esc(p.reply_status||'—')}</td>
     <td class="mono">${esc(p.last_sent_date||'never')}</td>
     <td>${esc(p.campaign||'—')}</td>
-    <td style="display:flex;gap:6px">
+    <td style="display:flex;gap:6px;flex-wrap:wrap">
       <button class="btn btn-xs" data-pri-preview="${p.email}">Preview</button>
+      <button class="btn btn-xs" data-pri-smart-draft="${p.email}" title="Soạn email cá nhân hoá bằng AI memory">💭 Draft</button>
       <button class="btn btn-xs btn-accent" data-pri-followup="${p.email}">Follow up</button>
     </td>
   </tr>`;
@@ -1245,8 +1469,281 @@ function wirePriorityActions(){
   });
 }
 
+/* ═══════════════ OPEN TRACKER ═══════════════ */
+const OT = { scope: 30, pollTimer: null };
+
+async function loadOpenTracker(){
+  const days = OT.scope;
+  document.getElementById('otScopeLabel').textContent = days === 1 ? 'last 24h' : `last ${days} days`;
+  try {
+    const [feed, hot, camp] = await Promise.all([
+      api(`/api/opens/feed?days=${days}&limit=50`),
+      api(`/api/opens/hot?days=${days}&limit=20`),
+      api(`/api/opens/by-campaign?days=${days}`),
+    ]);
+    renderOpenFeed(feed.items || []);
+    renderHotList(hot.items || []);
+    renderCampaignList(camp.items || []);
+    renderOpenKPI(feed.items || [], hot.items || [], camp.items || []);
+    // Nav badge = count of opens in scope (today-heavy)
+    const badge = document.getElementById('navBadgeOpens');
+    if (badge) badge.textContent = (feed.items || []).length || '—';
+  } catch(e){
+    toast('Open Tracker: ' + e.message, 'err');
+    document.getElementById('otFeedBody').innerHTML = `<tr><td colspan="5" class="empty-state">${esc(e.message)}</td></tr>`;
+  }
+}
+
+function renderOpenKPI(feed, hot, camp){
+  document.getElementById('otTotal').textContent = feed.length.toLocaleString();
+  const uniq = new Set(feed.map(r => (r.cnee_email || '').toLowerCase())).size;
+  document.getElementById('otUnique').textContent = uniq;
+  document.getElementById('otHot').textContent = hot.length;
+  const sentTotal = camp.reduce((s, c) => s + (c.sent || 0), 0);
+  const openedTotal = camp.reduce((s, c) => s + (c.opened || 0), 0);
+  const rate = sentTotal > 0 ? (100 * openedTotal / sentTotal) : 0;
+  document.getElementById('otRate').innerHTML = rate.toFixed(1) + '<span class="kpi-unit">%</span>';
+}
+
+function renderOpenFeed(rows){
+  const tbody = document.getElementById('otFeedBody');
+  if (!rows.length){
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><div class="empty-state-kanji">空</div>No opens in selected window</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => {
+    const opened = (r.opened_at || '').slice(5, 16);
+    const hot = (r.open_count || 0) >= 3 ? '🔥 ' : '';
+    const camp = r.campaign_id ? `<span class="tag" style="margin-left:6px;padding:2px 6px;font-size:10px">${esc(r.campaign_id)}</span>` : '';
+    const subj = esc((r.subject || '').slice(0, 70));
+    return `<tr data-ot-job="${r.id}" style="cursor:pointer">
+      <td class="mono">${esc(opened)}</td>
+      <td><div class="email-cell">${esc(r.cnee_email || '—')}${camp}</div></td>
+      <td class="mono" style="color:${(r.open_count||0)>=3?'var(--err)':'var(--ink)'}">${hot}${r.open_count || 1}×</td>
+      <td><div class="company" style="font-weight:400">${subj}</div></td>
+      <td>
+        <button class="btn btn-xs" data-ot-preview="${r.id}">Preview</button>
+        <button class="btn btn-xs btn-ghost" data-ot-followup="${esc(r.cnee_email || '')}">Follow-up</button>
+      </td>
+    </tr>`;
+  }).join('');
+  wireOpenTrackerActions();
+}
+
+function renderHotList(rows){
+  const div = document.getElementById('otHotList');
+  if (!rows.length){
+    div.innerHTML = '<div class="empty-state" style="padding:24px 0">No repeat openers yet</div>';
+    return;
+  }
+  div.innerHTML = rows.map((r, i) => {
+    const last = (r.last_open || '').slice(5, 16);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line-2);gap:10px">
+      <div style="flex:1;min-width:0">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted)">#${i+1} · ${esc(last)}</div>
+        <div class="email-cell" style="font-size:13px;margin-top:2px">${esc(r.cnee_email)}</div>
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--err);font-size:14px;white-space:nowrap">${r.opens}×</div>
+      <button class="btn btn-xs" data-ot-followup="${esc(r.cnee_email)}">Follow-up</button>
+    </div>`;
+  }).join('');
+  wireOpenTrackerActions();
+}
+
+function renderCampaignList(rows){
+  const div = document.getElementById('otCampaignList');
+  if (!rows.length){
+    div.innerHTML = '<div class="empty-state" style="padding:24px 0">No campaign data</div>';
+    return;
+  }
+  const maxRate = Math.max(...rows.map(r => r.rate_pct || 0), 1);
+  div.innerHTML = rows.slice(0, 10).map(r => {
+    const pct = r.rate_pct || 0;
+    const w = Math.max(2, (pct / maxRate) * 100);
+    return `<div style="padding:8px 16px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+        <span style="font-weight:500">${esc(r.campaign_id || '(none)')}</span>
+        <span class="mono" style="color:var(--muted)">${pct.toFixed(1)}% · ${r.opened}/${r.sent}</span>
+      </div>
+      <div style="height:6px;background:var(--paper-2);border-radius:3px;overflow:hidden">
+        <div style="width:${w}%;height:100%;background:var(--accent);transition:width .3s"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function wireOpenTrackerActions(){
+  document.querySelectorAll('[data-ot-preview]').forEach(btn => {
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      const jobId = btn.dataset.otPreview;
+      await showOpenTrackerModal(jobId);
+    };
+  });
+  document.querySelectorAll('[data-ot-followup]').forEach(btn => {
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      const email = btn.dataset.otFollowup;
+      if (!email) return;
+      if (!confirm(`Queue personal follow-up to ${email}?`)) return;
+      try {
+        await api('/api/email-rate/batch/enqueue', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            batch_id: 'OT_'+Date.now(),
+            cnee_emails: [email],
+            campaign_id: '',
+            pol: 'HPH', destinations: '', markup: 20,
+            dry_run: false, test_mode: Store.testMode,
+          }),
+        });
+        toast(`Queued ${email}`, 'success');
+      } catch(err){ toast('Queue failed: '+err.message, 'err'); }
+    };
+  });
+  // Row click → preview (same as Preview button)
+  document.querySelectorAll('#otFeedBody tr[data-ot-job]').forEach(tr => {
+    tr.onclick = (e) => {
+      if (e.target.closest('button')) return;
+      showOpenTrackerModal(tr.dataset.otJob);
+    };
+  });
+}
+
+async function showOpenTrackerModal(jobId){
+  const modal = document.getElementById('otModal');
+  const subj = document.getElementById('otModalSubject');
+  const meta = document.getElementById('otModalMeta');
+  const body = document.getElementById('otModalBody');
+  subj.textContent = 'Loading...';
+  meta.textContent = '';
+  body.srcdoc = '<div style="padding:40px;font-family:sans-serif;color:#888">Loading…</div>';
+  modal.style.display = 'flex';
+  try {
+    const r = await api(`/api/opens/email/${jobId}`);
+    subj.textContent = r.subject || '(no subject)';
+    meta.textContent = `${r.cnee_email} · sent ${r.sent_at || '—'} · opened ${r.opened_at || '—'} · ${r.open_count}×`;
+    body.srcdoc = r.html_body || '<div style="padding:40px;color:#888">No body saved</div>';
+  } catch(e){
+    subj.textContent = 'Error';
+    body.srcdoc = `<div style="padding:40px;color:#c00;font-family:sans-serif">${esc(e.message)}</div>`;
+  }
+}
+
+function bindOpenTrackerControls(){
+  // Scope toggle
+  document.querySelectorAll('#otScopeToggle button[data-scope]').forEach(b => {
+    b.onclick = () => {
+      OT.scope = parseInt(b.dataset.scope, 10);
+      document.querySelectorAll('#otScopeToggle button').forEach(x => {
+        x.classList.remove('active');
+        x.style.background = '';
+        x.style.color = '';
+      });
+      b.classList.add('active');
+      b.style.background = 'var(--accent)';
+      b.style.color = '#fff';
+      loadOpenTracker();
+    };
+  });
+  // Refresh
+  const btn = document.getElementById('btnOpensReload');
+  if (btn) btn.onclick = loadOpenTracker;
+  // Modal close
+  const closeBtn = document.getElementById('otModalClose');
+  if (closeBtn) closeBtn.onclick = () => document.getElementById('otModal').style.display = 'none';
+  const modal = document.getElementById('otModal');
+  if (modal) modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
+  // Polling 60s — only while tab active
+  if (OT.pollTimer) clearInterval(OT.pollTimer);
+  OT.pollTimer = setInterval(() => {
+    if (document.getElementById('viewOpenTracker')?.classList.contains('active')) loadOpenTracker();
+  }, 60000);
+}
+
 /* ═══════════════ UTIL ═══════════════ */
 function esc(s){ return String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ═══════════════ A2: SEND-TIME HINT ═══════════════ */
+const _sendTimeHint = { pollTimer: null };
+
+async function loadSendTimeHint() {
+  const box = document.getElementById('qsSendTimeHint');
+  if (!box) return;
+
+  // Read current campaign filter (if any)
+  const campaign = (document.getElementById('inpCampaign')?.value || '').trim();
+
+  let data;
+  try {
+    const qs = campaign ? `?campaign=${encodeURIComponent(campaign)}` : '';
+    data = await api(`/api/send-time/suggest${qs}`);
+  } catch (e) {
+    box.innerHTML = `<span style="color:var(--muted);font-size:12px">Gợi ý giờ gửi không khả dụng (server offline)</span>`;
+    return;
+  }
+
+  if (!data.suggestions || data.suggestions.length === 0) {
+    box.innerHTML = `<span style="color:var(--muted);font-size:12px">Không đủ dữ liệu địa chỉ để gợi ý giờ gửi</span>`;
+    return;
+  }
+
+  const top = data.suggestions[0];
+  const hour = top.hour_vn;
+  const count = top.count;
+  const states = (top.states || []).slice(0, 4).join(', ');
+  const region = top.region || '';
+  const total = data.total_cnee || 0;
+  const parsed = data.parsed_cnee || 0;
+  const parsedPct = total > 0 ? Math.round(parsed / total * 100) : 0;
+
+  // Format hour display: "21h" → "21:00"
+  const hourLabel = `${String(hour).padStart(2,'0')}:00`;
+
+  // Second suggestion (different hour if available)
+  const second = data.suggestions.find(s => s.hour_vn !== hour);
+  const secondLabel = second
+    ? ` &nbsp;|&nbsp; ${String(second.hour_vn).padStart(2,'0')}:00 có <strong>${second.count}</strong> KH ${second.region}`
+    : '';
+
+  box.innerHTML = `
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;color:var(--ink);margin-bottom:6px">
+        Tối nay <strong style="color:var(--accent);font-family:'JetBrains Mono',monospace">${hourLabel}</strong>
+        có <strong>${count.toLocaleString()}</strong> khách <strong>${region}</strong>
+        — gửi lúc này email land lúc 9h sáng bên họ
+        <span style="color:var(--muted);font-size:11.5px">${secondLabel}</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted-2)">
+        Tiểu bang: ${esc(states)}${top.states.length > 4 ? ` +${top.states.length - 4} khác` : ''}
+        &nbsp;·&nbsp; Đã xác định địa chỉ: ${parsedPct}% (${parsed.toLocaleString()}/${total.toLocaleString()} KH)
+      </div>
+    </div>
+    <button
+      id="btnScheduleSend"
+      class="btn btn-sm"
+      style="white-space:nowrap;flex-shrink:0"
+      onclick="scheduleSendIntent(${hour})"
+    >Đặt lịch gửi ${hourLabel}</button>
+  `;
+}
+
+function scheduleSendIntent(hour) {
+  // Scheduled-send not yet implemented server-side.
+  // Store intent in localStorage for future wiring.
+  const intent = { hour_vn: hour, campaign: document.getElementById('inpCampaign')?.value || '', set_at: new Date().toISOString() };
+  try { localStorage.setItem('nelson_scheduled_send_intent', JSON.stringify(intent)); } catch(e) {}
+  toast(`Đã ghi nhận — feature scheduled-send coming soon (${String(hour).padStart(2,'0')}:00 VN)`, 'success');
+}
+
+// Poll hint every 5 minutes (hour can change) — only when Quick Send tab active
+(function _initSendTimePoller() {
+  if (_sendTimeHint.pollTimer) clearInterval(_sendTimeHint.pollTimer);
+  _sendTimeHint.pollTimer = setInterval(() => {
+    const active = document.getElementById('viewSend')?.classList.contains('active');
+    if (active) loadSendTimeHint();
+  }, 5 * 60 * 1000);
+})();
 
 init();
 </script>

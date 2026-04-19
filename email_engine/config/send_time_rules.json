@@ -1,0 +1,547 @@
+{
+  "_meta": {
+    "version": "1.0.0",
+    "created": "2026-04-19",
+    "notes": [
+      "Maps US states + DC + territories + CA provinces to optimal VN send hour.",
+      "Optimal = email lands when recipient is starting their workday (9-11h local).",
+      "VN is UTC+7. offset_from_utc is standard time offset (no DST adjustment).",
+      "optimal_send_hour_vn uses 24h format (0-23). Send 1h BEFORE target local arrival.",
+      "Most US states observe DST (spring forward 1h Mar-Nov). Adjust mentally during summer.",
+      "Alaska DST: UTC-8 standard / UTC-9 no-DST. Hawaii: no DST ever (UTC-10 always)."
+    ]
+  },
+  "states": {
+    "AL": {
+      "state_name": "Alabama",
+      "timezone": "Central",
+      "utc_offset_standard": -6,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 20,
+      "region": "Central",
+      "rationale": "9h local Central = 15h UTC = 22h VN; send 20h VN to land at inbox start"
+    },
+    "AK": {
+      "state_name": "Alaska",
+      "timezone": "Alaska",
+      "utc_offset_standard": -9,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 23,
+      "region": "Alaska",
+      "rationale": "9h local Alaska = 18h UTC = 1h VN next day; send 23h VN prior night"
+    },
+    "AZ": {
+      "state_name": "Arizona",
+      "timezone": "Mountain (no DST)",
+      "utc_offset_standard": -7,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 21,
+      "region": "Mountain",
+      "rationale": "AZ does not observe DST. 9h local = 16h UTC = 23h VN; send 21h VN"
+    },
+    "AR": {
+      "state_name": "Arkansas",
+      "timezone": "Central",
+      "utc_offset_standard": -6,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 20,
+      "region": "Central",
+      "rationale": "9h Central = 15h UTC = 22h VN; send 20h VN"
+    },
+    "CA": {
+      "state_name": "California",
+      "timezone": "Pacific",
+      "utc_offset_standard": -8,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 22,
+      "region": "Pacific",
+      "rationale": "9h Pacific = 17h UTC = 0h VN next day; send 22h VN prior evening"
+    },
+    "CO": {
+      "state_name": "Colorado",
+      "timezone": "Mountain",
+      "utc_offset_standard": -7,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 21,
+      "region": "Mountain",
+      "rationale": "9h Mountain = 16h UTC = 23h VN; send 21h VN"
+    },
+    "CT": {
+      "state_name": "Connecticut",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "DC": {
+      "state_name": "District of Columbia",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "DE": {
+      "state_name": "Delaware",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "FL": {
+      "state_name": "Florida",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "GA": {
+      "state_name": "Georgia",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "HI": {
+      "state_name": "Hawaii",
+      "timezone": "Hawaii (no DST)",
+      "utc_offset_standard": -10,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 1,
+      "region": "Hawaii",
+      "rationale": "HI no DST. 9h HI = 19h UTC = 2h VN next day; send 1h VN (overnight)"
+    },
+    "ID": {
+      "state_name": "Idaho",
+      "timezone": "Mountain",
+      "utc_offset_standard": -7,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 21,
+      "region": "Mountain",
+      "rationale": "9h Mountain = 16h UTC = 23h VN; send 21h VN"
+    },
+    "IL": {
+      "state_name": "Illinois",
+      "timezone": "Central",
+      "utc_offset_standard": -6,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 20,
+      "region": "Central",
+      "rationale": "9h Central = 15h UTC = 22h VN; send 20h VN"
+    },
+    "IN": {
+      "state_name": "Indiana",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "IA": {
+      "state_name": "Iowa",
+      "timezone": "Central",
+      "utc_offset_standard": -6,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 20,
+      "region": "Central",
+      "rationale": "9h Central = 15h UTC = 22h VN; send 20h VN"
+    },
+    "KS": {
+      "state_name": "Kansas",
+      "timezone": "Central",
+      "utc_offset_standard": -6,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 20,
+      "region": "Central",
+      "rationale": "9h Central = 15h UTC = 22h VN; send 20h VN"
+    },
+    "KY": {
+      "state_name": "Kentucky",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "LA": {
+      "state_name": "Louisiana",
+      "timezone": "Central",
+      "utc_offset_standard": -6,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 20,
+      "region": "Central",
+      "rationale": "9h Central = 15h UTC = 22h VN; send 20h VN"
+    },
+    "ME": {
+      "state_name": "Maine",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "MD": {
+      "state_name": "Maryland",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "MA": {
+      "state_name": "Massachusetts",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "MI": {
+      "state_name": "Michigan",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "MN": {
+      "state_name": "Minnesota",
+      "timezone": "Central",
+      "utc_offset_standard": -6,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 20,
+      "region": "Central",
+      "rationale": "9h Central = 15h UTC = 22h VN; send 20h VN"
+    },
+    "MS": {
+      "state_name": "Mississippi",
+      "timezone": "Central",
+      "utc_offset_standard": -6,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 20,
+      "region": "Central",
+      "rationale": "9h Central = 15h UTC = 22h VN; send 20h VN"
+    },
+    "MO": {
+      "state_name": "Missouri",
+      "timezone": "Central",
+      "utc_offset_standard": -6,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 20,
+      "region": "Central",
+      "rationale": "9h Central = 15h UTC = 22h VN; send 20h VN"
+    },
+    "MT": {
+      "state_name": "Montana",
+      "timezone": "Mountain",
+      "utc_offset_standard": -7,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 21,
+      "region": "Mountain",
+      "rationale": "9h Mountain = 16h UTC = 23h VN; send 21h VN"
+    },
+    "NE": {
+      "state_name": "Nebraska",
+      "timezone": "Central",
+      "utc_offset_standard": -6,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 20,
+      "region": "Central",
+      "rationale": "9h Central = 15h UTC = 22h VN; send 20h VN"
+    },
+    "NV": {
+      "state_name": "Nevada",
+      "timezone": "Pacific",
+      "utc_offset_standard": -8,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 22,
+      "region": "Pacific",
+      "rationale": "9h Pacific = 17h UTC = 0h VN next day; send 22h VN"
+    },
+    "NH": {
+      "state_name": "New Hampshire",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "NJ": {
+      "state_name": "New Jersey",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "NM": {
+      "state_name": "New Mexico",
+      "timezone": "Mountain",
+      "utc_offset_standard": -7,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 21,
+      "region": "Mountain",
+      "rationale": "9h Mountain = 16h UTC = 23h VN; send 21h VN"
+    },
+    "NY": {
+      "state_name": "New York",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "NC": {
+      "state_name": "North Carolina",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "ND": {
+      "state_name": "North Dakota",
+      "timezone": "Central",
+      "utc_offset_standard": -6,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 20,
+      "region": "Central",
+      "rationale": "9h Central = 15h UTC = 22h VN; send 20h VN"
+    },
+    "OH": {
+      "state_name": "Ohio",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "OK": {
+      "state_name": "Oklahoma",
+      "timezone": "Central",
+      "utc_offset_standard": -6,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 20,
+      "region": "Central",
+      "rationale": "9h Central = 15h UTC = 22h VN; send 20h VN"
+    },
+    "OR": {
+      "state_name": "Oregon",
+      "timezone": "Pacific",
+      "utc_offset_standard": -8,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 22,
+      "region": "Pacific",
+      "rationale": "9h Pacific = 17h UTC = 0h VN next day; send 22h VN"
+    },
+    "PA": {
+      "state_name": "Pennsylvania",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "RI": {
+      "state_name": "Rhode Island",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "SC": {
+      "state_name": "South Carolina",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "SD": {
+      "state_name": "South Dakota",
+      "timezone": "Central",
+      "utc_offset_standard": -6,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 20,
+      "region": "Central",
+      "rationale": "9h Central = 15h UTC = 22h VN; send 20h VN"
+    },
+    "TN": {
+      "state_name": "Tennessee",
+      "timezone": "Central",
+      "utc_offset_standard": -6,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 20,
+      "region": "Central",
+      "rationale": "9h Central = 15h UTC = 22h VN; send 20h VN"
+    },
+    "TX": {
+      "state_name": "Texas",
+      "timezone": "Central",
+      "utc_offset_standard": -6,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 20,
+      "region": "Central",
+      "rationale": "9h Central = 15h UTC = 22h VN; send 20h VN"
+    },
+    "UT": {
+      "state_name": "Utah",
+      "timezone": "Mountain",
+      "utc_offset_standard": -7,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 21,
+      "region": "Mountain",
+      "rationale": "9h Mountain = 16h UTC = 23h VN; send 21h VN"
+    },
+    "VT": {
+      "state_name": "Vermont",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "VA": {
+      "state_name": "Virginia",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "WA": {
+      "state_name": "Washington",
+      "timezone": "Pacific",
+      "utc_offset_standard": -8,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 22,
+      "region": "Pacific",
+      "rationale": "9h Pacific = 17h UTC = 0h VN next day; send 22h VN"
+    },
+    "WV": {
+      "state_name": "West Virginia",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "WI": {
+      "state_name": "Wisconsin",
+      "timezone": "Central",
+      "utc_offset_standard": -6,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 20,
+      "region": "Central",
+      "rationale": "9h Central = 15h UTC = 22h VN; send 20h VN"
+    },
+    "WY": {
+      "state_name": "Wyoming",
+      "timezone": "Mountain",
+      "utc_offset_standard": -7,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 21,
+      "region": "Mountain",
+      "rationale": "9h Mountain = 16h UTC = 23h VN; send 21h VN"
+    },
+    "PR": {
+      "state_name": "Puerto Rico",
+      "timezone": "Atlantic (no DST)",
+      "utc_offset_standard": -4,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 18,
+      "region": "Eastern",
+      "rationale": "9h Atlantic = 13h UTC = 20h VN; send 18h VN"
+    },
+    "GU": {
+      "state_name": "Guam",
+      "timezone": "Chamorro (UTC+10)",
+      "utc_offset_standard": 10,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 6,
+      "region": "Pacific Islands",
+      "rationale": "9h Guam = 23h UTC prev day = 6h VN; send 6h VN morning"
+    },
+    "BC": {
+      "state_name": "British Columbia",
+      "timezone": "Pacific",
+      "utc_offset_standard": -8,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 22,
+      "region": "Pacific",
+      "rationale": "Same as CA/WA. 9h Pacific = 17h UTC = 0h VN; send 22h VN"
+    },
+    "ON": {
+      "state_name": "Ontario",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "QC": {
+      "state_name": "Quebec",
+      "timezone": "Eastern",
+      "utc_offset_standard": -5,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 19,
+      "region": "Eastern",
+      "rationale": "9h Eastern = 14h UTC = 21h VN; send 19h VN"
+    },
+    "AB": {
+      "state_name": "Alberta",
+      "timezone": "Mountain",
+      "utc_offset_standard": -7,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 21,
+      "region": "Mountain",
+      "rationale": "9h Mountain = 16h UTC = 23h VN; send 21h VN"
+    },
+    "NS": {
+      "state_name": "Nova Scotia",
+      "timezone": "Atlantic",
+      "utc_offset_standard": -4,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 18,
+      "region": "Eastern",
+      "rationale": "9h Atlantic = 13h UTC = 20h VN; send 18h VN"
+    },
+    "MB": {
+      "state_name": "Manitoba",
+      "timezone": "Central",
+      "utc_offset_standard": -6,
+      "local_target_hour": 9,
+      "optimal_send_hour_vn": 20,
+      "region": "Central",
+      "rationale": "9h Central = 15h UTC = 22h VN; send 20h VN"
+    }
+  }
+}
