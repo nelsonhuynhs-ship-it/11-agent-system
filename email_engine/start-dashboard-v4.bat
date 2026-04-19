@@ -14,20 +14,16 @@ for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":8100.*LISTENING" 2^>nul') d
     taskkill /PID %%a /F >nul 2>&1
 )
 
-:: Start web_server.py on port 8100 — pythonw hides CMD entirely (2026-04-19)
-:: Log redirect to file (email_engine.log already set up in code via RotatingFileHandler)
-:: Emergency stop: use ARM button on dashboard OR double-click STOP-EMAIL.bat
-pushd email_engine
-start "" /b pythonw web_server.py
-popd
+:: Start web_server.py on port 8100 — PowerShell Start-Process -WindowStyle Hidden
+:: (pushd+start /b in bat has cwd inheritance bug for pythonw). This way is reliable.
+:: Logs captured to email_engine\pythonw_err.log for debug.
+powershell -NoProfile -Command "Start-Process -WindowStyle Hidden -FilePath 'pythonw' -ArgumentList 'web_server.py' -WorkingDirectory '%~dp0' -RedirectStandardError '%~dp0pythonw_err.log'"
 
-:: Wait for API to start (pythonw has slower startup than python due to no console flush)
-timeout /t 5 /nobreak >nul
+:: Wait for API to start
+timeout /t 6 /nobreak >nul
 
 :: Start worker — 3 threads, looping, real send mode. Hidden via pythonw.
-pushd email_engine
-start "" /b pythonw outlook_queue_worker.py --workers 3 --loop
-popd
+powershell -NoProfile -Command "Start-Process -WindowStyle Hidden -FilePath 'pythonw' -ArgumentList 'outlook_queue_worker.py','--workers','3','--loop' -WorkingDirectory '%~dp0' -RedirectStandardError '%~dp0worker_err.log'"
 
 :: Open dashboard in browser
 start "" "plans\visuals\email-dashboard-v5.html"
