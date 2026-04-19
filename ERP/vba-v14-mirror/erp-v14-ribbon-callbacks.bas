@@ -81,6 +81,11 @@ Public ribbonUI As IRibbonUI
 Private m_BulkCustomerName As String
 Private m_BulkOutputPath As String
 
+' Feature 6 — Last-quoted pill: caches formatted label string for lblLastQuoted.
+' Updated whenever OnChange_Customer fires and finds an existing quote.
+' Declared here (module-level) per gotcha #11: no declarations after first Sub.
+Private m_LastQuotedLabel As String
+
 ' Constants
 Private Const DATA_START_ROW As Integer = 2
 ' Row where Quotes data begins (rows 1-3 = KPI dashboard, row 4 = header)
@@ -978,10 +983,13 @@ End Sub
 Public Sub OnChange_Customer(control As IRibbonControl, text As String)
     ' P3 — soft validation against CRM sheet. Status bar warns on typo,
     ' but does NOT block quote generation (Nelson can enter new customers).
+    ' F6 — also refreshes m_LastQuotedLabel + invalidates lblLastQuoted.
     On Error Resume Next
     m_Customer = Trim(text)
     If Len(m_Customer) = 0 Then
         Application.StatusBar = False
+        m_LastQuotedLabel = ""
+        If Not ribbonUI Is Nothing Then ribbonUI.InvalidateControl "lblLastQuoted"
         Exit Sub
     End If
 
@@ -989,7 +997,7 @@ Public Sub OnChange_Customer(control As IRibbonControl, text As String)
     Set wsCRM = ERPv14Core.FindSheet("CRM")
     If wsCRM Is Nothing Then
         Application.StatusBar = False
-        Exit Sub
+        GoTo RefreshLastQuoted
     End If
 
     Dim found As Boolean: found = False
@@ -1006,6 +1014,88 @@ Public Sub OnChange_Customer(control As IRibbonControl, text As String)
         Application.StatusBar = "Customer OK: " & m_Customer
     Else
         Application.StatusBar = "WARN: '" & m_Customer & "' not in CRM (typo? new customer?)"
+    End If
+
+RefreshLastQuoted:
+    ' Feature 6 — scan Quotes sheet for most recent quote for this customer.
+    ' Build label: "Last: 14APR-734 · HCM→LAX · $2,327 · PENDING"
+    m_LastQuotedLabel = BuildLastQuotedLabel(m_Customer)
+    If Not ribbonUI Is Nothing Then ribbonUI.InvalidateControl "lblLastQuoted"
+    On Error GoTo 0
+End Sub
+
+' Feature 6 — Helper: scan Quotes sheet, find most recent row for customer,
+' return formatted pill string. Returns "(no quotes yet)" when nothing found.
+' Private because only called from OnChange_Customer + GetLabel_LastQuoted.
+Private Function BuildLastQuotedLabel(custName As String) As String
+    On Error Resume Next
+    BuildLastQuotedLabel = "(no quotes yet)"
+    If Len(Trim(custName)) = 0 Then Exit Function
+
+    Dim wsQ As Worksheet
+    Set wsQ = ERPv14Core.FindSheet("Quotes")
+    If wsQ Is Nothing Then Exit Function
+
+    Dim lr As Long: lr = wsQ.Cells(wsQ.Rows.Count, 1).End(xlUp).Row
+    If lr < QUOTES_DATA_START Then Exit Function
+
+    ' Scan all rows, find MAX Date (col 2) for matching customer (col 3).
+    Dim bestRow As Long: bestRow = 0
+    Dim bestDate As Date: bestDate = #1/1/2000#
+    Dim qr As Long
+    For qr = QUOTES_DATA_START To lr
+        If UCase(Trim(CStr(wsQ.Cells(qr, 3).Value))) = UCase(Trim(custName)) Then
+            If IsDate(wsQ.Cells(qr, 2).Value) Then
+                Dim qDate As Date: qDate = CDate(wsQ.Cells(qr, 2).Value)
+                If qDate > bestDate Then
+                    bestDate = qDate
+                    bestRow = qr
+                End If
+            End If
+        End If
+    Next qr
+
+    If bestRow = 0 Then Exit Function
+
+    Dim qid As String: qid = Trim(CStr(wsQ.Cells(bestRow, 1).Value))
+    Dim qPOL As String: qPOL = Trim(CStr(wsQ.Cells(bestRow, 5).Value))
+    Dim qPOD As String: qPOD = Trim(CStr(wsQ.Cells(bestRow, 6).Value))
+    Dim qStatus As String: qStatus = Trim(CStr(wsQ.Cells(bestRow, 36).Value))
+
+    ' Pick first non-zero sell price across the 7 container types
+    Dim sellCols As Variant: sellCols = Array(29, 30, 31, 32, 33, 34, 35)
+    Dim bestSell As Double: bestSell = 0
+    Dim sc As Variant
+    For Each sc In sellCols
+        If IsNumeric(wsQ.Cells(bestRow, sc).Value) Then
+            Dim sv As Double: sv = CDbl(wsQ.Cells(bestRow, sc).Value)
+            If sv > 0 And bestSell = 0 Then bestSell = sv
+        End If
+    Next sc
+
+    ' Format: "Last: 14APR-734 · HCM→LAX · $2,327 · PENDING"
+    Dim priceStr As String
+    If bestSell > 0 Then
+        priceStr = " $" & Format(bestSell, "#,##0")
+    Else
+        priceStr = ""
+    End If
+
+    BuildLastQuotedLabel = "Last: " & qid & " " & ChrW(183) & " " & _
+                           qPOL & ChrW(8594) & qPOD & " " & ChrW(183) & _
+                           priceStr & " " & ChrW(183) & " " & qStatus
+    On Error GoTo 0
+End Function
+
+' Feature 6 — Last Quoted pill label callback.
+' Ribbon fetches this after InvalidateControl "lblLastQuoted" fires from OnChange_Customer.
+' Returns m_LastQuotedLabel which was set by BuildLastQuotedLabel scan.
+Public Sub GetLabel_LastQuoted(control As IRibbonControl, ByRef returnedVal As Variant)
+    On Error Resume Next
+    If Len(m_LastQuotedLabel) > 0 Then
+        returnedVal = m_LastQuotedLabel
+    Else
+        returnedVal = ""
     End If
     On Error GoTo 0
 End Sub
@@ -1163,6 +1253,44 @@ Public Sub OnAction_GenerateQuote(Optional control As IRibbonControl = Nothing)
         wsQ.Range("A" & QUOTES_HEADER_ROW & ":AL" & QUOTES_HEADER_ROW).Font.Bold = True
     End If
 
+    ' Feature 2 — Container picker: build default CSV from available buy rates,
+    ' then ask Nelson to edit. Only columns in the CSV will be filled.
+    Dim defaultCont As String: defaultCont = ""
+    If m_Buy20GP > 0 Then defaultCont = defaultCont & "20GP,"
+    If m_Buy40GP > 0 Then defaultCont = defaultCont & "40GP,"
+    If m_Buy40HC > 0 Then defaultCont = defaultCont & "40HC,"
+    If m_Buy45HC > 0 Then defaultCont = defaultCont & "45HC,"
+    If m_Buy40NOR > 0 Then defaultCont = defaultCont & "40NOR,"
+    If m_Buy20RF > 0 Then defaultCont = defaultCont & "20RF,"
+    If m_Buy40RF > 0 Then defaultCont = defaultCont & "40RF,"
+    ' Trim trailing comma
+    If Len(defaultCont) > 0 Then defaultCont = Left(defaultCont, Len(defaultCont) - 1)
+    If Len(defaultCont) = 0 Then defaultCont = "20GP,40GP,40HC"
+
+    Dim contInput As String
+    contInput = Trim(InputBox("Container types for this quote?" & vbCrLf & _
+        "(Edit CSV — only listed types will be included)", _
+        "Container Picker", defaultCont))
+    If contInput = "" Then Exit Sub  ' user cancelled
+
+    ' Parse selected container types into a lookup dictionary
+    Dim dContSel As Object: Set dContSel = CreateObject("Scripting.Dictionary")
+    Dim contParts() As String: contParts = Split(UCase(contInput), ",")
+    Dim cp As Variant
+    For Each cp In contParts
+        Dim cpStr As String: cpStr = Trim(CStr(cp))
+        If Len(cpStr) > 0 And Not dContSel.Exists(cpStr) Then dContSel.Add cpStr, cpStr
+    Next cp
+
+    ' Mask buy/margin/sell based on selection (only write if type selected)
+    Dim sel20GP As Boolean: sel20GP = dContSel.Exists("20GP")
+    Dim sel40GP As Boolean: sel40GP = dContSel.Exists("40GP")
+    Dim sel40HC As Boolean: sel40HC = dContSel.Exists("40HC")
+    Dim sel45HC As Boolean: sel45HC = dContSel.Exists("45HC")
+    Dim sel40NOR As Boolean: sel40NOR = dContSel.Exists("40NOR")
+    Dim sel20RF As Boolean: sel20RF = dContSel.Exists("20RF")
+    Dim sel40RF As Boolean: sel40RF = dContSel.Exists("40RF")
+
     ' Generate Quote ID + QuoteGroupID
     Dim qid As String
     qid = UCase(Format(Date, "DDMMM")) & "-" & Format(Int((999 - 100 + 1) * Rnd + 100), "000")
@@ -1197,35 +1325,36 @@ Public Sub OnAction_GenerateQuote(Optional control As IRibbonControl = Nothing)
     wsQ.Cells(nr, 9) = m_Eff: wsQ.Cells(nr, 10) = m_Exp
     If m_IsSOC Then wsQ.Cells(nr, 11) = "SOC" Else wsQ.Cells(nr, 11) = "COC"
 
-    ' Buy prices
-    If m_Buy20GP > 0 Then wsQ.Cells(nr, 12) = m_Buy20GP
-    If m_Buy40GP > 0 Then wsQ.Cells(nr, 13) = m_Buy40GP
-    If m_Buy40HC > 0 Then wsQ.Cells(nr, 14) = m_Buy40HC
-    If m_Buy45HC > 0 Then wsQ.Cells(nr, 15) = m_Buy45HC
-    If m_Buy40NOR > 0 Then wsQ.Cells(nr, 16) = m_Buy40NOR
-    If m_Buy20RF > 0 Then wsQ.Cells(nr, 17) = m_Buy20RF
-    If m_Buy40RF > 0 Then wsQ.Cells(nr, 18) = m_Buy40RF
-    ' Margins
-    If m_Mar20GP <> 0 Then wsQ.Cells(nr, 19) = m_Mar20GP
-    If m_Mar40GP <> 0 Then wsQ.Cells(nr, 20) = m_Mar40GP
-    If m_Mar40HC <> 0 Then wsQ.Cells(nr, 21) = m_Mar40HC
-    If m_Mar45HC <> 0 Then wsQ.Cells(nr, 22) = m_Mar45HC
-    If m_Mar40NOR <> 0 Then wsQ.Cells(nr, 23) = m_Mar40NOR
-    If m_Mar20RF <> 0 Then wsQ.Cells(nr, 24) = m_Mar20RF
-    If m_Mar40RF <> 0 Then wsQ.Cells(nr, 25) = m_Mar40RF
-    ' PUC
-    If m_PUC20 > 0 Then wsQ.Cells(nr, 26) = m_PUC20
-    If m_PUC40 > 0 Then wsQ.Cells(nr, 27) = m_PUC40
-    If m_PUC40HC > 0 Then wsQ.Cells(nr, 28) = m_PUC40HC
-    ' Sell = Buy + Margin + PUC
-    If m_Buy20GP > 0 Then wsQ.Cells(nr, 29) = m_Buy20GP + m_Mar20GP + m_PUC20
-    If m_Buy40GP > 0 Then wsQ.Cells(nr, 30) = m_Buy40GP + m_Mar40GP + m_PUC40
-    If m_Buy40HC > 0 Then wsQ.Cells(nr, 31) = m_Buy40HC + m_Mar40HC + m_PUC40HC
-    If m_Buy45HC > 0 Then wsQ.Cells(nr, 32) = m_Buy45HC + m_Mar45HC
-    If m_Buy40NOR > 0 Then wsQ.Cells(nr, 33) = m_Buy40NOR + m_Mar40NOR
-    If m_Buy20RF > 0 Then wsQ.Cells(nr, 34) = m_Buy20RF + m_Mar20RF
-    If m_Buy40RF > 0 Then wsQ.Cells(nr, 35) = m_Buy40RF + m_Mar40RF
+    ' Buy prices — only for selected container types (Feature 2)
+    If sel20GP And m_Buy20GP > 0 Then wsQ.Cells(nr, 12) = m_Buy20GP
+    If sel40GP And m_Buy40GP > 0 Then wsQ.Cells(nr, 13) = m_Buy40GP
+    If sel40HC And m_Buy40HC > 0 Then wsQ.Cells(nr, 14) = m_Buy40HC
+    If sel45HC And m_Buy45HC > 0 Then wsQ.Cells(nr, 15) = m_Buy45HC
+    If sel40NOR And m_Buy40NOR > 0 Then wsQ.Cells(nr, 16) = m_Buy40NOR
+    If sel20RF And m_Buy20RF > 0 Then wsQ.Cells(nr, 17) = m_Buy20RF
+    If sel40RF And m_Buy40RF > 0 Then wsQ.Cells(nr, 18) = m_Buy40RF
+    ' Margins — only for selected types
+    If sel20GP And m_Mar20GP <> 0 Then wsQ.Cells(nr, 19) = m_Mar20GP
+    If sel40GP And m_Mar40GP <> 0 Then wsQ.Cells(nr, 20) = m_Mar40GP
+    If sel40HC And m_Mar40HC <> 0 Then wsQ.Cells(nr, 21) = m_Mar40HC
+    If sel45HC And m_Mar45HC <> 0 Then wsQ.Cells(nr, 22) = m_Mar45HC
+    If sel40NOR And m_Mar40NOR <> 0 Then wsQ.Cells(nr, 23) = m_Mar40NOR
+    If sel20RF And m_Mar20RF <> 0 Then wsQ.Cells(nr, 24) = m_Mar20RF
+    If sel40RF And m_Mar40RF <> 0 Then wsQ.Cells(nr, 25) = m_Mar40RF
+    ' PUC — only for selected types
+    If sel20GP And m_PUC20 > 0 Then wsQ.Cells(nr, 26) = m_PUC20
+    If sel40GP And m_PUC40 > 0 Then wsQ.Cells(nr, 27) = m_PUC40
+    If sel40HC And m_PUC40HC > 0 Then wsQ.Cells(nr, 28) = m_PUC40HC
+    ' Sell = Buy + Margin + PUC — only for selected types
+    If sel20GP And m_Buy20GP > 0 Then wsQ.Cells(nr, 29) = m_Buy20GP + m_Mar20GP + m_PUC20
+    If sel40GP And m_Buy40GP > 0 Then wsQ.Cells(nr, 30) = m_Buy40GP + m_Mar40GP + m_PUC40
+    If sel40HC And m_Buy40HC > 0 Then wsQ.Cells(nr, 31) = m_Buy40HC + m_Mar40HC + m_PUC40HC
+    If sel45HC And m_Buy45HC > 0 Then wsQ.Cells(nr, 32) = m_Buy45HC + m_Mar45HC
+    If sel40NOR And m_Buy40NOR > 0 Then wsQ.Cells(nr, 33) = m_Buy40NOR + m_Mar40NOR
+    If sel20RF And m_Buy20RF > 0 Then wsQ.Cells(nr, 34) = m_Buy20RF + m_Mar20RF
+    If sel40RF And m_Buy40RF > 0 Then wsQ.Cells(nr, 35) = m_Buy40RF + m_Mar40RF
     wsQ.Cells(nr, 36) = "PENDING"
+    wsQ.Cells(nr, 42) = UCase(contInput)  ' ContType col 42 — pipe-joined CSV of selected types
     wsQ.Cells(nr, 43) = qgid  ' QuoteGroupID in col AQ
 
     ' Format price columns
@@ -2008,7 +2137,94 @@ SkipCharge:
         crmID, pol, pod, place, carrier, contType, qty, source)
     On Error GoTo ErrHandler
 
+    ' Feature 5 — Commission + Insurance prompts (BEFORE confirm MsgBox).
+    Dim commissionPct As Double: commissionPct = 0
+    Dim commInput As String
+    commInput = Trim(InputBox("Commission % for this job (0-100, default 0)?", _
+                              "Commission - " & quoteID, "0"))
+    If commInput = "" Then Exit Sub  ' user cancelled
+    On Error Resume Next
+    commissionPct = CDbl(commInput)
+    If Err.Number <> 0 Then commissionPct = 0
+    On Error GoTo ErrHandler
+    If commissionPct < 0 Then commissionPct = 0
+    If commissionPct > 100 Then commissionPct = 100
+
+    Dim insuranceInput As String
+    insuranceInput = UCase(Trim(InputBox("Insurance required? (Y/N, default N)", _
+                                        "Insurance - " & quoteID, "N")))
+    If insuranceInput = "" Then Exit Sub  ' user cancelled
+    Dim needsInsurance As Boolean
+    needsInsurance = (insuranceInput = "Y" Or insuranceInput = "YES")
+
+    ' Feature 5a — Write to Commission sheet (create if missing)
+    Dim wsComm As Worksheet
+    On Error Resume Next
+    Set wsComm = ThisWorkbook.Sheets("Commission")
+    On Error GoTo ErrHandler
+    If wsComm Is Nothing Then
+        Set wsComm = ThisWorkbook.Sheets.Add(After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count))
+        wsComm.Name = "Commission"
+        wsComm.Cells(1, 1).Value = "JobID"
+        wsComm.Cells(1, 2).Value = "QuoteID"
+        wsComm.Cells(1, 3).Value = "Customer"
+        wsComm.Cells(1, 4).Value = "Commission_Pct"
+        wsComm.Cells(1, 5).Value = "Created"
+        wsComm.Cells(1, 6).Value = "Status"
+        wsComm.Range("A1:F1").Font.Bold = True
+        wsComm.Range("A1:F1").Interior.Color = RGB(21, 128, 61)
+        wsComm.Range("A1:F1").Font.Color = RGB(255, 255, 255)
+    End If
+    Dim commRow As Long
+    commRow = wsComm.Cells(wsComm.Rows.Count, 1).End(xlUp).Row + 1
+    If commRow < 2 Then commRow = 2
+    wsComm.Cells(commRow, 1).Value = ""      ' JobID — Nelson fills in (FAST_ID set later)
+    wsComm.Cells(commRow, 2).Value = quoteID
+    wsComm.Cells(commRow, 3).Value = customer
+    wsComm.Cells(commRow, 4).Value = commissionPct
+    wsComm.Cells(commRow, 4).NumberFormat = "0.00"
+    wsComm.Cells(commRow, 5).Value = Now
+    wsComm.Cells(commRow, 5).NumberFormat = "dd/mm/yyyy hh:mm"
+    wsComm.Cells(commRow, 6).Value = "PENDING"
+
+    ' Feature 5b — Write to Insurance sheet if insurance=Y (create if missing)
+    If needsInsurance Then
+        Dim wsIns As Worksheet
+        On Error Resume Next
+        Set wsIns = ThisWorkbook.Sheets("Insurance")
+        On Error GoTo ErrHandler
+        If wsIns Is Nothing Then
+            Set wsIns = ThisWorkbook.Sheets.Add(After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count))
+            wsIns.Name = "Insurance"
+            wsIns.Cells(1, 1).Value = "JobID"
+            wsIns.Cells(1, 2).Value = "QuoteID"
+            wsIns.Cells(1, 3).Value = "Customer"
+            wsIns.Cells(1, 4).Value = "Required"
+            wsIns.Cells(1, 5).Value = "Notes"
+            wsIns.Cells(1, 6).Value = "Status"
+            wsIns.Cells(1, 7).Value = "Created"
+            wsIns.Range("A1:G1").Font.Bold = True
+            wsIns.Range("A1:G1").Interior.Color = RGB(194, 65, 12)
+            wsIns.Range("A1:G1").Font.Color = RGB(255, 255, 255)
+        End If
+        Dim insRow As Long
+        insRow = wsIns.Cells(wsIns.Rows.Count, 1).End(xlUp).Row + 1
+        If insRow < 2 Then insRow = 2
+        wsIns.Cells(insRow, 1).Value = ""    ' JobID — Nelson fills in
+        wsIns.Cells(insRow, 2).Value = quoteID
+        wsIns.Cells(insRow, 3).Value = customer
+        wsIns.Cells(insRow, 4).Value = "Y"
+        wsIns.Cells(insRow, 5).Value = ""    ' Notes — blank, Nelson fills in
+        wsIns.Cells(insRow, 6).Value = "PENDING"
+        wsIns.Cells(insRow, 7).Value = Now
+        wsIns.Cells(insRow, 7).NumberFormat = "dd/mm/yyyy hh:mm"
+    End If
+
     ' Step 8: Confirm
+    Dim commNote As String
+    If commissionPct > 0 Then commNote = " | Comm: " & commissionPct & "%" Else commNote = ""
+    Dim insNote As String
+    If needsInsurance Then insNote = " | Insurance: YES" Else insNote = ""
     Call MsgBoxOrSilent("Quote " & quoteID & " marked WIN!" & vbCrLf & vbCrLf & _
            "CRM: " & crmID & vbCrLf & _
            "Container: " & contType & " x " & qty & _
@@ -2016,12 +2232,369 @@ SkipCharge:
            "Sell: $" & Format(sellRate, "#,##0") & _
            " | Buy: $" & Format(buyRate, "#,##0") & vbCrLf & _
            "Profit: $" & Format(profit, "#,##0") & _
-           " (" & Format(margin * 100, "0.0") & "%)", _
+           " (" & Format(margin * 100, "0.0") & "%)" & commNote & insNote, _
            vbInformation, "WIN Confirmed")
     Exit Sub
 
 ErrHandler:
     MsgBox "Error: " & Err.Description, vbCritical, "MarkQuoteWin"
+End Sub
+
+' ============================================================
+'  FEATURE 1 — RE-NEGOTIATE (Operations tab, grpQuoteStatus)
+'  Allows Nelson to revise markup for any container type on a
+'  PENDING/LOST quote row and appends an audit remark.
+' ============================================================
+Public Sub OnAction_Renegotiate(control As IRibbonControl)
+    On Error GoTo ErrHandler
+
+    Dim wsQ As Worksheet
+    Set wsQ = ERPv14Core.FindSheet("Quotes")
+    If wsQ Is Nothing Then
+        MsgBox "Quotes sheet not found!", vbExclamation, "Re-neg"
+        Exit Sub
+    End If
+    If Not ActiveSheet.Name = wsQ.Name Then
+        MsgBox "Navigate to Quotes sheet first!", vbExclamation, "Re-neg"
+        Exit Sub
+    End If
+
+    Dim r As Long: r = Selection.Row
+    If r < QUOTES_DATA_START Then
+        MsgBox "Select a quote row (row " & QUOTES_DATA_START & "+)!", vbExclamation, "Re-neg"
+        Exit Sub
+    End If
+
+    Dim qid As String: qid = Trim(CStr(wsQ.Cells(r, 1).Value))
+    If qid = "" Then
+        MsgBox "No quote in this row!", vbExclamation, "Re-neg"
+        Exit Sub
+    End If
+
+    ' Col map: Buy 12-18, Mar 19-25, Sell 29-35
+    ' Types: 20GP=col12/19/29, 40GP=13/20/30, 40HC=14/21/31,
+    '        45HC=15/22/32, 40NOR=16/23/33, 20RF=17/24/34, 40RF=18/25/35
+    Dim contNames(0 To 6) As String
+    Dim buyCols(0 To 6) As Integer
+    Dim marCols(0 To 6) As Integer
+    Dim sellCols(0 To 6) As Integer
+    contNames(0) = "20GP":  buyCols(0) = 12: marCols(0) = 19: sellCols(0) = 29
+    contNames(1) = "40GP":  buyCols(1) = 13: marCols(1) = 20: sellCols(1) = 30
+    contNames(2) = "40HC":  buyCols(2) = 14: marCols(2) = 21: sellCols(2) = 31
+    contNames(3) = "45HC":  buyCols(3) = 15: marCols(3) = 22: sellCols(3) = 32
+    contNames(4) = "40NOR": buyCols(4) = 16: marCols(4) = 23: sellCols(4) = 33
+    contNames(5) = "20RF":  buyCols(5) = 17: marCols(5) = 24: sellCols(5) = 34
+    contNames(6) = "40RF":  buyCols(6) = 18: marCols(6) = 25: sellCols(6) = 35
+
+    ' PUC cols (parallel to Buy/Sell for 20GP/40GP/40HC)
+    Dim pucCols(0 To 6) As Integer
+    pucCols(0) = 26: pucCols(1) = 27: pucCols(2) = 28
+    pucCols(3) = 0:  pucCols(4) = 0:  pucCols(5) = 0: pucCols(6) = 0
+
+    Dim changeLog As String: changeLog = ""
+    Dim ci As Integer
+    For ci = 0 To 6
+        Dim oldBuy As Double: oldBuy = 0
+        Dim oldMar As Double: oldMar = 0
+        Dim oldPUC As Double: oldPUC = 0
+        If IsNumeric(wsQ.Cells(r, buyCols(ci)).Value) Then oldBuy = CDbl(wsQ.Cells(r, buyCols(ci)).Value)
+        If IsNumeric(wsQ.Cells(r, marCols(ci)).Value) Then oldMar = CDbl(wsQ.Cells(r, marCols(ci)).Value)
+        If pucCols(ci) > 0 And IsNumeric(wsQ.Cells(r, pucCols(ci)).Value) Then
+            oldPUC = CDbl(wsQ.Cells(r, pucCols(ci)).Value)
+        End If
+
+        ' Only prompt for container types that have an existing buy rate
+        If oldBuy > 0 Then
+            Dim promptStr As String
+            promptStr = contNames(ci) & " — current margin $" & Format(oldMar, "#,##0") & _
+                        " (Buy $" & Format(oldBuy, "#,##0") & " + PUC $" & Format(oldPUC, "#,##0") & ")"
+            Dim newMarStr As String
+            newMarStr = Trim(InputBox("New markup for " & contNames(ci) & _
+                                     " (current: $" & Format(oldMar, "#,##0") & ")?", _
+                                     "Re-neg " & qid, CStr(CLng(oldMar))))
+            If newMarStr = "" Then Exit Sub  ' user cancelled — abort entire re-neg
+
+            Dim newMar As Double: newMar = 0
+            On Error Resume Next
+            newMar = CDbl(newMarStr)
+            If Err.Number <> 0 Then newMar = oldMar
+            On Error GoTo ErrHandler
+
+            ' Update Mar_* + recalc Sell_*
+            wsQ.Cells(r, marCols(ci)).Value = newMar
+            wsQ.Cells(r, sellCols(ci)).Value = oldBuy + newMar + oldPUC
+            wsQ.Cells(r, sellCols(ci)).NumberFormat = "$#,##0"
+
+            ' Track change for remark (only when value actually changed)
+            If Abs(newMar - oldMar) > 0.5 Then
+                If changeLog <> "" Then changeLog = changeLog & "; "
+                changeLog = changeLog & contNames(ci) & " $" & Format(oldMar, "#,##0") & _
+                            ChrW(8594) & "$" & Format(newMar, "#,##0")
+            End If
+        End If
+    Next ci
+
+    ' Append remark + update StatusDate
+    If Len(changeLog) > 0 Then
+        Dim existRemark As String: existRemark = Trim(CStr(wsQ.Cells(r, 37).Value))
+        Dim reNegTag As String
+        reNegTag = "[Re-neg " & Format(Now, "dd-mmm") & "] " & changeLog
+        If Len(existRemark) > 0 Then
+            wsQ.Cells(r, 37).Value = existRemark & " | " & reNegTag
+        Else
+            wsQ.Cells(r, 37).Value = reNegTag
+        End If
+        wsQ.Cells(r, 38).Value = Now  ' StatusDate col 38
+    End If
+
+    Call MsgBoxOrSilent("Re-neg complete for " & qid & "." & vbCrLf & _
+           IIf(Len(changeLog) > 0, "Changes: " & changeLog, "No values changed."), _
+           vbInformation, "Re-neg")
+    Exit Sub
+
+ErrHandler:
+    MsgBox "Re-neg error: " & Err.Description, vbCritical, "Re-neg"
+End Sub
+
+' ============================================================
+'  FEATURE 4 — TARGET WATCH (Operations tab, grpAlerts)
+'  Adds a watch row to Target_Watch sheet so price_watch.py
+'  can alert when a carrier hits Nelson's target price.
+' ============================================================
+Public Sub OnAction_TargetAdd(control As IRibbonControl)
+    On Error GoTo ErrHandler
+
+    Dim wsQ As Worksheet
+    Set wsQ = ERPv14Core.FindSheet("Quotes")
+    If wsQ Is Nothing Then
+        MsgBox "Quotes sheet not found!", vbExclamation, "Target Watch"
+        Exit Sub
+    End If
+    If Not ActiveSheet.Name = wsQ.Name Then
+        MsgBox "Navigate to Quotes sheet and select a quote row first!", vbExclamation, "Target Watch"
+        Exit Sub
+    End If
+
+    Dim r As Long: r = Selection.Row
+    If r < QUOTES_DATA_START Then
+        MsgBox "Select a quote row (row " & QUOTES_DATA_START & "+)!", vbExclamation, "Target Watch"
+        Exit Sub
+    End If
+
+    Dim qid As String: qid = Trim(CStr(wsQ.Cells(r, 1).Value))
+    If qid = "" Then
+        MsgBox "No quote in this row!", vbExclamation, "Target Watch"
+        Exit Sub
+    End If
+
+    ' Read quote data
+    Dim twCust As String: twCust = Trim(CStr(wsQ.Cells(r, 3).Value))
+    Dim twPOL As String: twPOL = Trim(CStr(wsQ.Cells(r, 5).Value))
+    Dim twPOD As String: twPOD = Trim(CStr(wsQ.Cells(r, 6).Value))
+    Dim twCarrier As String: twCarrier = Trim(CStr(wsQ.Cells(r, 4).Value))
+    Dim twContType As String: twContType = Trim(CStr(wsQ.Cells(r, 42).Value))
+    If twContType = "" Then twContType = "20GP"  ' fallback
+
+    ' Pick current sell price (first non-zero Sell_* col)
+    Dim twCurrSell As Double: twCurrSell = 0
+    Dim sc As Integer
+    For sc = 29 To 35
+        If IsNumeric(wsQ.Cells(r, sc).Value) And CDbl(wsQ.Cells(r, sc).Value) > 0 Then
+            twCurrSell = CDbl(wsQ.Cells(r, sc).Value)
+            Exit For
+        End If
+    Next sc
+
+    ' Prompt — target price
+    Dim targetStr As String
+    targetStr = Trim(InputBox("Target price USD (e.g. 1500)?", _
+                              "Target Watch - " & qid, ""))
+    If targetStr = "" Then Exit Sub
+    Dim targetUSD As Double
+    On Error Resume Next
+    targetUSD = CDbl(targetStr)
+    If Err.Number <> 0 Or targetUSD <= 0 Then
+        MsgBox "Invalid target price.", vbExclamation, "Target Watch"
+        Exit Sub
+    End If
+    On Error GoTo ErrHandler
+
+    ' Prompt — container type
+    Dim twContInput As String
+    twContInput = Trim(InputBox("Container type (20GP/40GP/40HC/ANY, default " & twContType & ")?", _
+                                "Target Watch - " & qid, twContType))
+    If twContInput = "" Then Exit Sub
+    twContType = UCase(twContInput)
+
+    ' Write to Target_Watch sheet
+    Dim twRemark As String: twRemark = ""
+    Call WriteTargetWatchRow(qid, twCust, twPOL, twPOD, twCarrier, twContType, _
+                             targetUSD, twCurrSell, twRemark)
+
+    MsgBox "Target $" & Format(targetUSD, "#,##0") & " added for " & _
+           twCust & " " & twPOL & ChrW(8594) & twPOD & vbCrLf & _
+           "price_watch.py will alert when a matching rate is found.", _
+           vbInformation, "Target Watch"
+    Exit Sub
+
+ErrHandler:
+    MsgBox "Target Watch error: " & Err.Description, vbCritical, "Target Watch"
+End Sub
+
+' Shared helper — writes one row to Target_Watch per docs/s1v2-target-watch-schema.md.
+' Called by OnAction_TargetAdd. Also callable by Python via Application.Run for tests.
+' Columns A-P per schema: Target_ID, Created, QuoteID, Customer, POL, POD,
+'   Carrier, ContType, Target_USD, CurrentQuote_USD, Status, LastCheck,
+'   Matched_Rate, Matched_Carrier, Matched_Date, Remark.
+Public Sub WriteTargetWatchRow(qid As String, cust As String, pol As String, _
+                                pod As String, carr As String, cont As String, _
+                                target As Double, currQuote As Double, remark As String)
+    On Error GoTo ErrHandler
+
+    ' Ensure Target_Watch sheet exists with header
+    Dim wsTW As Worksheet
+    On Error Resume Next
+    Set wsTW = ThisWorkbook.Sheets("Target_Watch")
+    On Error GoTo ErrHandler
+
+    If wsTW Is Nothing Then
+        Set wsTW = ThisWorkbook.Sheets.Add(After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count))
+        wsTW.Name = "Target_Watch"
+        ' Header: A-P per schema
+        Dim hdr As Variant
+        hdr = Array("Target_ID", "Created", "QuoteID", "Customer", "POL", "POD", _
+                    "Carrier", "ContType", "Target_USD", "CurrentQuote_USD", "Status", _
+                    "LastCheck", "Matched_Rate", "Matched_Carrier", "Matched_Date", "Remark")
+        Dim hi As Integer
+        For hi = 0 To UBound(hdr)
+            wsTW.Cells(1, hi + 1).Value = hdr(hi)
+        Next hi
+        wsTW.Range("A1:P1").Font.Bold = True
+        wsTW.Range("A1:P1").Interior.Color = RGB(30, 64, 175)
+        wsTW.Range("A1:P1").Font.Color = RGB(255, 255, 255)
+        wsTW.Rows(1).RowHeight = 22
+    End If
+
+    ' Idempotency: check if QuoteID + ContType + Target_USD already exists
+    Dim twLR As Long: twLR = wsTW.Cells(wsTW.Rows.Count, 1).End(xlUp).Row
+    Dim twR As Long
+    For twR = 2 To twLR
+        Dim existQid As String: existQid = Trim(CStr(wsTW.Cells(twR, 3).Value))
+        Dim existCont As String: existCont = UCase(Trim(CStr(wsTW.Cells(twR, 8).Value)))
+        Dim existTarget As Double: existTarget = 0
+        If IsNumeric(wsTW.Cells(twR, 9).Value) Then existTarget = CDbl(wsTW.Cells(twR, 9).Value)
+        If existQid = qid And existCont = UCase(cont) And Abs(existTarget - target) < 0.5 Then
+            MsgBox "Target already exists for " & qid & " " & cont & " $" & Format(target, "#,##0") & _
+                   " (row " & twR & ").", vbExclamation, "Target Watch"
+            Exit Sub
+        End If
+    Next twR
+
+    ' Generate Target_ID: TW-YYYYMMDD-NNN (3-digit sequence within today)
+    Dim today As String: today = Format(Now, "yyyymmdd")
+    Dim seqNum As Long: seqNum = 1
+    For twR = 2 To twLR
+        Dim existTwId As String: existTwId = Trim(CStr(wsTW.Cells(twR, 1).Value))
+        If Left(existTwId, 11) = "TW-" & today & "-" Then
+            Dim existSeq As Long
+            On Error Resume Next
+            existSeq = CLng(Mid(existTwId, 12, 3))
+            If Err.Number = 0 And existSeq >= seqNum Then seqNum = existSeq + 1
+            On Error GoTo ErrHandler
+        End If
+    Next twR
+    Dim targetID As String
+    targetID = "TW-" & today & "-" & Format(seqNum, "000")
+
+    ' Insert row at bottom
+    Dim newRow As Long: newRow = twLR + 1
+    If newRow < 2 Then newRow = 2
+
+    wsTW.Cells(newRow, 1).Value = targetID         ' A: Target_ID
+    wsTW.Cells(newRow, 2).Value = Now              ' B: Created
+    wsTW.Cells(newRow, 2).NumberFormat = "dd/mm/yyyy hh:mm"
+    wsTW.Cells(newRow, 3).Value = qid              ' C: QuoteID
+    wsTW.Cells(newRow, 4).Value = cust             ' D: Customer
+    wsTW.Cells(newRow, 5).Value = pol              ' E: POL
+    wsTW.Cells(newRow, 6).Value = pod              ' F: POD
+    wsTW.Cells(newRow, 7).Value = carr             ' G: Carrier
+    wsTW.Cells(newRow, 8).Value = UCase(cont)      ' H: ContType
+    wsTW.Cells(newRow, 9).Value = target           ' I: Target_USD
+    wsTW.Cells(newRow, 9).NumberFormat = "#,##0"
+    wsTW.Cells(newRow, 10).Value = currQuote       ' J: CurrentQuote_USD
+    wsTW.Cells(newRow, 10).NumberFormat = "#,##0"
+    wsTW.Cells(newRow, 11).Value = "WATCHING"      ' K: Status (initial)
+    ' L: LastCheck — Python fills in
+    ' M: Matched_Rate — Python fills in
+    ' N: Matched_Carrier — Python fills in
+    ' O: Matched_Date — Python fills in
+    wsTW.Cells(newRow, 16).Value = remark          ' P: Remark
+    Exit Sub
+
+ErrHandler:
+    MsgBox "WriteTargetWatchRow error: " & Err.Description, vbCritical, "Target Watch"
+End Sub
+
+' ============================================================
+'  FEATURE 7 — RELOAD VBA (Operations tab, grpAdv)
+'  Saves + closes workbook, then WMI-launches bootstrap bat
+'  that re-imports all .bas modules and reopens the xlsm.
+' ============================================================
+Public Sub OnAction_ReloadVBA(control As IRibbonControl)
+    On Error GoTo ErrHandler
+
+    If MsgBox("This will save + close the workbook, re-import VBA modules, then reopen." & vbCrLf & _
+              "Excel will be closed briefly. Continue?", _
+              vbYesNo + vbQuestion, "Reload VBA") = vbNo Then Exit Sub
+
+    ' Find bootstrap bat (reimport-erp-vba.bat) via the same multi-base search used by Refresh Rates
+    Dim bootstrapBat As String
+    bootstrapBat = FindScriptRR("scripts\reimport-erp-vba.bat")
+    If bootstrapBat = "" Then
+        ' Fallback: try the Python script directly via a cmd wrapper
+        bootstrapBat = FindScriptRR("scripts\reimport-erp-vba-modules.py")
+        If bootstrapBat = "" Then
+            MsgBox "scripts\reimport-erp-vba.bat (or reimport-erp-vba-modules.py) not found." & vbCrLf & _
+                   "Check Engine_test repo path.", vbExclamation, "Reload VBA"
+            Exit Sub
+        End If
+    End If
+
+    Dim fullPath As String: fullPath = ThisWorkbook.FullName
+
+    ' WMI Win32_Process.Create so child runs OUTSIDE Excel Job Object
+    ' Per SYSTEM_STANDARDS §5.1 — Shell/wsh.Run children get killed when Excel exits.
+    Dim bootCmd As String
+    ' Detect if we have a .bat or .py
+    If Right(LCase(bootstrapBat), 4) = ".bat" Then
+        bootCmd = "cmd /c """"" & bootstrapBat & """ """ & fullPath & """"""
+    Else
+        ' Direct Python launch
+        Dim pyExe As String: pyExe = "C:\Users\Nelson\anaconda3\python"
+        bootCmd = "cmd /c """ & pyExe & " """ & bootstrapBat & """ """ & fullPath & """"""
+    End If
+
+    Dim wmi As Object
+    Set wmi = GetObject("winmgmts:\\.\root\cimv2:Win32_Process")
+    Dim procId As Variant
+    Dim rcCreate As Long
+    rcCreate = wmi.Create(bootCmd, Null, Null, procId)
+    If rcCreate <> 0 Then
+        MsgBox "Could not launch VBA reload bootstrap (WMI rc=" & rcCreate & ").", _
+               vbCritical, "Reload VBA"
+        Exit Sub
+    End If
+
+    ' Save + close — bootstrap polls file lock (30s) then runs Python + reopens xlsm
+    Application.StatusBar = "Reload VBA: closing workbook (re-import runs in background)..."
+    Application.DisplayAlerts = False
+    ThisWorkbook.Close SaveChanges:=True
+    Exit Sub
+
+ErrHandler:
+    Application.DisplayAlerts = True
+    Application.StatusBar = False
+    MsgBox "Reload VBA error: " & Err.Description, vbCritical, "Reload VBA"
 End Sub
 
 Public Sub OnAction_MarkQuoteLost(control As IRibbonControl)
