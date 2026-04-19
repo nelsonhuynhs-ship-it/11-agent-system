@@ -14,16 +14,20 @@ for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":8100.*LISTENING" 2^>nul') d
     taskkill /PID %%a /F >nul 2>&1
 )
 
-:: Start web_server.py on port 8100
-start "Nelson Email API :8100" /min cmd /c "cd /d email_engine && python web_server.py 2>&1"
+:: Start web_server.py on port 8100 — pythonw hides CMD entirely (2026-04-19)
+:: Log redirect to file (email_engine.log already set up in code via RotatingFileHandler)
+:: Emergency stop: use ARM button on dashboard OR double-click STOP-EMAIL.bat
+pushd email_engine
+start "" /b pythonw web_server.py
+popd
 
-:: Wait for API to start
-timeout /t 3 /nobreak >nul
+:: Wait for API to start (pythonw has slower startup than python due to no console flush)
+timeout /t 5 /nobreak >nul
 
-:: Start FAST worker (Phase 01) — 3 threads, looping, real send mode.
-:: Drop email_engine\data\KILL_SWITCH.flag to pause sends.
-:: Add --dry-run to the line below to test without sending.
-start "Nelson Worker" /min cmd /c "cd /d email_engine && python outlook_queue_worker.py --workers 3 --loop 2>&1"
+:: Start worker — 3 threads, looping, real send mode. Hidden via pythonw.
+pushd email_engine
+start "" /b pythonw outlook_queue_worker.py --workers 3 --loop
+popd
 
 :: Open dashboard in browser
 start "" "plans\visuals\email-dashboard-v5.html"

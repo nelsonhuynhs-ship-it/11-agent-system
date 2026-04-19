@@ -340,7 +340,13 @@ input,select{font-family:inherit}
           </span>
         </div>
         <div class="batch-row"><span class="batch-label">Split</span><span class="batch-value" id="batchSplit">—</span></div>
-        <div class="batch-row"><span class="batch-label">Kill switch</span><span class="batch-value"><button class="btn btn-xs btn-danger" id="btnKill">ARM</button></span></div>
+        <div class="batch-row"><span class="batch-label">Kill switch</span>
+          <span class="batch-value">
+            <span id="killStatus" style="font-size:11px;color:var(--muted);margin-right:8px;">checking...</span>
+            <button class="btn btn-xs btn-danger" id="btnKill">ARM</button>
+            <button class="btn btn-xs" id="btnKillClear" style="display:none;background:#2d6a4f;color:#fff;margin-left:4px;">DISARM</button>
+          </span>
+        </div>
         <div class="cooldown-warn" id="cooldownWarn"></div>
         <div class="batch-list" id="batchList"></div>
       </div>
@@ -594,6 +600,30 @@ async function init(){
   }
   // Kick off alert polling (60s) so badge updates without manual refresh.
   startAlertPolling();
+  // Kick off kill-switch status polling (15s) — shows ARM/DISARM state
+  startKillStatusPolling();
+}
+
+/* ═══════════════ KILL SWITCH STATUS (polls every 15s when armed, 60s otherwise) ═══════════════ */
+async function refreshKillStatus(){
+  try {
+    const r = await api('/api/email-rate/queue/kill-status');
+    const armed = !!(r && r.active);
+    const statusEl = document.getElementById('killStatus');
+    const armBtn = document.getElementById('btnKill');
+    const clearBtn = document.getElementById('btnKillClear');
+    if (statusEl){
+      statusEl.textContent = armed ? '🛑 ARMED' : '● live';
+      statusEl.style.color = armed ? 'var(--err)' : 'var(--good)';
+      statusEl.style.fontWeight = armed ? '700' : '400';
+    }
+    if (armBtn) armBtn.style.display = armed ? 'none' : '';
+    if (clearBtn) clearBtn.style.display = armed ? '' : 'none';
+  } catch(e){ /* silent */ }
+}
+function startKillStatusPolling(){
+  refreshKillStatus();
+  setInterval(refreshKillStatus, 15000);
 }
 
 /* ═══════════════ ALERT POLLING (60s) ═══════════════ */
@@ -909,9 +939,20 @@ function bindControls(){
   };
   document.getElementById('btnSend').onclick = enqueueBatches;
   document.getElementById('btnKill').onclick = async () => {
-    if (!confirm('ARM kill switch? Worker will stop picking jobs.')) return;
-    try { await api('/api/email-rate/queue/kill', {method:'POST'}); toast('Kill switch ARMED', 'warn'); }
-    catch(e){ toast('Kill failed: '+e.message, 'err'); }
+    if (!confirm('ARM kill switch? Worker will STOP picking new jobs (in-flight email will complete).')) return;
+    try {
+      await api('/api/email-rate/queue/kill', {method:'POST'});
+      toast('🛑 Kill switch ARMED — worker paused', 'warn', 5000);
+      refreshKillStatus();
+    } catch(e){ toast('Kill failed: '+e.message, 'err'); }
+  };
+  document.getElementById('btnKillClear').onclick = async () => {
+    if (!confirm('DISARM kill switch? Worker will resume sending queued jobs.')) return;
+    try {
+      await api('/api/email-rate/queue/kill-clear', {method:'POST'});
+      toast('✓ Kill switch cleared — worker resuming', 'success', 4000);
+      refreshKillStatus();
+    } catch(e){ toast('Clear failed: '+e.message, 'err'); }
   };
   document.getElementById('btnPriorityReload').onclick = loadPriority;
   document.getElementById('btnAnalyticsReload').onclick = loadAnalytics;
