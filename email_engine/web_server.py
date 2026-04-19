@@ -1775,16 +1775,26 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
             except Exception as e:
                 log.debug(f"intel summary failed for {em}: {e}")
 
-        # Destinations: row value > request filter > default.
-        # Treat "nan"/"none" strings (pandas reads empty cells as NaN) as empty.
+        # Destinations: MERGE strategy (2026-04-19) — show 9 default lanes ALWAYS,
+        # but put CNEE's known lane(s) at the FRONT so rate table renders it first
+        # (builder will highlight the primary row). Nelson's ask: "khoe thêm chút
+        # đâu biết được khách có đi cảng đó hay không" = show breadth + signal
+        # we know their primary corridor. Deduplicated, known lanes first.
         row_dest = str(row.get("DESTINATION") or "").strip()
         if row_dest.lower() in ("nan", "none"):
             row_dest = ""
-        dests: list[str] = _normalize_dest_text(row_dest)
-        if not dests and requested_dests:
-            dests = [d for d in requested_dests if d.upper() not in ("NAN", "NONE")]
-        if not dests:
-            dests = list(DEFAULT_DESTINATIONS)  # copy so downstream mutation doesn't poison global
+        known_dests: list[str] = _normalize_dest_text(row_dest)
+        if not known_dests and requested_dests:
+            known_dests = [d for d in requested_dests if d.upper() not in ("NAN", "NONE")]
+        # Always merge with default 9 lanes; known first, default filled in order
+        merged: list[str] = []
+        for d in known_dests + list(DEFAULT_DESTINATIONS):
+            du = d.upper()
+            if du and du not in merged:
+                merged.append(du)
+        dests = merged
+        # Also pass the known-primary hint so builder can highlight first row
+        primary_dest = known_dests[0] if known_dests else ""
 
         row_pol_raw = str(row.get("POL") or "").strip().upper()
         if row_pol_raw in ("", "NAN", "NONE"):
@@ -1795,6 +1805,9 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
         if _builder is None:
             skipped.append({"email": em, "reason": "builder module unavailable"})
             continue
+        # Pass primary_dest via profile so builder can highlight that lane's row
+        if primary_dest:
+            profile["primary_dest"] = primary_dest
         try:
             built = _builder.build_email(
                 cnee_email=em, pol=pol, destinations=dests,

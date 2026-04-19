@@ -230,7 +230,7 @@ def _fmt_validity(eff, exp) -> str:
     return "—"
 
 
-def _render_rate_table(lane_intels: list[dict]) -> str:
+def _render_rate_table(lane_intels: list[dict], primary_dest: str = "") -> str:
     """
     Render per-lane rate table — Pudong Prime branded quote style (v2).
 
@@ -241,11 +241,10 @@ def _render_rate_table(lane_intels: list[dict]) -> str:
       [N carrier rows per POD — cheapest first, BEST pill on global cheapest]
       [Footer strip — local charges]
 
-    v2 changes (2026-04-17):
-      - Multi-carrier rows per POD (from lane.carriers list)
-      - POD header: main port shows just code; inland shows "PLACE via PORT"
-      - SVC column derived from Rate_Type + carrier (SOC/COC/FIXED)
-      - Per-carrier validity window (real Eff/Exp dates, not synthetic)
+    v3 (2026-04-19): primary_dest — if CNEE has known DESTINATION, that POD
+    row is highlighted with "YOUR LANE" pill + amber accent. Email shows all
+    9 lanes (breadth) + flags the one we know matters to them. Per Nelson:
+    "highlight known, show 9 luôn" — balance personalization + showing coverage.
     """
     if not lane_intels:
         return (
@@ -318,12 +317,27 @@ def _render_rate_table(lane_intels: list[dict]) -> str:
 
         pod_main, pod_sub = _fmt_pod_header(dest_code, first_place)
 
+        # Highlight CNEE's primary lane (if known) — amber "YOUR LANE" pill
+        is_primary = bool(primary_dest) and dest_code == (primary_dest or "").upper()
+        if is_primary:
+            header_bg = "background:#fffbeb;border-left:4px solid #f59e0b;"
+            primary_pill = (
+                "<span style='background:#f59e0b;color:#ffffff;padding:3px 10px;"
+                "border-radius:10px;font-size:10px;font-weight:800;letter-spacing:0.5px;"
+                "margin-left:10px;vertical-align:middle;'>YOUR LANE</span>"
+            )
+        else:
+            header_bg = ""
+            primary_pill = ""
+
         rows.append(
-            "<tr><td colspan='5' style='padding:14px 16px 4px;'>"
+            f"<tr><td colspan='5' style='padding:14px 16px 4px;{header_bg}'>"
             "<span style='color:#334155;font-size:14px;font-weight:700;'>"
             f"› {pod_main}"
             f"<span style='color:#64748b;font-weight:400;margin-left:8px;font-size:12px;'>"
-            f"{pod_sub}</span></span>"
+            f"{pod_sub}</span>"
+            f"{primary_pill}"
+            "</span>"
             "</td></tr>"
         )
 
@@ -568,7 +582,10 @@ def _build_tokens(
         "default_closing": _random_closing(),
 
         # HTML chunks
-        "rate_table_html": _render_rate_table(lane_intels),
+        "rate_table_html": _render_rate_table(
+            lane_intels,
+            primary_dest=(profile.get("primary_dest") or "").upper() if profile else "",
+        ),
     }
 
     # Signature priority:
