@@ -756,7 +756,7 @@ def data_health():
             if "PHONE" in df.columns else total
         )
         return {
-            "source": cnee_src.name,
+            "source": str((CNEE_V2 if CNEE_V2.exists() else CNEE_V1).name),
             "total_contacts": total,
             "valid_emails": valid,
             "bounced": bounced,
