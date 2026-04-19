@@ -269,7 +269,7 @@ def _render_rate_table(lane_intels: list[dict], primary_dest: str = "") -> str:
     rows = []
 
     # ─── Column header row ────────────────────────────────────────
-    _th = ("padding:10px 12px;color:#64748b;font-size:10px;"
+    _th = ("padding:6px 12px;color:#64748b;font-size:9px;"
            "letter-spacing:1.5px;font-weight:700;")
     rows.append(
         "<tr style='background:#f8fafc;border-bottom:1px solid #e2e8f0;'>"
@@ -284,9 +284,9 @@ def _render_rate_table(lane_intels: list[dict], primary_dest: str = "") -> str:
     # ─── POL band (blue full-width) ──────────────────────────────
     rows.append(
         "<tr><td colspan='5' style='padding:0;'>"
-        "<div style='background:#2553e2;color:#ffffff;padding:12px 16px;margin:4px 0 0;'>"
-        f"<span style='font-size:15px;font-weight:800;letter-spacing:0.5px;'>{pol_code}</span>"
-        f"<span style='color:#c7d2fe;margin-left:12px;font-size:13px;'>{pol_full}</span>"
+        "<div style='background:#2553e2;color:#ffffff;padding:8px 16px;margin:2px 0 0;'>"
+        f"<span style='font-size:14px;font-weight:800;letter-spacing:0.5px;'>{pol_code}</span>"
+        f"<span style='color:#c7d2fe;margin-left:12px;font-size:12px;'>{pol_full}</span>"
         "</div></td></tr>"
     )
 
@@ -331,10 +331,10 @@ def _render_rate_table(lane_intels: list[dict], primary_dest: str = "") -> str:
             primary_pill = ""
 
         rows.append(
-            f"<tr><td colspan='5' style='padding:14px 16px 4px;{header_bg}'>"
-            "<span style='color:#334155;font-size:14px;font-weight:700;'>"
+            f"<tr><td colspan='5' style='padding:8px 16px 2px;{header_bg}'>"
+            "<span style='color:#334155;font-size:13px;font-weight:700;'>"
             f"› {pod_main}"
-            f"<span style='color:#64748b;font-weight:400;margin-left:8px;font-size:12px;'>"
+            f"<span style='color:#64748b;font-weight:400;margin-left:8px;font-size:11px;'>"
             f"{pod_sub}</span>"
             f"{primary_pill}"
             "</span>"
@@ -343,14 +343,19 @@ def _render_rate_table(lane_intels: list[dict], primary_dest: str = "") -> str:
 
         if not carriers:
             rows.append(
-                "<tr><td colspan='5' style='padding:8px 16px 12px;"
-                "color:#94a3b8;font-style:italic;font-size:12px;'>"
+                "<tr><td colspan='5' style='padding:4px 16px 6px;"
+                "color:#94a3b8;font-style:italic;font-size:11px;'>"
                 "No rates available for this lane.</td></tr>"
             )
             continue
 
+        # Cap at TOP 3 carriers per POD (Nelson 2026-04-19: only show 3 best
+        # options per destination — avoid overwhelming recipient with 4-5 rows).
+        # Carriers already sorted cheapest-first in build_email → top 3 = 3 best.
+        top_carriers = carriers[:3]
+
         # Render one row per carrier (cheapest already first — sorted in build_email)
-        for c in carriers:
+        for c in top_carriers:
             carrier = str(c.get("carrier", "")).upper()
             is_best = (id(lane), carrier) == global_best_key
 
@@ -365,7 +370,7 @@ def _render_rate_table(lane_intels: list[dict], primary_dest: str = "") -> str:
                 rate_color = "#064e3b"
                 carrier_label = (
                     f"<strong style='color:#064e3b;'>{carrier}</strong> "
-                    "<span style='background:#10b981;color:#ffffff;padding:2px 8px;"
+                    "<span style='background:#10b981;color:#ffffff;padding:1px 7px;"
                     "border-radius:10px;font-size:9px;font-weight:800;"
                     "letter-spacing:0.5px;margin-left:6px;vertical-align:middle;'>BEST</span>"
                 )
@@ -377,21 +382,21 @@ def _render_rate_table(lane_intels: list[dict], primary_dest: str = "") -> str:
 
             rows.append(
                 f"<tr style='background:{row_bg};border-left:3px solid {accent};'>"
-                f"<td style='padding:10px 16px;font-size:13px;'>{carrier_label}</td>"
-                f"<td style='padding:10px 12px;text-align:right;font-weight:700;"
-                f"color:{rate_color};font-size:14px;'>{r20}</td>"
-                f"<td style='padding:10px 12px;text-align:right;font-weight:700;"
-                f"color:{rate_color};font-size:14px;'>{r40}</td>"
-                f"<td style='padding:10px 12px;color:#475569;font-size:11px;'>{valid}</td>"
-                f"<td style='padding:10px 12px;color:#475569;font-size:11px;'>{svc}</td>"
+                f"<td style='padding:5px 16px;font-size:12px;'>{carrier_label}</td>"
+                f"<td style='padding:5px 12px;text-align:right;font-weight:700;"
+                f"color:{rate_color};font-size:13px;'>{r20}</td>"
+                f"<td style='padding:5px 12px;text-align:right;font-weight:700;"
+                f"color:{rate_color};font-size:13px;'>{r40}</td>"
+                f"<td style='padding:5px 12px;color:#475569;font-size:10px;'>{valid}</td>"
+                f"<td style='padding:5px 12px;color:#475569;font-size:10px;'>{svc}</td>"
                 "</tr>"
             )
 
     # ─── Footer info strip ───────────────────────────────────────
     rows.append(
-        "<tr><td colspan='5' style='padding:14px 16px;background:#eff6ff;"
+        "<tr><td colspan='5' style='padding:8px 16px;background:#eff6ff;"
         "border-top:1px solid #dbeafe;'>"
-        "<span style='color:#1e3a8a;font-size:12px;'>"
+        "<span style='color:#1e3a8a;font-size:11px;'>"
         "› <strong>Local Charge &amp; Handling Fee:</strong> "
         "<span style='color:#2553e2;font-weight:700;'>$45</span> / shipment (US) · "
         "<span style='color:#ea580c;'>Canada: $85 / shipment</span>"
@@ -400,9 +405,9 @@ def _render_rate_table(lane_intels: list[dict], primary_dest: str = "") -> str:
 
     return (
         "<table cellpadding='0' cellspacing='0' width='100%' "
-        "style='border-collapse:collapse;margin:16px 0;width:100%;"
+        "style='border-collapse:collapse;margin:10px 0;width:100%;"
         "font-family:Segoe UI,Arial,sans-serif;border:1px solid #e2e8f0;"
-        "border-radius:8px;overflow:hidden;'>"
+        "border-radius:6px;overflow:hidden;'>"
         f"<tbody>{''.join(rows)}</tbody></table>"
     )
 
