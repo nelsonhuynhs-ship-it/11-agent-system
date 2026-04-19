@@ -24,16 +24,36 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from typing import Final
 
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "core"))
+_CORE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "core")
+_SCRIPTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "scripts")
+sys.path.insert(0, os.path.abspath(_CORE_DIR))
+sys.path.insert(0, os.path.abspath(_SCRIPTS_DIR))
 from ribbon_guard import save_preserving_ribbon  # noqa: E402
 from active_jobs_cols import COL as AJ_COL  # noqa: E402
+
+# Phase 02: carrier alias + normalize
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from carrier_alias import normalize_carrier, CARRIER_ALIAS  # noqa: E402
+
+# Telegram notify (optional — fails gracefully if env not set)
+try:
+    import importlib.util as _ilu
+    _tg_spec = _ilu.spec_from_file_location(
+        "notify_telegram",
+        os.path.join(os.path.abspath(_SCRIPTS_DIR), "notify-telegram.py"),
+    )
+    _tg_mod = _ilu.module_from_spec(_tg_spec)  # type: ignore[arg-type]
+    _tg_spec.loader.exec_module(_tg_mod)  # type: ignore[union-attr]
+    _telegram_send = _tg_mod.send  # type: ignore[attr-defined]
+except Exception:
+    _telegram_send = None
 
 sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 
@@ -88,6 +108,34 @@ class Alert:
     kind: str  # DROP | RISE | NO_MATCH
     priority: str  # P1 | P2 | P3
     action: str
+    tier: str = ""       # "ROUTINE" | "LINE" | "" (legacy)
+    carrier_new: str = ""  # best alternative carrier (Tier 1 only)
+
+
+# ── Phase 02 dataclasses ──
+@dataclass
+class PricingRow:
+    """Normalized pricing record used by Phase 02 dual-index."""
+    pol: str
+    pod: str
+    place: str
+    carrier_raw: str
+    carrier_norm: str
+    eff: object       # datetime | None
+    exp: object       # datetime | None
+    source: str       # "Dry" or "Reefer"
+    buy_by_cont: dict = field(default_factory=dict)  # {"20GP": 1200, "40HQ": 2500}
+
+
+@dataclass
+class PWConfig:
+    """Price Watch runtime configuration — can be overridden via PW_Config sheet or CLI."""
+    threshold_routine: float = 100.0
+    threshold_line: float = 50.0
+    enabled_tier1: bool = True
+    enabled_tier2: bool = True
+    ignore_expired: bool = True
+    autorun_on_refresh: bool = True
 
 
 # ── Loaders ──
@@ -211,6 +259,559 @@ def compute_alerts(quotes, pricing_latest: dict, threshold: float) -> list[Alert
     return alerts
 
 
+# ── Phase 02: Dual-Index Loader ──
+def load_pricing_v2(wb) -> tuple[dict, dict]:
+    """Build two price indices in a single pass over Pricing Dry + Reefer sheets.
+
+    Returns:
+        pricing_by_routine: dict[(POL, POD, CONT)] -> list[PricingRow]
+            Used by Tier 1 — any carrier, cheapest wins.
+        pricing_by_line:    dict[(POL, POD, CARRIER_NORM, CONT)] -> list[PricingRow]
+            Used by Tier 2 — same carrier as quote.
+    """
+    pricing_by_routine: dict[tuple, list] = {}
+    pricing_by_line: dict[tuple, list] = {}
+
+    sheet_cont_map = {
+        "Pricing Dry":   {"20GP": 10, "40GP": 11, "40HC": 12, "45HC": 13, "40NOR": 14},
+        "Pricing Reefer": {"20RF": 10, "40RF": 11},
+    }
+
+    total_rows = 0
+    for sheet_name, cont_cols in sheet_cont_map.items():
+        if sheet_name not in wb.sheetnames:
+            continue
+        ws = wb[sheet_name]
+        src_label = "Dry" if "Dry" in sheet_name else "Reefer"
+
+        for r in range(2, ws.max_row + 1):
+            raw_pol = ws.cell(r, 1).value
+            if not raw_pol:
+                continue
+            pol = str(raw_pol).upper().strip()
+            pod = str(ws.cell(r, 2).value or "").upper().strip()
+            place = str(ws.cell(r, 3).value or "").upper().strip()
+            carrier_raw = str(ws.cell(r, 4).value or "").strip()
+            carrier_norm = normalize_carrier(carrier_raw)
+            eff = ws.cell(r, 6).value
+            exp = ws.cell(r, 7).value
+            source = str(ws.cell(r, 9).value or src_label)
+
+            # Collect valid buy rates for this row across cont types
+            buy_by_cont: dict[str, float] = {}
+            for cont, col in cont_cols.items():
+                val = ws.cell(r, col).value
+                if isinstance(val, (int, float)) and val > 0:
+                    buy_by_cont[cont] = float(val)
+
+            if not buy_by_cont:
+                continue
+
+            pr = PricingRow(
+                pol=pol, pod=pod, place=place,
+                carrier_raw=carrier_raw, carrier_norm=carrier_norm,
+                eff=eff, exp=exp, source=source,
+                buy_by_cont=buy_by_cont,
+            )
+
+            # Build both indices for each cont type in this row
+            for cont, buy in buy_by_cont.items():
+                # Tier 1 index: (POL, POD, CONT)
+                r_key = (pol, pod, cont)
+                pricing_by_routine.setdefault(r_key, []).append(pr)
+
+                # Tier 2 index: (POL, POD, CARRIER_NORM, CONT)
+                l_key = (pol, pod, carrier_norm, cont)
+                pricing_by_line.setdefault(l_key, []).append(pr)
+
+            total_rows += 1
+
+    print(f"    -> v2 pricing rows ingested: {total_rows}  "
+          f"routine_keys={len(pricing_by_routine)}  line_keys={len(pricing_by_line)}")
+    return pricing_by_routine, pricing_by_line
+
+
+def load_pw_config(wb) -> PWConfig:
+    """Read PWConfig from PW_Config sheet if it exists; return defaults otherwise.
+    Creates the sheet with defaults if missing (for first-run setup).
+    """
+    cfg = PWConfig()
+
+    if "PW_Config" not in wb.sheetnames:
+        ws = wb.create_sheet("PW_Config")
+        ws["A1"], ws["B1"] = "Key", "Value"
+        ws["A2"], ws["B2"] = "threshold_routine", cfg.threshold_routine
+        ws["A3"], ws["B3"] = "threshold_line", cfg.threshold_line
+        ws["A4"], ws["B4"] = "enabled_tier1", str(cfg.enabled_tier1)
+        ws["A5"], ws["B5"] = "enabled_tier2", str(cfg.enabled_tier2)
+        ws["A6"], ws["B6"] = "ignore_expired", str(cfg.ignore_expired)
+        ws["A7"], ws["B7"] = "autorun_on_refresh", str(cfg.autorun_on_refresh)
+        return cfg
+
+    ws = wb["PW_Config"]
+    kv: dict[str, str] = {}
+    for r in range(2, ws.max_row + 1):
+        k = ws.cell(r, 1).value
+        v = ws.cell(r, 2).value
+        if k and v is not None:
+            kv[str(k).strip()] = str(v).strip()
+
+    def _float(key: str, default: float) -> float:
+        try:
+            return float(kv.get(key, default))
+        except (ValueError, TypeError):
+            return default
+
+    def _bool(key: str, default: bool) -> bool:
+        val = kv.get(key, "").upper()
+        if val in ("TRUE", "1", "YES"):
+            return True
+        if val in ("FALSE", "0", "NO"):
+            return False
+        return default
+
+    cfg.threshold_routine = _float("threshold_routine", cfg.threshold_routine)
+    cfg.threshold_line = _float("threshold_line", cfg.threshold_line)
+    cfg.enabled_tier1 = _bool("enabled_tier1", cfg.enabled_tier1)
+    cfg.enabled_tier2 = _bool("enabled_tier2", cfg.enabled_tier2)
+    cfg.ignore_expired = _bool("ignore_expired", cfg.ignore_expired)
+    cfg.autorun_on_refresh = _bool("autorun_on_refresh", cfg.autorun_on_refresh)
+    return cfg
+
+
+def compute_alerts_v2(
+    quotes: list[tuple[int, dict]],
+    pricing_by_routine: dict,
+    pricing_by_line: dict,
+    cfg: PWConfig,
+) -> list[Alert]:
+    """Two-tier alert detection replacing compute_alerts().
+
+    Tier 2 (LINE): same carrier as quote lowered its price → P2 alert
+    Tier 1 (ROUTINE): a *different* carrier is cheaper than threshold → P1 alert
+
+    Both tiers can fire for the same quote+cont — both are emitted.
+    Tier 1 sorts above Tier 2 in the output sheet.
+    """
+    today = datetime.now().date()
+    alerts: list[Alert] = []
+
+    # Map quote cont type to pricing sheet cont code
+    quote_to_price_cont: dict[str, str] = {
+        "20GP": "20GP", "40GP": "40GP",
+        "40HC": "40HC", "40HQ": "40HC",
+        "45HC": "45HC", "45HQ": "45HC",
+        "40NOR": "40NOR",
+        "20RF": "20RF", "40RF": "40RF",
+    }
+
+    for row, q in quotes:
+        qid = str(q.get("QuoteID") or "").strip()
+        carrier_raw = str(q.get("Carrier") or "").strip()
+        carrier_norm = normalize_carrier(carrier_raw)
+        pol = str(q.get("POL") or "").upper().strip()
+        pod = str(q.get("POD") or "").upper().strip()
+        cust = str(q.get("Customer") or "")
+        status = q.get("_status", "PENDING")
+
+        # Skip expired quotes if configured
+        if cfg.ignore_expired:
+            exp_date = q.get("Exp")
+            if isinstance(exp_date, datetime) and exp_date.date() < today:
+                continue
+
+        for cont, buy_key in CONT_TO_BUY_COL.items():
+            quoted = q.get(buy_key)
+            if not isinstance(quoted, (int, float)) or quoted <= 0:
+                continue
+            quoted_f = float(quoted)
+
+            price_cont = quote_to_price_cont.get(cont, cont)
+
+            # ── Tier 2 (LINE): same carrier, same route ──
+            if cfg.enabled_tier2:
+                l_key = (pol, pod, carrier_norm, price_cont)
+                line_rows = pricing_by_line.get(l_key, [])
+                if line_rows:
+                    best_buy = min(pr.buy_by_cont.get(price_cont, float("inf"))
+                                   for pr in line_rows)
+                    delta = best_buy - quoted_f  # negative = dropped
+                    if delta < 0 and abs(delta) >= cfg.threshold_line:
+                        priority = "P2" if status == "WIN" else "P2"
+                        alerts.append(Alert(
+                            quote_id=qid, row=row, customer=cust,
+                            route=f"{pol}-{pod}",
+                            carrier=carrier_raw, cont_type=cont,
+                            quoted_buy=quoted_f, current_buy=best_buy,
+                            delta=delta, kind="DROP",
+                            priority=priority,
+                            action=(f"[Tier2 LINE] {carrier_raw} hạ giá "
+                                    f"${abs(delta):,.0f} ({cont}) — kiểm tra lại offer"),
+                            tier="LINE",
+                            carrier_new=carrier_raw,
+                        ))
+
+            # ── Tier 1 (ROUTINE): any carrier, exclude same carrier ──
+            if cfg.enabled_tier1:
+                r_key = (pol, pod, price_cont)
+                routine_rows = pricing_by_line  # just using the pool via routine index
+                all_rows = pricing_by_routine.get(r_key, [])
+
+                # Filter out same carrier (that's Tier 2)
+                alt_rows = [
+                    pr for pr in all_rows
+                    if pr.carrier_norm != carrier_norm
+                ]
+                if not alt_rows:
+                    # Fallback: try place==pod match
+                    r_key2 = (pol, pod, price_cont)
+                    alt_rows = [
+                        pr for pr in pricing_by_routine.get(r_key2, [])
+                        if pr.carrier_norm != carrier_norm
+                    ]
+
+                if alt_rows:
+                    # Find cheapest alternative carrier
+                    best_pr = min(
+                        alt_rows,
+                        key=lambda pr: pr.buy_by_cont.get(price_cont, float("inf")),
+                    )
+                    best_buy = best_pr.buy_by_cont.get(price_cont, float("inf"))
+                    if best_buy == float("inf"):
+                        continue
+                    delta = best_buy - quoted_f  # negative = cheaper alternative exists
+                    if delta < 0 and abs(delta) >= cfg.threshold_routine:
+                        priority = "P1" if status != "WIN" else "P2"
+                        alerts.append(Alert(
+                            quote_id=qid, row=row, customer=cust,
+                            route=f"{pol}-{pod}",
+                            carrier=carrier_raw, cont_type=cont,
+                            quoted_buy=quoted_f, current_buy=best_buy,
+                            delta=delta, kind="DROP",
+                            priority=priority,
+                            action=(f"[Tier1 ROUTINE] {best_pr.carrier_norm} rẻ hơn "
+                                    f"${abs(delta):,.0f} ({cont}) — cân nhắc đổi carrier"),
+                            tier="ROUTINE",
+                            carrier_new=best_pr.carrier_norm,
+                        ))
+
+    # Sort: Tier 1 above Tier 2, then by abs delta desc
+    tier_order = {"ROUTINE": 0, "LINE": 1, "": 2}
+    priority_order = {"P1": 0, "P2": 1, "P3": 2}
+    alerts.sort(key=lambda a: (
+        priority_order.get(a.priority, 9),
+        tier_order.get(a.tier, 9),
+        -abs(a.delta),
+    ))
+    return alerts
+
+
+# ── Target Watch ──
+
+# Col indices (1-based) matching docs/s1v2-target-watch-schema.md
+TW_COL: Final = {
+    "Target_ID": 1, "Created": 2, "QuoteID": 3, "Customer": 4,
+    "POL": 5, "POD": 6, "Carrier": 7, "ContType": 8,
+    "Target_USD": 9, "CurrentQuote_USD": 10, "Status": 11,
+    "LastCheck": 12, "Matched_Rate": 13, "Matched_Carrier": 14,
+    "Matched_Date": 15, "Remark": 16,
+}
+TW_HEADERS: Final = [
+    "Target_ID", "Created", "QuoteID", "Customer",
+    "POL", "POD", "Carrier", "ContType",
+    "Target_USD", "CurrentQuote_USD", "Status",
+    "LastCheck", "Matched_Rate", "Matched_Carrier",
+    "Matched_Date", "Remark",
+]
+TW_WATCH_EXPIRE_DAYS: Final = 30
+
+
+def ensure_target_watch_sheet(wb) -> object:
+    """Return Target_Watch worksheet, creating it with headers if missing."""
+    if "Target_Watch" in wb.sheetnames:
+        return wb["Target_Watch"]
+
+    ws = wb.create_sheet("Target_Watch")
+    # Header row
+    for i, h in enumerate(TW_HEADERS, 1):
+        cell = ws.cell(1, i, h)
+        cell.font = Font(bold=True, color="FFFFFF", size=10, name="Segoe UI")
+        cell.fill = PatternFill("solid", fgColor="1F4E79")
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    # Column widths
+    widths = [18, 16, 16, 20, 8, 8, 12, 8, 12, 16, 12, 16, 14, 16, 16, 24]
+    for i, w in enumerate(widths, 1):
+        from openpyxl.utils import get_column_letter
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = f"A1:{chr(64 + len(TW_HEADERS))}1"
+    print("    -> created Target_Watch sheet with headers")
+    return ws
+
+
+@dataclass
+class TargetMatch:
+    """Result of a single Target Watch row evaluation."""
+    row: int
+    target_id: str
+    customer: str
+    pol: str
+    pod: str
+    cont_type: str
+    target_usd: float
+    buy_rate: float
+    markup: float
+    sell_rate: float          # buy + markup
+    matched_carrier: str
+    matched: bool             # True = MATCHED, False = still watching
+    expired: bool = False
+
+
+def _find_min_buy(
+    pol: str,
+    pod: str,
+    cont_type: str,
+    carrier_filter: str,    # "" or "ANY" means all carriers
+    pricing_by_routine: dict,
+    pricing_by_line: dict,
+    carrier_norm_filter: str = "",
+) -> tuple[float, str]:
+    """Return (min_buy, best_carrier_raw) for the given lane+cont.
+
+    If carrier_filter is non-empty and not ANY, only check that carrier (line index).
+    Otherwise scan all carriers in routine index.
+    """
+    # Map cont_type to pricing sheet key
+    cont_map = {
+        "20GP": "20GP", "40GP": "40GP",
+        "40HC": "40HC", "40HQ": "40HC",
+        "45HC": "45HC", "45HQ": "45HC",
+        "40NOR": "40NOR",
+        "20RF": "20RF", "40RF": "40RF",
+    }
+    price_cont = cont_map.get(cont_type.upper(), cont_type.upper())
+
+    best_buy = float("inf")
+    best_carrier = ""
+
+    use_line = carrier_filter and carrier_filter.upper() not in ("ANY", "")
+    if use_line:
+        l_key = (pol, pod, carrier_norm_filter, price_cont)
+        rows = pricing_by_line.get(l_key, [])
+        for pr in rows:
+            buy = pr.buy_by_cont.get(price_cont, float("inf"))
+            if buy < best_buy:
+                best_buy = buy
+                best_carrier = pr.carrier_raw
+    else:
+        r_key = (pol, pod, price_cont)
+        rows = pricing_by_routine.get(r_key, [])
+        for pr in rows:
+            buy = pr.buy_by_cont.get(price_cont, float("inf"))
+            if buy < best_buy:
+                best_buy = buy
+                best_carrier = pr.carrier_raw
+
+    return (best_buy if best_buy != float("inf") else -1.0), best_carrier
+
+
+def scan_target_matches(
+    wb,
+    pricing_by_routine: dict,
+    pricing_by_line: dict,
+    default_markup: float = 200.0,
+) -> list[TargetMatch]:
+    """Scan Target_Watch sheet for WATCHING rows and evaluate against pricing.
+
+    - Updates Status to MATCHED or EXPIRED in-place on the worksheet.
+    - Returns list of TargetMatch for new MATCHes (for Telegram + Price_Watch section).
+    - MATCHED rows are skipped (idempotent).
+    - EXPIRED: Created + 30 days < now → Status = EXPIRED.
+    """
+    ws_tw = ensure_target_watch_sheet(wb)
+    matches: list[TargetMatch] = []
+    now = datetime.now()
+
+    watching_count = 0
+    for r in range(2, ws_tw.max_row + 1):
+        status_cell = ws_tw.cell(r, TW_COL["Status"])
+        status = (status_cell.value or "").strip().upper()
+
+        # Only process WATCHING rows
+        if status != "WATCHING":
+            continue
+        watching_count += 1
+
+        target_id = str(ws_tw.cell(r, TW_COL["Target_ID"]).value or "").strip()
+        customer = str(ws_tw.cell(r, TW_COL["Customer"]).value or "").strip()
+        pol = str(ws_tw.cell(r, TW_COL["POL"]).value or "").upper().strip()
+        pod = str(ws_tw.cell(r, TW_COL["POD"]).value or "").upper().strip()
+        carrier_raw = str(ws_tw.cell(r, TW_COL["Carrier"]).value or "").strip()
+        cont_type = str(ws_tw.cell(r, TW_COL["ContType"]).value or "").strip()
+        target_raw = ws_tw.cell(r, TW_COL["Target_USD"]).value
+        created_val = ws_tw.cell(r, TW_COL["Created"]).value
+
+        # Parse target USD
+        try:
+            target_usd = float(target_raw or 0)
+        except (ValueError, TypeError):
+            target_usd = 0.0
+
+        if target_usd <= 0 or not pol or not pod or not cont_type:
+            continue
+
+        # Check expiry
+        if isinstance(created_val, datetime):
+            age_days = (now - created_val).days
+        else:
+            age_days = 0
+
+        if age_days > TW_WATCH_EXPIRE_DAYS:
+            status_cell.value = "EXPIRED"
+            ws_tw.cell(r, TW_COL["LastCheck"]).value = now
+            continue
+
+        # Resolve carrier filter
+        carrier_norm = normalize_carrier(carrier_raw) if carrier_raw else ""
+        use_specific = bool(carrier_raw) and carrier_raw.upper() not in ("ANY", "")
+
+        # Find min buy rate
+        min_buy, best_carrier = _find_min_buy(
+            pol=pol, pod=pod, cont_type=cont_type,
+            carrier_filter=carrier_raw,
+            pricing_by_routine=pricing_by_routine,
+            pricing_by_line=pricing_by_line,
+            carrier_norm_filter=carrier_norm if use_specific else "",
+        )
+
+        # Stamp LastCheck
+        ws_tw.cell(r, TW_COL["LastCheck"]).value = now
+
+        if min_buy < 0:
+            # No pricing data found
+            continue
+
+        sell_rate = min_buy + default_markup
+
+        tm = TargetMatch(
+            row=r, target_id=target_id, customer=customer,
+            pol=pol, pod=pod, cont_type=cont_type,
+            target_usd=target_usd,
+            buy_rate=min_buy, markup=default_markup, sell_rate=sell_rate,
+            matched_carrier=best_carrier,
+            matched=(sell_rate <= target_usd),
+        )
+
+        if tm.matched:
+            # Update worksheet in-place
+            status_cell.value = "MATCHED"
+            ws_tw.cell(r, TW_COL["Matched_Rate"]).value = round(sell_rate, 2)
+            ws_tw.cell(r, TW_COL["Matched_Carrier"]).value = best_carrier
+            ws_tw.cell(r, TW_COL["Matched_Date"]).value = now
+            # Highlight matched row
+            match_fill = PatternFill("solid", fgColor="D1FAE5")
+            for c in range(1, len(TW_HEADERS) + 1):
+                ws_tw.cell(r, c).fill = match_fill
+            matches.append(tm)
+
+    print(f"    -> target_watch: watching={watching_count} new_matches={len(matches)}")
+    return matches
+
+
+def _send_target_match_alerts(matches: list[TargetMatch]) -> None:
+    """Fire Telegram notification for each new target match. Fails silently."""
+    if not matches or _telegram_send is None:
+        return
+    for tm in matches:
+        msg = (
+            f"<b>TARGET MATCHED</b>\n"
+            f"Customer: {tm.customer}\n"
+            f"Route: {tm.pol}-{tm.pod}  {tm.cont_type}\n"
+            f"Carrier: {tm.matched_carrier}\n"
+            f"Buy: ${tm.buy_rate:,.0f} + markup ${tm.markup:,.0f} = <b>${tm.sell_rate:,.0f}</b>\n"
+            f"Target: ${tm.target_usd:,.0f}  "
+            f"(saved ${tm.target_usd - tm.sell_rate:,.0f})"
+        )
+        try:
+            _telegram_send(msg, parse_mode="HTML", silent=False)
+        except Exception as exc:
+            print(f"    -> telegram send failed: {exc}")
+
+
+def write_target_matches_section(ws_pw, matches: list[TargetMatch]) -> None:
+    """Write/overwrite the TARGET MATCHES block at the bottom of Price_Watch sheet.
+
+    Clears any existing section (rows tagged with TARGET_MATCH sentinel) then
+    re-writes fresh, so it never accumulates stale rows.
+    """
+    # Find last row with content (skip empty rows at bottom)
+    last_data_row = ws_pw.max_row
+    while last_data_row > 1 and ws_pw.cell(last_data_row, 1).value is None:
+        last_data_row -= 1
+
+    # Delete old TARGET MATCHES block: scan upward for sentinel tag
+    sentinel = "TARGET_MATCH_SECTION"
+    start_row = None
+    for r in range(last_data_row, 0, -1):
+        val = str(ws_pw.cell(r, 1).value or "")
+        if sentinel in val or "TARGET MATCHES" in val.upper():
+            start_row = r
+            break
+
+    if start_row is not None:
+        # Clear from start_row to last_data_row
+        for r in range(start_row, last_data_row + 1):
+            for c in range(1, 14):
+                ws_pw.cell(r, c).value = None
+                ws_pw.cell(r, c).fill = PatternFill(fill_type=None)
+
+    # Write new block starting 2 rows below last content
+    section_start = (start_row if start_row else last_data_row + 2)
+
+    # Section header row
+    n_cols = 10
+    ws_pw.merge_cells(f"A{section_start}:J{section_start}")
+    title_cell = ws_pw.cell(section_start, 1)
+    title_cell.value = f"{sentinel} | TARGET MATCHES — {datetime.now():%d %b %Y %H:%M}"
+    title_cell.font = Font(bold=True, size=12, color="1F4E79")
+    title_cell.fill = PatternFill("solid", fgColor="EFF6FF")
+    title_cell.alignment = Alignment(horizontal="left", vertical="center")
+    ws_pw.row_dimensions[section_start].height = 20
+
+    if not matches:
+        ws_pw.cell(section_start + 1, 1).value = "No target matches this run."
+        ws_pw.cell(section_start + 1, 1).font = Font(italic=True, color="666666")
+        return
+
+    # Column headers
+    th_row = section_start + 1
+    hdrs = ["Target_ID", "Customer", "POL", "POD", "ContType",
+            "Target $", "Sell Rate", "Buy Rate", "Matched Carrier", "Saved $"]
+    for i, h in enumerate(hdrs, 1):
+        c = ws_pw.cell(th_row, i, h)
+        c.font = Font(bold=True, color="FFFFFF", size=9, name="Segoe UI")
+        c.fill = PatternFill("solid", fgColor="166534")
+        c.alignment = Alignment(horizontal="center")
+
+    fill_match = PatternFill("solid", fgColor="D1FAE5")
+    for r_offset, tm in enumerate(matches, start=2):
+        r = section_start + r_offset
+        saved = tm.target_usd - tm.sell_rate
+        row_data = [
+            tm.target_id, tm.customer, tm.pol, tm.pod, tm.cont_type,
+            tm.target_usd, tm.sell_rate, tm.buy_rate, tm.matched_carrier, saved,
+        ]
+        for i, v in enumerate(row_data, 1):
+            cell = ws_pw.cell(r, i, v)
+            cell.font = Font(size=9, name="Segoe UI")
+            cell.fill = fill_match
+            cell.alignment = Alignment(horizontal="center")
+            if i in (6, 7, 8, 10):
+                cell.number_format = '"$"#,##0'
+
+
 # ── Writers ──
 FILL_ALERT = PatternFill("solid", fgColor="FEE2E2")
 FILL_WARN = PatternFill("solid", fgColor="FEF3C7")
@@ -245,52 +846,77 @@ def stamp_quotes_sheet(wb, alerts: list[Alert]):
 
 
 def write_price_watch_sheet(wb, alerts: list[Alert]):
-    """Create/refresh Price_Watch summary sheet."""
+    """Create/refresh Price_Watch summary sheet.
+    Phase 02: adds Tier + Alt Carrier columns (12 total).
+    Defect 4 fix: always writes header row + summary row even when 0 alerts.
+    """
     if "Price_Watch" in wb.sheetnames:
         del wb["Price_Watch"]
     ws = wb.create_sheet("Price_Watch")
 
-    # Title
-    ws.merge_cells("A1:J1")
-    ws["A1"] = f"PRICE WATCH — {datetime.now():%d %b %Y %H:%M}"
+    n_cols = 12  # extended in Phase 02
+
+    # Title row (row 1)
+    ws.merge_cells(f"A1:{chr(64 + n_cols)}1")
+    ws["A1"] = f"PRICE WATCH v2 — {datetime.now():%d %b %Y %H:%M}"
     ws["A1"].font = Font(bold=True, size=14, color="1F4E79")
     ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
     ws.row_dimensions[1].height = 24
 
-    # Headers
-    hdrs = ["Priority", "Kind", "QuoteID", "Customer", "Route",
-            "Carrier", "Cont", "Quoted Buy", "Current Buy", "Δ Delta"]
+    # Header row (row 3)
+    hdrs = ["Priority", "Tier", "Kind", "QuoteID", "Customer", "Route",
+            "Carrier", "Alt Carrier", "Cont", "Quoted Buy", "Current Buy", "Δ Delta"]
+    widths = [10, 10, 8, 12, 18, 14, 12, 12, 8, 12, 12, 12]
     for i, h in enumerate(hdrs, 1):
         c = ws.cell(3, i, h)
         c.font = Font(bold=True, color="FFFFFF", size=10, name="Segoe UI")
         c.fill = PatternFill("solid", fgColor="1F4E79")
         c.alignment = Alignment(horizontal="center", vertical="center")
         c.border = BORDER
-    widths = [10, 8, 12, 18, 14, 12, 8, 12, 12, 12]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[chr(64 + i)].width = w
 
-    # Sort by priority then absolute delta
+    # No alerts: write a single summary row (Defect 4 fix)
+    if not alerts:
+        ws.merge_cells(f"A4:{chr(64 + n_cols)}4")
+        ws["A4"] = f"No alerts as of {datetime.now():%d %b %Y %H:%M}"
+        ws["A4"].font = Font(italic=True, color="666666", size=10, name="Segoe UI")
+        ws["A4"].alignment = Alignment(horizontal="center", vertical="center")
+        ws.freeze_panes = "A4"
+        return
+
+    # Sort by priority → tier → abs delta desc (compute_alerts_v2 already sorted,
+    # but legacy compute_alerts output may need re-sort)
     priority_order = {"P1": 0, "P2": 1, "P3": 2}
-    alerts_sorted = sorted(alerts, key=lambda a: (priority_order.get(a.priority, 9), -abs(a.delta)))
+    tier_order = {"ROUTINE": 0, "LINE": 1, "": 2}
+    alerts_sorted = sorted(alerts, key=lambda a: (
+        priority_order.get(a.priority, 9),
+        tier_order.get(getattr(a, "tier", ""), 9),
+        -abs(a.delta),
+    ))
 
     for r, a in enumerate(alerts_sorted, start=4):
-        row = [a.priority, a.kind, a.quote_id, a.customer, a.route,
-               a.carrier, a.cont_type, a.quoted_buy, a.current_buy, a.delta]
-        for i, v in enumerate(row, 1):
+        tier_label = getattr(a, "tier", "") or "—"
+        carrier_new = getattr(a, "carrier_new", "") or "—"
+        row_data = [
+            a.priority, tier_label, a.kind, a.quote_id, a.customer,
+            a.route, a.carrier, carrier_new, a.cont_type,
+            a.quoted_buy, a.current_buy, a.delta,
+        ]
+        for i, v in enumerate(row_data, 1):
             cell = ws.cell(r, i, v)
             cell.font = Font(size=10, name="Segoe UI")
             cell.alignment = Alignment(horizontal="center", vertical="center")
             cell.border = BORDER
-            if i in (8, 9, 10):
+            if i in (10, 11, 12):
                 cell.number_format = '"$"#,##0'
-        # color row by priority
+        # Row background by priority
         fill = FILL_ALERT if a.priority == "P1" else FILL_WARN if a.priority == "P2" else None
         if fill:
-            for i in range(1, 11):
+            for i in range(1, n_cols + 1):
                 ws.cell(r, i).fill = fill
-        # color delta green if drop (good) / red if rise (bad)
-        dc = ws.cell(r, 10)
+        # Delta cell bold + color
+        dc = ws.cell(r, 12)
         dc.font = Font(size=10, name="Segoe UI", bold=True,
                        color="00804A" if a.delta < 0 else "C00000")
 
@@ -337,10 +963,18 @@ def stamp_active_jobs(wb, alerts: list[Alert]):
 
 # ── Main ──
 def main() -> int:
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(
+        description="Price Watch v2 — Two-tier re-quote alert engine"
+    )
     ap.add_argument("--erp", default=DEFAULT_ERP_FILE)
     ap.add_argument("--threshold", type=float, default=50.0,
-                    help="Minimum |buy delta| in USD to trigger alert (default: 50)")
+                    help="Legacy single threshold (used by --tier line/routine alias). Default: 50")
+    ap.add_argument("--threshold-routine", type=float, default=None,
+                    help="Tier 1 ROUTINE alert threshold USD (default: from PW_Config or 100)")
+    ap.add_argument("--threshold-line", type=float, default=None,
+                    help="Tier 2 LINE alert threshold USD (default: from PW_Config or 50)")
+    ap.add_argument("--tier", choices=["all", "routine", "line"], default="all",
+                    help="Which tier(s) to run: all | routine | line (default: all)")
     args = ap.parse_args()
 
     if not os.path.exists(args.erp):
@@ -353,30 +987,58 @@ def main() -> int:
         print(f"[ERROR] ERP file is open in Excel. Close it first.")
         return 2
 
-    print(f"[+] Price Watch run @ {datetime.now():%Y-%m-%d %H:%M}")
+    print(f"[+] Price Watch v2 run @ {datetime.now():%Y-%m-%d %H:%M}")
     wb = openpyxl.load_workbook(args.erp, keep_vba=True)
 
-    pricing = load_latest_pricing(wb)
+    # Load config from sheet, then apply CLI overrides
+    cfg = load_pw_config(wb)
+    if args.threshold_routine is not None:
+        cfg.threshold_routine = args.threshold_routine
+    if args.threshold_line is not None:
+        cfg.threshold_line = args.threshold_line
+    if args.tier == "routine":
+        cfg.enabled_tier2 = False
+    elif args.tier == "line":
+        cfg.enabled_tier1 = False
+
+    print(f"    -> cfg: routine_thr={cfg.threshold_routine} line_thr={cfg.threshold_line} "
+          f"tier1={cfg.enabled_tier1} tier2={cfg.enabled_tier2} ignore_exp={cfg.ignore_expired}")
+
+    # Load v2 dual indices
+    pricing_by_routine, pricing_by_line = load_pricing_v2(wb)
     quotes = list(iter_pending_quotes(wb))
     print(f"    -> quotes to inspect: {len(quotes)}")
 
-    alerts = compute_alerts(quotes, pricing, args.threshold)
+    # v2 detection
+    alerts = compute_alerts_v2(quotes, pricing_by_routine, pricing_by_line, cfg)
+    t1 = [a for a in alerts if getattr(a, "tier", "") == "ROUTINE"]
+    t2 = [a for a in alerts if getattr(a, "tier", "") == "LINE"]
     drops = [a for a in alerts if a.kind == "DROP"]
-    rises = [a for a in alerts if a.kind == "RISE"]
-    print(f"    -> alerts: {len(alerts)} (DROP={len(drops)} RISE={len(rises)})")
+    print(f"    -> alerts: {len(alerts)} "
+          f"(Tier1-ROUTINE={len(t1)} Tier2-LINE={len(t2)} DROP={len(drops)})")
 
+    # Write Price_Watch sheet (write_price_watch_sheet handles 0-alert case — Defect 4)
+    stamp_quotes_sheet(wb, alerts) if alerts else None
+    write_price_watch_sheet(wb, alerts)
     if alerts:
-        stamp_quotes_sheet(wb, alerts)
-        write_price_watch_sheet(wb, alerts)
         stamped_aj = stamp_active_jobs(wb, alerts)
         print(f"    -> stamped {stamped_aj} Active Jobs row(s)")
-    else:
-        # Still refresh Price_Watch sheet so stale alerts are cleared
+
+    # ── Target Watch scan (S1v2 #4) ──
+    print("[+] Target Watch scan...")
+    try:
+        target_matches = scan_target_matches(
+            wb, pricing_by_routine, pricing_by_line, default_markup=200.0
+        )
+        # Append TARGET MATCHES block to Price_Watch sheet
         if "Price_Watch" in wb.sheetnames:
-            del wb["Price_Watch"]
-        ws = wb.create_sheet("Price_Watch")
-        ws["A1"] = f"Price Watch — No alerts as of {datetime.now():%d %b %Y %H:%M}"
-        ws["A1"].font = Font(italic=True, color="666666")
+            write_target_matches_section(wb["Price_Watch"], target_matches)
+        # Send Telegram alerts for new matches
+        if target_matches:
+            print(f"    -> sending {len(target_matches)} Telegram alert(s)...")
+            _send_target_match_alerts(target_matches)
+    except Exception as exc:
+        print(f"    [WARN] Target Watch scan failed (non-fatal): {exc}")
 
     result = save_preserving_ribbon(wb, args.erp)
     wb.close()
@@ -385,11 +1047,14 @@ def main() -> int:
     # Print top 5 alerts
     if alerts:
         print("\nTop alerts:")
-        priority_order = {"P1": 0, "P2": 1, "P3": 2}
-        for a in sorted(alerts, key=lambda a: (priority_order.get(a.priority, 9), -abs(a.delta)))[:5]:
+        for a in alerts[:5]:
             arrow = "↓" if a.delta < 0 else "↑"
-            print(f"  [{a.priority}] {a.quote_id} {a.customer[:16]:16s} {a.route:12s} "
-                  f"{a.carrier:6s} {a.cont_type:5s} {arrow}${abs(a.delta):>6,.0f}  {a.action}")
+            tier_tag = f"[{a.tier}]" if getattr(a, "tier", "") else ""
+            carrier_tag = (f"→{a.carrier_new}" if getattr(a, "carrier_new", "") and a.carrier_new != a.carrier
+                           else "")
+            print(f"  [{a.priority}]{tier_tag} {a.quote_id} {a.customer[:16]:16s} "
+                  f"{a.route:12s} {a.carrier:6s}{carrier_tag} {a.cont_type:5s} "
+                  f"{arrow}${abs(a.delta):>6,.0f}")
     return 0
 
 
