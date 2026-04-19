@@ -371,11 +371,11 @@ _INLAND_VIA = {
 
 
 def _derive_svc(rate_type: str, carrier: str) -> str:
-    """FAK+ONE/CMA/YML/HPL→SOC; FAK+other→COC; FIX+HPL→SOC Fixed; FIX→FIXED."""
+    """FAK+ONE/CMA/YML/HPL→SOC; FAK+other→COC; FIX+HPL→SOC; FIX→Provide commodity."""
     rt = (rate_type or "").upper().strip()
     c = (carrier or "").upper().strip()
     if rt == "FIX":
-        return "SOC Fixed" if c == "HPL" else "FIXED"
+        return "SOC" if c == "HPL" else "Provide commodity"
     if rt == "FAK":
         return "SOC" if c in _FAK_SOC_CARRIERS else "COC"
     if rt == "SCFI":

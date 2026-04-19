@@ -136,18 +136,18 @@ def _derive_svc(rate_type: str, carrier: str) -> str:
     """
     Derive SVC column label from Parquet Rate_Type + carrier.
 
-    Rules (per Nelson 2026-04-17):
+    Rules (per Nelson 2026-04-17, updated 2026-04-19):
       FAK + ONE/CMA/YML/HPL  → SOC
       FAK + others           → COC
-      FIX + HPL              → SOC Fixed
-      FIX + others           → FIXED — Provide commodity
+      FIX + HPL              → SOC
+      FIX + others           → Provide commodity
       SCFI                   → SCFI market
       else                   → direct
     """
     rt = (rate_type or "").upper().strip()
     c = (carrier or "").upper().strip()
     if rt == "FIX":
-        return "SOC Fixed" if c == "HPL" else "FIXED — Provide commodity"
+        return "SOC" if c == "HPL" else "Provide commodity"
     if rt == "FAK":
         return "SOC" if c in _FAK_SOC_CARRIERS else "COC"
     if rt == "SCFI":
@@ -397,8 +397,8 @@ def _render_rate_table(lane_intels: list[dict], primary_dest: str = "") -> str:
         "<tr><td colspan='5' style='padding:8px 16px;background:#eff6ff;"
         "border-top:1px solid #dbeafe;'>"
         "<span style='color:#1e3a8a;font-size:11px;'>"
-        "› <strong>Local Charge &amp; Handling Fee:</strong> "
-        "<span style='color:#2553e2;font-weight:700;'>$45</span> / shipment (US) · "
+        "› <strong>Handling Fee:</strong> "
+        "<span style='color:#2553e2;font-weight:700;'>$65</span> / shipment (US) · "
         "<span style='color:#ea580c;'>Canada: $85 / shipment</span>"
         "</span></td></tr>"
     )

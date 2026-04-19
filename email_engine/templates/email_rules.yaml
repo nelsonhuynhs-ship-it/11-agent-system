@@ -28,8 +28,8 @@ templates:
     intro: |
       Dear {{first_name}},
 
-      Please find our latest ocean freight rates from {{typical_pol}} to
-      West Coast, valid through end of the month.
+      Please find our latest ocean freight rates to the US,
+      valid through end of the month.
     cta: |
       Please confirm booking 7 days before ETD.
       Any questions, feel free to reply.
@@ -43,8 +43,8 @@ templates:
     intro: |
       Dear {{first_name}},
 
-      Please find our latest ocean freight rates from {{typical_pol}} to
-      East & Gulf Coast, valid through end of the month.
+      Please find our latest ocean freight rates to the US,
+      valid through end of the month.
     cta: |
       Please confirm booking 7 days before ETD.
       Any questions, feel free to reply.
@@ -58,8 +58,8 @@ templates:
     intro: |
       Dear {{first_name}},
 
-      Please find our latest ocean freight rates from {{typical_pol}} to
-      Canada, valid through end of the month.
+      Please find our latest ocean freight rates to Canada,
+      valid through end of the month.
     cta: |
       Vancouver / Prince Rupert / Montreal routing available.
       Please confirm booking 7 days before ETD.
@@ -73,8 +73,8 @@ templates:
     intro: |
       Dear {{first_name}},
 
-      Please find our latest ocean freight + inland delivery rates from
-      {{typical_pol}}, valid through end of the month.
+      Please find our latest ocean freight + inland delivery rates to the US,
+      valid through end of the month.
     cta: |
       Rates include door delivery. Transit time varies by routing.
       Reply with your ZIP code for precise transit time estimate.
@@ -88,7 +88,7 @@ templates:
     intro: |
       Dear {{first_name}},
 
-      Please find our latest ocean freight rates from {{typical_pol}},
+      Please find our latest ocean freight rates to the US,
       valid through end of the month.
     cta: |
       Please confirm booking 7 days before ETD.
