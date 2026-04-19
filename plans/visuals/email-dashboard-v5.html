@@ -1088,8 +1088,17 @@ async function loadPreview(email){
 
 /* ═══════════════ BATCH ENQUEUE ═══════════════ */
 async function enqueueBatches(){
+  console.log('[Send] enqueueBatches clicked, selected=', Store.selected.size);
   const emails = Array.from(Store.selected);
-  if (!emails.length) return;
+  if (!emails.length) {
+    toast('Chưa chọn prospect nào. Click "Top 50" trước khi Send.', 'warn', 5000);
+    return;
+  }
+  const confirmMsg = `${Store.dryRun?'Dry-run':'Send'} ${emails.length} email${Store.testMode?' → huynhyohan@gmail.com (TEST)':''}?`;
+  if (!confirm(confirmMsg)) {
+    toast('Đã huỷ', 'warn', 2000);
+    return;
+  }
   const sz = Store.batchSize;
   const campaign = document.getElementById('inpCampaign').value;
   const pol = document.getElementById('inpPol').value;
@@ -1099,6 +1108,7 @@ async function enqueueBatches(){
   const subjectOverride = (document.getElementById('inpSubjectFixed') || {}).value || '';
   const k = Math.ceil(emails.length / sz);
   const base = 'B'+Date.now();
+  toast(`Queuing ${emails.length} email vào ${k} batch...`, 'info', 3000);
   for (let i=0; i<k; i++){
     const start = i*sz, end = Math.min(start+sz, emails.length);
     const chunk = emails.slice(start, end);
