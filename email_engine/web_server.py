@@ -412,9 +412,13 @@ def remove_excluded(email: str):
 
 @app.get("/api/campaigns")
 def get_campaigns():
-    cmds = df_contacts.groupby("CMD_NAME").size().reset_index(name="count")
+    # v3 schema (2026-04-18): group by COMMODITY_CATEGORY (18 clean categories)
+    # instead of legacy CMD_NAME (48 messy mixed labels). Fallback to CMD_NAME
+    # if COMMODITY_CATEGORY column missing (pre-v3 master file).
+    group_col = "COMMODITY_CATEGORY" if "COMMODITY_CATEGORY" in df_contacts.columns else "CMD_NAME"
+    cmds = df_contacts.groupby(group_col).size().reset_index(name="count")
     cmds = cmds.sort_values("count", ascending=False)
-    result = [{"name": r["CMD_NAME"], "count": int(r["count"])} for _, r in cmds.iterrows()]
+    result = [{"name": r[group_col], "count": int(r["count"])} for _, r in cmds.iterrows()]
     result.insert(0, {"name": "ALL", "count": int(len(df_contacts))})
     return result
 
@@ -1236,7 +1240,11 @@ def v4_prospects(campaign: str = "", pol: str = "", destination: str = "",
         return {"prospects": [], "total": 0}
 
     if campaign and campaign.upper() != "ALL":
-        df = df[df.get("CAMPAIGN_ID", df.get("CMD_NAME", pd.Series())).astype(str).str.upper() == campaign.upper()]
+        # Filter by COMMODITY_CATEGORY (v3 schema) with legacy CAMPAIGN_ID/CMD_NAME fallback
+        if "COMMODITY_CATEGORY" in df.columns:
+            df = df[df["COMMODITY_CATEGORY"].astype(str).str.upper() == campaign.upper()]
+        else:
+            df = df[df.get("CAMPAIGN_ID", df.get("CMD_NAME", pd.Series())).astype(str).str.upper() == campaign.upper()]
     # POL filter: keep rows matching POL OR missing POL (will fallback to default).
     # Strict POL filter drops 90%+ of 28K CNEE whose POL column is empty/NAN.
     if pol and "POL" in df.columns:
