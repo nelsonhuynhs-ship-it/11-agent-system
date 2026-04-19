@@ -133,22 +133,22 @@ def apply_column_polish(ws, dry_run: bool = False) -> list[str]:
         changes.append("WARN: JobID header not found in row 1 — skipped")
 
     # ── 4. Column grouping (outline levels) ──
+    # Use openpyxl range-based .group() API which writes proper
+    # <col min=X max=Y outlineLevel=1/> range entries — iterating
+    # per-col + setting .outline_level only persisted the first col
+    # (serialization collapses runs into ranges).
     for start, end, label in OUTLINE_GROUPS:
-        already_set = True
-        for c in range(start, end + 1):
-            letter = col_letter(c)
-            if ws.column_dimensions[letter].outline_level != 1:
-                already_set = False
-                break
-        if already_set:
-            changes.append(f"SKIP {label} group cols {start}-{end} outline already set")
+        start_letter = col_letter(start)
+        end_letter = col_letter(end)
+        # Idempotency: if start col already has outline_level=1, skip
+        cd = ws.column_dimensions.get(start_letter)
+        if cd and cd.outline_level == 1:
+            changes.append(f"SKIP {label} group {start_letter}-{end_letter} already grouped")
             continue
         if not dry_run:
-            for c in range(start, end + 1):
-                letter = col_letter(c)
-                ws.column_dimensions[letter].outline_level = 1
+            ws.column_dimensions.group(start_letter, end_letter, outline_level=1)
         changes.append(
-            f"GROUP {label}: cols {col_letter(start)}{start}-{col_letter(end)}{end} outline_level=1"
+            f"GROUP {label}: cols {start_letter}{start}-{end_letter}{end} outline_level=1"
         )
 
     # ── 5. summaryRight = False ──
