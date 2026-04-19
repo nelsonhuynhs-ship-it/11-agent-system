@@ -2856,6 +2856,116 @@ def patterns_strategy(
 # === A4 END ===
 
 
+# === A5 BEGIN ===
+# ============================================================================
+# A5 — PANJIVA CLEAN PIPELINE ENDPOINTS
+# ============================================================================
+import uuid as _uuid
+import shutil as _shutil
+
+_A5_INCOMING = BASE_DIR / "data_panjiva" / "incoming"
+_A5_JOBS     = BASE_DIR / "data_panjiva" / "jobs"
+_A5_INCOMING.mkdir(parents=True, exist_ok=True)
+_A5_JOBS.mkdir(parents=True, exist_ok=True)
+
+
+def _a5_run_pipeline(saved_path: Path, job_id: str, source_tag: str):
+    """Background task: run panjiva_clean pipeline + write job status."""
+    try:
+        # Import lazily so failure doesn't kill server start
+        sys.path.insert(0, str(ENGINE_TEST / "scripts"))
+        from panjiva_clean import clean_panjiva
+        clean_panjiva(
+            input_path=str(saved_path),
+            dry_run=False,
+            source_tag=source_tag,
+            job_id=job_id,
+        )
+    except Exception as exc:
+        job_file = _A5_JOBS / f"{job_id}.json"
+        import json as _json2
+        job_file.write_text(_json2.dumps({
+            "job_id": job_id, "status": "error",
+            "error": str(exc),
+            "updated_at": datetime.now().isoformat(),
+        }, ensure_ascii=False, indent=2), encoding="utf-8")
+        log.error(f"[A5] pipeline error job={job_id}: {exc}")
+
+
+from fastapi import UploadFile, File as FastAPIFile
+
+@app.post("/api/panjiva/upload")
+async def panjiva_upload(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = FastAPIFile(...),
+    source_tag: str = Query(default=None, description="e.g. PANJIVA_2026W16"),
+    dry_run: bool = Query(default=False),
+):
+    """Upload raw Panjiva .xlsx → spawn background ETL pipeline.
+    Returns 202 Accepted with job_id + status_url."""
+    # Validate file type
+    fname = (file.filename or "").lower()
+    if not fname.endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="Only .xlsx files accepted")
+
+    # Save to incoming/
+    job_id = _uuid.uuid4().hex[:12]
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe_name = _re.sub(r"[^a-zA-Z0-9._-]", "_", file.filename or "upload.xlsx")
+    saved_path = _A5_INCOMING / f"{ts}_{safe_name}"
+    content = await file.read()
+    if len(content) == 0:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+    saved_path.write_bytes(content)
+
+    # Write initial job status
+    import json as _json3
+    (_A5_JOBS / f"{job_id}.json").write_text(_json3.dumps({
+        "job_id": job_id, "status": "running",
+        "step": 0, "step_name": "Queued", "progress_pct": 0,
+        "source_tag": source_tag, "dry_run": dry_run,
+        "file": str(saved_path.name),
+        "updated_at": datetime.now().isoformat(),
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    background_tasks.add_task(_a5_run_pipeline, saved_path, job_id, source_tag or "PANJIVA")
+    log.info(f"[A5] upload accepted: job={job_id} file={saved_path.name} dry_run={dry_run}")
+
+    return JSONResponse(status_code=202, content={
+        "job_id": job_id,
+        "status": "running",
+        "status_url": f"/api/panjiva/status/{job_id}",
+        "file": str(saved_path.name),
+    })
+
+
+@app.get("/api/panjiva/status/{job_id}")
+def panjiva_status(job_id: str):
+    """Poll pipeline progress for a given job_id."""
+    job_file = _A5_JOBS / f"{job_id}.json"
+    if not job_file.exists():
+        raise HTTPException(status_code=404, detail={"error": "job not found"})
+    import json as _json4
+    data = _json4.loads(job_file.read_text(encoding="utf-8"))
+    return data
+
+
+@app.get("/api/panjiva/history")
+def panjiva_history(limit: int = Query(default=20, le=100)):
+    """List recent Panjiva ETL jobs (newest first)."""
+    import json as _json5
+    jobs = []
+    for jf in sorted(_A5_JOBS.glob("*.json"), key=lambda f: f.stat().st_mtime, reverse=True)[:limit]:
+        try:
+            data = _json5.loads(jf.read_text(encoding="utf-8"))
+            jobs.append(data)
+        except Exception:
+            pass
+    return {"jobs": jobs, "count": len(jobs)}
+
+# === A5 END ===
+
+
 if __name__ == "__main__":
     # pythonw.exe (no console) has sys.stdout/stderr = None → uvicorn's default
     # log formatter crashes on sys.stdout.isatty(). Redirect to devnull so

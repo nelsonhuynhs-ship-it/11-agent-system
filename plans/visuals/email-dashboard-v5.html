@@ -769,6 +769,118 @@ input,select{font-family:inherit}
   </section>
 </section>
 
+<!-- ═══════════════ INBOX VIEW (placeholder — A1 fills) ═══════════════ -->
+<section class="view" id="viewInbox">
+  <header class="page-head">
+    <div>
+      <h1 class="page-title">Inbox</h1>
+      <div class="page-sub">Opens · Replies · Bounces — unified feed</div>
+    </div>
+  </header>
+  <div style="padding:60px 0;text-align:center;color:var(--muted-2)">
+    <div style="font-family:'Noto Serif JP',serif;font-size:32px;margin-bottom:12px;letter-spacing:.2em">受信</div>
+    A1 will implement this view
+  </div>
+</section>
+
+<!-- ═══════════════ INSIGHTS VIEW (placeholder — A1/A4 fill) ═══════════════ -->
+<section class="view" id="viewInsights">
+  <header class="page-head">
+    <div>
+      <h1 class="page-title">Insights</h1>
+      <div class="page-sub">Analytics · Data Health · AI Model</div>
+    </div>
+  </header>
+  <div style="padding:60px 0;text-align:center;color:var(--muted-2)">
+    <div style="font-family:'Noto Serif JP',serif;font-size:32px;margin-bottom:12px;letter-spacing:.2em">洞察</div>
+    A1 / A4 will implement this view
+  </div>
+</section>
+
+<!-- ═══════════════ SETTINGS VIEW ═══════════════ -->
+<section class="view" id="viewSettings">
+  <header class="page-head">
+    <div>
+      <h1 class="page-title">Settings</h1>
+      <div class="page-sub">ARM/DISARM · Data Import · Scheduled Jobs</div>
+    </div>
+  </header>
+
+  <!-- Panjiva Import Section (A5) -->
+  <div id="settingsPanjiva">
+    <section class="section" style="margin-bottom:32px">
+      <div class="section-head">
+        <div class="section-title">取込 · Import Panjiva Data</div>
+        <div class="section-sub">Upload weekly Panjiva .xlsx — auto clean, classify, dedup, merge to master</div>
+      </div>
+
+      <!-- Upload zone -->
+      <div id="panjivaDropZone" style="border:2px dashed var(--line);border-radius:4px;padding:40px 24px;text-align:center;cursor:pointer;transition:border-color .2s;background:var(--paper-2);margin-bottom:20px">
+        <div style="font-size:24px;margin-bottom:8px;color:var(--muted)">+</div>
+        <div style="font-size:13px;color:var(--ink-2);margin-bottom:6px">Drag &amp; drop Panjiva .xlsx here</div>
+        <div style="font-size:11px;color:var(--muted)">or</div>
+        <label style="margin-top:10px;display:inline-block">
+          <input type="file" id="panjivaFileInput" accept=".xlsx" style="display:none">
+          <span class="btn btn-sm" style="cursor:pointer">Choose file</span>
+        </label>
+        <div id="panjivaFileName" style="margin-top:10px;font-size:12px;color:var(--accent);font-family:'JetBrains Mono',monospace"></div>
+      </div>
+
+      <!-- Source tag + dry run -->
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:200px">
+          <label style="font-size:12px;color:var(--muted);white-space:nowrap">Source tag</label>
+          <input type="text" id="panjivaSourceTag" placeholder="e.g. PANJIVA_2026W16"
+            style="flex:1;padding:6px 10px;border:1px solid var(--line);border-radius:2px;font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--paper)">
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer">
+          <input type="checkbox" id="panjivaDryRun"> Dry run (no write)
+        </label>
+        <button class="btn" id="btnPanjivaUpload" disabled>Upload &amp; Process</button>
+      </div>
+
+      <!-- Progress -->
+      <div id="panjivaProgress" style="display:none;margin-bottom:20px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
+          <span id="panjivaStepName">Processing...</span>
+          <span id="panjivaStepPct">0%</span>
+        </div>
+        <div style="height:4px;background:var(--line-2);border-radius:2px;overflow:hidden">
+          <div id="panjivaProgressBar" style="height:100%;background:var(--accent);width:0%;transition:width .3s ease"></div>
+        </div>
+      </div>
+
+      <!-- Result tiles -->
+      <div id="panjivaResultTiles" style="display:none">
+        <div class="kpi-row" style="margin-bottom:16px">
+          <div class="kpi"><div class="kpi-label">Added</div><div class="kpi-value" id="ptAdded" style="color:var(--good)">+0</div><div class="kpi-foot">new contacts</div></div>
+          <div class="kpi"><div class="kpi-label">Duplicates</div><div class="kpi-value" id="ptDupes">0</div><div class="kpi-foot">skipped</div></div>
+          <div class="kpi"><div class="kpi-label">Blacklisted</div><div class="kpi-value" id="ptBlacklist" style="color:var(--err)">0</div><div class="kpi-foot">competitors</div></div>
+          <div class="kpi"><div class="kpi-label">Hard bounce</div><div class="kpi-value" id="ptBounce">0</div><div class="kpi-foot">skipped</div></div>
+        </div>
+        <div id="panjivaBreakdown" style="font-size:12px;color:var(--ink-2);display:flex;flex-wrap:wrap;gap:8px"></div>
+      </div>
+
+      <!-- History table -->
+      <div style="margin-top:28px">
+        <div class="section-head" style="margin-bottom:12px">
+          <div class="section-title" style="font-size:12px">Recent imports</div>
+          <button class="btn btn-sm" id="btnPanjivaHistoryReload">Refresh</button>
+        </div>
+        <table class="tbl" id="panjivaHistoryTable">
+          <thead><tr><th>Date</th><th>Source</th><th>Added</th><th>Dupes</th><th>Blacklisted</th><th>Duration</th><th>Status</th></tr></thead>
+          <tbody id="panjivaHistoryBody"><tr><td colspan="7" class="empty-state">No imports yet</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Placeholder for A1 — ARM/DISARM section -->
+    <div id="settingsArmDisarm" style="color:var(--muted);font-size:12px;padding:20px 0">
+      ARM/DISARM controls — A1 will implement
+    </div>
+  </div>
+</section>
+
 </main>
 </div>
 
@@ -886,10 +998,11 @@ function bindNav(){
       document.getElementById(view).classList.add('active');
       if (view === 'viewPriority') loadPriority();
     if (view === 'viewAnalytics') loadAnalytics();
-    if (view === 'viewAI') loadAIModel();
+    if (view === 'viewAI') { loadAIModel(); loadInsightsPatterns(); }
     if (view === 'viewAlerts') loadAlerts();
     if (view === 'viewOpenTracker') loadOpenTracker();
     if (view === 'viewQueue') loadQueue();
+    if (view === 'viewSettings') loadPanjivaPage();
     });
   });
 }
@@ -1467,6 +1580,134 @@ function wirePriorityActions(){
       toast(`Queued ${email}`, 'success');
     } catch(e){ toast('Queue failed: '+e.message, 'err'); }
   });
+  // A3 — Smart Draft: open modal, fetch LLM draft with memory
+  document.querySelectorAll('[data-pri-smart-draft]').forEach(b => b.onclick = () => {
+    openSmartDraft(b.dataset.priSmartDraft);
+  });
+}
+
+/* ═══════════════ A3 SMART DRAFT MODAL CONTROLLER ═══════════════ */
+const SD = { cnee: null, lastDraft: null };
+
+async function openSmartDraft(cneeEmail){
+  if (!cneeEmail) return;
+  SD.cnee = cneeEmail;
+  const modal = document.getElementById('smartDraftModal');
+  const subjInput = document.getElementById('sdSubject');
+  const bodyHtml = document.getElementById('sdBodyHtml');
+  const bodyText = document.getElementById('sdBodyText');
+  const badge = document.getElementById('sdBadge');
+  const rationale = document.getElementById('sdRationale');
+  const ctxEl = document.getElementById('sdContext');
+  const cneeEl = document.getElementById('sdCnee');
+
+  cneeEl.textContent = cneeEmail;
+  subjInput.value = '';
+  bodyHtml.srcdoc = '<div style="padding:24px;font-family:system-ui;color:#888">⏳ Đang soạn email cá nhân hoá...</div>';
+  bodyText.value = '';
+  badge.textContent = '…';
+  badge.className = 'tag';
+  rationale.textContent = '—';
+  ctxEl.textContent = '—';
+  modal.style.display = 'flex';
+
+  await fetchSmartDraft(cneeEmail);
+}
+
+async function fetchSmartDraft(cneeEmail){
+  const bodyHtml = document.getElementById('sdBodyHtml');
+  const bodyText = document.getElementById('sdBodyText');
+  const subjInput = document.getElementById('sdSubject');
+  const badge = document.getElementById('sdBadge');
+  const rationale = document.getElementById('sdRationale');
+  const ctxEl = document.getElementById('sdContext');
+
+  try {
+    const j = await api('/api/draft/smart', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ cnee_email: cneeEmail }),
+    });
+    SD.lastDraft = j;
+    subjInput.value = j.subject || '';
+    bodyHtml.srcdoc = j.body_html || '<p>(empty)</p>';
+    bodyText.value = j.body_text || '';
+
+    if (j.memory_used) {
+      badge.textContent = '💭 Memory';
+      badge.className = 'tag tag-vip';
+    } else if (j.fallback) {
+      badge.textContent = '🆕 Cold';
+      badge.className = 'tag tag-hot';
+    } else {
+      badge.textContent = '—';
+    }
+    rationale.textContent = j.rationale || '—';
+    const cs = j.context_summary || {};
+    const bits = [];
+    if (cs.customer_name) bits.push('customer=' + cs.customer_name);
+    if (cs.events_count) bits.push('events=' + cs.events_count);
+    if (cs.preferred_pods && cs.preferred_pods.length) bits.push('POD=' + cs.preferred_pods.join(','));
+    if (cs.last_intent) bits.push('intent=' + cs.last_intent);
+    if (cs.last_sentiment) bits.push('sentiment=' + cs.last_sentiment);
+    if (j.error_note) bits.push('⚠ ' + j.error_note);
+    ctxEl.textContent = bits.join(' · ') || '—';
+  } catch(e){
+    bodyHtml.srcdoc = '<div style="padding:24px;color:#c33">Error: '+ (e.message||e) +'</div>';
+    badge.textContent = 'err';
+    badge.className = 'tag';
+  }
+}
+
+function wireSmartDraftModal(){
+  const modal = document.getElementById('smartDraftModal');
+  if (!modal) return;
+  const closeBtn = document.getElementById('sdClose');
+  if (closeBtn) closeBtn.onclick = () => modal.style.display = 'none';
+  modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
+
+  // HTML / plain-text toggle
+  document.querySelectorAll('input[name="sdMode"]').forEach(r => r.onchange = () => {
+    const mode = document.querySelector('input[name="sdMode"]:checked').value;
+    document.getElementById('sdBodyHtml').style.display = (mode === 'html') ? 'block' : 'none';
+    document.getElementById('sdBodyText').style.display = (mode === 'text') ? 'block' : 'none';
+  });
+
+  // Regenerate
+  const regen = document.getElementById('sdRegen');
+  if (regen) regen.onclick = () => { if (SD.cnee) fetchSmartDraft(SD.cnee); };
+
+  // Send now — enqueue via existing batch endpoint (fixed subject + body override)
+  const sendBtn = document.getElementById('sdSend');
+  if (sendBtn) sendBtn.onclick = async () => {
+    if (!SD.cnee) return;
+    const subj = document.getElementById('sdSubject').value.trim();
+    const bodyTxt = document.getElementById('sdBodyText').value.trim();
+    if (!subj || !bodyTxt){ toast('Cần subject + body', 'err'); return; }
+    if (!confirm(`Send smart draft to ${SD.cnee}?`)) return;
+    try {
+      await api('/api/email-rate/batch/enqueue', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          batch_id: 'SD_'+Date.now(),
+          cnee_emails: [SD.cnee],
+          campaign_id: '',
+          pol: 'HPH', destinations: '', markup: 20,
+          subject_policy: 'fixed',
+          subject_override: subj,
+          body_override: bodyTxt,
+          dry_run: false, test_mode: (typeof Store !== 'undefined' ? Store.testMode : false),
+        }),
+      });
+      toast(`Queued smart draft for ${SD.cnee}`, 'success');
+      document.getElementById('smartDraftModal').style.display = 'none';
+    } catch(e){ toast('Queue failed: '+e.message, 'err'); }
+  };
+}
+// Run on DOM ready — defer if modal not yet in DOM
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', wireSmartDraftModal);
+} else {
+  wireSmartDraftModal();
 }
 
 /* ═══════════════ OPEN TRACKER ═══════════════ */
@@ -1745,7 +1986,418 @@ function scheduleSendIntent(hour) {
   }, 5 * 60 * 1000);
 })();
 
+
+/* ================================================================
+   A4 -- Pattern Learning (insightsPatterns + qsStrategyHint)
+   2026-04-19
+   ================================================================ */
+
+let _tplData = [];
+let _tplSortKey = 'score';
+let _tplSortAsc = false;
+
+async function loadInsightsPatterns() {
+  try {
+    await Promise.all([loadTopTemplates(), loadHotIndustries(), loadHeatmap()]);
+  } catch(e) { console.error('[A4] loadInsightsPatterns error:', e); }
+}
+
+async function loadTopTemplates() {
+  const body = document.getElementById('tplBody');
+  if (!body) return;
+  try {
+    const r = await api('/api/patterns/top-templates?days=30&limit=10');
+    _tplData = r.templates || [];
+    const sub = document.getElementById('tplSub');
+    if (sub) sub.textContent = 'Top templates by reply rate · last 30 days · ' + _tplData.length + ' patterns';
+    renderTplTable();
+  } catch(e) {
+    if (body) body.innerHTML = '<tr><td colspan="5" class="empty-state">Error: ' + esc(e.message) + '</td></tr>';
+  }
+}
+
+function renderTplTable() {
+  const body = document.getElementById('tplBody');
+  if (!body) return;
+  if (!_tplData.length) {
+    body.innerHTML = '<tr><td colspan="5" class="empty-state">No data yet -- need min 20 sends per template</td></tr>';
+    return;
+  }
+  const sorted = [..._tplData].sort((a, b) => {
+    const av = a[_tplSortKey]; const bv = b[_tplSortKey];
+    return _tplSortAsc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
+  });
+  body.innerHTML = sorted.map((t, i) => {
+    const topBadge = i < 3 ? '<span style="color:var(--warn);font-weight:600"> #' + (i+1) + '</span>' : '';
+    return '<tr style="cursor:pointer" onclick="expandTplRow(' + i + ', this)">' +
+      '<td><span style="font-family:JetBrains Mono,monospace;font-size:12px">' + esc(t.template_pattern) + '</span>' + topBadge + '</td>' +
+      '<td class="mono" style="text-align:right">' + (t.sent||0).toLocaleString() + '</td>' +
+      '<td class="mono" style="text-align:right">' + (t.open_rate_pct||0).toFixed(1) + '%</td>' +
+      '<td class="mono" style="text-align:right;color:var(--good);font-weight:500">' + (t.reply_rate_pct||0).toFixed(1) + '%</td>' +
+      '<td class="mono" style="text-align:right;color:var(--accent)">' + (t.score||0).toFixed(2) + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+function expandTplRow(idx, tr) {
+  const area = document.getElementById('tplExpandArea');
+  if (!area) return;
+  const sorted = [..._tplData].sort((a, b) => {
+    const av = a[_tplSortKey]; const bv = b[_tplSortKey];
+    return _tplSortAsc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
+  });
+  const t = sorted[idx];
+  if (!t) return;
+  const subjects = (t.sample_subjects || []).map(function(s) { return '<div style="margin-top:2px">&bull; ' + esc(s) + '</div>'; }).join('');
+  area.innerHTML = '<strong>' + esc(t.template_pattern) + '</strong>' + subjects;
+  area.style.display = 'block';
+}
+
+function sortTpl(key) {
+  if (_tplSortKey === key) _tplSortAsc = !_tplSortAsc;
+  else { _tplSortKey = key; _tplSortAsc = false; }
+  renderTplTable();
+}
+
+async function loadHotIndustries() {
+  const wrap = document.getElementById('hotIndustriesChart');
+  if (!wrap) return;
+  try {
+    const r = await api('/api/patterns/hot-industries?days=30');
+    const industries = (r.industries || []).slice(0, 12);
+    if (!industries.length) {
+      wrap.innerHTML = '<div class="empty-state">No industry data yet</div>';
+      return;
+    }
+    const maxScore = Math.max(...industries.map(function(x) { return x.score || 0; })) || 1;
+    wrap.innerHTML = industries.map(function(ind, i) {
+      const barPct = Math.max(2, ((ind.score || 0) / maxScore * 100)).toFixed(0);
+      const gold = i < 5 ? 'color:var(--warn);font-weight:600' : 'color:var(--ink-2)';
+      const rankBadge = i < 5 ? ' #' + (i+1) : '';
+      return '<div style="display:flex;align-items:center;gap:10px">' +
+        '<div style="width:160px;font-size:12.5px;' + gold + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
+          esc(ind.campaign_id) + rankBadge +
+        '</div>' +
+        '<div style="flex:1;background:var(--line);border-radius:1px;height:10px">' +
+          '<div style="width:' + barPct + '%;background:' + (i < 5 ? 'var(--warn)' : 'var(--accent-soft)') + ';height:100%;border-radius:1px;transition:width .3s"></div>' +
+        '</div>' +
+        '<div class="mono" style="font-size:11.5px;width:100px;text-align:right">' +
+          (ind.reply_rate_pct||0).toFixed(1) + '% · ' + (ind.sent||0).toLocaleString() + '</div>' +
+        '</div>';
+    }).join('');
+  } catch(e) {
+    wrap.innerHTML = '<div class="empty-state">Error: ' + esc(e.message) + '</div>';
+  }
+}
+
+async function loadHeatmap() {
+  const wrap = document.getElementById('heatmapWrap');
+  if (!wrap) return;
+  try {
+    const r = await api('/api/patterns/heatmap?days=30');
+    const matrix = r.matrix || [];
+    if (!matrix.length) {
+      wrap.innerHTML = '<div class="empty-state">No heatmap data yet</div>';
+      return;
+    }
+    renderHeatmap(r, wrap);
+    const best = r.best_slot || {};
+    const sub = document.getElementById('heatmapSub');
+    if (sub && best.hour !== undefined) {
+      const dnames = r.days || ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+      sub.textContent = 'Best slot: ' + (dnames[best.day] || '') + ' ' + String(best.hour).padStart(2,'0') + ':00 VN · ' + (best.open_rate_pct||0).toFixed(1) + '% open rate';
+    }
+  } catch(e) {
+    wrap.innerHTML = '<div class="empty-state">Error: ' + esc(e.message) + '</div>';
+  }
+}
+
+function renderHeatmap(data, container) {
+  const days = data.days || ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const hours = data.hours || Array.from({length:24},function(_,i){return i;});
+  const matrix = data.matrix || [];
+  const lookup = {};
+  matrix.forEach(function(cell) { lookup[cell.day + '_' + cell.hour] = cell; });
+  const maxRate = Math.max(...matrix.map(function(c) { return c.open_rate_pct || 0; }), 1);
+
+  let html = '<table style="border-collapse:collapse;font-size:10.5px;font-family:JetBrains Mono,monospace">';
+  html += '<tr><th style="width:36px"></th>';
+  hours.forEach(function(h) {
+    const show = h % 3 === 0 ? String(h).padStart(2,'0') : '';
+    html += '<th style="width:22px;text-align:center;color:var(--muted);font-weight:400;padding:0 1px">' + show + '</th>';
+  });
+  html += '</tr>';
+
+  days.forEach(function(dayName, di) {
+    html += '<tr>';
+    html += '<td style="padding-right:6px;color:var(--muted-2);text-align:right;font-size:10px">' + esc(dayName) + '</td>';
+    hours.forEach(function(hr) {
+      const cell = lookup[di + '_' + hr] || {sent:0, opened:0, open_rate_pct:0};
+      const sent = cell.sent || 0;
+      const rate = cell.open_rate_pct || 0;
+      const alpha = sent === 0 ? 0 : Math.max(0.08, rate / maxRate);
+      const bg = sent === 0 ? 'var(--line-2)' : 'rgba(184,87,47,' + alpha.toFixed(2) + ')';
+      const title = sent === 0 ? 'No data' : (sent + ' sent · ' + rate.toFixed(1) + '% open');
+      html += '<td title="' + dayName + ' ' + String(hr).padStart(2,'0') + ':00 VN -- ' + title + '" style="width:22px;height:18px;background:' + bg + ';border:1px solid var(--paper);cursor:default"></td>';
+    });
+    html += '</tr>';
+  });
+
+  html += '</table>';
+  html += '<div style="margin-top:8px;font-size:11px;color:var(--muted)">Darker cell = higher open rate. Hover for details.</div>';
+  container.innerHTML = html;
+}
+
+/* Quick Send Strategy Hint */
+let _strategyHintLoading = false;
+
+async function loadStrategyHint(campaignId) {
+  if (!campaignId) return;
+  const box = document.getElementById('qsStrategyHint');
+  const txt = document.getElementById('qsStrategyText');
+  if (!box || !txt) return;
+  if (_strategyHintLoading) return;
+  _strategyHintLoading = true;
+  box.style.display = 'block';
+  txt.textContent = 'Loading strategy...';
+  const ratEl = document.getElementById('qsStrategyRationale');
+  if (ratEl) ratEl.style.display = 'none';
+  try {
+    const r = await api('/api/patterns/strategy?campaign=' + encodeURIComponent(campaignId));
+    if (r && r.best_send_hour_vn !== undefined) {
+      const hour = String(r.best_send_hour_vn || 9).padStart(2,'0');
+      const dayName = r.best_send_day_name || '';
+      const replyRate = (r.predicted_reply_rate || 0).toFixed(1);
+      const conf = r.confidence || 0;
+      const tpl = r.best_template_pattern || '';
+      const tplShort = tpl.length > 45 ? tpl.substring(0,45)+'...' : tpl;
+      const rank = r.industry_rank || 0;
+      txt.innerHTML = 'Chien luoc goi y: ' +
+        (tplShort ? '<strong>' + esc(tplShort) + '</strong> &middot; ' : '') +
+        'Gui luc <strong>' + hour + ':00 VN</strong> (' + esc(dayName) + ') &middot; ' +
+        'Predict reply <strong>' + replyRate + '%</strong>' +
+        (rank ? ' &middot; Nganh #' + rank : '') +
+        ' <span style="color:var(--muted);font-size:11px">(tin cay ' + conf + '%)</span>';
+      if (ratEl) ratEl.textContent = r.rationale_vn || '';
+    } else {
+      txt.textContent = 'Chua co du lieu cho campaign: ' + esc(campaignId);
+    }
+  } catch(e) {
+    txt.textContent = 'Strategy error: ' + e.message;
+  } finally {
+    _strategyHintLoading = false;
+  }
+}
+
+function toggleStrategyRationale() {
+  const el = document.getElementById('qsStrategyRationale');
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+/* Poll pattern insights every 5 min when AI tab open */
+(function _initPatternPoller() {
+  setInterval(function() {
+    const aiActive = document.getElementById('viewAI') && document.getElementById('viewAI').classList.contains('active');
+    if (aiActive) loadInsightsPatterns();
+  }, 5 * 60 * 1000);
+})();
+
+/* Wire campaign select to strategy hint */
+(function _wireCampaignHint() {
+  const sel = document.getElementById('inpCampaign');
+  if (!sel) return;
+  sel.addEventListener('change', function() {
+    const val = sel.value;
+    if (val && val !== 'Loading...') loadStrategyHint(val);
+  });
+})();
+
 init();
+
+/* ═══════════════ A5 — PANJIVA UPLOAD ═══════════════ */
+(function _bindPanjiva() {
+  let _panjivaFile = null;
+  let _pollTimer = null;
+
+  function _ready() {
+    return !!(document.getElementById('panjivaDropZone'));
+  }
+
+  function _setFile(file) {
+    _panjivaFile = file;
+    const nameEl = document.getElementById('panjivaFileName');
+    const btn = document.getElementById('btnPanjivaUpload');
+    if (nameEl) nameEl.textContent = file ? file.name : '';
+    if (btn) btn.disabled = !file;
+    const zone = document.getElementById('panjivaDropZone');
+    if (zone) zone.style.borderColor = file ? 'var(--accent)' : 'var(--line)';
+  }
+
+  function _showProgress(show) {
+    const el = document.getElementById('panjivaProgress');
+    if (el) el.style.display = show ? '' : 'none';
+  }
+
+  function _updateProgress(stepName, pct) {
+    const nameEl = document.getElementById('panjivaStepName');
+    const pctEl = document.getElementById('panjivaStepPct');
+    const bar = document.getElementById('panjivaProgressBar');
+    if (nameEl) nameEl.textContent = stepName || 'Processing...';
+    if (pctEl) pctEl.textContent = pct + '%';
+    if (bar) bar.style.width = pct + '%';
+  }
+
+  function _showResults(report) {
+    const tiles = document.getElementById('panjivaResultTiles');
+    if (!tiles) return;
+    tiles.style.display = '';
+    document.getElementById('ptAdded').textContent = '+' + (report.output_added || 0);
+    document.getElementById('ptDupes').textContent = '-' + (report.duplicates || 0);
+    document.getElementById('ptBlacklist').textContent = '-' + (report.blacklist_excluded || 0);
+    document.getElementById('ptBounce').textContent = '-' + (report.bounces_excluded || 0);
+
+    // Commodity breakdown chips
+    const bd = document.getElementById('panjivaBreakdown');
+    if (bd && report.commodity_breakdown) {
+      const entries = Object.entries(report.commodity_breakdown).sort((a, b) => b[1] - a[1]);
+      bd.innerHTML = entries.map(([cat, cnt]) =>
+        `<span style="padding:3px 10px;background:var(--paper-2);border:1px solid var(--line);border-radius:20px;font-family:'JetBrains Mono',monospace;font-size:11px">
+          ${cat} <span style="color:var(--accent);font-weight:600">${cnt}</span>
+        </span>`
+      ).join('');
+    }
+  }
+
+  async function _pollStatus(jobId) {
+    _showProgress(true);
+    _updateProgress('Queued', 2);
+    return new Promise((resolve) => {
+      _pollTimer = setInterval(async () => {
+        try {
+          const r = await api('/api/panjiva/status/' + jobId);
+          const pct = r.progress_pct || 0;
+          const stepName = r.step_name || 'Processing';
+          _updateProgress(stepName, pct);
+
+          if (r.status === 'done') {
+            clearInterval(_pollTimer);
+            _updateProgress('Complete', 100);
+            setTimeout(() => _showProgress(false), 800);
+            if (r.report) _showResults(r.report);
+            toast('+' + (r.report?.output_added || 0) + ' contacts added', 'ok');
+            loadPanjivaHistory();
+            resolve(r);
+          } else if (r.status === 'error') {
+            clearInterval(_pollTimer);
+            _showProgress(false);
+            toast('Pipeline error: ' + (r.error || 'unknown'), 'err', 6000);
+            resolve(r);
+          }
+        } catch (e) { /* keep polling */ }
+      }, 2000);
+    });
+  }
+
+  async function _doUpload() {
+    if (!_panjivaFile) return;
+    const btn = document.getElementById('btnPanjivaUpload');
+    if (btn) { btn.disabled = true; btn.textContent = 'Uploading...'; }
+
+    const fd = new FormData();
+    fd.append('file', _panjivaFile);
+    const tag = (document.getElementById('panjivaSourceTag')?.value || '').trim();
+    const dryRun = document.getElementById('panjivaDryRun')?.checked || false;
+    let url = API + '/api/panjiva/upload';
+    const params = [];
+    if (tag) params.push('source_tag=' + encodeURIComponent(tag));
+    if (dryRun) params.push('dry_run=true');
+    if (params.length) url += '?' + params.join('&');
+
+    try {
+      const resp = await fetch(url, { method: 'POST', body: fd });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const data = await resp.json();
+      toast('Job ' + data.job_id + ' started', 'ok');
+      if (btn) { btn.textContent = 'Processing...'; }
+      await _pollStatus(data.job_id);
+    } catch (e) {
+      toast('Upload failed: ' + e.message, 'err', 5000);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Upload & Process'; }
+    }
+  }
+
+  window.loadPanjivaPage = function() {
+    if (!_ready()) return;
+
+    // File input
+    const fileInput = document.getElementById('panjivaFileInput');
+    if (fileInput && !fileInput._bound) {
+      fileInput._bound = true;
+      fileInput.addEventListener('change', e => _setFile(e.target.files[0] || null));
+    }
+
+    // Drag & drop
+    const zone = document.getElementById('panjivaDropZone');
+    if (zone && !zone._bound) {
+      zone._bound = true;
+      zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.borderColor = 'var(--accent)'; });
+      zone.addEventListener('dragleave', () => { zone.style.borderColor = _panjivaFile ? 'var(--accent)' : 'var(--line)'; });
+      zone.addEventListener('drop', e => {
+        e.preventDefault();
+        const f = e.dataTransfer?.files[0];
+        if (f && f.name.endsWith('.xlsx')) { _setFile(f); }
+        else if (f) toast('Only .xlsx files accepted', 'err');
+      });
+    }
+
+    // Upload button
+    const btn = document.getElementById('btnPanjivaUpload');
+    if (btn && !btn._bound) {
+      btn._bound = true;
+      btn.addEventListener('click', _doUpload);
+    }
+
+    // History refresh button
+    const histBtn = document.getElementById('btnPanjivaHistoryReload');
+    if (histBtn && !histBtn._bound) {
+      histBtn._bound = true;
+      histBtn.addEventListener('click', loadPanjivaHistory);
+    }
+
+    loadPanjivaHistory();
+  };
+
+  window.loadPanjivaHistory = async function() {
+    const tbody = document.getElementById('panjivaHistoryBody');
+    if (!tbody) return;
+    try {
+      const r = await api('/api/panjiva/history?limit=20');
+      const jobs = r.jobs || [];
+      if (!jobs.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No imports yet</td></tr>';
+        return;
+      }
+      tbody.innerHTML = jobs.map(j => {
+        const report = j.report || {};
+        const dt = j.updated_at ? j.updated_at.slice(0, 16).replace('T', ' ') : '—';
+        const statusColor = j.status === 'done' ? 'var(--good)' : j.status === 'error' ? 'var(--err)' : 'var(--warn)';
+        return `<tr>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:11px">${dt}</td>
+          <td>${j.source_tag || report.source_tag || '—'}</td>
+          <td style="color:var(--good);font-weight:600">+${report.output_added || 0}</td>
+          <td>${report.duplicates || 0}</td>
+          <td style="color:var(--err)">${report.blacklist_excluded || 0}</td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:11px">${report.duration_sec || '—'}s</td>
+          <td><span style="color:${statusColor};font-size:11px;text-transform:uppercase;letter-spacing:.1em">${j.status || '—'}</span></td>
+        </tr>`;
+      }).join('');
+    } catch(e) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-state">API offline</td></tr>';
+    }
+  };
+})();
 </script>
 </body>
 </html>
