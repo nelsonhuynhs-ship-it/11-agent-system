@@ -25,10 +25,17 @@ Option Explicit
 Private Const PY_HOME As String = "C:\Users\Nelson\anaconda3\python.exe"
 Private Const PY_ALT As String = "C:\Users\ADMIN\anaconda3\python.exe"
 
-' Module-level state — current month filter for ribbon navigator (APR-26 etc.)
-' MUST be declared here at top-of-module; VBA rejects Private variable
-' declarations placed between procedures (gotcha #11).
-Private m_CurrentMonth As String   ' ISO "YYYY-MM"
+' ── Month combo state (2026-04-21) ──────────────────────────────────────────
+' MUST be declared here at top-of-module (gotcha #11: no declarations after
+' first Sub/Function). No leading underscore (gotcha #12).
+Private m_Months() As String         ' display labels e.g. "APR 2026 (26 jobs)"
+Private m_MonthISO() As String       ' ISO labels for filtering e.g. "APR-26"
+Private m_MonthCount As Long         ' total items in combo (includes "All" entry)
+Private m_SelectedMonthLabel As String  ' current display label shown in combo
+
+' DEPRECATED 2026-04-21 — kept to avoid compile errors if old ribbon binding
+' is still cached on some machines. Replaced by cmbMonth combo callbacks.
+Private m_CurrentMonth As String     ' was: ISO "YYYY-MM" for old Prev/Next nav
 
 Private Function FindPython() As String
     Dim fso As Object: Set fso = CreateObject("Scripting.FileSystemObject")
@@ -637,18 +644,244 @@ ErrHandler:
 End Sub
 
 ' ============================================================
-'  RIBBON CALLBACKS v4 — month navigator + dynamic badge counts
-'  (matches HTML mockup at plans/.../active-jobs-layout.html)
-'  Note: m_CurrentMonth is declared at TOP of module (see gotcha #11).
+'  RIBBON CALLBACKS v5 — cmbMonth combo dropdown (2026-04-21)
+'  Shows "APR 2026 (26 jobs)" per month, filters Active Jobs + Archive
+'  Note: m_Months, m_MonthISO, m_MonthCount, m_SelectedMonthLabel
+'        declared at TOP of module (gotcha #11, #12).
 ' ============================================================
 
+' ── Internal: scan Active Jobs + Archive → build months list ──────────────
+Public Sub RebuildMonthsList()
+    ' Scans Active Jobs MONTH col (col 1) and Archive MONTH col (col 15).
+    ' Builds m_Months() with display labels, m_MonthISO() with ISO codes.
+    ' First item = "Tat ca (N jobs)" (show all). Sorted newest first.
+    On Error GoTo ErrBuild
+
+    Dim wsJ As Worksheet, wsA As Worksheet
+    On Error Resume Next
+    Set wsJ = ThisWorkbook.Worksheets("Active Jobs")
+    Set wsA = ThisWorkbook.Worksheets("Archive")
+    On Error GoTo ErrBuild
+
+    ' Collect all ISO month values + counts into a scripting dictionary
+    Dim dict As Object
+    Set dict = CreateObject("Scripting.Dictionary")
+    dict.CompareMode = 1  ' case-insensitive
+
+    Dim totalJobs As Long: totalJobs = 0
+
+    ' Active Jobs: col 1 = MONTH, data from row 8
+    If Not wsJ Is Nothing Then
+        Dim ajLast As Long: ajLast = wsJ.Cells(wsJ.Rows.Count, 1).End(xlUp).Row
+        Dim ajRow As Long
+        For ajRow = 8 To ajLast
+            Dim ajMonth As String
+            ajMonth = Trim(CStr(wsJ.Cells(ajRow, 1).Value))
+            If ajMonth <> "" Then
+                If Not dict.Exists(ajMonth) Then dict.Add ajMonth, 0
+                dict(ajMonth) = dict(ajMonth) + 1
+                totalJobs = totalJobs + 1
+            End If
+        Next ajRow
+    End If
+
+    ' Archive: col 15 = MONTH (added 2026-04-21), data from row 3
+    If Not wsA Is Nothing Then
+        Dim arcLast As Long: arcLast = wsA.Cells(wsA.Rows.Count, 6).End(xlUp).Row
+        Dim arcRow As Long
+        For arcRow = 3 To arcLast
+            Dim arcMonth As String
+            arcMonth = Trim(CStr(wsA.Cells(arcRow, 15).Value))
+            If arcMonth <> "" Then
+                If Not dict.Exists(arcMonth) Then dict.Add arcMonth, 0
+                dict(arcMonth) = dict(arcMonth) + 1
+                totalJobs = totalJobs + 1
+            End If
+        Next arcRow
+    End If
+
+    ' Sort keys newest first (ISO format "APR-26" — sort by year then month)
+    Dim keys() As Variant: keys = dict.Keys
+    Dim nKeys As Long: nKeys = dict.Count
+
+    ' Simple bubble sort: convert "MMM-YY" to sortable "YYMM" integer
+    Dim i As Long, j As Long, tmp As Variant
+    For i = 0 To nKeys - 2
+        For j = i + 1 To nKeys - 1
+            If MonthSortKey(CStr(keys(i))) < MonthSortKey(CStr(keys(j))) Then
+                tmp = keys(i): keys(i) = keys(j): keys(j) = tmp
+            End If
+        Next j
+    Next i
+
+    ' Allocate arrays: nKeys items + 1 for "All" entry at position 0
+    Dim total As Long: total = nKeys + 1
+    ReDim m_Months(0 To total - 1)
+    ReDim m_MonthISO(0 To total - 1)
+
+    ' Item 0 = "Tat ca" (show all)
+    m_Months(0) = "Tat ca (" & totalJobs & " jobs)"
+    m_MonthISO(0) = ""  ' empty = no filter
+
+    For i = 0 To nKeys - 1
+        Dim isoKey As String: isoKey = CStr(keys(i))
+        Dim cnt As Long: cnt = CLng(dict(isoKey))
+        Dim displayYear As String
+        ' Convert "APR-26" -> "APR 2026 (N jobs)"
+        displayYear = MonthISOToDisplay(isoKey) & " (" & cnt & " jobs)"
+        m_Months(i + 1) = displayYear
+        m_MonthISO(i + 1) = isoKey
+    Next i
+
+    m_MonthCount = total
+
+    ' Default selection = current month if present, else "All"
+    If m_SelectedMonthLabel = "" Then
+        Dim curISO As String: curISO = UCase(Format(Date, "mmm-yy"))
+        Dim k As Long
+        For k = 1 To m_MonthCount - 1
+            If m_MonthISO(k) = curISO Then
+                m_SelectedMonthLabel = m_Months(k)
+                Exit For
+            End If
+        Next k
+        If m_SelectedMonthLabel = "" Then m_SelectedMonthLabel = m_Months(0)
+    End If
+    Exit Sub
+
+ErrBuild:
+    ' Fallback: single "All" entry so combo doesn't crash
+    ReDim m_Months(0 To 0)
+    ReDim m_MonthISO(0 To 0)
+    m_Months(0) = "Tat ca"
+    m_MonthISO(0) = ""
+    m_MonthCount = 1
+    m_SelectedMonthLabel = m_Months(0)
+End Sub
+
+Private Function MonthSortKey(isoLabel As String) As Long
+    ' "APR-26" -> 2604 (sortable integer, higher = newer)
+    ' Handles "APR-26" format (MMM-YY)
+    On Error Resume Next
+    If Len(isoLabel) < 5 Then MonthSortKey = 0: Exit Function
+    Dim parts() As String: parts = Split(isoLabel, "-")
+    If UBound(parts) < 1 Then MonthSortKey = 0: Exit Function
+    Dim yy As Long: yy = Val(parts(1))
+    Dim mm As Long: mm = Month(DateValue("1 " & parts(0) & " 2000"))
+    If mm = 0 Then mm = 1
+    MonthSortKey = yy * 100 + mm
+End Function
+
+Private Function MonthISOToDisplay(isoLabel As String) As String
+    ' "APR-26" -> "APR 2026"
+    On Error Resume Next
+    If Len(isoLabel) < 5 Then MonthISOToDisplay = isoLabel: Exit Function
+    Dim parts() As String: parts = Split(isoLabel, "-")
+    If UBound(parts) < 1 Then MonthISOToDisplay = isoLabel: Exit Function
+    Dim yy As Long: yy = Val(parts(1))
+    Dim fullYear As Long
+    If yy >= 0 And yy <= 99 Then fullYear = 2000 + yy Else fullYear = yy
+    MonthISOToDisplay = UCase(parts(0)) & " " & fullYear
+End Function
+
+Private Sub EnsureMonthsLoaded()
+    If m_MonthCount = 0 Then RebuildMonthsList
+End Sub
+
+' ── Ribbon combo callbacks (registered in CustomUI_v14.xml) ──────────────
+
+Public Sub GetItemCount_Month(control As IRibbonControl, ByRef count As Variant)
+    EnsureMonthsLoaded
+    count = m_MonthCount
+End Sub
+
+Public Sub GetItemLabel_Month(control As IRibbonControl, index As Long, ByRef label As Variant)
+    EnsureMonthsLoaded
+    If index >= 0 And index < m_MonthCount Then
+        label = m_Months(index)
+    Else
+        label = ""
+    End If
+End Sub
+
+Public Sub GetText_Month(control As IRibbonControl, ByRef text As Variant)
+    EnsureMonthsLoaded
+    text = m_SelectedMonthLabel
+End Sub
+
+Public Sub OnChange_Month(control As IRibbonControl, text As String)
+    ' text = display label e.g. "APR 2026 (26 jobs)" or "Tat ca (174 jobs)"
+    ' Find matching ISO key and apply AutoFilter to Active Jobs + Archive.
+    On Error GoTo ErrChange
+
+    EnsureMonthsLoaded
+    m_SelectedMonthLabel = text
+
+    ' Find ISO for this label
+    Dim selISO As String: selISO = ""
+    Dim i As Long
+    For i = 0 To m_MonthCount - 1
+        If m_Months(i) = text Then
+            selISO = m_MonthISO(i)
+            Exit For
+        End If
+    Next i
+    ' If not found (user typed custom text), try direct ISO match
+    If selISO = "" And text <> "" Then
+        For i = 1 To m_MonthCount - 1
+            If InStr(1, text, m_MonthISO(i), vbTextCompare) > 0 Then
+                selISO = m_MonthISO(i): Exit For
+            End If
+        Next i
+    End If
+
+    ' Apply filter to Active Jobs (col 1 = MONTH)
+    Dim wsJ As Worksheet
+    On Error Resume Next
+    Set wsJ = ThisWorkbook.Worksheets("Active Jobs")
+    On Error GoTo ErrChange
+    If Not wsJ Is Nothing Then
+        If selISO = "" Then
+            ' Show all
+            wsJ.AutoFilterMode = False
+        Else
+            wsJ.Range("A7").AutoFilter Field:=1, Criteria1:=selISO
+        End If
+    End If
+
+    ' Apply filter to Archive (col 15 = MONTH, relative to filtered range)
+    Dim wsA As Worksheet
+    On Error Resume Next
+    Set wsA = ThisWorkbook.Worksheets("Archive")
+    On Error GoTo ErrChange
+    If Not wsA Is Nothing Then
+        If selISO = "" Then
+            wsA.AutoFilterMode = False
+        Else
+            ' Archive header at row 2; MONTH is col 15 = Field 15
+            wsA.Range("A2").AutoFilter Field:=15, Criteria1:=selISO
+        End If
+    End If
+
+    Exit Sub
+ErrChange:
+    ' Silent fail — filter not critical, don't interrupt user
+    On Error Resume Next
+    Application.StatusBar = False
+End Sub
+
+' ── DEPRECATED 2026-04-21 — replaced by cmbMonth combo ───────────────────
+' Kept to avoid "Sub or Function not defined" if old ribbon binding is cached.
+' Remove in next major VBA release after confirming cmbMonth is stable.
+
 Private Function CurrentMonthISO() As String
+    ' DEPRECATED 2026-04-21
     If m_CurrentMonth = "" Then m_CurrentMonth = Format(Date, "yyyy-mm")
     CurrentMonthISO = m_CurrentMonth
 End Function
 
 Private Function FormatMonthLabel(iso As String) As String
-    ' "2026-04" -> "APR 2026"
+    ' DEPRECATED 2026-04-21
     If iso = "" Or InStr(iso, "-") = 0 Then
         FormatMonthLabel = UCase(Format(Date, "mmm yyyy")): Exit Function
     End If
@@ -659,17 +892,15 @@ Private Function FormatMonthLabel(iso As String) As String
 End Function
 
 Public Sub GetLabel_CurrentMonth(control As IRibbonControl, ByRef label As Variant)
-    ' Deprecated — XML no longer uses getLabel. Kept as defensive stub in case old
-    ' ribbon binding is cached. Returns current month string.
+    ' DEPRECATED 2026-04-21 — XML no longer uses getLabel on month control.
     On Error Resume Next
     label = FormatMonthLabel(CurrentMonthISO())
-    If Err.Number <> 0 Then label = "Tháng hiện tại"
+    If Err.Number <> 0 Then label = "Thang hien tai"
     On Error GoTo 0
 End Sub
 
-' Month nav — rewritten to use pure string math, no Split/DateSerial/CLng
-' on Dim-defaults that could throw. Safe under "Break on All Errors" VBE setting.
 Private Sub ShiftMonth(ByVal delta As Long)
+    ' DEPRECATED 2026-04-21
     On Error Resume Next
     Dim iso As String: iso = m_CurrentMonth
     If Len(iso) < 7 Then iso = Format(Date, "yyyy-mm")
@@ -688,21 +919,19 @@ Private Sub ShiftMonth(ByVal delta As Long)
 End Sub
 
 Public Sub OnAction_MonthPrev(control As IRibbonControl)
+    ' DEPRECATED 2026-04-21 — button removed from CustomUI_v14.xml.
+    ' Stub kept in case old ribbon binding is cached; does nothing.
     On Error Resume Next
-    ShiftMonth -1
-    MsgBox "Tháng đang chọn: " & m_CurrentMonth, vbInformation, "Month"
 End Sub
 
 Public Sub OnAction_MonthNext(control As IRibbonControl)
+    ' DEPRECATED 2026-04-21 — button removed from CustomUI_v14.xml.
     On Error Resume Next
-    ShiftMonth 1
-    MsgBox "Tháng đang chọn: " & m_CurrentMonth, vbInformation, "Month"
 End Sub
 
 Public Sub OnAction_MonthReset(control As IRibbonControl)
+    ' DEPRECATED 2026-04-21 — button removed from CustomUI_v14.xml.
     On Error Resume Next
-    m_CurrentMonth = Format(Date, "yyyy-mm")
-    MsgBox "Đã reset về tháng hiện tại: " & m_CurrentMonth, vbInformation, "Month"
 End Sub
 
 ' ── Tracking dots: colored per-character + hover tooltip ──

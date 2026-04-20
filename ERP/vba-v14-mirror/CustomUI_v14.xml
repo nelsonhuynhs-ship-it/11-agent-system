@@ -96,10 +96,11 @@
                     onChange="OnChange_Customer"
                     getItemCount="GetItemCount_Customer"
                     getItemLabel="GetItemLabel_Customer"/>
+          <labelControl id="lblLastQuoted" getLabel="GetLabel_LastQuoted"/>
           <separator id="sepQuoteBtns"/>
           <button id="btnQuote" label="QUOTE" size="large"
                   imageMso="CreateTable" onAction="OnAction_GenerateQuote"
-                  screentip="Quote 1 row (row dang click)"/>
+                  screentip="Quote 1 row (row dang click) — container picker truoc khi ghi"/>
           <button id="btnQuoteBatch" label="Batch" size="large"
                   imageMso="TableSelectRow" onAction="OnAction_GenerateQuoteBatch"
                   screentip="Select nhieu rows tren Pricing Dry/Reefer -> 1 click tao N quotes cung customer + cung markup"/>
@@ -110,18 +111,15 @@
       <!-- ========== TAB 2: OPERATIONS (v4 — 100% mockup match) ========== -->
       <tab id="tabOperations" label="Operations" visible="true">
 
-        <!-- GROUP 1: THÁNG — month navigator (static labels; filter logic in handlers) -->
+        <!-- GROUP 1: THÁNG — month combo dropdown showing job counts per month -->
         <group id="grpThang" label="Tháng">
-          <button id="btnMonthPrev" label="&#9664;" size="normal"
-                  imageMso="GoRtlPreviousPage" onAction="OnAction_MonthPrev"
-                  screentip="Tháng trước"/>
-          <button id="btnMonthLabel" label="Tháng hiện tại" size="large"
-                  imageMso="CalendarToday"
-                  onAction="OnAction_MonthReset"
-                  screentip="Nhấn để về tháng hiện tại"/>
-          <button id="btnMonthNext" label="&#9654;" size="normal"
-                  imageMso="GoRtlNextPage" onAction="OnAction_MonthNext"
-                  screentip="Tháng sau"/>
+          <comboBox id="cmbMonth" label="Tháng"
+                    sizeString="APR 2026 (999 jobs)"
+                    getItemCount="GetItemCount_Month"
+                    getItemLabel="GetItemLabel_Month"
+                    onChange="OnChange_Month"
+                    getText="GetText_Month"
+                    screentip="Chon thang de loc Active Jobs + Archive. Vi du: APR 2026 (26 jobs)"/>
         </group>
 
         <!-- GROUP 2: JOBS -->
@@ -154,6 +152,10 @@
                   imageMso="AlertsMenu"
                   onAction="OnAction_ReleaseAlert"
                   screentip="Release emails pending &#8805; 2h không confirm — push khách ngay"/>
+          <button id="btnTargetAdd" label="Target" size="normal"
+                  imageMso="EventOpen"
+                  onAction="OnAction_TargetAdd"
+                  screentip="Add price target watch for selected Quotes row — price_watch.py alerts when matched"/>
         </group>
 
         <!-- GROUP 5: REPORT -->
@@ -172,10 +174,14 @@
         <group id="grpQuoteStatus" label="Quote">
           <button id="btnWin" label="WIN" size="large"
                   imageMso="AcceptInvitation" onAction="OnAction_MarkQuoteWin"
-                  screentip="Mark selected quote as WON and create Active Job"/>
+                  screentip="Mark selected quote as WON — prompts Commission % + Insurance before writing Active Job"/>
           <button id="btnLost" label="LOST" size="large"
                   imageMso="DeclineInvitation" onAction="OnAction_MarkQuoteLost"
                   screentip="Mark selected quote as LOST with reason"/>
+          <button id="btnRenegotiate" label="Re-neg" size="normal"
+                  imageMso="RecordsMergeTool"
+                  onAction="OnAction_Renegotiate"
+                  screentip="Revise markup for existing quote — prompts each container type and appends remark"/>
           <separator id="sepQuoteTools"/>
           <button id="btnQuoteImage" label="Quote Img" size="normal"
                   imageMso="Camera" onAction="OnAction_QuoteImage"
@@ -191,7 +197,7 @@
                   screentip="Move selected Active Job row to Archive sheet"/>
         </group>
 
-        <!-- GROUP 7: ADVANCED (F4 FAST ID, F7 Reefer, F10 Enrich $) -->
+        <!-- GROUP 7: ADVANCED (F4 FAST ID, F7 Reefer, F10 Enrich $, F-ReloadVBA) -->
         <group id="grpAdv" label="Advanced">
           <button id="btnTransitTime" label="Transit Time" size="normal"
                   imageMso="AppointmentColor0" onAction="OnAction_TransitTime"
@@ -205,6 +211,10 @@
           <button id="btnEnrichMonthly" label="Enrich $" size="normal"
                   imageMso="SumSummation" onAction="OnAction_EnrichMonthly"
                   screentip="F10: Add KICK BACK cols to Monthly report"/>
+          <button id="btnReloadVBA" label="Reload VBA" size="normal"
+                  imageMso="RefreshScript"
+                  onAction="OnAction_ReloadVBA"
+                  screentip="Save + close + re-import all .bas modules via WMI bootstrap, then reopen xlsm"/>
         </group>
 
         <!-- GROUP 3: RATE DATA -->

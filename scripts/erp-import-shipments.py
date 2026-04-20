@@ -79,7 +79,7 @@ ARCHIVE_DATA_START = 3
 
 # Archive columns (14 cols, matched to existing sheet)
 ARCH_COL = {
-    "Job_ID":           1,
+    "Job_ID":           1,   # hidden col (2026-04-21) — primary key = Bkg_No
     "FAST_ID":          2,
     "CUSTOMER":         3,
     "POL_POD":          4,
@@ -93,6 +93,7 @@ ARCH_COL = {
     "PROFIT":           12,
     "Delivered_Date":   13,
     "Closed_Reason":    14,
+    "MONTH":            15,  # added 2026-04-21 for VBA month combo filter
 }
 
 
@@ -564,11 +565,6 @@ def write_active_jobs(
 
     # Build index of existing Bkg_No → row
     bkg_index = _build_bkg_index(ws, COL["Bkg_No"], DATA_START)
-    existing_job_ids: set[str] = set()
-    for r in range(DATA_START, (ws.max_row or DATA_START) + 1):
-        v = ws.cell(row=r, column=COL["Job_ID"]).value
-        if v:
-            existing_job_ids.add(str(v).strip())
 
     for rec in records:
         bkg_no = rec.get("_bkg_no") or ""
@@ -581,11 +577,8 @@ def write_active_jobs(
         else:
             target_row = _next_empty_row(ws, DATA_START)
             action = "INSERT"
-            # Assign Job_ID for new row
-            counter = _JobIDCounter(existing_job_ids, etd)
-            job_id = counter.next()
-            rec["Job_ID"] = job_id
-            existing_job_ids.add(job_id)
+            # Job_ID column is hidden — primary key is Bkg_No (2026-04-21)
+            rec["Job_ID"] = None
             if bkg_no:
                 bkg_index[bkg_no] = target_row
 
@@ -673,16 +666,18 @@ def _ensure_archive_header(ws) -> None:
       Row 2: 14-col header
       Data from row 3
     """
-    # Check if row 2 already has header
+    # Check if row 2 already has header + MONTH col
     existing_hdr = ws.cell(row=ARCHIVE_HDR_ROW, column=1).value
-    if existing_hdr == "Job_ID":
-        return  # Already set up correctly
+    month_hdr = ws.cell(row=ARCHIVE_HDR_ROW, column=ARCH_COL["MONTH"]).value
+    if existing_hdr == "Job_ID" and month_hdr == "MONTH":
+        return  # Already set up correctly (including MONTH col)
 
-    # Write header row
+    # Write full header row (idempotent — re-run safe)
     arch_headers = [
         "Job_ID", "FAST_ID", "CUSTOMER", "POL-POD", "CARRIER",
         "Bkg_No", "HBL_NO", "Container", "Qty",
         "SELL", "COST", "PROFIT", "Delivered_Date", "Closed_Reason",
+        "MONTH",  # col 15 — added 2026-04-21 for VBA month combo filter
     ]
     for i, h in enumerate(arch_headers, 1):
         ws.cell(row=ARCHIVE_HDR_ROW, column=i).value = h
@@ -704,11 +699,6 @@ def write_archive(
 
     # Build index: Bkg_No → row
     bkg_index = _build_bkg_index(ws, ARCH_COL["Bkg_No"], ARCHIVE_DATA_START)
-    existing_job_ids: set[str] = set()
-    for r in range(ARCHIVE_DATA_START, (ws.max_row or ARCHIVE_DATA_START) + 1):
-        v = ws.cell(row=r, column=ARCH_COL["Job_ID"]).value
-        if v:
-            existing_job_ids.add(str(v).strip())
 
     for rec in records:
         bkg_no = rec.get("_bkg_no") or ""
@@ -717,13 +707,9 @@ def write_archive(
         if bkg_no and bkg_no in bkg_index:
             target_row = bkg_index[bkg_no]
             action = "UPDATE"
-            job_id = ws.cell(row=target_row, column=ARCH_COL["Job_ID"]).value or ""
         else:
             target_row = _next_empty_arch_row(ws)
             action = "INSERT"
-            counter = _JobIDCounter(existing_job_ids, etd)
-            job_id = counter.next()
-            existing_job_ids.add(job_id)
             if bkg_no:
                 bkg_index[bkg_no] = target_row
 
@@ -731,7 +717,7 @@ def write_archive(
         _log(f"  [Archive {action}] row={target_row} Bkg={bkg_no} {label}")
 
         if not dry_run:
-            _write_archive_row(ws, target_row, rec, job_id)
+            _write_archive_row(ws, target_row, rec)
 
         if action == "INSERT":
             inserted += 1
@@ -750,9 +736,12 @@ def _next_empty_arch_row(ws) -> int:
         row += 1
 
 
-def _write_archive_row(ws, row: int, rec: dict, job_id: str) -> None:
-    """Write a single record into Archive sheet."""
-    ws.cell(row=row, column=ARCH_COL["Job_ID"]).value = job_id
+def _write_archive_row(ws, row: int, rec: dict) -> None:
+    """Write a single record into Archive sheet.
+    Job_ID col (col 1) is hidden — primary key = Bkg_No (2026-04-21).
+    MONTH col (col 15) is written for month-combo filter in VBA.
+    """
+    # Col 1 (Job_ID hidden) — leave existing value; do not populate on new rows
     ws.cell(row=row, column=ARCH_COL["FAST_ID"]).value = rec.get("FAST_ID")
     ws.cell(row=row, column=ARCH_COL["CUSTOMER"]).value = rec.get("CRM_ID")
     ws.cell(row=row, column=ARCH_COL["POL_POD"]).value = rec.get("POL_POD")
@@ -768,6 +757,8 @@ def _write_archive_row(ws, row: int, rec: dict, job_id: str) -> None:
     delivered = rec.get("ATA") or rec.get("ETA")
     ws.cell(row=row, column=ARCH_COL["Delivered_Date"]).value = delivered
     ws.cell(row=row, column=ARCH_COL["Closed_Reason"]).value = "Delivered"
+    # MONTH col (15) — for VBA month combo filter (2026-04-21)
+    ws.cell(row=row, column=ARCH_COL["MONTH"]).value = rec.get("MONTH") or ""
 
 
 # ---------------------------------------------------------------------------
