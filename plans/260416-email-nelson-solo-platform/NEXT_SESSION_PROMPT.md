@@ -1,123 +1,124 @@
-# Next Session Prompt — Copy-paste vô đầu session mới
+# NEXT SESSION PROMPT — 2026-04-21 resume
 
-> Copy block dưới đây paste vô Claude session mới.
-> Last updated: 2026-04-19 (cuối session "dashboard polish + customer sort + Open Tracker brainstorm")
+**Paste này đầu session mới:**
+> *"FreightBrian resume — đọc `memory/MEMORY.md` + `memory/project-session-wrap-20260420.md` + `plans/260416-email-nelson-solo-platform/NEXT_SESSION_PROMPT.md`. Task hôm nay: [mô tả]"*
 
----
-
-## 📋 PROMPT (copy từ đây xuống)
-
-```
-FreightBrian session resume: tiếp tục build Email Dashboard v5 cho Nelson Freight (NVOCC VN→US/CA).
-
-BẮT BUỘC ĐỌC TRƯỚC KHI LÀM GÌ:
-1. Engine_test/CLAUDE.md — project rules, paths, architecture
-2. memory/MEMORY.md — 20+ memory entries, context toàn bộ
-3. memory/idea-open-tracker-tab.md — TASK TIẾP THEO, brainstorm done, cần plan+code
-
-TASK ƯU TIÊN CAO NHẤT:
-Build tab "Open Tracker ✉" trong dashboard v5 để Sếp xem AI mở email.
-Decisions pending cần hỏi Sếp chốt TRƯỚC khi code:
-- Layout: A (Feed) / B (Leaderboard) / C (Hybrid 3-panel, em recommend) / Sếp tự design
-- Main action per row: Follow-up button / Preview email cũ / Mark VIP / All 3
-- Default scope: 24h / 7d / 30d
-
-HỆ THỐNG ĐÃ CÓ (KHÔNG build lại):
-• Dashboard v5 LIVE — 6 tabs (Quick Send, Priority, Analytics, AI Model, Alerts, Queue) + Phase A/B/C polish shipped
-• Customer Sort LIVE — Task Scheduler 30min, 59 customer rules, Inbox tự sort vô DIRECT/FWD/CNEE folders
-• Schema v3.1 — cnee_master_v2_final.xlsx 22,230 rows × 26 cols (COMMODITY_CATEGORY, ORIGIN_COUNTRY, HS_CODE_PRIMARY, PIC smart-parsed)
-• Blacklist — 49 domains + 98 keywords (Top 50 VN NVOCC + Nelson's private list) + whitelist pudongprime.vn
-• Email templates — 20 subjects + 15 preheaders + 10 intros + 5 closings (random pick per send)
-• Rate table v3 — max 3 carriers/POD, YOUR LANE highlight cho CNEE có DEST
-• Open tracking pixel LIVE — /t/o/{id}.gif → DB opened_at + open_count (per-person chính xác)
-• Hidden CMD + kill switch — pythonw launch, Desktop shortcuts STOP/Resume, dashboard ARM/DISARM buttons
-
-DATA SOURCE CHO OPEN TRACKER (ready, no migration needed):
-• outlook_queue.db → email_queue table → opened_at + open_count columns
-• API có sẵn: GET /api/email-rate/analytics/opens?days=7
-• API CẦN THÊM (SQL samples trong idea-open-tracker-tab.md):
-  - GET /api/opens/feed?days=7&limit=50 — recent opens join cnee_master
-  - GET /api/opens/hot?days=7&limit=20 — top open_count DESC
-  - GET /api/opens/by-campaign?days=7 — group COMMODITY_CATEGORY → rate %
-
-WORKFLOW START/RESTART DASHBOARD (sau mọi code change):
-1. PowerShell: Stop-Process -Name pythonw -Force -ErrorAction SilentlyContinue
-2. Double-click Desktop shortcut "Nelson Email Dashboard"
-3. Browser mở → hard refresh Ctrl+Shift+R
-4. Verify: HTTP 200 + dashboard góc trên phải hiện ● Live
-
-NGUYÊN TẮC NELSON NORTH STAR:
-• NHANH - CẠNH TRANH - YÊN TÂM (slogan)
-• Solo workflow (không mentee trong email tool)
-• KPI 2 tháng: $10K profit/month + 10 leads/month + 1-2 direct customer/month
-• File data KHÔNG push GitHub (feedback-no-data-on-github.md)
-• Luôn filter qua competitor_blacklist.json mỗi lần import mới
-
-ROADMAP TASK SAU OPEN TRACKER:
-1. ✅ Open Tracker tab (task này)
-2. Shipment Brain Phase 02 — extractor live, plan có sẵn ở plans/260418-shipment-brain/phase-02
-3. Reply Auto-Drafter MVP — highest ROI cho KPI 10 leads/tháng, ~1 ngày code
-4. GoComet auto-quote Tier 2 — Vitacoco workflow saver, memory/project-gocomet-opportunity.md
-5. Rate Anomaly Telegram push — 30 dòng DuckDB + notify-telegram.py
-
-Bắt đầu: hỏi Sếp 3 decisions pending cho Open Tracker → plan phase file → implement.
-```
+Last updated: **2026-04-20** (cuối session 28 commits — ERP Quote polish, Customer Memory, carrier_rules unified, TRACKING 7-stage, Job_ID hidden, Month combo)
 
 ---
 
-## 🎯 Alternative prompts (nếu Sếp muốn làm task KHÁC)
+## 📊 Session 2026-04-20 kết quả (28 commits pushed to main)
 
-### Nếu làm Shipment Brain Phase 02:
-```
-FreightBrian session resume: Ship Shipment Brain Phase 02 live.
-Read: plans/260418-shipment-brain/phase-02-extractor-dual-write.md
-Blocker cần giải: bridge Outlook COM ↔ filesystem (gap ghi memory project-shipment-brain-scaffold.md).
-Scaffold xong ở commit 0bc8aae. Cần: MINIMAX_API_KEY verify + extract 10 email PANDA test accuracy.
-```
+### ✅ Đã ship
 
-### Nếu làm Reply Auto-Drafter:
-```
-FreightBrian session resume: Build Reply Auto-Drafter MVP.
-Khi CNEE reply email → Claude/MiniMax đọc reply + rate context + CNEE profile → draft reply.
-Nelson approve 1-click → enqueue gửi. Save 5-10ph/reply = 50-100ph/tháng. Direct serve KPI 10 leads.
-Read: plans/260416-email-nelson-solo-platform/reports/evolution-plan-20260418.html Section 5.1
-Data: scanner/handlers.py đã có REAL_REPLY classifier. Cần hook LLM draft + new API endpoint.
-```
+**Email Dashboard v5 — 5 sub-agent parallel:**
+- A1 Foundation + Customer Memory (vault/cnee/ + scanner job #6 reply_processing)
+- A2 Send-time state rules (parser + 4 preset)
+- A3 Smart Compose LLM (💭 Draft button)
+- A4 Pattern Learning AI (4 endpoints Insights tab)
+- A5 Panjiva Clean Pipeline (6-step ETL + upload UI)
+- MiniMax-M2 wired (dotenv + fallback paths)
+
+**ERP v14 — Quote Sprint S1 + S1-v2 + polish:**
+- KPI rows + Conditional Format + AutoFilter (Quote sheet)
+- Insert-at-top (row 5 thay append)
+- Re-neg / Target Watch / Container picker / WIN prompts / Last quoted / Reload VBA buttons
+- Exp dropdown 4 preset + ApplyQuickSearch UsedRange fix
+- Column polish (hide Date/StatusDate/JobID, outline group Buy/Mar/PUC/Sell)
+- Shipments.xlsx → Active Jobs (5) + Archive (46 rows với Bkg)
+- CRM build from merge (70 new + NAFOODS preserved)
+- carrier_rules/ unified 13 JSON per-carrier on OneDrive
+- text_normalize.py extract (DRY shared module)
+- FIX → Special Rate rename (Pricing Dry 784 rows)
+- TRACKING 7-stage auto-derive (HBL/SI/CY/ETD signals) + hover tooltip
+- Job_ID columns hidden (primary key = Bkg_No)
+- Month combo dropdown với job count per month (thay Prev/Next/Reset)
+
+**Memory system cleanup:**
+- 43 → 20 entries (xoá 54% stale)
+- Updated task-scheduler (6 sub-jobs)
+- NEW project-erp-v14-state-20260419.md
+- NEW project-session-wrap-20260420.md
 
 ---
 
-## 📊 Snapshot hệ thống — cuối session 2026-04-19
+## ⚠ Known concerns / defer
 
-| Metric | Value |
-|--------|-------|
-| Commits today | 18 (`7995fa1` → `3be3771`) |
-| Master CNEE | 22,230 × 26 cols |
-| Inbox state | 582/851 (269 moved by Customer Sort LIVE) |
-| Campaigns shown | 18 COMMODITY_CATEGORY (trước 48 lộn xộn) |
-| Open rate | 7.7% real (1/13 test), expect 15-25% live |
-| CMD windows on startup | **0** (pythonw hidden) |
-| Desktop shortcuts | Nelson Email Dashboard · STOP Email · Resume Email |
+1. **PUC pipeline fix deferred (Option C)** — audit 18 combos shows per-carrier TOF inconsistent · universal fix risky · wait Nelson decide approach (Option A strip config or B PSS_PUC_Lookup sheet)
+2. **Note normalize partial** — regex rules wired but patterns don't cover typo variations (Yantain/Yantian) · distinct count still 56 vs target ~10
+3. **Month combo refresh** — after new Shipments import, combo count cached · workaround: switch tab
+4. **MiniMax API key leaked in chat** — Nelson should rotate on MiniMax dashboard
 
-## 🗂 File locations quick-ref
+---
 
-| File | Purpose |
-|------|---------|
-| `email_engine/web_server.py` | FastAPI backend port 8100 |
-| `email_engine/intelligence/builder.py` | Email HTML builder |
-| `email_engine/outlook_queue_worker.py` | 3-thread Outlook COM sender |
-| `email_engine/start-dashboard-v4.bat` | Shortcut launcher (pythonw hidden) |
-| `plans/visuals/email-dashboard-v5.html` | Dashboard UI |
-| `email_engine/data/outlook_queue.db` | Queue + opens tracking |
-| `D:/OneDrive/NelsonData/email/cnee_master_v2_final.xlsx` | ⭐ Master 22K CNEE |
-| `D:/OneDrive/NelsonData/email/customer_rules.json` | 59 khách rules |
-| `D:/OneDrive/NelsonData/email/competitor_blacklist.json` | Blacklist 49 + 98 |
+## 🎯 Likely next tasks
 
-## 💡 Pending decisions log
+### HIGH priority — Nelson đã mention
+- **Đổ data tháng cũ vào Active Jobs** — migrate Nov/Dec/Jan/Feb/Mar 2026 jobs từ Shipments.xlsx vào Active Jobs (hiện Active Jobs chỉ có Apr 2026 + 3 quote WIN). Month combo sẽ thấy đủ data sau khi đổ.
 
-Khi resume session, Sếp sẽ thấy đây là 5 câu hỏi đang chờ chốt:
+### MEDIUM — làm khi rảnh
+- **PUC pipeline revisit** — decide Option A/B
+- **Note normalize regex upgrade** — handle typo variants
+- **Customer Memory vault populate** — đợi reply thực qua scanner verify
 
-1. **Open Tracker layout** — A / B / C / custom?
-2. **Open Tracker action** — Follow-up / Preview / Mark VIP / All 3?
-3. **Open Tracker scope** — 24h / 7d / 30d default?
-4. **OTHERS 4,252 rows (19%)** — LLM classify từ COMPANY name? (deferred từ session trước)
-5. **FURNITURE_OUTDOOR split** — Sếp gõ 20 keyword để tách kitchen cabinet vs outdoor chair?
+### LOW / optional
+- **Panjiva weekly cron enable** — Monday 06:00 auto
+- **Shipment Brain wire production**
+- **Next.js WebApp dashboard phase-06**
+- **VPS Deploy S13** — SSH issue unchanged
+
+---
+
+## 🔧 Infrastructure state
+
+| Component | Status |
+|-----------|--------|
+| `NelsonUnifiedScanner` Task Scheduler | 6 jobs every 30 min 08:00-17:30 (reply_processing wired) |
+| MiniMax API | Key in `email_engine/.env` (gitignored) · model M2 |
+| Parquet | 4694 rows Pricing Dry · last refresh 2026-04-20 |
+| ERP xlsm | 18 sheets · 2 tabs ribbon · 6 VBA modules · TRACKING auto + tooltip |
+| carrier_rules | 13 JSON on OneDrive `pricing/carrier_rules/` |
+| Email Dashboard v5 | 5 tab Live · port 8100 · pythonw hidden |
+
+---
+
+## 🚫 Rules reminder (never violate)
+
+- `save_preserving_ribbon` when touching xlsm (gotcha #6)
+- VBA edits: canonical `D:/OneDrive/NelsonData/erp/*.bas` + mirror `ERP/vba-v14-mirror/`
+- `reimport-erp-vba-modules.py` after .bas edits + live compile check via `CommandBars.FindControl(Id=578)`
+- Module vars at TOP (gotcha #11)
+- No leading underscore (gotcha #12)
+- ChrW for Unicode (gotcha #1)
+- Close Excel before Python script write (file-lock check)
+- Data NEVER in Git (parquet, xlsx, customer data) — OneDrive sync only
+
+---
+
+## 📦 Files created / modified (summary per session)
+
+**New scripts:**
+- `scripts/migrate-carrier-rules.py`
+- `scripts/puc-audit.py`
+- `scripts/erp-quote-polish.py`
+- `scripts/erp-s1v2-column-polish.py`
+- `scripts/erp-import-shipments.py`
+- `scripts/erp-build-crm.py`
+- `scripts/erp-fix-tracking-migrated.py`
+- `scripts/erp-hide-jobid-cols.py`
+- `scripts/erp-archive-add-month.py`
+- `scripts/reimport-erp-vba.bat` (WMI wrapper)
+- `scripts/migrate_cnee_add_status_state.py`
+
+**New modules:**
+- `Pricing_Engine/carrier_rules/__init__.py` (loader)
+- `Pricing_Engine/normalization/text_normalize.py` (DRY)
+- `email_engine/core/cnee_memory.py`
+- `email_engine/core/llm_extract_reply.py`
+- `email_engine/core/smart_compose.py`
+- `email_engine/core/state_parser.py`
+- `email_engine/intelligence/pattern_learner.py`
+
+**New configs on OneDrive:**
+- `D:/OneDrive/NelsonData/pricing/carrier_rules/` (13 JSON)
+- `D:/OneDrive/NelsonData/email/cnee_master_v2_final.xlsx` (schema +EMAIL_STATUS +STATE)
