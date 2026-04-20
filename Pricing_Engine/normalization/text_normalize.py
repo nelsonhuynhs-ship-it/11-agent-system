@@ -17,6 +17,7 @@ Public API:
     normalize_text_data(df: pd.DataFrame, port_map: dict = None) -> pd.DataFrame
     normalize_commodity_display(df: pd.DataFrame) -> pd.DataFrame
     normalize_container_types(df: pd.DataFrame) -> pd.DataFrame
+    normalize_source(df: pd.DataFrame) -> pd.DataFrame
 
 All functions are pure: they receive a DataFrame, return a modified copy.
 They do NOT read files or import carrier_rules directly — caller passes context
@@ -416,3 +417,73 @@ def normalize_container_types(df_in: pd.DataFrame) -> pd.DataFrame:
     df_in = df_in.copy()
     df_in["Container_Type"] = df_in["Container_Type"].replace({"45'HQ": "45HQ"})
     return df_in
+
+
+# ── Source shortcuts (Rate_Type display names) ───────────────────────────────
+
+# Exact-match map: Source column value → display label
+_SOURCE_SHORTCUTS: dict[str, str] = {
+    "FIX": "Special Rate",
+    "FAK": "FAK",
+    "SCFI": "SCFI",
+}
+
+# Note column substrings → display label (applied before existing note normalize)
+_NOTE_SHORTCUTS_SOURCE: dict[str, str] = {
+    "FIXED RATE": "Special Rate",
+    "Fixed Rate": "Special Rate",
+    "FIX RATE": "Special Rate",
+}
+
+
+def normalize_source(df: pd.DataFrame) -> pd.DataFrame:
+    """Normalize Source column display names (Rate_Type after pivot rename).
+
+    Applies _SOURCE_SHORTCUTS to col 'Source' (exact match, idempotent):
+      - 'FIX' -> 'Special Rate'
+      - 'FAK' -> 'FAK'  (no-op, kept for completeness)
+      - 'SCFI' -> 'SCFI' (no-op)
+
+    Also applies _NOTE_SHORTCUTS_SOURCE to col 'Note': replaces verbose
+    FIX-related substrings ('FIXED RATE', 'FIX RATE') with 'Special Rate'.
+    Runs BEFORE the existing note-normalization pipeline so later rules see
+    the canonical label.
+
+    Safe to call multiple times (idempotent): 'Special Rate' is not in any
+    source shortcut value that maps to something else.
+
+    Args:
+        df: DataFrame after pivot rename Rate_Type -> Source.
+            Expected cols: 'Source' (required), 'Note' (optional).
+
+    Returns:
+        Copy with normalized Source (and optionally Note) values.
+    """
+    df = df.copy()
+
+    # ── Source column ─────────────────────────────────────────────────────
+    if "Source" in df.columns:
+        df["Source"] = df["Source"].map(
+            lambda v: _SOURCE_SHORTCUTS.get(str(v).strip(), v) if v is not None else v
+        )
+    elif "Rate_Type" in df.columns:
+        # Fallback: caller didn't rename yet — normalize Rate_Type in place
+        df["Rate_Type"] = df["Rate_Type"].map(
+            lambda v: _SOURCE_SHORTCUTS.get(str(v).strip(), v) if v is not None else v
+        )
+
+    # ── Note column: replace verbose FIX strings ──────────────────────────
+    if "Note" in df.columns:
+        def _apply_source_note(note_val) -> str:
+            if note_val is None or str(note_val).strip() in ("", "nan"):
+                return note_val  # type: ignore[return-value]
+            s = str(note_val)
+            for old, new in _NOTE_SHORTCUTS_SOURCE.items():
+                # Case-sensitive replacement (keys are title/upper cased)
+                if old in s:
+                    s = s.replace(old, new)
+            return s
+
+        df["Note"] = df["Note"].map(_apply_source_note)
+
+    return df

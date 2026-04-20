@@ -228,6 +228,58 @@ def _build_delay_log(etd_original: Any, etd: Any, existing_delay: Any) -> str:
     return " | ".join(parts)
 
 
+# Unicode dot chars — openpyxl writes raw unicode directly (no ChrW needed in Python)
+_DOT_FULL = "\u25cf"   # ●  U+25CF
+_DOT_EMPTY = "\u25cb"  # ○  U+25CB
+
+
+def derive_tracking_stage(
+    ata: Any,
+    etd_original: Any,
+    etd: Any,
+    status: Any,
+    bkg_no: Any,
+) -> tuple[str, str]:
+    """Derive (TRACKING_STAGE label, TRACKING dot-string) from Shipments row data.
+
+    Decision table (first matching rule wins):
+      ATA not null                           -> 7/10 ARRIVED  | ●●●●●●●○○○
+      ETD_Original != ETD OR Status=LOADED  -> 6/10 ATD       | ●●●●●●○○○○
+      Bkg_No present + Status=Booked/Conf   -> 1/10 BOOKED    | ●○○○○○○○○○
+      Bkg_No empty                          -> 0/10 PENDING   | ○○○○○○○○○○
+
+    Returns:
+        (stage_label, dot_string) — both are Unicode strings safe for openpyxl.
+    """
+    DOTS_TOTAL = 10
+
+    def _dots(filled: int) -> str:
+        return _DOT_FULL * filled + _DOT_EMPTY * (DOTS_TOTAL - filled)
+
+    # Rule 1: ATA present → ARRIVED
+    if _parse_date(ata) is not None:
+        return ("ARRIVED", _dots(7))
+
+    # Rule 2: ETD rescheduled OR status LOADED → ATD
+    etd_orig_d = _parse_date(etd_original)
+    etd_d = _parse_date(etd)
+    rescheduled = (
+        etd_orig_d is not None and etd_d is not None
+        and etd_orig_d.date() != etd_d.date()
+    )
+    status_upper = str(status).strip().upper() if status else ""
+    if rescheduled or status_upper == "LOADED":
+        return ("ATD", _dots(6))
+
+    # Rule 3: Bkg_No present + Status = BOOKED/CONFIRMED → BOOKED
+    has_bkg = bool(_parse_bkg_no(bkg_no))
+    if has_bkg and status_upper in ("BOOKED", "CONFIRMED"):
+        return ("BOOKED", _dots(1))
+
+    # Rule 4: fallback PENDING
+    return ("PENDING", _dots(0))
+
+
 # ---------------------------------------------------------------------------
 # Source schema detection
 # ---------------------------------------------------------------------------
@@ -355,6 +407,15 @@ def read_shipments(source_path: str) -> tuple[list[dict], list[dict]]:
                 profit_margin = round(profit / selling_rate * 100, 2)
             mapped_status = _status_map(status)
 
+            # Auto-fill TRACKING + TRACKING_STAGE from Shipments data signals
+            tracking_stage_label, tracking_dots = derive_tracking_stage(
+                ata=ata,
+                etd_original=etd_original,
+                etd=etd,
+                status=status,
+                bkg_no=bkg_no,
+            )
+
             record = {
                 # Source identifiers
                 "_sheet": sheet_name,
@@ -376,7 +437,7 @@ def read_shipments(source_path: str) -> tuple[list[dict], list[dict]]:
                 "SERVICE": service,
                 "ETD": etd,
                 "Status": mapped_status,
-                "TRACKING": None,
+                "TRACKING": tracking_dots,
                 "Selling_Rate": selling_rate,
                 "Buying_Rate": buying_rate,
                 "Profit": profit,
@@ -397,7 +458,7 @@ def read_shipments(source_path: str) -> tuple[list[dict], list[dict]]:
                 "Created_Date": datetime.now(),
                 "Last_Updated": datetime.now(),
                 "Cost_Breakdown": None,
-                "TRACKING_STAGE": None,
+                "TRACKING_STAGE": tracking_stage_label,
                 "RELEASE_EMAIL_SENT": None,
                 "RELEASE_CONFIRMED": None,
                 "PRICE_WATCH_STATUS": None,

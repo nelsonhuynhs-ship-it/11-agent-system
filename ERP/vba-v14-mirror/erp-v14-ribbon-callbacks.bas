@@ -2104,7 +2104,7 @@ SkipCharge:
     If isSCFI Then
         contractLabel = "SCFI"
     ElseIf isFIX Then
-        contractLabel = "FIX"
+        contractLabel = "Special Rate"
     Else
         contractLabel = "FAK"
     End If
