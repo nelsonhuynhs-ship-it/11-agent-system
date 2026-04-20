@@ -196,50 +196,87 @@ Private Function IsPlaceholder(col As Integer, val As String) As Boolean
 End Function
 
 Public Sub ApplyQuickSearch()
+    ' Fix 2 (2026-04-20): use UsedRange for lr + hard-reset AutoFilter before
+    ' re-applying so no stale criteria survive across filter invocations.
     On Error Resume Next
     Dim ws As Worksheet
     Set ws = GetActivePricingSheet()
     If ws Is Nothing Then Exit Sub
 
     Application.ScreenUpdating = False
+
+    ' Fix 2a: UsedRange for lr to avoid truncation at first gap in col A
     Dim lr As Long
-    lr = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
-    If lr < 2 Then lr = ws.UsedRange.Rows(ws.UsedRange.Rows.Count).Row
+    lr = ws.UsedRange.Rows(ws.UsedRange.Rows.Count).Row
     If lr < 2 Then GoTo Done
 
-    ' Read search values from Row 1
+    ' Read search values from Row 1 (cols 1-9, skip Exp col 7 — handled by preset)
     Dim searchVal(1 To 9) As String
     Dim hasSearch As Boolean: hasSearch = False
     Dim c As Integer
+    Dim v As String
     For c = 1 To 9
-        Dim v As String: v = Trim(ws.Cells(1, c).Value)
-        If v <> "" And Not IsPlaceholder(c, v) Then
-            searchVal(c) = UCase(v)
-            hasSearch = True
-        Else
-            searchVal(c) = ""
+        If c <> 7 Then   ' Col 7 (Exp) uses preset logic below — skip text read
+            v = Trim(ws.Cells(1, c).Value)
+            If v <> "" And Not IsPlaceholder(c, v) Then
+                searchVal(c) = UCase(v)
+                hasSearch = True
+            Else
+                searchVal(c) = ""
+            End If
         End If
     Next c
 
-    ' Reset stale hidden state first; AutoFilter will control visibility.
+    ' Fix 2b: Hard reset AutoFilter — clear every filter field, no stale criteria
+    If ws.AutoFilterMode Then ws.AutoFilterMode = False
     ws.Rows("2:" & lr).Hidden = False
 
-    If ws.AutoFilterMode Then
-        If ws.FilterMode Then ws.ShowAllData
-    End If
-
+    ' Reapply AutoFilter on full data range A:P
     ws.Range("A1:P" & lr).AutoFilter
 
-    ' Show all if no search
-    If Not hasSearch Then GoTo Done
+    ' Get Exp preset from ribbon module (default Active only if call fails)
+    Dim expPreset As String: expPreset = ERPv14Ribbon.GetCurrentExpPreset()
+    If Len(expPreset) = 0 Then expPreset = "Active only"
 
+    ' Apply Exp date range filter (col 7) based on preset
+    Dim todayStr As String: todayStr = Format(Date, "mm/dd/yyyy")
+    Dim weekStr As String: weekStr = Format(Date + 7, "mm/dd/yyyy")
+    Dim monthStr As String: monthStr = Format(Date + 30, "mm/dd/yyyy")
+    Select Case expPreset
+        Case "Active only"
+            ws.Range("A1:P" & lr).AutoFilter Field:=7, Criteria1:=">=" & todayStr
+            hasSearch = True
+        Case "This week"
+            ws.Range("A1:P" & lr).AutoFilter Field:=7, _
+                Criteria1:=">=" & todayStr, Criteria2:="<=" & weekStr, Operator:=xlAnd
+            hasSearch = True
+        Case "This month"
+            ws.Range("A1:P" & lr).AutoFilter Field:=7, _
+                Criteria1:=">=" & todayStr, Criteria2:="<=" & monthStr, Operator:=xlAnd
+            hasSearch = True
+        Case "All (incl. expired)"
+            ' No Exp filter — show all dates
+    End Select
+
+    ' Show all if no other search criteria
+    If Not hasSearch Then GoTo UpdateStatus
+
+    ' Apply text criteria for cols 1-6, 8-9 (col 7 Exp already handled above)
     Dim criteria As String
     For c = 1 To 9
-        If searchVal(c) <> "" Then
+        If c <> 7 And searchVal(c) <> "" Then
             criteria = "*" & Replace(searchVal(c), "~", "~~") & "*"
             ws.Range("A1:P" & lr).AutoFilter Field:=c, Criteria1:=criteria
         End If
     Next c
+
+UpdateStatus:
+    ' Bonus: write visible row count to Q1 for quick verification
+    Dim visible As Long
+    visible = Application.WorksheetFunction.Subtotal(103, ws.Range("A2:A" & lr))
+    ws.Cells(1, 17).Value = visible & " of " & (lr - 1) & " rows"
+    ws.Cells(1, 17).Font.Color = RGB(100, 100, 100)
+    ws.Cells(1, 17).Font.Size = 8
 
 Done:
     ws.Activate

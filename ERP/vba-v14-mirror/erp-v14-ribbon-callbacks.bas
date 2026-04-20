@@ -86,6 +86,13 @@ Private m_BulkOutputPath As String
 ' Declared here (module-level) per gotcha #11: no declarations after first Sub.
 Private m_LastQuotedLabel As String
 
+' Exp preset filter constants (Fix 1 — 2026-04-20)
+Private Const EXP_PRESET_ACTIVE As String = "Active only"
+Private Const EXP_PRESET_WEEK As String = "This week"
+Private Const EXP_PRESET_MONTH As String = "This month"
+Private Const EXP_PRESET_ALL As String = "All (incl. expired)"
+Private m_ExpPreset As String   ' current Exp dropdown selection
+
 ' Constants
 Private Const DATA_START_ROW As Integer = 2
 ' Row where Quotes data begins (rows 1-3 = KPI dashboard, row 4 = header)
@@ -292,6 +299,10 @@ End Function
 Public Sub RibbonOnLoad(ribbon As IRibbonUI)
     Set ribbonUI = ribbon
     BuildComboLists
+    ' Fix 1: default Exp preset to Active only on every workbook open
+    m_ExpPreset = EXP_PRESET_ACTIVE
+    m_SearchExp = EXP_PRESET_ACTIVE
+    ERPv14Core.ApplyQuickSearch
 End Sub
 
 ' Public invalidator — callable from other modules via Application.Run
@@ -300,6 +311,12 @@ Public Sub InvalidateRibbon()
     If Not ribbonUI Is Nothing Then ribbonUI.Invalidate
     On Error GoTo 0
 End Sub
+
+' Fix 1: Public getter so ERPv14Core.ApplyQuickSearch can read current Exp preset
+Public Function GetCurrentExpPreset() As String
+    If Len(m_ExpPreset) = 0 Then m_ExpPreset = EXP_PRESET_ACTIVE
+    GetCurrentExpPreset = m_ExpPreset
+End Function
 
 ' Public BuildComboLists alias (for modules that need to rebuild after data refresh)
 Public Sub BuildComboListsPublic()
@@ -495,30 +512,42 @@ Public Sub OnChange_SearchPlace(control As IRibbonControl, text As String)
 End Sub
 
 ' ============================================================
-'  COMBOBOX CALLBACKS — Exp
+'  COMBOBOX CALLBACKS — Exp (Fix 1: 4-preset dropdown, 2026-04-20)
+'  Returns 4 hard-coded preset labels — no dynamic date list needed.
 ' ============================================================
 Public Sub GetItemCount_Exp(control As IRibbonControl, ByRef count As Variant)
-    count = m_ExpCount
+    count = 4
 End Sub
 Public Sub GetItemLabel_Exp(control As IRibbonControl, index As Long, ByRef label As Variant)
-    On Error Resume Next
-    If index >= 0 And index < m_ExpCount Then label = m_Exps(index) Else label = ""
-    On Error GoTo 0
+    Select Case index
+        Case 0: label = EXP_PRESET_ACTIVE
+        Case 1: label = EXP_PRESET_WEEK
+        Case 2: label = EXP_PRESET_MONTH
+        Case 3: label = EXP_PRESET_ALL
+        Case Else: label = ""
+    End Select
 End Sub
 Public Sub OnChange_SearchExp(control As IRibbonControl, text As String)
     On Error Resume Next
-    m_SearchExp = text
-    Dim ws As Worksheet: Set ws = ERPv14Core.GetActivePricingSheet()
-    If ws Is Nothing Then Exit Sub
-    Application.EnableEvents = False
-    If Trim(text) = "" Then
-        ERPv14Core.RestorePlaceholder COL_EXP
+    ' Store the preset selection (not raw text in col 7)
+    Dim sel As String: sel = Trim(text)
+    If sel = EXP_PRESET_ACTIVE Or sel = EXP_PRESET_WEEK Or _
+       sel = EXP_PRESET_MONTH Or sel = EXP_PRESET_ALL Then
+        m_ExpPreset = sel
+    ElseIf sel = "" Then
+        m_ExpPreset = EXP_PRESET_ACTIVE
     Else
-        ws.Cells(1, COL_EXP).Value = text
-        ws.Cells(1, COL_EXP).Font.Color = RGB(154, 52, 18)
-        ws.Cells(1, COL_EXP).Font.Italic = False
+        ' User typed freeform — treat as "Active only" to avoid confusion
+        m_ExpPreset = EXP_PRESET_ACTIVE
     End If
-    Application.EnableEvents = True
+    m_SearchExp = m_ExpPreset
+    ' Clear col 7 row 1 so ApplyQuickSearch skips the text-match path for Exp
+    Dim ws As Worksheet: Set ws = ERPv14Core.GetActivePricingSheet()
+    If Not ws Is Nothing Then
+        Application.EnableEvents = False
+        ERPv14Core.RestorePlaceholder COL_EXP
+        Application.EnableEvents = True
+    End If
     ERPv14Core.ApplyQuickSearch
     On Error GoTo 0
 End Sub
@@ -568,7 +597,9 @@ Public Sub GetText_SearchPlace(control As IRibbonControl, ByRef text As Variant)
     text = m_SearchPlace
 End Sub
 Public Sub GetText_SearchExp(control As IRibbonControl, ByRef text As Variant)
-    text = m_SearchExp
+    ' Return current preset label so ribbon displays selection after Invalidate
+    If Len(m_ExpPreset) = 0 Then m_ExpPreset = EXP_PRESET_ACTIVE
+    text = m_ExpPreset
 End Sub
 Public Sub GetText_SearchNote(control As IRibbonControl, ByRef text As Variant)
     text = m_SearchNote
@@ -2814,7 +2845,9 @@ Public Sub OnAction_ClearSearch(control As IRibbonControl)
     m_SearchPOL = ""
     m_SearchPOD = ""
     m_SearchPlace = ""
-    m_SearchExp = ""
+    ' Fix 1: Exp resets to "Active only", not blank
+    m_ExpPreset = EXP_PRESET_ACTIVE
+    m_SearchExp = EXP_PRESET_ACTIVE
     m_SearchNote = ""
 
     Application.EnableEvents = False
