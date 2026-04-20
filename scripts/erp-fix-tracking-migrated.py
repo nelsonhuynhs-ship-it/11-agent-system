@@ -187,20 +187,18 @@ def fix_tracking(ws, dry_run: bool) -> tuple[int, int]:
             skipped += 1
             continue
 
-        # Read signals from sheet
+        # Read signals from sheet (expanded: HBL, SI, CY for full 7-stage detect)
         ata_raw = _cell_val(ws, row, COL["ATA"])
         etd_raw = _cell_val(ws, row, COL["ETD"])
         status_raw = _cell_val(ws, row, COL["Status"])
-        # ETD_Original not a dedicated column in Active Jobs layout —
-        # use Delay_Log (col 31) as proxy: if it has "Re-sched" the ETD was changed
+        hbl_raw = _cell_val(ws, row, COL["HBL_NO"])
+        si_raw = _cell_val(ws, row, COL["SI_Received"])
+        cy_raw = _cell_val(ws, row, COL["CY_Cutoff"])
         delay_log_raw = _cell_val(ws, row, COL["Delay_Log"])
 
-        # Reconstruct etd_original proxy: if Delay_Log mentions a reschedule,
-        # pass a sentinel (non-None) so derive_tracking_stage sees a change.
-        # Exact date not needed — presence is enough for the ATD branch.
+        # Reconstruct etd_original proxy from Delay_Log (if Re-sched mentioned)
         etd_original_proxy: Optional[datetime] = None
         if delay_log_raw and "Re-sched" in str(delay_log_raw):
-            # Any date != ETD will trigger the rescheduled branch; use a past date
             etd_original_proxy = datetime(2000, 1, 1)
 
         stage_label, dots = derive_tracking_stage(
@@ -209,6 +207,9 @@ def fix_tracking(ws, dry_run: bool) -> tuple[int, int]:
             etd=etd_raw,
             status=status_raw,
             bkg_no=bkg_no,
+            hbl_no=hbl_raw,
+            si_received=si_raw,
+            cy_cutoff=cy_raw,
         )
 
         crm = _cell_val(ws, row, COL["CRM_ID"]) or ""

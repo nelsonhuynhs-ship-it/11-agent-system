@@ -239,28 +239,47 @@ def derive_tracking_stage(
     etd: Any,
     status: Any,
     bkg_no: Any,
+    hbl_no: Any = None,
+    si_received: Any = None,
+    cy_cutoff: Any = None,
 ) -> tuple[str, str]:
     """Derive (TRACKING_STAGE label, TRACKING dot-string) from Shipments row data.
 
-    Decision table (first matching rule wins):
-      ATA not null                           -> 7/10 ARRIVED  | ●●●●●●●○○○
-      ETD_Original != ETD OR Status=LOADED  -> 6/10 ATD       | ●●●●●●○○○○
-      Bkg_No present + Status=Booked/Conf   -> 1/10 BOOKED    | ●○○○○○○○○○
-      Bkg_No empty                          -> 0/10 PENDING   | ○○○○○○○○○○
+    7-stage lifecycle (matches VBA ApplyTrackingDots):
+      1 BKG · 2 Confirmed · 3 SI Cut · 4 Gate-in · 5 ATD · 6 ETA · 7 Delivered
+
+    Decision table (first matching rule wins, highest stage first):
+      ATA not null                              -> 7/10 ARRIVED  | ●●●●●●●○○○
+      ETD_Original != ETD OR Status=LOADED    -> 6/10 ATD       | ●●●●●●○○○○
+      ETD past today (vessel en route)        -> 6/10 ETA       | ●●●●●●○○○○
+      CY_Cutoff past today                    -> 4/10 GATE_IN   | ●●●●○○○○○○
+      HBL_NO present OR SI_Received           -> 3/10 SI_CUT    | ●●●○○○○○○○
+      Bkg_No present + Status=Booked/Conf    -> 1/10 BOOKED    | ●○○○○○○○○○
+      Bkg_No empty                            -> 0/10 PENDING   | ○○○○○○○○○○
 
     Returns:
         (stage_label, dot_string) — both are Unicode strings safe for openpyxl.
     """
+    from datetime import date as _date
+
     DOTS_TOTAL = 10
 
     def _dots(filled: int) -> str:
         return _DOT_FULL * filled + _DOT_EMPTY * (DOTS_TOTAL - filled)
 
-    # Rule 1: ATA present → ARRIVED
+    def _has_value(v: Any) -> bool:
+        if v is None:
+            return False
+        s = str(v).strip()
+        return s != "" and s.lower() not in ("nan", "none", "null", "0")
+
+    today = _date.today()
+
+    # Rule 1: ATA present → ARRIVED (7)
     if _parse_date(ata) is not None:
         return ("ARRIVED", _dots(7))
 
-    # Rule 2: ETD rescheduled OR status LOADED → ATD
+    # Rule 2: ETD rescheduled OR status LOADED → ATD (5)
     etd_orig_d = _parse_date(etd_original)
     etd_d = _parse_date(etd)
     rescheduled = (
@@ -268,15 +287,29 @@ def derive_tracking_stage(
         and etd_orig_d.date() != etd_d.date()
     )
     status_upper = str(status).strip().upper() if status else ""
-    if rescheduled or status_upper == "LOADED":
+    if rescheduled or status_upper in ("LOADED", "ATD", "SAILED", "DEPARTED"):
+        return ("ATD", _dots(5))
+
+    # Rule 3: ETD past today (vessel en route) → ATD (proxy ETA stage, dots 6)
+    if etd_d is not None and etd_d.date() <= today:
         return ("ATD", _dots(6))
 
-    # Rule 3: Bkg_No present + Status = BOOKED/CONFIRMED → BOOKED
+    # Rule 4: CY_Cutoff past today → GATE_IN (4)
+    cy_d = _parse_date(cy_cutoff)
+    if cy_d is not None and cy_d.date() <= today:
+        return ("GATE_IN", _dots(4))
+
+    # Rule 5: HBL_NO present OR SI_Received → SI_CUT (3)
+    # (HBL issued means docs already processed SI)
+    if _has_value(hbl_no) or _parse_date(si_received) is not None or _has_value(si_received):
+        return ("SI_CUT", _dots(3))
+
+    # Rule 6: Bkg_No present + Status = BOOKED/CONFIRMED → BOOKED (1)
     has_bkg = bool(_parse_bkg_no(bkg_no))
-    if has_bkg and status_upper in ("BOOKED", "CONFIRMED"):
+    if has_bkg and status_upper in ("BOOKED", "CONFIRMED", ""):
         return ("BOOKED", _dots(1))
 
-    # Rule 4: fallback PENDING
+    # Rule 7: fallback PENDING
     return ("PENDING", _dots(0))
 
 
