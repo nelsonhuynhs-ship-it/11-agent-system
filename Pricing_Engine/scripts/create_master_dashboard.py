@@ -25,6 +25,38 @@ PORT_MAP_FILE = os.path.join(DATA_DIR, "Port_Code_Mapping_Final.xlsx")
 PUC_SOC_FILE  = os.path.join(DATA_DIR, "PUC_SOC.xlsx")
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'pipeline_rules.json')
 
+# Import normalize functions from standalone module (DRY — single source).
+# Fallback: functions defined inline below (legacy path, kept for safety).
+_repo_root_cm = os.path.dirname(BASE_DIR)  # Engine_test/
+if _repo_root_cm not in sys.path:
+    sys.path.insert(0, _repo_root_cm)
+try:
+    from Pricing_Engine.normalization.text_normalize import (
+        normalize_notes as _normalize_notes_ext,
+        normalize_text_data as _normalize_text_data_ext,
+        normalize_commodity_display as _normalize_commodity_display_ext,
+        normalize_container_types as _normalize_container_types_ext,
+    )
+    _USE_TEXT_NORMALIZE_MODULE = True
+    print("  [create_master] Using Pricing_Engine.normalization.text_normalize module")
+except ImportError as _tn_err:
+    _USE_TEXT_NORMALIZE_MODULE = False
+    print(f"  [WARN] text_normalize module unavailable ({_tn_err}); using inline functions")
+
+
+def _dispatch_normalize_notes(df):
+    """Delegate to external module if available, else inline."""
+    if _USE_TEXT_NORMALIZE_MODULE:
+        return _normalize_notes_ext(df)
+    return normalize_notes(df)  # inline definition below
+
+
+def _dispatch_normalize_text_data(df, port_map):
+    """Delegate to external module if available, else inline."""
+    if _USE_TEXT_NORMALIZE_MODULE:
+        return _normalize_text_data_ext(df, port_map)
+    return normalize_text_data(df, port_map)  # inline definition below
+
 
 def load_mapping_files():
     """Load port code mapping"""
@@ -500,7 +532,7 @@ def create_master_v13():
 
     # 2. Normalize
     port_map = load_mapping_files()
-    df_all = normalize_text_data(df_all, port_map)
+    df_all = _dispatch_normalize_text_data(df_all, port_map)
 
     # 3. Re-identify Rate_Type from filename
     df_all.loc[df_all['Source'].str.upper().str.contains("SCFI", na=False), 'Rate_Type'] = 'SCFI'
@@ -517,7 +549,7 @@ def create_master_v13():
     df_all.loc[mask_fak & mask_base_fak, 'Charge_Name'] = "Base Ocean Freight"
 
     # Normalize all note variations (SOC + non-SOC)
-    df_all = normalize_notes(df_all)
+    df_all = _dispatch_normalize_notes(df_all)
 
     # Shorten source file names
     df_all['Source'] = df_all['Source'].apply(shorten_source_file)
@@ -575,7 +607,7 @@ def create_master_v13():
     # This keeps the raw charge names so BASIC O/F = true base ($1700)
     # and ALL IN COST = total ($1743) remain separate.
     df_bc_raw = pd.read_parquet(HISTORY_FILE)
-    df_bc_raw = normalize_text_data(df_bc_raw, port_map)
+    df_bc_raw = _dispatch_normalize_text_data(df_bc_raw, port_map)
     df_bc_raw['Exp'] = pd.to_datetime(df_bc_raw['Exp'], errors='coerce')
     df_recent = df_bc_raw[
         df_bc_raw['Rate_Type'].isin(current_rate_types) &
@@ -588,7 +620,7 @@ def create_master_v13():
     df_recent = df_recent[~df_recent['Charge_Name'].isin(exclude_charges)].copy()
     
     # Apply normalize_notes again (was applied to df_all but df_bc_raw is fresh)
-    df_recent = normalize_notes(df_recent)
+    df_recent = _dispatch_normalize_notes(df_recent)
     df_recent['Source'] = df_recent['Source'].apply(shorten_source_file) if 'Source' in df_recent.columns else df_recent.get('Source_File', '').apply(shorten_source_file)
 
     # Apply ONE carrier Group Code rules from pipeline_rules.json

@@ -124,7 +124,18 @@ def excel_col_to_idx(col_letter):
 # i.e., always: Total = Basic + max(FAK_PUC, PUC_SOC)
 # ─────────────────────────────────────────────────────────────────────────────
 
-PUC_CARRIERS = {'CMA', 'ONE', 'YML', 'HPL'}   # SOC carriers that use PUC_SOC.xlsx correction
+# PUC_CARRIERS: loaded from carrier_rules JSON (replaces hardcoded set).
+# Falls back to hardcoded set if carrier_rules module unavailable.
+try:
+    _repo_root_puc = os.path.dirname(SCRIPT_DIR)
+    if _repo_root_puc not in sys.path:
+        sys.path.insert(0, _repo_root_puc)
+    from Pricing_Engine.carrier_rules import get_puc_carriers as _get_puc_carriers
+    PUC_CARRIERS = _get_puc_carriers()
+    print(f"  [PUC] Loaded carriers from carrier_rules JSON: {sorted(PUC_CARRIERS)}")
+except Exception as _puc_err:
+    print(f"  [WARN] carrier_rules unavailable ({_puc_err}); using hardcoded PUC_CARRIERS fallback")
+    PUC_CARRIERS = {'CMA', 'ONE', 'YML', 'HPL'}   # fallback — matches carrier JSON flags
 
 # Place name aliases: PUC file uses full names, parquet uses port codes
 _PUC_PLACE_ALIASES = {
