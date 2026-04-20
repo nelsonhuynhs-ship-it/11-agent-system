@@ -36,6 +36,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 import openpyxl
+from openpyxl.comments import Comment
 
 # ---------------------------------------------------------------------------
 # Repo path so we can import ERP.core modules
@@ -76,6 +77,44 @@ DEFAULT_TARGET = r"D:\OneDrive\NelsonData\erp\ERP_Master_v14.xlsm"
 # Unicode dots (same as erp-import-shipments.py)
 _DOT_FULL = "\u25cf"   # ●
 _DOT_EMPTY = "\u25cb"  # ○
+_CHECK = "\u2713"      # ✓
+_PENDING = "\u29f3"   # (placeholder, uses ○ for consistency)
+
+# 7-stage tracking list — matches VBA ApplyTrackingDots in erp-v14-jobs-automation.bas
+_STAGES_7 = ["BKG", "Confirmed", "SI Cut", "Gate-in", "ATD", "ETA", "Delivered"]
+
+
+def _build_tooltip(stage_label: str) -> str:
+    """Build cell comment text showing 7 stages with ✓/○ per status.
+
+    stage_label maps to 'done' count:
+      PENDING/0    → 0 done
+      BOOKED/1     → 1 done (BKG ✓)
+      CONFIRMED/2  → 2 done
+      SI_CUT/3     → 3 done
+      GATE_IN/4    → 4 done
+      ATD/5        → 5 done
+      ETA/6        → 6 done
+      DELIVERED/7  → 7 done (ARRIVED also maps here for simplicity)
+    """
+    # Map label to done count — align with derive_tracking_stage outputs
+    done_map = {
+        "PENDING":   0,
+        "BOOKED":    1,
+        "CONFIRMED": 2,
+        "SI_CUT":    3,
+        "GATE_IN":   4,
+        "ATD":       5,
+        "ETA":       6,
+        "ARRIVED":   7,   # treat ARRIVED as Delivered-equivalent
+        "DELIVERED": 7,
+    }
+    done = done_map.get(str(stage_label).upper().strip(), 1)
+    lines = []
+    for i, stage in enumerate(_STAGES_7):
+        marker = _CHECK if i < done else _DOT_EMPTY
+        lines.append(f"{marker} {stage}")
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -138,9 +177,13 @@ def fix_tracking(ws, dry_run: bool) -> tuple[int, int]:
             continue
 
         tracking_current = _cell_val(ws, row, COL["TRACKING"])
+        cell_existing = ws.cell(row=row, column=COL["TRACKING"])
+        has_dots = tracking_current is not None and str(tracking_current).strip()
+        has_comment = cell_existing.comment is not None
 
-        # Idempotent: skip if TRACKING already filled
-        if tracking_current is not None and str(tracking_current).strip():
+        # Idempotent: skip only if BOTH dots + comment present.
+        # If dots exist but comment missing (migrated pre-comment upgrade), refresh.
+        if has_dots and has_comment:
             skipped += 1
             continue
 
@@ -173,7 +216,11 @@ def fix_tracking(ws, dry_run: bool) -> tuple[int, int]:
         _log(f"  [FIX] row={row} Bkg={bkg_no} {crm} ETD={etd_str} -> {stage_label} | {dots}")
 
         if not dry_run:
-            ws.cell(row=row, column=COL["TRACKING"]).value = dots
+            cell = ws.cell(row=row, column=COL["TRACKING"])
+            cell.value = dots
+            # Attach tooltip comment with 7-stage checklist (✓ done · ○ pending)
+            tooltip = _build_tooltip(stage_label)
+            cell.comment = Comment(tooltip, "ERP", height=140, width=200)
             ws.cell(row=row, column=COL["TRACKING_STAGE"]).value = stage_label
 
         fixed += 1
