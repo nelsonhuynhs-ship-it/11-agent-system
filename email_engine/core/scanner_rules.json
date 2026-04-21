@@ -75,6 +75,13 @@
       "notify_on_error": true,
       "_note": "Job #6 — wired 2026-04-19. Code in handlers.py was written but never called from scheduler."
     },
+    "si_48h_alert": {
+      "enabled": true,
+      "description": "Scan Active Jobs, Telegram alert when SI cutoff < 48h AND Docs stage not done. Dedup per BKG per day.",
+      "timeout_seconds": 30,
+      "notify_on_error": true,
+      "_note": "Job #7 — integrated 2026-04-21. Runs every 30m but dedup_file ensures 1 alert/BKG/day max."
+    },
     "panjiva_weekly_check": {
       "enabled": false,
       "description": "Monday 06:00 — scan data_panjiva/incoming/ for new .xlsx files, run panjiva_clean pipeline automatically",

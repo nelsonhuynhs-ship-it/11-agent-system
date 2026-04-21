@@ -150,14 +150,16 @@ def find_col_by_name(ws, header_row: int, target: str) -> int:
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
-def main() -> int:
-    ap = argparse.ArgumentParser(description="Daily 48h SI cutoff alert")
-    ap.add_argument("--test", action="store_true", help="Dry-run, no Telegram send")
-    args = ap.parse_args()
+def run_alert(dry_run: bool = False) -> dict:
+    """Scan Active Jobs, alert SI cutoff < 48h via Telegram.
 
+    Returns dict with stats:
+        {status, alerts_sent, rows_checked, errors}
+
+    Callable from outlook_scanner.py as sub-job, or from main() CLI wrapper.
+    """
     if not ERP_PATH.exists():
-        print(f"ERP not found: {ERP_PATH}", file=sys.stderr)
-        return 1
+        return {"status": "error", "error": f"ERP not found: {ERP_PATH}"}
 
     # Copy xlsm to tmp — file may be open in Excel (read-only lock)
     fd, tmp_path = tempfile.mkstemp(suffix=".xlsm")
@@ -169,24 +171,21 @@ def main() -> int:
             tmp, read_only=True, data_only=True, keep_vba=False
         )
     except Exception as e:
-        print(f"Cannot read xlsm: {e}", file=sys.stderr)
         tmp.unlink(missing_ok=True)
-        return 1
+        return {"status": "error", "error": f"Cannot read xlsm: {e}"}
 
     if "Active Jobs" not in wb.sheetnames:
-        print("Active Jobs sheet missing", file=sys.stderr)
         wb.close()
         tmp.unlink(missing_ok=True)
-        return 1
+        return {"status": "error", "error": "Active Jobs sheet missing"}
 
     ws = wb["Active Jobs"]
 
     header_row = find_header_row(ws)
     if not header_row:
-        print("Cannot find header row in Active Jobs", file=sys.stderr)
         wb.close()
         tmp.unlink(missing_ok=True)
-        return 1
+        return {"status": "error", "error": "Cannot find header row in Active Jobs"}
 
     # Detect column positions by header name
     col_bkg = find_col_by_name(ws, header_row, "BKG_NO")
@@ -195,16 +194,14 @@ def main() -> int:
     col_tracking = find_col_by_name(ws, header_row, "TRACKING")
 
     if not col_bkg:
-        # Fallback: try alternate header names
         col_bkg = find_col_by_name(ws, header_row, "BOOKING")
     if not (col_bkg and col_si and col_customer):
-        print(
-            f"Missing required cols — bkg={col_bkg} si={col_si} cust={col_customer}",
-            file=sys.stderr,
-        )
         wb.close()
         tmp.unlink(missing_ok=True)
-        return 1
+        return {
+            "status": "error",
+            "error": f"Missing cols bkg={col_bkg} si={col_si} cust={col_customer}",
+        }
 
     now = datetime.now()
     threshold = now + timedelta(hours=48)
@@ -259,8 +256,8 @@ def main() -> int:
             f"\u2192 Check plan kh\u00e1ch tr\u00e1nh cancel c\u1eadn gi\u1edd"
         )
 
-        if args.test:
-            print(f"[test] Would alert: {bkg} ({customer}) SI in {hours_left}h")
+        if dry_run:
+            print(f"[dry-run] Would alert: {bkg} ({customer}) SI in {hours_left}h")
             alerts_sent += 1
         else:
             if send_telegram(msg):
@@ -270,13 +267,29 @@ def main() -> int:
     wb.close()
     tmp.unlink(missing_ok=True)
 
-    if not args.test:
+    if not dry_run:
         save_dedup(dedup)
 
     print(
         f"SI 48h alert: {alerts_sent} sent, {rows_checked} rows checked"
         f" @ {now.strftime('%Y-%m-%d %H:%M')}"
     )
+    return {
+        "status": "ok",
+        "alerts_sent": alerts_sent,
+        "rows_checked": rows_checked,
+    }
+
+
+def main() -> int:
+    """CLI wrapper for standalone / manual debug."""
+    ap = argparse.ArgumentParser(description="48h SI cutoff alert")
+    ap.add_argument("--test", action="store_true", help="Dry-run, no Telegram send")
+    args = ap.parse_args()
+    result = run_alert(dry_run=args.test)
+    if result.get("status") == "error":
+        print(f"Error: {result.get('error')}", file=sys.stderr)
+        return 1
     return 0
 
 
