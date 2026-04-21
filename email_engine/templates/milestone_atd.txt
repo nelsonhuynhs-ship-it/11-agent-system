@@ -1,0 +1,22 @@
+Subject: Shipment Update — Vessel Departed | Bkg {bkg}
+
+Dear {customer},
+
+We are pleased to confirm your shipment has been loaded on board and departed.
+
+  Booking No:  {bkg}
+  HBL No:      {hbl}
+  Carrier:     {carrier}
+  Routing:     {pol} to {pod}
+  ETD:         {etd}
+  ATD:         {atd}
+  ETA:         {eta}
+
+We will send you another notification approximately 7 days before arrival.
+
+If you have any questions regarding your shipment, please do not hesitate to contact us.
+
+Best regards,
+Nelson Huynh
+Pudong Prime — Nelson Freight (NVOCC)
+Email: nelson@pudongprime.vn

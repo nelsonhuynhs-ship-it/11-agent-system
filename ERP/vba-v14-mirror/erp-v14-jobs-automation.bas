@@ -934,6 +934,212 @@ Public Sub OnAction_MonthReset(control As IRibbonControl)
     On Error Resume Next
 End Sub
 
+' ============================================================
+'  BUTTON: SYNC MILESTONES (2026-04-20)
+'  Reads email_engine/data/milestone_state.jsonl sidecar.
+'  For each entry:
+'    - Find Active Jobs row where col H (Bkg_No) matches
+'    - type=ATD  → col AO (41) = date string, col AQ (43) = "Y"
+'    - type=ETA7 → col AR (44) = "Y"
+'  Overwrites jsonl keeping only entries that FAILED to sync.
+'  Shows MsgBox: "X synced, Y failed"
+'
+'  RULE 3.4 (SYSTEM_STANDARDS §3): scanner writes to jsonl;
+'  VBA reads + flushes. Never let Python write directly to xlsm.
+'  NOTE: pure VBA — no subprocess, no WMI needed.
+' ============================================================
+Public Sub Btn_SyncMilestones_OnAction(control As IRibbonControl)
+    On Error GoTo ErrHandler
+
+    ' ── Locate milestone_state.jsonl via FindScript helper ──────────────────
+    Dim jsonlPath As String
+    jsonlPath = FindScript("email_engine\data\milestone_state.jsonl")
+    If jsonlPath = "" Then
+        ' Fallback: try relative to xlsm location (VPS or alt machine)
+        Dim fso2 As Object: Set fso2 = CreateObject("Scripting.FileSystemObject")
+        Dim erp2 As String: erp2 = fso2.GetParentFolderName(ThisWorkbook.FullName)
+        Dim alt As String: alt = erp2 & "\email_engine\data\milestone_state.jsonl"
+        If fso2.FileExists(alt) Then jsonlPath = alt
+    End If
+    If jsonlPath = "" Then
+        MsgBox "milestone_state.jsonl not found." & vbCrLf & _
+               "Check Engine_test repo path in FindScript.", vbExclamation, "Sync Milestones"
+        Exit Sub
+    End If
+
+    Dim fso As Object: Set fso = CreateObject("Scripting.FileSystemObject")
+
+    ' ── Handle empty file gracefully ─────────────────────────────────────────
+    If Not fso.FileExists(jsonlPath) Then
+        MsgBox "milestone_state.jsonl not found: " & jsonlPath, vbExclamation, "Sync Milestones"
+        Exit Sub
+    End If
+    If fso.GetFile(jsonlPath).Size = 0 Then
+        MsgBox "0 pending milestones.", vbInformation, "Sync Milestones"
+        Exit Sub
+    End If
+
+    ' ── Get Active Jobs sheet ─────────────────────────────────────────────────
+    Dim wsJ As Worksheet
+    On Error Resume Next
+    Set wsJ = ThisWorkbook.Worksheets("Active Jobs")
+    On Error GoTo ErrHandler
+    If wsJ Is Nothing Then
+        MsgBox "Sheet 'Active Jobs' not found.", vbExclamation, "Sync Milestones"
+        Exit Sub
+    End If
+
+    ' ── Read all lines from jsonl ─────────────────────────────────────────────
+    Dim ts As Object: Set ts = fso.OpenTextFile(jsonlPath, 1) ' ForReading=1
+    Dim allLines() As String
+    Dim lineCount As Long: lineCount = 0
+    Dim tmpArr(0 To 9999) As String
+    Do While Not ts.AtEndOfStream
+        Dim lineText As String: lineText = Trim(ts.ReadLine)
+        If lineText <> "" Then
+            tmpArr(lineCount) = lineText
+            lineCount = lineCount + 1
+            If lineCount > 9999 Then Exit Do
+        End If
+    Loop
+    ts.Close
+
+    If lineCount = 0 Then
+        MsgBox "0 pending milestones.", vbInformation, "Sync Milestones"
+        Exit Sub
+    End If
+
+    ' ── Build Bkg_No lookup: col H=8, data row 8..lastRow ─────────────────────
+    Dim lastRow As Long
+    lastRow = wsJ.Cells(wsJ.Rows.Count, 8).End(xlUp).Row
+    If lastRow < 8 Then
+        MsgBox "No data rows in Active Jobs.", vbInformation, "Sync Milestones"
+        Exit Sub
+    End If
+
+    Application.ScreenUpdating = False
+
+    ' ── Process each line ─────────────────────────────────────────────────────
+    Dim synced As Long: synced = 0
+    Dim failed As Long: failed = 0
+    Dim failedLines() As String
+    ReDim failedLines(0 To lineCount - 1)
+
+    Dim li As Long
+    For li = 0 To lineCount - 1
+        Dim ln As String: ln = tmpArr(li)
+
+        ' Extract fields via InStr (flat JSON, no nested objects)
+        Dim bkgVal As String:  bkgVal  = ExtractJsonStr(ln, "bkg")
+        Dim typeVal As String: typeVal = ExtractJsonStr(ln, "type")
+        Dim dateVal As String: dateVal = ExtractJsonStr(ln, "date")
+
+        If bkgVal = "" Or typeVal = "" Then
+            ' Malformed line — skip, don't carry forward
+            failed = failed + 1
+        Else
+            ' Search Active Jobs col H for matching Bkg_No
+            Dim foundRow As Long: foundRow = 0
+            Dim r As Long
+            For r = 8 To lastRow
+                Dim cellBkg As String
+                cellBkg = LCase(Trim(CStr(wsJ.Cells(r, 8).Value)))
+                If cellBkg = LCase(Trim(bkgVal)) Then
+                    foundRow = r
+                    Exit For
+                End If
+            Next r
+
+            If foundRow = 0 Then
+                ' Bkg not found in Active Jobs — keep in pending
+                failedLines(failed + synced) = ln
+                failed = failed + 1
+            Else
+                ' Apply update based on type
+                Select Case UCase(Trim(typeVal))
+                    Case "ATD"
+                        ' col AO=41: ATD_DATE (format DD/MM/YYYY if ISO, else as-is)
+                        wsJ.Cells(foundRow, 41).Value = FormatMilestoneDate(dateVal)
+                        ' col AQ=43: NOTIFIED_ATD = "Y"
+                        wsJ.Cells(foundRow, 43).Value = "Y"
+                        synced = synced + 1
+                    Case "ETA7"
+                        ' col AR=44: NOTIFIED_ETA7 = "Y"
+                        wsJ.Cells(foundRow, 44).Value = "Y"
+                        synced = synced + 1
+                    Case Else
+                        ' Unknown type — skip silently, keep pending
+                        failedLines(failed + synced) = ln
+                        failed = failed + 1
+                End Select
+            End If
+        End If
+    Next li
+
+    Application.ScreenUpdating = True
+
+    ' ── Overwrite jsonl with only failed (unfound) entries ───────────────────
+    Dim tsW As Object: Set tsW = fso.CreateTextFile(jsonlPath, True) ' overwrite
+    For li = 0 To failed - 1
+        If failedLines(li) <> "" Then tsW.WriteLine failedLines(li)
+    Next li
+    tsW.Close
+
+    ' ── Save workbook ─────────────────────────────────────────────────────────
+    ThisWorkbook.Save
+
+    ' ── Summary ──────────────────────────────────────────────────────────────
+    MsgBox "Sync Milestones complete." & vbCrLf & vbCrLf & _
+           "  Synced : " & synced & vbCrLf & _
+           "  Pending: " & failed & " (Bkg not found in Active Jobs)", _
+           vbInformation, "Sync Milestones"
+    Exit Sub
+
+ErrHandler:
+    Application.ScreenUpdating = True
+    MsgBox "Sync Milestones error: " & Err.Description, vbCritical, "Sync Milestones"
+End Sub
+
+' ── Extract a string value from flat JSON line ─────────────────────────────
+' e.g. ExtractJsonStr('{"bkg":"ZIMUHCM123","type":"ATD"}', "bkg") -> "ZIMUHCM123"
+Private Function ExtractJsonStr(jsonLine As String, fieldName As String) As String
+    On Error Resume Next
+    ' Look for "fieldName":"value" — handles spaces around colon
+    Dim searchKey As String: searchKey = """" & fieldName & """"
+    Dim pos As Long: pos = InStr(jsonLine, searchKey)
+    If pos = 0 Then ExtractJsonStr = "": Exit Function
+
+    ' Find the colon after the key
+    Dim colonPos As Long: colonPos = InStr(pos + Len(searchKey), jsonLine, ":")
+    If colonPos = 0 Then ExtractJsonStr = "": Exit Function
+
+    ' Find opening quote of value
+    Dim openQ As Long: openQ = InStr(colonPos, jsonLine, """")
+    If openQ = 0 Then ExtractJsonStr = "": Exit Function
+    openQ = openQ + 1  ' skip the quote character
+
+    ' Find closing quote
+    Dim closeQ As Long: closeQ = InStr(openQ, jsonLine, """")
+    If closeQ = 0 Then ExtractJsonStr = "": Exit Function
+
+    ExtractJsonStr = Mid(jsonLine, openQ, closeQ - openQ)
+End Function
+
+' ── Convert ISO date "2026-04-20" to "20/04/2026" for Excel date cell ──────
+Private Function FormatMilestoneDate(isoDate As String) As String
+    On Error Resume Next
+    ' Accepts "2026-04-20" (ISO) or "20/04/2026" (already formatted)
+    If InStr(isoDate, "-") > 0 Then
+        Dim parts() As String: parts = Split(isoDate, "-")
+        If UBound(parts) = 2 Then
+            FormatMilestoneDate = parts(2) & "/" & parts(1) & "/" & parts(0)
+            Exit Function
+        End If
+    End If
+    ' Return as-is if not ISO format
+    FormatMilestoneDate = isoDate
+End Function
+
 ' ── Tracking dots: colored per-character + hover tooltip ──
 '   stage 1..7  = number of stages completed
 '   partial     = True if stage is in-progress (adds ◐ amber after done dots)

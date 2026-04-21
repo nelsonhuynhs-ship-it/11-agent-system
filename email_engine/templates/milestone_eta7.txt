@@ -1,0 +1,20 @@
+Subject: Shipment Arriving Soon — 7 Days to ETA | Bkg {bkg}
+
+Dear {customer},
+
+Your shipment is expected to arrive within the next 7 days. Please arrange for customs clearance and delivery at your earliest convenience.
+
+  Booking No:  {bkg}
+  HBL No:      {hbl}
+  Carrier:     {carrier}
+  Routing:     {pol} to {pod}
+  ETA:         {eta}
+
+Please ensure your customs broker and inland delivery provider are ready to receive the container upon vessel arrival.
+
+If you need any supporting documentation (e.g., telex release, delivery order), please reach out and we will assist promptly.
+
+Best regards,
+Nelson Huynh
+Pudong Prime — Nelson Freight (NVOCC)
+Email: nelson@pudongprime.vn

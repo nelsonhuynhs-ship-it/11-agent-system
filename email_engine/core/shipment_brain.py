@@ -579,6 +579,17 @@ def scan_and_update(ns, state: dict, customers: dict) -> dict:
                     alert_risk(pid, customer, ctype, risk, subject, sender)
                     risk = None  # Alert once per email
 
+            # ── CNEE Milestone hook ────────────────────────────────────────
+            # Fires after all stages are detected for this email.
+            # ATD/LOADED detected → attempt to compose Outlook Draft for CNEE.
+            if any(s in {"ATD", "LOADED"} for s in stages):
+                try:
+                    from email_engine.core.cnee_milestone import on_atd_detected
+                    on_atd_detected(item, stages, ids, sender)
+                except Exception as _milestone_err:
+                    log.error("cnee_milestone hook failed: %s", _milestone_err)
+            # ── End CNEE Milestone hook ────────────────────────────────────
+
             mark_processed(item)
 
         except Exception as e:
@@ -587,6 +598,15 @@ def scan_and_update(ns, state: dict, customers: dict) -> dict:
         index     += 1
         processed += 1
         stats["scanned"] += 1
+
+    # ── Flush CNEE Milestone Telegram summary ──────────────────────────────
+    # Sends one consolidated message at end of scan (not per-email spam).
+    try:
+        from email_engine.core.cnee_milestone import flush_telegram_summary
+        flush_telegram_summary()
+    except Exception:
+        pass
+    # ── End flush ──────────────────────────────────────────────────────────
 
     return stats
 

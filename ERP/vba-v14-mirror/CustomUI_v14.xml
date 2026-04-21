@@ -140,6 +140,9 @@
           <button id="btnTrackYml" label="YML Scan" size="large"
                   imageMso="TaskListImport" onAction="OnAction_YmlScan"
                   screentip="Parse Outlook emails từ YML → update tracking events"/>
+          <button id="btnSyncMilestones" label="Sync Milestones" size="large"
+                  imageMso="Refresh" onAction="Btn_SyncMilestones_OnAction"
+                  screentip="Flush milestone_state.jsonl vào Active Jobs (ATD_DATE + NOTIFIED_ATD/ETA7 cols)"/>
         </group>
 
         <!-- GROUP 4: ALERTS (static labels; handlers show count in MsgBox) -->
