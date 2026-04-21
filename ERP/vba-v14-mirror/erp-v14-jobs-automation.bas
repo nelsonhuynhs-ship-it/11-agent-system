@@ -1129,17 +1129,18 @@ Public Sub Btn_SyncMilestones_OnAction(control As IRibbonControl)
                 failedLines(failed + synced) = ln
                 failed = failed + 1
             Else
-                ' Apply update based on type
+                ' Apply update based on type (moved from 41/43/44 → 46/47/48
+                ' to avoid collision with Phase 3 Booking Pool cols 41-45)
                 Select Case UCase(Trim(typeVal))
                     Case "ATD"
-                        ' col AO=41: ATD_DATE (format DD/MM/YYYY if ISO, else as-is)
-                        wsJ.Cells(foundRow, 41).Value = FormatMilestoneDate(dateVal)
-                        ' col AQ=43: NOTIFIED_ATD = "Y"
-                        wsJ.Cells(foundRow, 43).Value = "Y"
+                        ' col AT=46: ATD_Date (format DD/MM/YYYY if ISO, else as-is)
+                        wsJ.Cells(foundRow, 46).Value = FormatMilestoneDate(dateVal)
+                        ' col AU=47: Notified_ATD = "Y"
+                        wsJ.Cells(foundRow, 47).Value = "Y"
                         synced = synced + 1
                     Case "ETA7"
-                        ' col AR=44: NOTIFIED_ETA7 = "Y"
-                        wsJ.Cells(foundRow, 44).Value = "Y"
+                        ' col AV=48: Notified_ETA7 = "Y"
+                        wsJ.Cells(foundRow, 48).Value = "Y"
                         synced = synced + 1
                     Case Else
                         ' Unknown type — skip silently, keep pending
@@ -1215,10 +1216,20 @@ Private Function FormatMilestoneDate(isoDate As String) As String
 End Function
 
 ' ── Tracking dots: colored per-character + hover tooltip ──
-'   stage 1..7  = number of stages completed
-'   partial     = True if stage is in-progress (adds ◐ amber after done dots)
+'   stage 1..7   = number of stages completed
+'   partial      = True if stage is in-progress (adds ◐ amber after done dots)
+'   ajRowNum     = row in Active Jobs to read metadata from (0 = legacy plain tooltip)
+'
+'   Phase 4 (2026-04-21): new 7-stage names + SI/CY/Vessel/PO metadata section.
+'   Backward-compat: ajRowNum=0 falls through to plain stage-list tooltip (no metadata).
+'   Col constants (Phase 3 locked):
+'     41=SI_CutOff  42=CY_Close  43=Vessel_Voyage  44=PO_Number  45=Flow_Type
+'   Existing AJ col constants (ribbon-callbacks source of truth):
+'     4=CUSTOMER  5=POL_POD  9=HBL_NO  13=ETD  21=ETA
+' Bulletproof: any unexpected error falls through to safe exit — tooltip update is cosmetic.
 Public Sub ApplyTrackingDots(targetCell As Range, ByVal stage As Long, _
-                              Optional ByVal partial As Boolean = False)
+                              Optional ByVal partial As Boolean = False, _
+                              Optional ByVal ajRowNum As Long = 0)
     On Error Resume Next
     If stage < 0 Then stage = 0
     If stage > 7 Then stage = 7
@@ -1228,7 +1239,7 @@ Public Sub ApplyTrackingDots(targetCell As Range, ByVal stage As Long, _
     Dim empty_ As Long: empty_ = 7 - done - partialCount
     If empty_ < 0 Then empty_ = 0
 
-    ' Build 7-char string: ● (done) + ◐ (partial) + ○ (empty)
+    ' ── Build 7-char dot string: ● (done) + ◐ (partial) + ○ (empty) ─────────
     Dim s As String
     s = String(done, ChrW(9679))        ' ●
     If partialCount > 0 Then s = s & ChrW(9680)   ' ◐
@@ -1250,26 +1261,154 @@ Public Sub ApplyTrackingDots(targetCell As Range, ByVal stage As Long, _
         targetCell.Characters(Start:=done + partialCount + 1, Length:=empty_).Font.Color = RGB(200, 200, 200)  ' gray
     End If
 
-    ' Hover tooltip (cell Comment) with stage names
-    Dim stages(1 To 7) As String
-    stages(1) = "BKG":      stages(2) = "Confirmed": stages(3) = "SI Cut"
-    stages(4) = "Gate-in":  stages(5) = "ATD":       stages(6) = "ETA"
-    stages(7) = "Delivered"
-    Dim tooltip As String, i As Long
-    For i = 1 To 7
-        If i <= done Then
-            tooltip = tooltip & ChrW(10003) & " " & stages(i)  ' ✓
-        ElseIf i = done + 1 And partialCount > 0 Then
-            tooltip = tooltip & ChrW(8987) & " " & stages(i) & " (pending)"  ' ⌛
-        Else
-            tooltip = tooltip & ChrW(9675) & " " & stages(i)   ' ○
+    ' ── New 7 stage names (Phase 4) ───────────────────────────────────────────
+    Dim stageNames(1 To 7) As String
+    stageNames(1) = "Request"
+    stageNames(2) = "Booked"
+    stageNames(3) = "To Customer"
+    stageNames(4) = "Docs"
+    stageNames(5) = "ATD"
+    stageNames(6) = "ETA"
+    stageNames(7) = "Delivered"
+
+    ' ── Metadata fields (only populated when ajRowNum > 0) ───────────────────
+    Dim wsJ As Worksheet
+    Dim flowType As String, customer As String
+    Dim siCut As String, cyClose As String
+    Dim vessel As String, poNum As String
+    Dim hbl As String, etd As String, pod As String
+
+    If ajRowNum > 0 Then
+        Set wsJ = targetCell.Worksheet
+        On Error Resume Next
+        flowType  = Trim(CStr(wsJ.Cells(ajRowNum, 45).Value))   ' FLOW_TYPE
+        siCut     = Trim(CStr(wsJ.Cells(ajRowNum, 41).Value))   ' SI_CutOff
+        cyClose   = Trim(CStr(wsJ.Cells(ajRowNum, 42).Value))   ' CY_Close
+        vessel    = Trim(CStr(wsJ.Cells(ajRowNum, 43).Value))   ' Vessel_Voyage
+        poNum     = Trim(CStr(wsJ.Cells(ajRowNum, 44).Value))   ' PO_Number
+        customer  = Trim(CStr(wsJ.Cells(ajRowNum, FindAJColByHeader(wsJ, "CUSTOMER", 4)).Value))
+        hbl       = Trim(CStr(wsJ.Cells(ajRowNum, FindAJColByHeader(wsJ, "HBL_NO", 9)).Value))
+        etd       = Trim(CStr(wsJ.Cells(ajRowNum, FindAJColByHeader(wsJ, "ETD", 13)).Value))
+        ' POL_POD col 5: extract right side of "-" for POD display
+        Dim polPod As String
+        polPod = Trim(CStr(wsJ.Cells(ajRowNum, 5).Value))
+        If InStr(polPod, "-") > 0 Then
+            Dim polParts() As String: polParts = Split(polPod, "-")
+            If UBound(polParts) >= 1 Then pod = Trim(polParts(UBound(polParts)))
         End If
+        On Error GoTo 0
+    End If
+
+    ' ── Build tooltip header — Flow line ──────────────────────────────────────
+    Dim tooltip As String
+    If ajRowNum > 0 Then
+        If flowType = "KEEP_SPACE" Then
+            If customer <> "" And InStr(UCase(customer), "KEEP SPACE") > 0 Then
+                tooltip = "Flow: KEEP SPACE (ch" & ChrW(432) & "a c" & ChrW(243) & " kh" & ChrW(225) & "ch)" & vbCrLf
+            Else
+                tooltip = "Flow: KEEP SPACE" & IIf(customer <> "", " " & ChrW(8594) & " " & customer, "") & vbCrLf
+            End If
+        ElseIf flowType = "DIRECT" Then
+            tooltip = "Flow: DIRECT" & IIf(customer <> "", " " & ChrW(8594) & " " & customer, "") & vbCrLf
+        ElseIf customer <> "" Then
+            tooltip = "Kh" & ChrW(225) & "ch: " & customer & vbCrLf
+        End If
+    End If
+
+    ' ── 7 stage lines ─────────────────────────────────────────────────────────
+    Dim i As Long
+    For i = 1 To 7
+        Dim prefix As String, suffix As String
+        suffix = ""
+        If i <= done Then
+            prefix = ChrW(10003) & " "   ' ✓
+            If ajRowNum > 0 Then
+                If i = 4 And hbl <> "" Then suffix = " — HBL: " & hbl
+                If i = 5 And etd <> "" Then suffix = " — ATD: " & etd
+            End If
+        ElseIf i = done + 1 And partialCount > 0 Then
+            prefix = ChrW(8987) & " "   ' ⌛
+            If ajRowNum > 0 Then
+                If i = 4 And hbl <> "" Then
+                    suffix = " — HBL: " & hbl & " (SI pending)"
+                ElseIf i = 5 And etd <> "" Then
+                    suffix = " — ETD: " & etd & " planned"
+                End If
+            End If
+        Else
+            prefix = ChrW(9675) & " "   ' ○
+            If ajRowNum > 0 Then
+                If i = 5 And etd <> "" Then suffix = " — ETD: " & etd
+                If i = 6 And pod <> "" Then
+                    suffix = " — " & pod & IIf(etd <> "", " " & etd, "")
+                End If
+            End If
+        End If
+        tooltip = tooltip & prefix & stageNames(i) & suffix
         If i < 7 Then tooltip = tooltip & vbCrLf
     Next i
+
+    ' ── Metadata section (only when ajRowNum > 0 and data present) ───────────
+    If ajRowNum > 0 Then
+        Dim hasMetadata As Boolean
+        hasMetadata = (siCut <> "" Or cyClose <> "" Or vessel <> "" Or poNum <> "")
+        If hasMetadata Then
+            tooltip = tooltip & vbCrLf & String(28, ChrW(9472)) & vbCrLf   ' ━━━ divider
+
+            If siCut <> "" Then
+                Dim siCountdown As String: siCountdown = ""
+                On Error Resume Next
+                Dim siDt As Date: siDt = CDate(siCut)
+                If Err.Number = 0 Then
+                    Dim hoursLeft As Double: hoursLeft = (siDt - Now) * 24
+                    If hoursLeft > 0 And hoursLeft < 48 Then
+                        siCountdown = "  " & ChrW(9888) & " c" & ChrW(242) & "n " & Int(hoursLeft) & "h"
+                    ElseIf hoursLeft > 0 And hoursLeft < 72 Then
+                        siCountdown = "  (c" & ChrW(242) & "n " & Int(hoursLeft / 24) & "d)"
+                    End If
+                End If
+                Err.Clear
+                On Error GoTo 0
+                tooltip = tooltip & ChrW(128197) & " SI Cut:   " & siCut & siCountdown & vbCrLf
+            End If
+            If cyClose <> "" Then tooltip = tooltip & ChrW(128197) & " CY Close: " & cyClose & vbCrLf
+            If vessel <> "" Then tooltip = tooltip & ChrW(128205) & " Vessel:   " & vessel & vbCrLf
+            If poNum <> "" Then tooltip = tooltip & ChrW(128222) & " PO#:      " & poNum
+        End If
+    End If
+
+    ' ── Apply comment ─────────────────────────────────────────────────────────
     targetCell.ClearComments
     targetCell.AddComment tooltip
     targetCell.Comment.Shape.TextFrame.AutoSize = True
+    If ajRowNum > 0 Then
+        ' Wider box to accommodate metadata lines
+        targetCell.Comment.Shape.Width = 320
+    End If
 End Sub
+
+' ── Find Active Jobs column number by header text ─────────────────────────
+'   Searches rows 1..5 of ws for headerText (case-insensitive).
+'   Returns fallback if not found.
+'   Phase 4 (2026-04-21): used by ApplyTrackingDots to locate CUSTOMER /
+'   HBL_NO / ETD columns without hardcoding every caller.
+Private Function FindAJColByHeader(ws As Worksheet, headerText As String, fallback As Long) As Long
+    On Error Resume Next
+    FindAJColByHeader = fallback  ' default to fallback so any error path returns safely
+    If ws Is Nothing Then Exit Function
+    Dim r As Long, c As Long
+    ' Active Jobs header is on row 7, but search 1..10 for flexibility
+    For r = 1 To 10
+        For c = 1 To 60
+            Dim v As String
+            v = UCase(Trim(CStr(ws.Cells(r, c).Value)))
+            If v = UCase(Trim(headerText)) Then
+                FindAJColByHeader = c
+                Exit Function
+            End If
+        Next c
+    Next r
+End Function
 
 ' ── Build mailto: hyperlink for booking request email ──
 Public Sub ApplyBookingMailto(targetCell As Range, _

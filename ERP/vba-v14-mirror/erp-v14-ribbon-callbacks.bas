@@ -1781,6 +1781,13 @@ Public Sub OnAction_MarkQuoteWin(control As IRibbonControl)
     Const AJ_COST_BKD As Long = 35
     Const AJ_TRACKING_RAW As Long = 36   ' "5/7 ATD" text — source for AJ_TRACKING dots
 
+    ' Phase 3 — Booking Pool hidden cols (extend-active-jobs-schema.py added these)
+    Const AJ_SI_CUTOFF_COL As Long = 41
+    Const AJ_CY_CLOSE_COL As Long = 42
+    Const AJ_VESSEL_VOYAGE_COL As Long = 43
+    Const AJ_PO_NUMBER_COL As Long = 44
+    Const AJ_FLOW_TYPE_COL As Long = 45
+
     ' Step 1: Validate — must be on Quotes sheet
     Dim wsQ As Worksheet
     Set wsQ = ERPv14Core.FindSheet("Quotes")
@@ -1957,6 +1964,90 @@ Public Sub OnAction_MarkQuoteWin(control As IRibbonControl)
     wsQ.Cells(r, 40).Value = totalTEU   ' Volume = TEU
     wsQ.Cells(r, 42).Value = contType
 
+    ' ── Phase 3: Booking Pool Link mode ──────────────────────────
+    ' Ask Nelson: link from existing HOLDING booking in Pool,
+    ' or create new DIRECT flow job (no pool).
+    Dim useFromPool As VbMsgBoxResult
+    useFromPool = MsgBox("Link tu Booking Pool co san?" & ChrW(10) & ChrW(10) & _
+                        "  Yes    = chon tu Pool HOLDING" & ChrW(10) & _
+                        "  No     = tao moi (flow DIRECT)" & ChrW(10) & _
+                        "  Cancel = huy toan bo", _
+                        vbYesNoCancel + vbQuestion, "MarkQuoteWin — Booking Source")
+
+    If useFromPool = vbCancel Then
+        ' Undo Quote WIN mark — restore to previous status
+        wsQ.Cells(r, 36).Value = curStatus
+        wsQ.Cells(r, 36).Interior.ColorIndex = xlNone
+        wsQ.Cells(r, 36).Font.Color = 0
+        wsQ.Cells(r, 36).Font.Bold = False
+        wsQ.Cells(r, 38).Value = ""
+        wsQ.Cells(r, 39).Value = ""
+        wsQ.Cells(r, 40).Value = ""
+        wsQ.Cells(r, 42).Value = ""
+        Exit Sub
+    End If
+
+    ' Pool link variables (populated if vbYes)
+    Dim poolRow As Long:    poolRow = 0
+    Dim poolBkg As String
+    Dim poolSICutOff As String
+    Dim poolCYClose As String
+    Dim poolVesselVoyage As String
+    Dim poolPO As String
+    Dim poolFlowType As String
+
+    If useFromPool = vbYes Then
+        Dim wsPool As Worksheet
+        On Error Resume Next
+        Set wsPool = ThisWorkbook.Sheets("Booking Pool")
+        On Error GoTo ErrHandler
+        If wsPool Is Nothing Then
+            MsgBox "Sheet 'Booking Pool' not found!" & ChrW(10) & "Fallback: using DIRECT flow.", _
+                   vbExclamation, "MarkQuoteWin"
+            poolFlowType = "DIRECT"
+        Else
+            Dim searchBkg As String
+            searchBkg = Trim(InputBox("Nhap BKG# can link (HOLDING trong Pool):" & ChrW(10) & _
+                                      "Vi du: SGNG83555500", _
+                                      "Link Pool — " & quoteID))
+            If searchBkg = "" Then
+                MsgBox "BKG# blank — fallback to DIRECT flow.", vbInformation, "MarkQuoteWin"
+                poolFlowType = "DIRECT"
+            Else
+                Dim pr As Long
+                Dim poolLastRow As Long: poolLastRow = wsPool.UsedRange.Rows.Count
+                For pr = 2 To poolLastRow
+                    Dim prBkg As String: prBkg = Trim(CStr(wsPool.Cells(pr, 1).Value))
+                    Dim prStat As String: prStat = UCase(Trim(CStr(wsPool.Cells(pr, 16).Value)))
+                    If UCase(prBkg) = UCase(searchBkg) And prStat = "HOLDING" Then
+                        poolRow = pr
+                        Exit For
+                    End If
+                Next pr
+
+                If poolRow = 0 Then
+                    MsgBox "Khong tim thay BKG '" & searchBkg & "' voi Status=HOLDING." & ChrW(10) & _
+                           "Fallback: using DIRECT flow.", _
+                           vbExclamation, "MarkQuoteWin — Pool Not Found"
+                    poolFlowType = "DIRECT"
+                Else
+                    ' Read all pool fields
+                    poolBkg = CStr(wsPool.Cells(poolRow, 1).Value)
+                    poolSICutOff = CStr(wsPool.Cells(poolRow, 11).Value)
+                    poolCYClose = CStr(wsPool.Cells(poolRow, 12).Value)
+                    Dim pVessel As String: pVessel = Trim(CStr(wsPool.Cells(poolRow, 13).Value))
+                    Dim pVoyage As String: pVoyage = Trim(CStr(wsPool.Cells(poolRow, 14).Value))
+                    poolVesselVoyage = Trim(pVessel & " " & pVoyage)
+                    poolPO = CStr(wsPool.Cells(poolRow, 15).Value)
+                    poolFlowType = "KEEP_SPACE"
+                End If
+            End If
+        End If
+    Else
+        poolFlowType = "DIRECT"
+    End If
+    ' ── End Phase 3 Booking Pool Link mode ───────────────────────
+
     ' Step 7: Write to Active Jobs
     Dim nr As Long
     nr = wsJ.Cells(wsJ.Rows.Count, AJ_CRMID).End(xlUp).Row + 1
@@ -2032,6 +2123,31 @@ Public Sub OnAction_MarkQuoteWin(control As IRibbonControl)
     wsJ.Cells(nr, AJ_CREATED).NumberFormat = "dd/mm hh:mm"
     wsJ.Cells(nr, AJ_UPDATED).Value = Now
     wsJ.Cells(nr, AJ_UPDATED).NumberFormat = "dd/mm hh:mm"
+
+    ' Phase 3 — Write Pool metadata to 5 hidden cols (41-45)
+    ' Flow_Type always written; SI/CY/Vessel/PO only when pool linked.
+    wsJ.Cells(nr, AJ_FLOW_TYPE_COL).Value = poolFlowType
+
+    If poolRow > 0 Then
+        ' Pool-linked job: copy booking metadata from Booking Pool
+        wsJ.Cells(nr, AJ_SI_CUTOFF_COL).Value = poolSICutOff
+        wsJ.Cells(nr, AJ_CY_CLOSE_COL).Value = poolCYClose
+        wsJ.Cells(nr, AJ_VESSEL_VOYAGE_COL).Value = poolVesselVoyage
+        wsJ.Cells(nr, AJ_PO_NUMBER_COL).Value = poolPO
+
+        ' Back-fill BKG_No col (col 8) with the pool's confirmed BKG
+        If poolBkg <> "" Then wsJ.Cells(nr, AJ_BKG_NO).Value = poolBkg
+
+        ' Update Pool row: HOLDING → ASSIGNED, record link back to AJ row
+        On Error Resume Next
+        wsPool.Cells(poolRow, 16).Value = "ASSIGNED"
+        wsPool.Cells(poolRow, 17).Value = nr   ' Link_AJ_Row
+        ' Clear yellow highlight, apply green for ASSIGNED
+        wsPool.Rows(poolRow).Interior.ColorIndex = xlNone
+        wsPool.Cells(poolRow, 16).Interior.Color = RGB(198, 239, 206)
+        wsPool.Cells(poolRow, 16).Font.Color = RGB(0, 97, 0)
+        On Error GoTo ErrHandler
+    End If
 
     ' Step 7b: Cost Breakdown — v13 layout format
     '   Line 1: S/C: [contract] | CARRIER [type] [SOC?]
@@ -3875,3 +3991,238 @@ Fallback:
     Close #fNum
     QI_LogoDataURI = "logo.png"
 End Function
+
+' ============================================================
+'  PHASE 3 — BOOKING POOL HANDLERS
+'  Ribbon group grpBookingPool (Operations tab)
+'  3 Subs: NewKeepSpace, SyncPool, MarkExpired
+' ============================================================
+
+' ── Btn_NewKeepSpace_OnAction ────────────────────────────────
+' Manual insert of a keep-space booking into the Booking Pool
+' sheet with Status=HOLDING. Nelson uses this when he RQs
+' internal space before a customer is confirmed.
+Public Sub Btn_NewKeepSpace_OnAction(control As IRibbonControl)
+    On Error GoTo ErrHandler
+    Dim wsPool As Worksheet
+    On Error Resume Next
+    Set wsPool = ThisWorkbook.Sheets("Booking Pool")
+    On Error GoTo ErrHandler
+    If wsPool Is Nothing Then
+        MsgBox "Sheet 'Booking Pool' not found!" & ChrW(10) & "Run Phase 1 setup first.", _
+               vbExclamation, "New Keep Space"
+        Exit Sub
+    End If
+
+    Dim bkg As String:          bkg = Trim(InputBox("BKG number (leave blank if pending):", "New Keep Space"))
+    Dim carrier As String:      carrier = UCase(Trim(InputBox("Carrier (ONE/HPL/ZIM/...):", "New Keep Space")))
+    Dim pol As String:          pol = UCase(Trim(InputBox("POL (HCM/HPH):", "New Keep Space")))
+    Dim pod As String:          pod = UCase(Trim(InputBox("POD (LAX/TACOMA/USLAX/...):", "New Keep Space")))
+    Dim contQty As String:      contQty = Trim(InputBox("Container x Qty (e.g. 1X40HC, 2X20GP):", "New Keep Space"))
+    Dim etd As String:          etd = Trim(InputBox("ETD (e.g. 1May, 15/05/2026):", "New Keep Space"))
+    Dim customerHint As String: customerHint = Trim(InputBox("Customer target (leave blank if none yet):", "New Keep Space"))
+
+    ' Require minimum fields
+    If carrier = "" Or pol = "" Or pod = "" Then
+        MsgBox "Carrier, POL and POD are required.", vbExclamation, "New Keep Space"
+        Exit Sub
+    End If
+
+    ' Parse container x qty — accept formats: 1X40HC, 1x40HC, 1 X 40HC
+    Dim contType As String: contType = contQty
+    Dim qty As Long:        qty = 1
+    If InStr(UCase(contQty), "X") > 0 Then
+        Dim parts() As String
+        parts = Split(UCase(contQty), "X")
+        On Error Resume Next
+        qty = CLng(Val(Trim(parts(0))))
+        If Err.Number <> 0 Or qty < 1 Then qty = 1
+        On Error GoTo ErrHandler
+        contType = Trim(parts(1))
+    End If
+
+    ' Find next empty row (col 1 AND col 2 both empty = truly empty)
+    Dim nextRow As Long: nextRow = 2
+    Do While wsPool.Cells(nextRow, 1).Value <> "" Or wsPool.Cells(nextRow, 2).Value <> ""
+        nextRow = nextRow + 1
+        If nextRow > 10000 Then Exit Do   ' safety guard
+    Loop
+
+    ' Build customer display string
+    Dim custDisplay As String
+    If Trim(customerHint) <> "" Then
+        custDisplay = "[KEEP SPACE " & UCase(Trim(customerHint)) & "]"
+    Else
+        custDisplay = "[KEEP SPACE]"
+    End If
+
+    ' Write row per schema (20 cols):
+    ' 1=BKG_No, 2=Carrier, 3=Customer, 4=POL, 5=POD, 6=Final_Dest,
+    ' 7=Container, 8=Qty, 9=ETD, 10=ETA, 11=SI_CutOff, 12=CY_Close,
+    ' 13=Vessel, 14=Voyage, 15=PO_Number, 16=Status, 17=Link_AJ_Row,
+    ' 18=Date_Booked, 19=Source_Mail_ID, 20=Notes
+    wsPool.Cells(nextRow, 1).Value = bkg
+    wsPool.Cells(nextRow, 2).Value = carrier
+    wsPool.Cells(nextRow, 3).Value = custDisplay
+    wsPool.Cells(nextRow, 4).Value = pol
+    wsPool.Cells(nextRow, 5).Value = pod
+    wsPool.Cells(nextRow, 7).Value = contType
+    wsPool.Cells(nextRow, 8).Value = qty
+    wsPool.Cells(nextRow, 9).Value = etd
+    wsPool.Cells(nextRow, 16).Value = "HOLDING"
+    wsPool.Cells(nextRow, 18).Value = Now
+    wsPool.Cells(nextRow, 18).NumberFormat = "dd/mm/yyyy hh:mm"
+    wsPool.Cells(nextRow, 20).Value = "Manual entry"
+
+    ' Highlight HOLDING rows in light yellow for visual distinction
+    wsPool.Rows(nextRow).Interior.Color = RGB(255, 255, 204)
+
+    MsgBox "Added to Booking Pool row " & nextRow & ChrW(10) & _
+           custDisplay & ChrW(10) & _
+           carrier & " | " & pol & "-" & pod & " | " & contType & " x" & qty & ChrW(10) & _
+           "ETD: " & etd, _
+           vbInformation, "New Keep Space — Added"
+    Exit Sub
+ErrHandler:
+    MsgBox "Error: " & Err.Description, vbCritical, "Btn_NewKeepSpace_OnAction"
+End Sub
+
+
+' ── Btn_SyncPool_OnAction ────────────────────────────────────
+' Delegates to sync-pool-flush.py via Shell. Python handles
+' JSON parsing, dedup, and sheet writes (simpler + testable
+' than VBA string parsing). VBA reads result file and reports.
+Public Sub Btn_SyncPool_OnAction(control As IRibbonControl)
+    On Error GoTo ErrHandler
+
+    ' Locate Python executable
+    Dim pyExe As String
+    pyExe = "C:\Users\Nelson\anaconda3\pythonw.exe"
+
+    ' Locate script — resolve relative to workbook path
+    Dim scriptPath As String
+    scriptPath = ThisWorkbook.Path & "\..\..\scripts\sync-pool-flush.py"
+
+    ' Normalize path (remove ..\ segments via FileSystemObject)
+    Dim fso As Object
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    If Not fso.FileExists(pyExe) Then
+        MsgBox "Python not found at:" & ChrW(10) & pyExe & ChrW(10) & ChrW(10) & _
+               "Update pyExe path in Btn_SyncPool_OnAction.", _
+               vbExclamation, "Sync Pool — Python Missing"
+        Exit Sub
+    End If
+
+    Dim absScript As String
+    On Error Resume Next
+    absScript = fso.GetAbsolutePathName(scriptPath)
+    On Error GoTo ErrHandler
+
+    If Not fso.FileExists(absScript) Then
+        MsgBox "Sync script not found:" & ChrW(10) & absScript, _
+               vbExclamation, "Sync Pool — Script Missing"
+        Exit Sub
+    End If
+
+    ' Result file written by sync-pool-flush.py
+    Dim resultFile As String
+    resultFile = fso.GetParentFolderName(absScript)
+    resultFile = resultFile & "\..\email_engine\data\pool_sync_result.txt"
+    On Error Resume Next
+    resultFile = fso.GetAbsolutePathName(resultFile)
+    On Error GoTo ErrHandler
+
+    ' Delete old result so we can detect when new one is written
+    On Error Resume Next
+    If fso.FileExists(resultFile) Then fso.DeleteFile resultFile
+    On Error GoTo ErrHandler
+
+    ' Shell: run in normal focus so Nelson can see progress in console
+    Dim cmd As String
+    cmd = """" & pyExe & """ """ & absScript & """"
+    Shell cmd, vbNormalFocus
+
+    ' Wait up to 30 seconds for result file
+    Dim t As Double: t = Timer
+    Do While Not fso.FileExists(resultFile)
+        DoEvents
+        If Timer - t > 30 Then
+            MsgBox "Sync timed out (30s). Check console window for errors.", _
+                   vbExclamation, "Sync Pool"
+            Exit Sub
+        End If
+    Loop
+
+    ' Read result
+    Dim ts As Object: Set ts = fso.OpenTextFile(resultFile, 1, False, -2)
+    Dim resultMsg As String: resultMsg = ts.ReadAll
+    ts.Close
+
+    MsgBox resultMsg, vbInformation, "Sync Pool — Done"
+    Exit Sub
+ErrHandler:
+    MsgBox "Error: " & Err.Description, vbCritical, "Btn_SyncPool_OnAction"
+End Sub
+
+
+' ── Btn_MarkExpired_OnAction ────────────────────────────────
+' Scan Booking Pool: if Status=HOLDING AND Date_Booked > 30
+' days ago → set Status=EXPIRED, clear row highlight.
+Public Sub Btn_MarkExpired_OnAction(control As IRibbonControl)
+    On Error GoTo ErrHandler
+    Dim wsPool As Worksheet
+    On Error Resume Next
+    Set wsPool = ThisWorkbook.Sheets("Booking Pool")
+    On Error GoTo ErrHandler
+    If wsPool Is Nothing Then
+        MsgBox "Sheet 'Booking Pool' not found!", vbExclamation, "Mark Expired"
+        Exit Sub
+    End If
+
+    Dim expiredCount As Long: expiredCount = 0
+    Dim skippedCount As Long: skippedCount = 0
+    Dim cutoff As Date: cutoff = Now - 30  ' 30 days ago
+
+    Dim lastRow As Long
+    lastRow = wsPool.Cells(wsPool.Rows.Count, 1).End(xlUp).Row
+    If lastRow < 2 Then
+        MsgBox "Booking Pool is empty.", vbInformation, "Mark Expired"
+        Exit Sub
+    End If
+
+    Dim r As Long
+    For r = 2 To lastRow
+        Dim status As String
+        status = UCase(Trim(CStr(wsPool.Cells(r, 16).Value)))
+        If status = "HOLDING" Then
+            Dim dateBooked As Date
+            On Error Resume Next
+            dateBooked = CDate(wsPool.Cells(r, 18).Value)
+            If Err.Number <> 0 Then
+                skippedCount = skippedCount + 1
+                Err.Clear
+                On Error GoTo ErrHandler
+            Else
+                On Error GoTo ErrHandler
+                If dateBooked < cutoff Then
+                    wsPool.Cells(r, 16).Value = "EXPIRED"
+                    wsPool.Cells(r, 16).Interior.Color = RGB(220, 220, 220)
+                    wsPool.Cells(r, 16).Font.Color = RGB(128, 128, 128)
+                    ' Clear row yellow highlight
+                    wsPool.Rows(r).Interior.ColorIndex = xlNone
+                    wsPool.Cells(r, 16).Interior.Color = RGB(220, 220, 220)
+                    expiredCount = expiredCount + 1
+                End If
+            End If
+        End If
+    Next r
+
+    Dim msg As String
+    msg = "Mark Expired complete." & ChrW(10) & ChrW(10) & _
+          "Expired: " & expiredCount & " row(s)" & ChrW(10) & _
+          "Skipped (bad date): " & skippedCount & " row(s)"
+    MsgBox msg, vbInformation, "Mark Expired"
+    Exit Sub
+ErrHandler:
+    MsgBox "Error: " & Err.Description, vbCritical, "Btn_MarkExpired_OnAction"
+End Sub

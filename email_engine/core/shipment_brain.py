@@ -26,6 +26,19 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
+# ─── Phase 2: Booking Pool imports (soft — scanner must not crash if absent) ──
+try:
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).parent.parent.parent / "Pricing_Engine"))
+    from booking_parser import parse_booking_subject, parse_booking_body, detect_booking_mail
+    from booking_pool_writer import append_booking_event
+    _BOOKING_PARSER_OK = True
+except Exception as _booking_import_err:
+    _BOOKING_PARSER_OK = False
+    logging.getLogger(__name__).warning(
+        "booking_parser unavailable: %s", _booking_import_err
+    )
+
 import win32com.client
 import yaml
 import httpx           # For Telegram API
@@ -33,8 +46,20 @@ import httpx           # For Telegram API
 # ─── Paths ────────────────────────────────────────────────────────────────────
 BASE_DIR        = Path(__file__).parent
 PROJECT_ROOT = BASE_DIR.parent
-PATTERNS_FILE   = PROJECT_ROOT / "data" / "shipment_patterns.yaml"
-CUSTOMER_FILE   = PROJECT_ROOT / "data" / "customer_rules.json"
+
+# Config files live on OneDrive (master data). Resolve via shared.paths.
+# Fallback to local if shared.paths unavailable (keeps module importable in tests).
+try:
+    import sys as _sys
+    _sys.path.insert(0, str(PROJECT_ROOT.parent))
+    from shared.paths import SHIPMENT_PATTERNS as _SP, CUSTOMER_RULES as _CR
+    PATTERNS_FILE = _SP
+    CUSTOMER_FILE = _CR
+except Exception:
+    PATTERNS_FILE = PROJECT_ROOT / "data" / "shipment_patterns.yaml"
+    CUSTOMER_FILE = PROJECT_ROOT / "data" / "customer_rules.json"
+
+# State file stays local (runtime, not synced cross-machine).
 STATE_FILE      = PROJECT_ROOT / "data" / "shipment_state.json"
 ORG_RULES_FILE  = BASE_DIR / "org_rules.json"
 LOG_FILE        = BASE_DIR / "shipment_brain.log"
@@ -205,6 +230,15 @@ _STAGE_PRECEDENCE = {
     "DELAY_NOTICE":        -1,
     "CHANGE_VESSEL":       -2,
 }
+
+
+# ─── Phase 2: Keep Space subject detector ─────────────────────────────────────
+_KEEP_SPACE_SUBJ_RE = re.compile(r'^\s*\[KEEP\s+SPACE', re.I)
+
+
+def _is_keep_space_subject(subj: str) -> bool:
+    """Return True if subject starts with '[KEEP SPACE' marker."""
+    return bool(_KEEP_SPACE_SUBJ_RE.match(subj or ""))
 
 
 def extract_identifiers(text: str) -> dict[str, list[str]]:
@@ -525,6 +559,73 @@ def scan_and_update(ns, state: dict, customers: dict) -> dict:
             sender    = get_sender_smtp(item)
             body_prev = (item.Body or "")[:400]
             full_text = f"{subject} {body_prev}"
+
+            # ── Phase 2: Booking Pool detection ───────────────────────────
+            # Runs BEFORE stage detection so booking events are always captured
+            # even for mails that carry no standard lifecycle keywords.
+            if _BOOKING_PARSER_OK:
+                try:
+                    _bk_subj = subject
+
+                    # (A) Direct booking: subject has BKG number + route
+                    if detect_booking_mail(_bk_subj):
+                        _parsed = parse_booking_subject(_bk_subj)
+                        # Pull SI/CY from full body for richer record
+                        _body_full = getattr(item, "Body", "") or ""
+                        _body_parsed = parse_booking_body(_body_full)
+                        _parsed.update(_body_parsed)
+
+                        _bk_sender = ""
+                        try:
+                            _bk_sender = item.SenderEmailAddress or ""
+                        except Exception:
+                            pass
+
+                        append_booking_event(
+                            event_type="booking_received",
+                            booking_data=_parsed,
+                            mail_id=getattr(item, "EntryID", ""),
+                            sender=_bk_sender,
+                            received=getattr(item, "ReceivedTime", None),
+                        )
+
+                    # (B) Keep Space request: "[KEEP SPACE ...]" subject, no BKG yet
+                    elif _is_keep_space_subject(_bk_subj):
+                        _parsed = parse_booking_subject(_bk_subj)
+                        _parsed["bkg_no"] = ""  # no BKG assigned yet
+
+                        _bk_sender = ""
+                        try:
+                            _bk_sender = item.SenderEmailAddress or ""
+                        except Exception:
+                            pass
+
+                        append_booking_event(
+                            event_type="keep_space_request",
+                            booking_data=_parsed,
+                            mail_id=getattr(item, "EntryID", ""),
+                            sender=_bk_sender,
+                            received=getattr(item, "ReceivedTime", None),
+                        )
+
+                    # (C) SI request template — "Pls kindly send your SI and VGM"
+                    _body_lo = (getattr(item, "Body", "") or "").lower()
+                    if "kindly send your si" in _body_lo:
+                        _parsed_si = parse_booking_subject(_bk_subj)
+                        if _parsed_si.get("bkg_no"):
+                            _body_full_si = getattr(item, "Body", "") or ""
+                            _body_parsed_si = parse_booking_body(_body_full_si)
+                            append_booking_event(
+                                event_type="si_request_48h",
+                                booking_data={**_parsed_si, **_body_parsed_si},
+                                mail_id=getattr(item, "EntryID", ""),
+                                sender=getattr(item, "SenderEmailAddress", ""),
+                                received=getattr(item, "ReceivedTime", None),
+                            )
+
+                except Exception as _bk_err:
+                    log.debug("Booking Pool hook error (non-fatal): %s", _bk_err)
+            # ── End Booking Pool detection ─────────────────────────────────
 
             # Extract identifiers
             ids   = extract_identifiers(full_text)
