@@ -386,6 +386,38 @@ def count_events(
     return int(row["n"] or 0)
 
 
+def query_events(
+    days: int = 7,
+    limit: int = 100,
+    types: list | None = None,
+) -> list[dict[str, Any]]:
+    """Query email_events for dashboard alerts feed.
+
+    Args:
+        days: Look-back window in calendar days.
+        limit: Max rows to return (sorted newest first).
+        types: Filter event_type list. Default: BOUNCE, REPLY, AUTO_REPLY, UNSUBSCRIBE.
+    """
+    if types is None:
+        types = ["BOUNCE", "REPLY", "AUTO_REPLY", "UNSUBSCRIBE"]
+    cutoff = (datetime.utcnow() - timedelta(days=int(days))).strftime("%Y-%m-%d %H:%M:%S")
+    placeholders = ",".join("?" * len(types))
+    sql = f"""
+        SELECT id, cnee_email, event_type, timestamp,
+               subject, reply_subject, reply_body_snippet,
+               sentiment, intent, bounce_type, bounce_reason
+        FROM email_events
+        WHERE timestamp >= ?
+          AND event_type IN ({placeholders})
+        ORDER BY timestamp DESC
+        LIMIT ?
+    """
+    with _DB_LOCK:
+        with _connect() as conn:
+            rows = conn.execute(sql, [cutoff, *types, int(limit)]).fetchall()
+    return [dict(r) for r in rows]
+
+
 def recent_events(event_type: str, limit: int = 50) -> list[dict[str, Any]]:
     """Recent feed of one event type — useful for scanner UI / GoClaw queue."""
     with _connect() as conn:

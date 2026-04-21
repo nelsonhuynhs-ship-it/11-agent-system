@@ -365,6 +365,18 @@ input,select{font-family:inherit}
             <button class="btn btn-xs" id="btnKillClear" style="display:none;background:#2d6a4f;color:#fff;margin-left:4px;">DISARM</button>
           </span>
         </div>
+        <div class="batch-row"><span class="batch-label">Cooldown</span>
+          <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <input type="number" id="qsCooldownDays" value="14" min="0" max="90" style="width:52px;border-bottom:1px solid var(--line);padding:4px 6px;font-size:12px;background:transparent;outline:none"> days
+            <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+              <input type="checkbox" id="qsSkipCooldown"> bỏ qua cooldown
+            </label>
+          </span>
+        </div>
+        <div class="batch-row" id="qsSuppressionRow" style="display:none">
+          <span class="batch-label">Skipped</span>
+          <span class="batch-value" id="qsSuppressedInfo" style="color:var(--muted)">—</span>
+        </div>
         <div class="cooldown-warn" id="cooldownWarn"></div>
         <div class="batch-list" id="batchList"></div>
       </div>
@@ -502,7 +514,10 @@ input,select{font-family:inherit}
         <button class="btn btn-xs ib-type-btn btn-ghost" data-ib-type="auto">🤖 Auto</button>
       </div>
       <button class="btn btn-sm" id="btnInboxReload">Refresh</button>
-      <button class="btn btn-sm btn-accent" id="btnScanBounce">🧹 Quét bounce ngay</button>
+      <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;margin:0 6px;color:var(--ink-2)">
+        <input type="checkbox" id="chkForceRescan" style="margin:0"> Force re-scan
+      </label>
+      <button class="btn btn-sm btn-accent" id="btnScanBounce" title="Quét Inbox + Junk theo range đang chọn (24h/7d/30d)">🧹 Quét bounce ngay</button>
     </div>
   </header>
   <div class="kpi-row">
@@ -1060,6 +1075,25 @@ input,select{font-family:inherit}
       ARM/DISARM controls — A1 will implement
     </div>
   </div>
+
+  <!-- Suppression List section (Phase B 2026-04-21) -->
+  <section class="section" id="settingsSuppression" style="margin-top:32px;margin-bottom:32px">
+    <div class="section-head">
+      <div>
+        <div class="section-title">Suppression List <span class="count-chip" id="supCount">—</span></div>
+        <div class="section-sub">Emails tự động bị loại khỏi Quick Send do bounce hoặc unsubscribe</div>
+      </div>
+      <button class="btn btn-sm" onclick="loadSuppression()">Refresh</button>
+    </div>
+    <table class="tbl">
+      <thead>
+        <tr><th>Email</th><th>Company</th><th>Status</th><th>Last Bounce</th><th>Action</th></tr>
+      </thead>
+      <tbody id="supTableBody">
+        <tr><td colspan="5" class="empty-state">Click Refresh to load suppression list</td></tr>
+      </tbody>
+    </table>
+  </section>
 </section>
 
 </main>
@@ -1383,7 +1417,18 @@ async function loadCampaigns(){
   sel.innerHTML = list.map(c => `<option value="${c.name}">${c.name} (${c.count.toLocaleString()})</option>`).join('');
   const top = list.find(c => c.name !== 'ALL') || list[0];
   if (top) sel.value = top.name;
-  document.getElementById('navBadgeSend').textContent = (list.find(c=>c.name==='ALL')?.count || 0).toLocaleString();
+  const all = list.find(c=>c.name==='ALL') || {};
+  const active = all.count || 0;
+  const suppressed = all.suppressed || 0;
+  // Badge: "22,226" active (or "22,226 / -4" if suppressed > 0)
+  const badge = document.getElementById('navBadgeSend');
+  if (suppressed > 0) {
+    badge.textContent = active.toLocaleString();
+    badge.title = `${active.toLocaleString()} active · ${suppressed.toLocaleString()} suppressed (bounce/unsub)`;
+  } else {
+    badge.textContent = active.toLocaleString();
+    badge.title = '';
+  }
 }
 
 async function loadArbOrigins(){
@@ -1664,9 +1709,17 @@ async function enqueueBatches(){
   const markup = +document.getElementById('inpMarkup').value || 20;
   const subjectPolicy = (document.getElementById('inpSubjectPolicy') || {}).value || 'random';
   const subjectOverride = (document.getElementById('inpSubjectFixed') || {}).value || '';
+  const cooldownDays = parseInt((document.getElementById('qsCooldownDays')||{}).value || 14);
+  const skipCooldown = !!(document.getElementById('qsSkipCooldown')||{}).checked;
   const k = Math.ceil(emails.length / sz);
   const base = 'B'+Date.now();
   toast(`Queuing ${emails.length} email vào ${k} batch...`, 'info', 3000);
+  // Reset suppression display
+  const supRow = document.getElementById('qsSuppressionRow');
+  if (supRow) supRow.style.display = 'none';
+  let totalSuppressed = 0, totalQueued = 0;
+  const suppressBreakdown = {COOLDOWN:0, HARD_BOUNCE:0, UNSUBSCRIBED:0, SOFT_BOUNCE:0};
+  let lastCooldownDays = cooldownDays;
   for (let i=0; i<k; i++){
     const start = i*sz, end = Math.min(start+sz, emails.length);
     const chunk = emails.slice(start, end);
@@ -1682,16 +1735,40 @@ async function enqueueBatches(){
           pol, destinations: dest, markup,
           dry_run: Store.dryRun, test_mode: Store.testMode,
           subject_policy: subjectPolicy, subject_override: subjectOverride,
+          cooldown_days: cooldownDays, skip_cooldown: skipCooldown,
         }),
       });
       if (statusEl){
         statusEl.textContent = Store.dryRun ? `dry ${r.would_queue||0}` : `queued ${r.queued||chunk.length}`;
         statusEl.classList.add('sent');
       }
+      // Aggregate suppression stats across batches
+      if (r.suppression_stats) {
+        const s = r.suppression_stats;
+        totalSuppressed += (s.suppressed_total || 0);
+        totalQueued += (r.queued || 0);
+        lastCooldownDays = s.cooldown_days || cooldownDays;
+        const bt = s.by_type || {};
+        Object.keys(suppressBreakdown).forEach(k => {
+          suppressBreakdown[k] += (bt[k] || 0);
+        });
+      } else {
+        totalQueued += (r.queued || chunk.length);
+      }
     } catch(e){
       if (statusEl){ statusEl.textContent = 'failed'; statusEl.classList.add('fail'); }
       toast(`Batch ${i+1} failed: ${e.message}`, 'err', 5000);
     }
+  }
+  // Show suppression summary
+  if (totalSuppressed > 0 && supRow) {
+    const parts = [];
+    if (suppressBreakdown.COOLDOWN) parts.push(`${suppressBreakdown.COOLDOWN} cooldown (≤${lastCooldownDays}d)`);
+    if (suppressBreakdown.HARD_BOUNCE) parts.push(`${suppressBreakdown.HARD_BOUNCE} bounced`);
+    if (suppressBreakdown.UNSUBSCRIBED) parts.push(`${suppressBreakdown.UNSUBSCRIBED} unsub`);
+    document.getElementById('qsSuppressedInfo').textContent = `${totalSuppressed} skipped · ${parts.join(' · ')}`;
+    supRow.style.display = '';
+    toast(`Skipped ${totalSuppressed} · Queued ${totalQueued}`, 'info', 6000);
   }
   toast(`${Store.dryRun?'Dry-run':'Sent'} ${k} batch${k>1?'es':''}` + (Store.testMode?' (TEST mode)':''), 'success', 5000);
 }
@@ -2506,16 +2583,22 @@ function bindInboxControls() {
   // Refresh
   const rb = document.getElementById('btnInboxReload');
   if (rb) rb.onclick = loadInbox;
-  // Scan bounce button
+  // Scan bounce button — uses selected range (IB.scope = 1/7/30 days) + force checkbox
   const sb = document.getElementById('btnScanBounce');
   if (sb) sb.onclick = async () => {
-    sb.disabled = true; sb.textContent = '⏳ Đang quét...';
+    const hours = (IB.scope || 30) * 24;
+    const forceEl = document.getElementById('chkForceRescan');
+    const force = forceEl ? forceEl.checked : false;
+    sb.disabled = true;
+    sb.textContent = `⏳ Đang quét ${IB.scope}d${force ? ' (force)' : ''}...`;
     try {
-      const r = await api('/api/inbox/scan-bounce', { method: 'POST' });
+      const qs = `hours=${hours}&force=${force}`;
+      const r = await api(`/api/inbox/scan-bounce?${qs}`, { method: 'POST' });
       const msg = r.status === 'ok'
-        ? `Quét xong: ${r.scanned} scanned · ${r.bounces_new} bounces · ${r.replies_new} replies (${r.duration_sec}s)`
+        ? `Quét xong ${IB.scope}d: ${r.scanned} scanned · ${r.bounces_new} bounces · ${r.replies_new} replies (${r.duration_sec}s)`
         : `Lỗi: ${r.error || 'unknown'}`;
       toast(msg, r.status === 'ok' ? 'success' : 'err', 6000);
+      if (forceEl) forceEl.checked = false;
       loadInbox();
     } catch(e) { toast('Scan failed: ' + e.message, 'err'); }
     finally { sb.disabled = false; sb.textContent = '🧹 Quét bounce ngay'; }
@@ -2612,6 +2695,54 @@ function bindSettingsControls() {
     catch(e) { toast('Failed: ' + e.message, 'err'); }
   };
   refreshSettingsKill();
+  // Load suppression list when Settings tab opens
+  loadSuppression();
+}
+
+/* ═══════════════ SUPPRESSION LIST (Phase B 2026-04-21) ═══════════════ */
+async function loadSuppression() {
+  const tbody = document.getElementById('supTableBody');
+  const countEl = document.getElementById('supCount');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><span class="spinner"></span> Loading...</td></tr>';
+  try {
+    const r = await api('/api/suppression/list?limit=500');
+    const items = r.suppressed || [];
+    if (countEl) countEl.textContent = r.total || 0;
+    if (items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No suppressed emails</td></tr>';
+      return;
+    }
+    tbody.innerHTML = items.map(s => {
+      const st = s.EMAIL_STATUS || '';
+      const tagCls = st === 'HARD_BOUNCE' ? 'tag-err' : st === 'UNSUBSCRIBED' ? 'tag-warn' : 'tag-warn';
+      return `<tr>
+        <td class="email-cell">${esc(s.EMAIL||'')}</td>
+        <td>${esc(s.COMPANY||'')}</td>
+        <td><span class="tag ${tagCls}">${esc(st)}</span></td>
+        <td class="mono" style="font-size:11px">${(s.LAST_BOUNCE_AT||'').slice(0,16)}</td>
+        <td><button class="btn btn-xs" onclick="unsuppress('${esc(s.EMAIL||'')}')">Unsuppress</button></td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Failed: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+async function unsuppress(email) {
+  if (!email) return;
+  if (!confirm(`Remove suppression for ${email}? Email will be ACTIVE again.`)) return;
+  try {
+    const r = await api(`/api/suppression/unsuppress?email=${encodeURIComponent(email)}`, { method: 'POST' });
+    if (r.ok) {
+      toast(`Unsuppressed: ${email}`, 'success', 4000);
+      loadSuppression();
+    } else {
+      toast('Failed: ' + (r.error || 'unknown error'), 'err');
+    }
+  } catch(e) {
+    toast('Failed: ' + e.message, 'err');
+  }
 }
 
 /* ═══════════════ A1 — OVERDUE SECTION in Priority ═══════════════ */

@@ -193,6 +193,14 @@ def classify(item: Any, patterns: dict | None = None, cnee_emails: set[str] | No
     """
     p = patterns or load_patterns()
 
+    # 0) SHORT-CIRCUIT: Microsoft ReportItem (olReport, Class 46) = ALWAYS NDR
+    # Exchange delivers bounces as ReportItem, not MailItem. Subject always
+    # starts with "Undeliverable:". No sender, no ReceivedTime — so classifier
+    # must recognize by Class alone.
+    msg_class = getattr(item, "Class", None)
+    if msg_class == 46:
+        return "BOUNCE"
+
     sender = _sender(item)
     subject = _safe_str(item, "Subject").lower()
     body = _safe_str(item, "Body")

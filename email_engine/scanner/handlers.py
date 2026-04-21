@@ -260,6 +260,28 @@ def _safe_attr(item: Any, attr: str, default: str = "") -> str:
         return default
 
 
+_OL_FOLDER_DELETED_ITEMS = 3  # olFolderDeletedItems constant
+
+
+def _move_to_deleted(item: Any) -> bool:
+    """Move an Outlook MailItem to Deleted Items folder.
+
+    Returns True on success. Failure is non-fatal — item stays in Inbox
+    but bounce event is already logged. Uses win32com directly to avoid
+    re-using the existing COM connection (may be on a different thread).
+    """
+    try:
+        import win32com.client  # type: ignore
+        outlook = win32com.client.Dispatch("Outlook.Application")
+        ns = outlook.GetNamespace("MAPI")
+        deleted_folder = ns.GetDefaultFolder(_OL_FOLDER_DELETED_ITEMS)
+        item.Move(deleted_folder)
+        return True
+    except Exception as exc:
+        log.warning("Could not move NDR to Deleted Items: %s", exc)
+        return False
+
+
 # -------------------------------------------------------------------
 # Handlers
 # -------------------------------------------------------------------
@@ -310,6 +332,12 @@ def handle_bounce(item: Any, bounced_email: str) -> None:
     except Exception as exc:
         log.warning("handle_bounce vault error: %s", exc)
     # === A1 END ===
+
+    # Phase C: Move NDR mail to Deleted Items (Inbox cleanup)
+    if _move_to_deleted(item):
+        log.info("BOUNCE logged + moved to Deleted: %s (%s)", target, severity)
+    else:
+        log.info("BOUNCE logged (move to Deleted failed, remains in Inbox): %s", target)
 
     tg.send_alert(
         f"<b>Bounce ({severity})</b>\n{target}\n<i>{subject[:140]}</i>"

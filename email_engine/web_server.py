@@ -423,11 +423,28 @@ def get_campaigns():
     # v3 schema (2026-04-18): group by COMMODITY_CATEGORY (18 clean categories)
     # instead of legacy CMD_NAME (48 messy mixed labels). Fallback to CMD_NAME
     # if COMMODITY_CATEGORY column missing (pre-v3 master file).
-    group_col = "COMMODITY_CATEGORY" if "COMMODITY_CATEGORY" in df_contacts.columns else "CMD_NAME"
-    cmds = df_contacts.groupby(group_col).size().reset_index(name="count")
+    #
+    # 2026-04-20: Counts now exclude suppressed emails (HARD_BOUNCE / UNSUBSCRIBED)
+    # so Quick Send sidebar + dropdown reflect ACTIVE recipients only.
+    SUPPRESSED_STATUSES = {'HARD_BOUNCE', 'UNSUBSCRIBED'}
+    total_all = int(len(df_contacts))
+    if 'EMAIL_STATUS' in df_contacts.columns:
+        mask_active = ~df_contacts['EMAIL_STATUS'].astype(str).isin(SUPPRESSED_STATUSES)
+        df_active = df_contacts[mask_active]
+    else:
+        df_active = df_contacts
+    suppressed_count = total_all - len(df_active)
+
+    group_col = "COMMODITY_CATEGORY" if "COMMODITY_CATEGORY" in df_active.columns else "CMD_NAME"
+    cmds = df_active.groupby(group_col).size().reset_index(name="count")
     cmds = cmds.sort_values("count", ascending=False)
     result = [{"name": r[group_col], "count": int(r["count"])} for _, r in cmds.iterrows()]
-    result.insert(0, {"name": "ALL", "count": int(len(df_contacts))})
+    result.insert(0, {
+        "name": "ALL",
+        "count": int(len(df_active)),
+        "total_raw": total_all,
+        "suppressed": int(suppressed_count),
+    })
     return result
 
 def _good_email(e: str) -> bool:
@@ -1411,8 +1428,8 @@ def v4_followup_queue():
 _ALERTS_CSV = BASE_DIR / "logs" / "followup_alerts.csv"
 
 
-def _read_alerts_csv(limit: int = 50, days: int = 7) -> list[dict]:
-    """Read followup_alerts.csv, return last N rows within last `days`.
+def _read_alerts_csv_legacy(limit: int = 50, days: int = 7) -> list[dict]:
+    """Read followup_alerts.csv (legacy). Returns rows within last `days`.
 
     CSV columns: scan_date, email, campaign_id, tier, intent, alert_label,
                  days_stale, last_sent
@@ -1453,6 +1470,7 @@ def _read_alerts_csv(limit: int = 50, days: int = 7) -> list[dict]:
                     "tier": row.get("tier") or "",
                     "campaign_id": row.get("campaign_id") or "",
                     "days_stale": row.get("days_stale") or "",
+                    "source": "legacy_csv",
                 })
         # Newest first
         out.sort(key=lambda a: a.get("time") or "", reverse=True)
@@ -1462,20 +1480,75 @@ def _read_alerts_csv(limit: int = 50, days: int = 7) -> list[dict]:
         return []
 
 
+def _read_unified_alerts(limit: int = 100, days: int = 7) -> list[dict]:
+    """Merge alerts from intel/events.db (new scanner) + legacy followup_alerts.csv.
+
+    Deduplicates by (email, type, hour-bucket). Sorted newest first.
+    Falls back to CSV-only if intel DB unavailable.
+    """
+    results: list[dict] = []
+
+    # Source 1: intel/events.db (scanner NEW — writes BOUNCE/REPLY/AUTO_REPLY)
+    try:
+        from email_engine.intel.memory import query_events as _query_events
+        for ev in _query_events(days=days, limit=limit, types=["BOUNCE", "REPLY", "AUTO_REPLY", "UNSUBSCRIBE"]):
+            et = (ev.get("event_type") or "").lower()
+            results.append({
+                "type": et,
+                "time": ev.get("timestamp") or "",
+                "from": ev.get("cnee_email") or "",
+                "sender": ev.get("cnee_email") or "",
+                "subject": ev.get("subject") or ev.get("reply_subject") or "",
+                "snippet": (ev.get("reply_body_snippet") or "")[:200],
+                "bounce_type": ev.get("bounce_type") or "",
+                "sentiment": ev.get("sentiment") or "",
+                "intent": ev.get("intent") or "",
+                "source": "intel_db",
+            })
+    except Exception as e:
+        log.warning(f"intel/events.db read failed: {e}")
+
+    # Source 2: legacy CSV (followup alerts from old scanner)
+    try:
+        for a in _read_alerts_csv_legacy(limit=limit, days=days):
+            results.append(a)
+    except Exception as e:
+        log.warning(f"legacy csv read failed: {e}")
+
+    # Dedup by composite key: (email, type, hour-bucket of timestamp)
+    seen: set = set()
+    deduped: list[dict] = []
+    for a in results:
+        key = (
+            (a.get("from") or "").lower().strip(),
+            (a.get("type") or "").lower(),
+            (a.get("time") or "")[:13],  # YYYY-MM-DDTHH hour granularity
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(a)
+
+    deduped.sort(key=lambda a: a.get("time") or "", reverse=True)
+    return deduped[:int(limit)]
+
+
 @app.get("/api/email-events/alerts")
 def v4_alerts(limit: int = 50, days: int = 7):
-    return {"alerts": _read_alerts_csv(limit=limit, days=days)}
+    return {"alerts": _read_unified_alerts(limit=limit, days=days)}
 
 
 @app.get("/api/email-events/alerts/count")
 def v4_alerts_count(days: int = 7):
     """Cheap count endpoint — dashboard polls this every 60s to detect new alerts."""
-    alerts = _read_alerts_csv(limit=1000, days=days)
+    alerts = _read_unified_alerts(limit=1000, days=days)
     return {
         "total": len(alerts),
-        "replies": sum(1 for a in alerts if a["type"] == "reply"),
-        "bounces": sum(1 for a in alerts if a["type"] == "bounce"),
-        "followups": sum(1 for a in alerts if a["type"].startswith("followup")),
+        "replies": sum(1 for a in alerts if a.get("type") == "reply"),
+        "bounces": sum(1 for a in alerts if a.get("type") == "bounce"),
+        "auto_replies": sum(1 for a in alerts if a.get("type") == "auto_reply"),
+        "unsubscribes": sum(1 for a in alerts if a.get("type") == "unsubscribe"),
+        "followups": sum(1 for a in alerts if (a.get("type") or "").startswith("followup")),
     }
 
 
@@ -1658,6 +1731,11 @@ class BatchEnqueueRequest(BaseModel):
     # single-CNEE drafts (A3) that bypass the rate-table builder. Text input
     # is wrapped in <p> tags; HTML is passed through as-is.
     body_override: str = ""
+    # Suppression + cooldown controls (Phase B 2026-04-21)
+    # cooldown_days: skip emails sent within last N days (0 = disable cooldown)
+    # skip_cooldown: if True, bypass cooldown check (still blocks HARD_BOUNCE/UNSUB)
+    cooldown_days: int = 14
+    skip_cooldown: bool = False
 
 
 def _row_to_profile(row: dict) -> dict:
@@ -1711,6 +1789,24 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
             400,
             f"Batch size {len(req.cnee_emails)} exceeds 500 — add ?confirm=yes to proceed",
         )
+
+    # Suppression + Cooldown filter (Phase B) — run before building emails
+    # Skip suppression in test_mode (Nelson testing own address shouldn't be blocked)
+    _suppression_stats: dict = {}
+    if not req.test_mode:
+        _filtered_emails, _suppression_stats = _filter_suppressed(
+            req.cnee_emails,
+            cooldown_days=int(req.cooldown_days),
+            skip_cooldown=bool(req.skip_cooldown),
+        )
+        if _suppression_stats.get("suppressed_total", 0) > 0:
+            log.info(
+                f"[suppression] {_suppression_stats['suppressed_total']} skipped "
+                f"(HARD_BOUNCE={_suppression_stats['by_type'].get('HARD_BOUNCE', 0)}, "
+                f"UNSUBSCRIBED={_suppression_stats['by_type'].get('UNSUBSCRIBED', 0)}, "
+                f"COOLDOWN={_suppression_stats['by_type'].get('COOLDOWN', 0)})"
+            )
+        req = req.model_copy(update={"cnee_emails": _filtered_emails})
 
     # Load CNEE master v2 (cached — see _get_cnee_df)
     master_rows: dict[str, dict] = {}
@@ -1872,6 +1968,7 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
             "dry_run": True,
             "would_queue": len(emails_out),
             "skipped": skipped,
+            "suppression_stats": _suppression_stats or {},
             "preview": emails_out[:3],  # tiny preview so UI can eyeball
         }
 
@@ -1884,9 +1981,10 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
     return {
         "batch_id": req.batch_id,
         "queued": queued,
-        "requested": len(req.cnee_emails),
+        "requested": _suppression_stats.get("total_input", len(req.cnee_emails)) if _suppression_stats else len(req.cnee_emails),
         "built": len(emails_out),
         "skipped": skipped,
+        "suppression_stats": _suppression_stats or {},
     }
 
 
@@ -2662,15 +2760,171 @@ def data_health_v2():
         return {"error": str(e), "total": 0}
 
 
+# ── Suppression + Cooldown (Phase B 2026-04-21) ───────────────────────────────
+
+_DEFAULT_COOLDOWN_DAYS = 14
+_SUPPRESSION_STATUSES = {"HARD_BOUNCE", "UNSUBSCRIBED"}
+_LOG_FILE_PATH = BASE_DIR / "logs" / "email_log.csv"
+
+
+def _load_recent_sends(cooldown_days: int) -> set:
+    """Return set of lowercase emails sent within last cooldown_days from email_log.csv.
+
+    email_log.csv columns: timestamp, email, subject, campaign_id, status, ...
+    Handles mixed timestamp formats: 'dd/MM/yyyy HH:mm' and 'yyyy-MM-dd HH:mm:ss'.
+    """
+    if cooldown_days <= 0 or not _LOG_FILE_PATH.exists():
+        return set()
+    try:
+        df_log = pd.read_csv(
+            _LOG_FILE_PATH, usecols=["email", "timestamp"],
+            low_memory=False, on_bad_lines="skip",
+        )
+        df_log["timestamp"] = pd.to_datetime(
+            df_log["timestamp"], errors="coerce", dayfirst=True
+        )
+        cutoff = datetime.now() - timedelta(days=int(cooldown_days))
+        recent = df_log[df_log["timestamp"] >= cutoff]["email"]
+        return set(recent.dropna().str.lower().str.strip().tolist())
+    except Exception as e:
+        log.warning(f"_load_recent_sends failed: {e}")
+        return set()
+
+
+def _filter_suppressed(
+    cnee_emails: list,
+    cooldown_days: int = _DEFAULT_COOLDOWN_DAYS,
+    skip_cooldown: bool = False,
+) -> tuple:
+    """Split cnee_emails into (allowed_list, stats_dict).
+
+    Filters in order:
+    1. Permanent suppression: EMAIL_STATUS in HARD_BOUNCE / UNSUBSCRIBED
+    2. Cooldown: email sent within cooldown_days (from email_log.csv)
+
+    Returns (allowed, stats) where stats = {total_input, allowed,
+    suppressed_total, by_type, cooldown_days, cooldown_sample}.
+    """
+    # Build status lookup from CNEE master
+    status_lookup: dict = {}
+    try:
+        df_cnee = _get_cnee_df()
+        if df_cnee is not None and "EMAIL" in df_cnee.columns:
+            _df = df_cnee.copy()
+            if "EMAIL_STATUS" not in _df.columns:
+                _df["EMAIL_STATUS"] = "ACTIVE"
+            _df["_el"] = _df["EMAIL"].astype(str).str.lower().str.strip()
+            _df["EMAIL_STATUS"] = _df["EMAIL_STATUS"].fillna("ACTIVE")
+            status_lookup = dict(zip(_df["_el"], _df["EMAIL_STATUS"]))
+    except Exception as e:
+        log.warning(f"_filter_suppressed: status lookup failed: {e}")
+
+    recent_set: set = set() if skip_cooldown else _load_recent_sends(cooldown_days)
+
+    allowed: list = []
+    by_type: dict = {"HARD_BOUNCE": 0, "UNSUBSCRIBED": 0, "SOFT_BOUNCE": 0, "COOLDOWN": 0}
+    cooldown_sample: list = []
+
+    for email in cnee_emails:
+        e = (email or "").lower().strip()
+        if not e:
+            continue
+        status = status_lookup.get(e, "ACTIVE")
+        if status in _SUPPRESSION_STATUSES:
+            by_type[status] = by_type.get(status, 0) + 1
+            continue
+        if e in recent_set:
+            by_type["COOLDOWN"] += 1
+            if len(cooldown_sample) < 5:
+                cooldown_sample.append(e)
+            continue
+        allowed.append(email)
+
+    return allowed, {
+        "total_input": len(cnee_emails),
+        "allowed": len(allowed),
+        "suppressed_total": sum(by_type.values()),
+        "by_type": by_type,
+        "cooldown_days": cooldown_days,
+        "cooldown_sample": cooldown_sample,
+        "skip_cooldown": skip_cooldown,
+    }
+
+
+@app.get("/api/suppression/list")
+def suppression_list(limit: int = 500):
+    """Return emails suppressed due to HARD_BOUNCE or UNSUBSCRIBED status."""
+    try:
+        df_cnee = _get_cnee_df()
+        if df_cnee is None:
+            return {"suppressed": [], "total": 0, "error": "cnee_master not loaded"}
+        df_cnee = df_cnee.copy()
+        if "EMAIL_STATUS" not in df_cnee.columns:
+            return {"suppressed": [], "total": 0}
+        mask = df_cnee["EMAIL_STATUS"].isin(["HARD_BOUNCE", "SOFT_BOUNCE", "UNSUBSCRIBED"])
+        sup_df = df_cnee[mask].copy()
+        # Pick available columns
+        cols_want = ["EMAIL", "COMPANY", "EMAIL_STATUS", "LAST_BOUNCE_AT", "LAST_BOUNCE_SEVERITY"]
+        cols_have = [c for c in cols_want if c in sup_df.columns]
+        sup_df = sup_df[cols_have].fillna("")
+        records = sup_df.to_dict("records")
+        return {"suppressed": records[:int(limit)], "total": len(records)}
+    except Exception as e:
+        log.warning(f"suppression_list failed: {e}")
+        return {"suppressed": [], "total": 0, "error": str(e)}
+
+
+@app.post("/api/suppression/unsuppress")
+def suppression_unsuppress(email: str):
+    """Manually clear EMAIL_STATUS for one email back to ACTIVE."""
+    if not email:
+        raise HTTPException(400, "email required")
+    # Write to the live OneDrive file (same as _get_cnee_df uses)
+    cnee_src = CNEE_V2 if CNEE_V2.exists() else None
+    if cnee_src is None:
+        raise HTTPException(503, "cnee_master file not found")
+    try:
+        df_cnee = pd.read_excel(cnee_src)
+        df_cnee.columns = df_cnee.columns.str.strip().str.upper()
+        if "EMAIL_STATUS" not in df_cnee.columns:
+            raise HTTPException(400, "EMAIL_STATUS column not in master")
+        mask = df_cnee["EMAIL"].astype(str).str.lower().str.strip() == email.lower().strip()
+        updated = int(mask.sum())
+        if updated == 0:
+            return {"ok": False, "error": f"Email not found: {email}"}
+        df_cnee.loc[mask, "EMAIL_STATUS"] = "ACTIVE"
+        df_cnee.to_excel(cnee_src, index=False)
+        # Invalidate cache so next request reloads
+        _CNEE_CACHE["mtime"] = 0.0
+        log.info(f"unsuppress: {email} → ACTIVE (updated {updated} rows)")
+        return {"ok": True, "updated": updated}
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.warning(f"unsuppress failed: {e}")
+        raise HTTPException(500, str(e))
+
+
 # ── Bounce scan trigger ───────────────────────────────────────────────────────
 @app.post("/api/inbox/scan-bounce")
-def scan_bounce_now(background_tasks: BackgroundTasks):
-    """Trigger an immediate inbox scan for bounces and replies.
+def scan_bounce_now(
+    background_tasks: BackgroundTasks,
+    hours: int = 24,
+    force: bool = False,
+):
+    """Trigger an immediate inbox+junk scan for bounces and replies.
 
-    Calls inbox_scanner.run_scan() synchronously (via background task with
-    timeout). Returns {scanned, bounces_new, replies_new, duration_sec}.
+    Query params:
+        hours: Window in hours (1-720). Default 24. UI passes 24/168/720 based on range.
+        force: If true, re-scan items already tagged Nelson-Scanned. Default false.
+
+    Calls inbox_scanner.run_scan(hours, force). Scans both Inbox + Junk folders.
+    Returns {status, scanned, bounces_new, replies_new, duration_sec}.
     """
     import time as _time
+
+    # Clamp hours to [1, 8760] = max 365 days (allow full-archive force rescan)
+    hours = max(1, min(int(hours or 24), 8760))
 
     result_holder: dict = {}
 
@@ -2682,13 +2936,18 @@ def scan_bounce_now(background_tasks: BackgroundTasks):
             if str(_scan_path) not in _sys.path:
                 _sys.path.insert(0, str(_scan_path))
             from email_engine.scanner.inbox_scanner import run_scan  # type: ignore
-            counters = run_scan()
+            counters = run_scan(hours=hours, force=force)
             elapsed = round(_time.time() - t0, 2)
             result_holder.update({
                 "status": "ok",
+                "hours": hours,
+                "force": force,
                 "scanned": counters.get("scanned", 0),
                 "bounces_new": counters.get("bounces", 0),
                 "replies_new": counters.get("real_replies", 0),
+                "auto_replies": counters.get("auto_replies", 0),
+                "irrelevant": counters.get("irrelevant", 0),
+                "errors": counters.get("errors", 0),
                 "duration_sec": elapsed,
             })
         except Exception as exc:

@@ -9,20 +9,25 @@
 #   5. otherwise                                                        -> IRRELEVANT
 
 scan:
-  # Minutes of inbox history to walk each cycle. run_scan window = scan.window_minutes.
+  # Minutes of inbox history to walk each cycle. Scheduler default = 35.
+  # Manual trigger via /api/inbox/scan-bounce can override with `hours` param (UI 24h/7d/30d).
   window_minutes: 35
-  # Hard cap per cycle (safety against runaway).
-  max_items: 200
+  # Hard cap per cycle (safety against runaway). Raised to 500 to cover 30d manual scans.
+  max_items: 500
   # Categories tag applied to processed items so we don't double-scan.
   processed_category: "Nelson-Scanned"
+  # Outlook folder IDs to scan. 6=Inbox, 23=Junk Email (Outlook auto-moves many NDRs here).
+  folders:
+    - 6
+    - 23
 
 bounce:
+  # Strict: only real postmaster domains. Removed "noreply@" / "no-reply@" — caused
+  # false positives (LinkedIn, customer replies from noreply addresses).
   postmaster_patterns:
     - "postmaster@"
     - "mailer-daemon@"
     - "MAILER-DAEMON@"
-    - "noreply@"
-    - "no-reply@"
   subject_patterns:
     - "delivery status notification"
     - "undelivered mail"
