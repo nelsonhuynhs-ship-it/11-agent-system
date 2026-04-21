@@ -1,6 +1,6 @@
 # Nelson Freight — SYSTEM STANDARDS
 
-**Last updated:** 2026-04-17
+**Last updated:** 2026-04-20
 **Status:** 🔒 **SINGLE SOURCE OF TRUTH.** Tất cả chuẩn vận hành hệ thống ở đây. Mọi thay đổi code PHẢI check file này trước. Không tạo file chuẩn khác ở folder khác.
 
 **Cách dùng:**
@@ -68,7 +68,19 @@ G=CARRIER  H=Bkg_No  I=HBL_NO  J=CONT  K=QTY  L=SERVICE  M=ETD
 N=STATUS  O=TRACKING  P=SELL  Q=COST  R=PROFIT  S=EMAIL
 T=Routing  U=ETA  V=ATA  W=Contract_Type  X=Profit_Margin
 Y=Customer_Type  Z=SI_Received  AA=CY_Cutoff  AB=Door_Delivery
+AC=Door_Status  AD=Delay_Count  AE=Delay_Log  AF=Notes
+AG=Created_Date  AH=Last_Updated  AI=Cost_Breakdown
+AJ=TRACKING_STAGE  AK=RELEASE_EMAIL_SENT  AL=RELEASE_CONFIRMED
+AM=PRICE_WATCH_STATUS  AN=PRICE_WATCH_DELTA
+
+[ADDED 2026-04-20 — Milestone Notify cols, added at END]:
+AO=ATD_DATE     (date DD/MM/YYYY — filled by VBA Sync Milestones button from milestone_state.jsonl)
+AP=ETA_DATE     (date DD/MM/YYYY — Nelson fills manually or from ETA update mails)
+AQ=NOTIFIED_ATD  (Y/N dropdown — Y after cnee_milestone drafted ATD email)
+AR=NOTIFIED_ETA7 (Y/N dropdown — Y after cnee_milestone drafted ETA-7 email)
 ```
+
+**RULE 3.4 (Milestone cols)** — ATD_DATE/ETA_DATE/NOTIFIED_* được scan bởi cnee_milestone.py via `email_engine/data/milestone_state.jsonl` sidecar (append-only). Scanner KHÔNG bao giờ write trực tiếp vào xlsm (race condition risk). VBA "Sync Milestones" button đọc sidecar + write vào 4 cols này khi Nelson click.
 
 **RULE 3.1 — Col Q "COST" cell comment format (bắt buộc):**
 ```
@@ -103,6 +115,17 @@ Cost Breakdown (USD):
 **RULE 3.2** — Col W "Contract_Type" là SOC/COC (container ownership), KHÔNG PHẢI contract number. Contract number → append vào comment Col Q.
 
 **RULE 3.3** — Lookup auto-populate Col Q breakdown: Python tra Parquet theo `(Carrier, POL, POD, Place, Container_Type, Rate_Type, Eff, Exp)` → build comment string.
+
+### CRM Sheet Schema (row 1 headers, relevant cols for Milestone Notify)
+
+| Col | Name | Notes |
+|-----|------|-------|
+| B | Customer_Name | Must match Active Jobs CUSTOMER exactly for lookup |
+| H | Contact1_Email | Primary CNEE email (supports semicolon list) |
+| K | Contact2_Email | Secondary CNEE email (fallback) |
+| AP | AUTO_NOTIFY | **Y/N dropdown (added 2026-04-20)** — set Y to enable auto CNEE drafts |
+
+**RULE 3.5 (CRM AUTO_NOTIFY)** — Chỉ tạo draft khi CRM.AUTO_NOTIFY = "Y" cho customer đó. Default = "N". Nelson opt-in manually per customer.
 
 ---
 
@@ -178,8 +201,9 @@ ThisWorkbook.Close SaveChanges:=False
 
 | Task Name | Trigger | Exec | Purpose |
 |-----------|---------|------|---------|
-| `NelsonUnifiedScanner` | ??? | `outlook_scanner.py` | Scan Outlook inbox cho replies |
+| `NelsonUnifiedScanner` | Every 30 min | `outlook_scanner.py` | Scan Outlook inbox cho replies |
 | `ForecastRetrainCheck` | ??? | `check-retrain.bat` ⚠ **broken path** | ML model retrain check |
+| `NelsonCNEEMilestoneETA7` | Daily 08:00 | `python -m email_engine.core.cnee_milestone eta-reminder` | Check Active Jobs ETA 1-8 days out, compose CNEE arrival notice draft. Register via: `scripts/register-eta-reminder-task.ps1` |
 
 **RULE 7.1** — Task registry đầy đủ phải ở file này. Task mới = thêm row.
 
@@ -218,6 +242,20 @@ Shortcut ở `C:/Users/Nelson/OneDrive/Desktop/`:
 **RULE 9.3** — Test script sinh ra trong development (e.g. PowerShell test scripts) = xoá cuối task. Chỉ giữ lại nếu có giá trị reusable → move sang `scripts/` với tên chính thức.
 
 **RULE 9.4** — `.agent/`, `claudekit-skills/`, `sessions/` folder (nếu có) = do tooling tạo, không commit.
+
+**RULE 9.5 — ERP Backup Rotation**
+- Script: `scripts/erp-backup-rotation.py`
+- Target dir: `D:/OneDrive/NelsonData/erp/`
+- Patterns handled: `ERP_Master_v14.backup_YYYYMMDD_HHMMSS.xlsm`, `ERP_Master_v14_BACKUP_YYYYMMDD_HHMM.xlsm`, `ERP_Master_v14_backup_YYYYMMDD_HHMMSS.xlsm`
+- Default: keep newest 5, delete older. `migration_test.xlsm` deleted if >7 days old.
+- NEVER deletes: `ERP_Master_v14.xlsm` (live) or `~$ERP_Master_v14.xlsm` (lock)
+- Usage: `python scripts/erp-backup-rotation.py [--dry-run] [--keep N]`
+- Schedule: Weekly via Windows Task Scheduler
+  ```
+  Program:   C:\Users\Nelson\anaconda3\python.exe
+  Arguments: "D:\NELSON\2. Areas\Engine_test\scripts\erp-backup-rotation.py" --keep 5
+  Trigger:   Weekly, Sunday 09:00
+  ```
 
 **Auto-detect:** `python scripts/validate-system.py` check section 9 → list file vi phạm.
 
