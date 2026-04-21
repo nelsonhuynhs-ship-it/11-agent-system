@@ -1862,6 +1862,25 @@ Public Sub OnAction_MarkQuoteWin(control As IRibbonControl)
     Dim place As String:    place = CStr(wsQ.Cells(r, 7).Value)
     Dim source As String:   source = CStr(wsQ.Cells(r, 11).Value)
 
+    ' Step 3c: Read Contract / Group Rate / Group Code from Pricing hidden cols
+    ' Phase 4 — hidden cols 15 (Contract), 16 (Group Rate), 17 (Group Code / ONE only)
+    ' written by refresh-v14.py after Phase 3. m_SourceRow is set when user clicks
+    ' the Pricing Dry/Reefer row via LoadRowToRibbon.
+    Dim contractNo As String: contractNo = ""
+    Dim groupRate As String:  groupRate = ""
+    Dim groupCode As String:  groupCode = ""
+    If m_SourceRow > 0 Then
+        Dim wsPricing As Worksheet
+        On Error Resume Next
+        Set wsPricing = ERPv14Core.GetActivePricingSheet()
+        On Error GoTo ErrHandler
+        If Not wsPricing Is Nothing Then
+            contractNo = Trim(CStr(wsPricing.Cells(m_SourceRow, 15).Value))  ' Contract
+            groupRate  = Trim(CStr(wsPricing.Cells(m_SourceRow, 16).Value))  ' Group Rate
+            groupCode  = Trim(CStr(wsPricing.Cells(m_SourceRow, 17).Value))  ' Group Code (ONE only)
+        End If
+    End If
+
     Dim buyRate As Double: buyRate = 0
     Dim sellRate As Double: sellRate = 0
     If IsNumeric(wsQ.Cells(r, buyCol).Value) Then buyRate = CDbl(wsQ.Cells(r, buyCol).Value)
@@ -1871,24 +1890,35 @@ Public Sub OnAction_MarkQuoteWin(control As IRibbonControl)
         Exit Sub
     End If
 
-    ' Step 3b: Lookup CRM_ID
-    Dim crmID As String: crmID = ""
+    ' Step 3b: Lookup CRM → resolve customer input to canonical NAME
+    ' 2026-04-21 FIX (Nelson): Active Jobs CUSTOMER col was displaying CODE
+    ' (e.g. "CS001296") instead of NAME (e.g. "PANDA HCM"). Fix: always
+    ' resolve to col 2 (NAME). Match by EITHER col 1 (CODE) or col 2 (NAME)
+    ' so users can type either — canonical output is always the NAME.
+    Dim crmID As String: crmID = customer        ' default: keep original input
     Dim custType As String: custType = ""
     On Error Resume Next
     Dim wsCRM As Worksheet
     Set wsCRM = ERPv14Core.FindSheet("CRM")
     If Not wsCRM Is Nothing Then
         Dim cr As Long
-        For cr = 2 To wsCRM.Cells(wsCRM.Rows.Count, 2).End(xlUp).Row
-            If UCase(Trim(CStr(wsCRM.Cells(cr, 2).Value))) = UCase(Trim(customer)) Then
-                crmID = CStr(wsCRM.Cells(cr, 1).Value)
+        Dim uCust As String: uCust = UCase(Trim(customer))
+        Dim lastCrmRow As Long
+        lastCrmRow = wsCRM.Cells(wsCRM.Rows.Count, 2).End(xlUp).Row
+        For cr = 2 To lastCrmRow
+            Dim crmCode As String: crmCode = UCase(Trim(CStr(wsCRM.Cells(cr, 1).Value)))
+            Dim crmNm As String:   crmNm = UCase(Trim(CStr(wsCRM.Cells(cr, 2).Value)))
+            If crmCode = uCust Or crmNm = uCust Then
+                ' Always return canonical NAME (col 2), never the code
+                crmID = CStr(wsCRM.Cells(cr, 2).Value)
                 custType = CStr(wsCRM.Cells(cr, 3).Value)
                 Exit For
             End If
         Next cr
     End If
     On Error GoTo ErrHandler
-    If crmID = "" Then crmID = customer
+    ' crmID now holds NAME (e.g. "PANDA HCM") — kept variable name for
+    ' backward compat with downstream error/log lines 2168, 2260.
 
     ' Step 4: Ask Qty
     Dim qtyInput As String
@@ -1976,7 +2006,10 @@ Public Sub OnAction_MarkQuoteWin(control As IRibbonControl)
     Else
         wsJ.Cells(nr, AJ_ROUTING).Value = pol & "-" & pod
     End If
-    wsJ.Cells(nr, AJ_CONTRACT).Value = source
+    ' Phase 4: store real contract number instead of source (rate type).
+    ' contractNo is read from Pricing hidden col 15 via m_SourceRow.
+    ' Fall back to source if contractNo is empty (e.g. old Pricing rows without hidden cols).
+    wsJ.Cells(nr, AJ_CONTRACT).Value = IIf(contractNo <> "", contractNo, source)
     wsJ.Cells(nr, AJ_MARGIN).Value = margin
     wsJ.Cells(nr, AJ_MARGIN).NumberFormat = "0.0%"
     wsJ.Cells(nr, AJ_TRACKING_RAW).Value = "1/7 BKG"                 ' raw for shipment_tracker
@@ -2095,7 +2128,7 @@ SkipCharge:
     End If
     On Error GoTo ErrHandler
 
-    ' --- Build S/C line ---
+    ' --- Build tooltip header (Phase 4 format) ---
     Dim scLine As String
     Dim isFAK As Boolean: isFAK = InStr(UCase(source), "FAK") > 0
     Dim isFIX As Boolean: isFIX = InStr(UCase(source), "FIX") > 0
@@ -2108,8 +2141,18 @@ SkipCharge:
     Else
         contractLabel = "FAK"
     End If
-    scLine = "S/C: " & source & " | " & carrier & " " & contractLabel
-    If isSOC Then scLine = scLine & " SOC"
+    ' Phase 4: new tooltip header format:
+    '   Rate Type: FAK (SOC)
+    '   Contract: 25-4402
+    '   Group: FAK PSW SOC
+    '   Group Code: 990146     <- only ONE + non-empty groupCode
+    Dim socSuffix As String: socSuffix = IIf(isSOC, " (SOC)", "")
+    scLine = "Rate Type: " & contractLabel & socSuffix & Chr(10) & _
+             "Contract: " & IIf(contractNo <> "", contractNo, source) & Chr(10) & _
+             "Group: " & groupRate
+    If UCase(carrier) = "ONE" And groupCode <> "" Then
+        scLine = scLine & Chr(10) & "Group Code: " & groupCode
+    End If
 
     ' --- Assemble full breakdown (v13 layout) ---
     If charges <> "" Then
@@ -2163,9 +2206,12 @@ SkipCharge:
     wsJ.Cells(nr, AJ_BUY).Comment.Shape.Width = 350
 
     ' v4 — mailto: hyperlink for EMAIL col 19
+    ' Phase 4: pass contractNo (real contract #) instead of source (rate type).
+    ' groupRate + groupCode are Optional params added in Phase 4c.
     Call ERPv14JobsAutomation.ApplyBookingMailto( _
         wsJ.Cells(nr, AJ_EMAIL), _
-        crmID, pol, pod, place, carrier, contType, qty, source)
+        crmID, pol, pod, place, carrier, contType, qty, contractNo, _
+        groupRate, groupCode)
     On Error GoTo ErrHandler
 
     ' Feature 5 — Commission + Insurance prompts (BEFORE confirm MsgBox).

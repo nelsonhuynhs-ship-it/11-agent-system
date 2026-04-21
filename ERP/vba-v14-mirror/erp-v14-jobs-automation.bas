@@ -25,6 +25,16 @@ Option Explicit
 Private Const PY_HOME As String = "C:\Users\Nelson\anaconda3\python.exe"
 Private Const PY_ALT As String = "C:\Users\ADMIN\anaconda3\python.exe"
 
+' ── Canonical ERP xlsm path (2026-04-21 Refresh All URL bug fix) ────────────
+' Used when ThisWorkbook.FullName returns a SharePoint/OneDrive URL
+' (happens when Excel opens file from Teams chat, Outlook attachment, or
+' Office 365 web app). start "" "URL" would open browser → OneDrive Web,
+' not local Excel — so refresh pipeline silently broke.
+Private Const CANONICAL_ERP_PATH As String = "D:\OneDrive\NelsonData\erp\ERP_Master_v14.xlsm"
+' Separate log file because bootstrap.bat TRUNCATES refresh_all_log.txt
+' on each run (line 37: `echo ... > "%LOGF%"`), wiping click history.
+Private Const REFRESH_CLICK_LOG As String = "D:\OneDrive\NelsonData\erp\refresh_click_log.txt"
+
 ' ── Month combo state (2026-04-21) ──────────────────────────────────────────
 ' MUST be declared here at top-of-module (gotcha #11: no declarations after
 ' first Sub/Function). No leading underscore (gotcha #12).
@@ -576,45 +586,92 @@ End Sub
 '  Nelson's request: 1 button instead of Desktop shortcut + Refresh Rates
 ' ============================================================
 Public Sub OnAction_RefreshAll(control As IRibbonControl)
-    ' 2026-04-17 FIX (Nelson): previous implementation called
-    ' `ThisWorkbook.Close` then `wsh.Run("cmd /c chain.bat", 0, True)`.
-    ' Excel aborts VBA execution when the host workbook closes itself,
-    ' so `wsh.Run` never fired — chain bat never ran, log stayed stale,
-    ' ribbon "Last refresh" label never updated. User bấm nút, file
-    ' "saved" (from ThisWorkbook.Save), but Python pipeline was silent.
+    ' 2026-04-17 FIX: launch bootstrap BEFORE closing workbook (Excel aborts
+    ' VBA when host wb closes; Shell/wsh.Run child gets killed with Excel job).
     '
-    ' New flow:
-    '   1. Launch async bootstrap bat BEFORE closing workbook.
-    '   2. Bootstrap polls for xlsm file unlock, then runs chain,
-    '      then reopens Excel (`start "" xlsm`).
-    '   3. VBA just saves + closes; no post-close code needed.
+    ' 2026-04-21 FIX (URL bug): ThisWorkbook.FullName returns https:// URL
+    ' when file opened from Teams/Outlook/O365 web. Bootstrap bat's `start ""
+    ' "%XLSM%"` then opens browser → OneDrive Web, not local Excel. Pipeline
+    ' silently breaks. Now detect URL → redirect to CANONICAL_ERP_PATH +
+    ' warn user. Log every click to refresh_all_log.txt for debugging.
     On Error GoTo ErrHandler
 
     Dim fso As Object: Set fso = CreateObject("Scripting.FileSystemObject")
 
+    ' ── URL vs local path detection ────────────────────────────────────────
+    Dim rawPath As String: rawPath = ThisWorkbook.FullName
+    Dim isUrl As Boolean
+    isUrl = (InStr(LCase(rawPath), "://") > 0)
+
+    Dim fullPath As String
+    Dim clickStatus As String
+
+    If isUrl Then
+        ' File opened from OneDrive Web / Teams / Outlook cloud link.
+        ' Refuse to proceed with URL — cannot lock/reopen xlsm via URL.
+        If Not fso.FileExists(CANONICAL_ERP_PATH) Then
+            LogRefreshClick rawPath, "URL_BLOCKED_NO_LOCAL", CANONICAL_ERP_PATH
+            MsgBox "File dang mo tu OneDrive Web/Teams." & vbCrLf & vbCrLf & _
+                   "Refresh All chi hoat dong khi file mo tu LOCAL." & vbCrLf & vbCrLf & _
+                   "Cach lam:" & vbCrLf & _
+                   "  1. Dong file nay (ban Web)" & vbCrLf & _
+                   "  2. Mo File Explorer" & vbCrLf & _
+                   "  3. Di toi: " & CANONICAL_ERP_PATH & vbCrLf & _
+                   "  4. Double-click file de mo local" & vbCrLf & _
+                   "  5. Bam Refresh All lai" & vbCrLf & vbCrLf & _
+                   "HOAC dung shortcut 'ERP Master v14' tren Desktop.", _
+                   vbExclamation + vbOKOnly, "Refresh All — File mo sai cach"
+            Exit Sub
+        End If
+
+        ' Canonical file exists — ask user to confirm close/reopen
+        If MsgBox("File dang mo tu OneDrive Web/Teams." & vbCrLf & vbCrLf & _
+                  "He thong se:" & vbCrLf & _
+                  "  1. Dong ban Web hien tai" & vbCrLf & _
+                  "  2. Mo ban local: " & CANONICAL_ERP_PATH & vbCrLf & _
+                  "  3. Chay refresh pipeline" & vbCrLf & _
+                  "  4. Mo lai Excel" & vbCrLf & vbCrLf & _
+                  "Tiep tuc?", vbYesNo + vbQuestion, "Refresh All — Redirect Local") = vbNo Then
+            LogRefreshClick rawPath, "URL_USER_CANCELLED", CANONICAL_ERP_PATH
+            Exit Sub
+        End If
+
+        fullPath = CANONICAL_ERP_PATH
+        clickStatus = "URL_REDIRECTED"
+    Else
+        fullPath = rawPath
+        clickStatus = "LOCAL_OK"
+    End If
+
+    ' ── Find bootstrap script ─────────────────────────────────────────────
     Dim bootstrapBat As String: bootstrapBat = FindScript("scripts\refresh-all-bootstrap.bat")
     If bootstrapBat = "" Then
+        LogRefreshClick rawPath, "BOOTSTRAP_NOT_FOUND", fullPath
         MsgBox "scripts\refresh-all-bootstrap.bat not found — check Engine_test repo path.", _
                vbExclamation, "Refresh All"
         Exit Sub
     End If
 
-    If MsgBox("Refresh All — full pipeline:" & vbCrLf & vbCrLf & _
-              "  1. Scan Outlook + import pending rate files (~30-60s)" & vbCrLf & _
-              "  2. Rebuild parquet (if new files)" & vbCrLf & _
-              "  3. Pull into Pricing Dry/Reefer + RateVersions" & vbCrLf & vbCrLf & _
-              "File will close, refresh runs in background, then Excel reopens. Continue?", _
-              vbYesNo + vbQuestion, "Refresh All") = vbNo Then Exit Sub
+    ' Skip confirm dialog if already confirmed URL redirect above
+    If Not isUrl Then
+        If MsgBox("Refresh All — full pipeline:" & vbCrLf & vbCrLf & _
+                  "  1. Scan Outlook + import pending rate files (~30-60s)" & vbCrLf & _
+                  "  2. Rebuild parquet (if new files)" & vbCrLf & _
+                  "  3. Pull into Pricing Dry/Reefer + RateVersions" & vbCrLf & vbCrLf & _
+                  "File will close, refresh runs in background, then Excel reopens. Continue?", _
+                  vbYesNo + vbQuestion, "Refresh All") = vbNo Then
+            LogRefreshClick rawPath, "USER_CANCELLED_CONFIRM", fullPath
+            Exit Sub
+        End If
+    End If
 
-    Dim fullPath As String: fullPath = ThisWorkbook.FullName
+    ' ── Log that we're about to spawn bootstrap ───────────────────────────
+    LogRefreshClick rawPath, clickStatus & "_SPAWNING", fullPath
+
     Dim folder As String: folder = Left(fullPath, InStrRev(fullPath, "\"))
     Dim logFile As String: logFile = folder & "refresh_all_log.txt"
 
-    ' Launch bootstrap via WMI Win32_Process.Create — this creates the
-    ' process OUTSIDE Excel's Job Object, so it survives when Excel exits.
-    ' VBA Shell() and wsh.Run() both put the child in Excel's job, which
-    ' gets killed when Excel terminates (tested 2026-04-17: bootstrap never
-    ' ran because Excel job cleanup killed it mid-poll).
+    ' Launch bootstrap via WMI Win32_Process.Create (outside Excel job object).
     Dim bootCmd As String
     bootCmd = "cmd /c """"" & bootstrapBat & """ """ & fullPath & """ """ & logFile & """"""
     Dim wmi As Object
@@ -623,24 +680,41 @@ Public Sub OnAction_RefreshAll(control As IRibbonControl)
     Dim rcCreate As Long
     rcCreate = wmi.Create(bootCmd, Null, Null, procId)
     If rcCreate <> 0 Then
+        LogRefreshClick rawPath, "WMI_FAIL_RC" & rcCreate, fullPath
         Application.Visible = True
         MsgBox "Could not launch refresh bootstrap (WMI rc=" & rcCreate & ")." & vbCrLf & _
                "Check anti-virus / group policy for WMI access.", vbCritical, "Refresh All"
         Exit Sub
     End If
 
+    LogRefreshClick rawPath, "WMI_SPAWNED_PID" & procId, fullPath
+
     ' Now save and close — bootstrap is already running and waiting.
     Application.StatusBar = "Refresh All: closing workbook (refresh runs in background)..."
     Application.DisplayAlerts = False
     ThisWorkbook.Save
     ThisWorkbook.Close SaveChanges:=False
-    ' VBA terminates here; bootstrap takes over and reopens Excel when done.
     Exit Sub
 
 ErrHandler:
+    LogRefreshClick rawPath, "ERROR_" & Err.Number, Err.Description
     Application.DisplayAlerts = True
     Application.StatusBar = False
     MsgBox "Refresh All error: " & Err.Description, vbCritical, "Refresh All"
+End Sub
+
+' ============================================================
+'  Click logger for Refresh All (2026-04-21)
+'  Appends 1 line per click to refresh_all_log.txt — regardless of
+'  success/fail. Helps debug why Nelson sometimes sees no refresh.
+' ============================================================
+Private Sub LogRefreshClick(rawPath As String, status As String, finalPath As String)
+    On Error Resume Next
+    Dim ff As Integer: ff = FreeFile
+    Open REFRESH_CLICK_LOG For Append As #ff
+    Print #ff, Format(Now, "yyyy-mm-dd hh:nn:ss") & " | CLICK | " & status & _
+               " | raw=" & rawPath & " | final=" & finalPath
+    Close #ff
 End Sub
 
 ' ============================================================
@@ -1201,7 +1275,9 @@ End Sub
 Public Sub ApplyBookingMailto(targetCell As Range, _
                                 customer As String, pol As String, pod As String, _
                                 place As String, carrier As String, contType As String, _
-                                qty As Long, contract As String)
+                                qty As Long, contract As String, _
+                                Optional ByVal groupRate As String = "", _
+                                Optional ByVal groupCode As String = "")
     On Error Resume Next
     Dim pol_full As String, gw As String, mt_pickup As String, full_return As String
     Select Case UCase(pol)
@@ -1240,7 +1316,16 @@ Public Sub ApplyBookingMailto(targetCell As Range, _
     body = body & "Please help me release the booking as below info:" & vbCrLf
     body = body & "- Carrier: " & carrierDisp & vbCrLf
     body = body & "- Contract number: " & contract & vbCrLf
-    body = body & "- NAC (if any): Actual NAC" & vbCrLf
+    ' Phase 4: replace static "NAC (if any): Actual NAC" with real groupRate if available.
+    ' Add Group Code line only for ONE carrier with a numeric group code.
+    If groupRate <> "" Then
+        body = body & "- NAC/Group: " & groupRate & vbCrLf
+    Else
+        body = body & "- NAC (if any): Actual NAC" & vbCrLf
+    End If
+    If UCase(carrier) = "ONE" And groupCode <> "" Then
+        body = body & "- Group Code: " & groupCode & vbCrLf
+    End If
     body = body & "- POL: " & pol_full & vbCrLf
     body = body & "- POD: " & pod & vbCrLf
     body = body & "- FND/DEL: " & place & vbCrLf

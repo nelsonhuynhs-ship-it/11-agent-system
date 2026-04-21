@@ -270,9 +270,19 @@ else:
 
 # 2026-04-12: include Rate_Type in id_cols so it survives the pivot.
 # After dedup we rename it to "Source" so col 9 shows FAK/SCFI/FIX.
-id_cols = [c for c in ['POL', 'POD', 'Place', 'Carrier', 'Commodity', 'Eff', 'Exp', 'Note', 'Rate_Type']
+# 2026-04-21 Phase 3: add Contract, Group Rate, Group_Code so they survive
+# the pivot as index columns (metadata — one value per route key).
+id_cols = [c for c in ['POL', 'POD', 'Place', 'Carrier', 'Commodity', 'Eff', 'Exp', 'Note', 'Rate_Type',
+                        'Contract', 'Group Rate', 'Group_Code']
            if c in df_tof.columns]
 rate_col = 'Amount' if 'Amount' in df_tof.columns else 'Rate'
+
+# 2026-04-21 Phase 3: fill NaN in metadata cols so pivot_table (dropna=True default)
+# does not silently drop rows. Non-ONE carriers have no Group_Code; some may have
+# no Contract or Group Rate. Empty string keeps rows alive through pivot.
+for _meta_col in ['Contract', 'Group Rate', 'Group_Code']:
+    if _meta_col in df_tof.columns:
+        df_tof[_meta_col] = df_tof[_meta_col].fillna('')
 
 # 2026-04-13: FIX NO.22 has Eff=NaT for ALL rows. pivot_table(dropna=True)
 # silently drops them. Instead: fill NaT Eff with Exp before pivoting so
@@ -503,19 +513,35 @@ col_map_dry = {
     'POL': 1, 'POD': 2, 'Place': 3, 'Carrier': 4, 'Commodity': 5,
     'Eff': 6, 'Exp': 7, 'Note': 8, 'Source': 9,
     '20GP': 10, '40GP': 11, '40HQ': 12, '45HQ': 13,
-    '40NOR': 14
+    '40NOR': 14,
+    # 2026-04-21 Phase 3: hidden cols — Contract #, Group Rate text, ONE group code
+    'Contract': 15, 'Group Rate': 16, 'Group_Code': 17,
 }
 
 col_map_reefer = {
     'POL': 1, 'POD': 2, 'Place': 3, 'Carrier': 4, 'Commodity': 5,
     'Eff': 6, 'Exp': 7, 'Note': 8, 'Source': 9,
-    '20RF': 10, '40RF': 11
+    '20RF': 10, '40RF': 11,
+    # 2026-04-21 Phase 3: hidden cols — same 3 as Dry
+    'Contract': 15, 'Group Rate': 16, 'Group_Code': 17,
 }
 
 def get_or_create_sheet(book, name):
     if name in book.sheetnames:
         return book[name]
     return book.create_sheet(name)
+
+# 2026-04-21 Phase 3: display names for header row (col_name may differ from
+# what Nelson sees — e.g. 'Group_Code' stored as underscore, header = 'Group Code')
+_HEADER_DISPLAY = {
+    'Group_Code': 'Group Code',
+}
+
+# Cols that are TEXT metadata — skip int(float()) conversion even though col_idx >= 10
+_TEXT_COLS = {'Contract', 'Group Rate', 'Group_Code'}
+
+# Cols 15, 16, 17 — hidden from Nelson's normal view (VBA reads them for tooltip/email)
+_HIDDEN_COL_INDICES = {15, 16, 17}
 
 def write_pricing_sheet(ws, data, view_mode, current_col_map):
     ws.delete_rows(1, ws.max_row)  # Clear entire sheet since we build from scratch
@@ -529,7 +555,7 @@ def write_pricing_sheet(ws, data, view_mode, current_col_map):
     # Write headers at row 1
     for col_name, col_idx in current_col_map.items():
         cell = ws.cell(1, col_idx)
-        cell.value = col_name
+        cell.value = _HEADER_DISPLAY.get(col_name, col_name)
         cell.font = Font(bold=True, name='Segoe UI', size=10, color='FFFFFF')
         cell.fill = PatternFill(start_color="3B82F6", end_color="3B82F6", fill_type="solid")
         cell.alignment = openpyxl.styles.Alignment(horizontal='center', vertical='center')
@@ -548,7 +574,8 @@ def write_pricing_sheet(ws, data, view_mode, current_col_map):
             except (TypeError, ValueError):
                 pass
             cell = ws.cell(r_idx, col_idx)
-            if col_idx >= 10:
+            # 2026-04-21 Phase 3: cols 15/16/17 are text metadata, NOT numeric rates
+            if col_idx >= 10 and col_name not in _TEXT_COLS:
                 try:
                     cell.value = int(float(val))
                     cell.number_format = '#,##0'
@@ -574,12 +601,13 @@ def write_pricing_sheet(ws, data, view_mode, current_col_map):
     # Header row slightly taller for readability
     ws.row_dimensions[1].height = 22
 
-    ws.auto_filter.ref = f"A1:P{max(DATA_START_ROW, DATA_START_ROW + row_count - 1)}"
+    ws.auto_filter.ref = f"A1:Q{max(DATA_START_ROW, DATA_START_ROW + row_count - 1)}"
 
-    # 2026-04-12: Unhide ALL cols 1-16 (covers both Dry 1-14 and Reefer 1-11
-    # ranges plus safety buffer). Fixes: legacy preset module bug that hid
-    # col 10 on Reefer thinking it was 20GP.
-    for c in range(1, 17):
+    # 2026-04-12: Unhide visible cols 1-14 (Dry) / 1-11 (Reefer) + safety buffer to 14.
+    # 2026-04-21 Phase 3: Expanded to 17 then hide cols 15/16/17 explicitly below.
+    # Previously unhid up to col 16, which is now a hidden metadata col. Unhide 1-14
+    # first, then apply hide for 15/16/17 to ensure clean state regardless of prior save.
+    for c in range(1, 15):
         ws.column_dimensions[openpyxl.utils.get_column_letter(c)].hidden = False
 
     # 2026-04-12: Set sane default widths for commonly-narrow cols
@@ -593,10 +621,17 @@ def write_pricing_sheet(ws, data, view_mode, current_col_map):
         7: 8,    # Exp
         8: 18,   # Note
         9: 8,    # Source
-        10: 9, 11: 9, 12: 9, 13: 9, 14: 9, 15: 9, 16: 9,  # prices
+        10: 9, 11: 9, 12: 9, 13: 9, 14: 9,  # price cols (20GP/40GP/40HQ/45HQ/40NOR or 20RF/40RF)
     }
     for c_idx, w in col_widths.items():
         ws.column_dimensions[openpyxl.utils.get_column_letter(c_idx)].width = w
+
+    # 2026-04-21 Phase 3: Hide cols O/P/Q (15/16/17) — Contract, Group Rate, Group Code.
+    # Nelson must NOT see these in normal view; VBA reads them via .Cells(row, 15/16/17).
+    for c_idx in sorted(_HIDDEN_COL_INDICES):
+        letter = openpyxl.utils.get_column_letter(c_idx)
+        ws.column_dimensions[letter].hidden = True
+        ws.column_dimensions[letter].width = 9  # reasonable width when unhidden for audit
 
     return row_count
 

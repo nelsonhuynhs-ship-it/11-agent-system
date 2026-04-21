@@ -33,6 +33,18 @@ except Exception as _e:
     DATA_DIR = os.path.join(BASE_DIR, "data")  # Pricing_Engine/data
     MAPPING_DIR = os.path.join(BASE_DIR, "Mapping")  # Pricing_Engine/Mapping
 HISTORY_DIR = DATA_DIR  # Luôn lưu parquet trong Pricing_Engine/data
+
+# --- Phase 2: ONE group code resolver ---
+_PRICING_ENGINE = os.path.join(BASE_DIR, 'Pricing_Engine')
+if _PRICING_ENGINE not in sys.path:
+    sys.path.insert(0, _PRICING_ENGINE)
+try:
+    from one_group_resolver import resolve_one_group_code as _resolve_one_group_code
+    _ONE_RESOLVER_AVAILABLE = True
+except Exception as _e:
+    print(f"[WARN] one_group_resolver unavailable ({_e}); Group_Code will be empty for ONE rows")
+    _ONE_RESOLVER_AVAILABLE = False
+
 OUTPUT_FILE = os.path.join(HISTORY_DIR, "Cleaned_Master_History.parquet")
 def _find_puc_file():
     """Auto-detect latest PUC file (PUC_SOC.xlsx or PUC {MONTH} {YEAR}.xlsx)."""
@@ -540,8 +552,23 @@ def parse_file_with_mapping(file_path, file_name, mode):
                         'Container_Type': container_type,
                         'Amount': amount,
                         'Source_File': file_name,
-                        'Rate_Type': mode
+                        'Rate_Type': mode,
+                        'Group_Code': '',
                     }
+                    # Phase 2 — ONE group code resolver
+                    if _ONE_RESOLVER_AVAILABLE and str(record.get('Carrier', '')).upper() == 'ONE':
+                        try:
+                            _code, _label = _resolve_one_group_code(
+                                str(record.get('Rate_Type', '')),
+                                str(record.get('Commodity', '')),
+                                str(record.get('Note', '')),
+                                str(record.get('POD', '')),
+                            )
+                            record['Group_Code'] = _code
+                        except Exception as _grp_err:
+                            record['Group_Code'] = ''
+                            log_msg = f"  [WARN] one_group_resolver error on row {row_idx}: {_grp_err}"
+                            print(log_msg)
                     all_records.append(record)
     else:
         # === FALLBACK: Original parsing logic ===
@@ -665,6 +692,12 @@ def master_loader_v2():
         if col in final_df.columns and col not in ["Eff", "Exp"]:
             final_df[col] = final_df[col].astype(str).replace('nan', '')
 
+    # Phase 2 — ensure Group_Code column exists (empty string for non-ONE / fallback rows)
+    if 'Group_Code' not in final_df.columns:
+        final_df['Group_Code'] = ''
+    else:
+        final_df['Group_Code'] = final_df['Group_Code'].fillna('').astype(str).replace('nan', '')
+
     # === APPLY CORRECT PUC TO SOC ROWS (CMA/ONE/YML — 3-case rule) ===
     print("\n[+] Applying PUC_SOC correction to CMA/ONE/YML SOC rows...")
     final_df = apply_puc_soc_correct(final_df, PUC_SOC_FILE)
@@ -691,9 +724,13 @@ def master_loader_v2():
             existing_df = None
     
     if existing_df is not None:
+        # Phase 2 — backfill Group_Code in existing parquet if column missing
+        if 'Group_Code' not in existing_df.columns:
+            existing_df['Group_Code'] = ''
         combined_df = pd.concat([existing_df, final_df], ignore_index=True)
+        combined_df['Group_Code'] = combined_df['Group_Code'].fillna('').astype(str).replace('nan', '')
         print(f"  → Combined: {len(combined_df):,} rows")
-        
+
         # Smart dedup
         combined_df['Rate_Priority'] = combined_df['Rate_Type'].map(RATE_PRIORITY).fillna(99)
         combined_df = combined_df.sort_values(
