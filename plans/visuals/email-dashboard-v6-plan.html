@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Email Dashboard v6 — Master Plan</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#0f172a;color:#e2e8f0;line-height:1.55;padding:24px}
+.wrap{max-width:1280px;margin:0 auto}
+h1{font-size:32px;margin-bottom:8px;background:linear-gradient(90deg,#60a5fa,#a78bfa,#f472b6);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:#94a3b8;margin-bottom:24px}
+.tabs{display:flex;gap:4px;border-bottom:2px solid #1e293b;margin-bottom:24px;flex-wrap:wrap}
+.tab{padding:12px 20px;background:#1e293b;border:none;color:#94a3b8;cursor:pointer;border-radius:8px 8px 0 0;font-size:14px;font-weight:600;transition:all .2s}
+.tab.active{background:#334155;color:#f1f5f9;border-bottom:2px solid #60a5fa}
+.tab:hover{color:#f1f5f9}
+.panel{display:none;animation:fade .3s}
+.panel.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:16px}
+.card h2{color:#60a5fa;margin-bottom:12px;font-size:20px}
+.card h3{color:#a78bfa;margin:16px 0 8px;font-size:16px}
+.card h4{color:#f472b6;margin:12px 0 6px;font-size:14px;text-transform:uppercase;letter-spacing:.5px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin:12px 0}
+.kpi{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:16px}
+.kpi .big{font-size:28px;font-weight:700;color:#34d399}
+.kpi .big.red{color:#f87171}.kpi .big.amber{color:#fbbf24}
+.kpi .label{color:#94a3b8;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+.pipeline{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:16px;margin:12px 0;font-family:Consolas,monospace;font-size:13px;white-space:pre;overflow-x:auto;color:#cbd5e1}
+table{width:100%;border-collapse:collapse;margin:8px 0;font-size:13px}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid #334155}
+th{background:#0f172a;color:#60a5fa;font-weight:600}
+tr:hover td{background:#0f172a}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-right:4px}
+.b-new{background:#065f46;color:#6ee7b7}
+.b-crit{background:#7f1d1d;color:#fca5a5}
+.b-fix{background:#78350f;color:#fcd34d}
+.b-keep{background:#1e3a8a;color:#93c5fd}
+.b-cnee{background:#1e40af;color:#bfdbfe}
+.b-shipper{background:#7c2d12;color:#fed7aa}
+.btn-demo{display:inline-block;padding:8px 14px;background:linear-gradient(90deg,#3b82f6,#8b5cf6);border-radius:6px;color:#fff;font-size:13px;margin:4px 4px 4px 0;font-weight:600;box-shadow:0 2px 8px rgba(59,130,246,.3)}
+.btn-demo.danger{background:linear-gradient(90deg,#ef4444,#f97316)}
+.btn-demo.safe{background:linear-gradient(90deg,#10b981,#059669)}
+.btn-demo.wa{background:linear-gradient(90deg,#25D366,#128C7E)}
+.btn-demo.li{background:linear-gradient(90deg,#0A66C2,#004182)}
+ul{padding-left:20px;margin:8px 0}li{margin:4px 0}
+.warn{background:#78350f;border-left:3px solid #fbbf24;padding:12px 16px;border-radius:6px;margin:12px 0}
+.good{background:#064e3b;border-left:3px solid #34d399;padding:12px 16px;border-radius:6px;margin:12px 0}
+.danger-box{background:#7f1d1d;border-left:3px solid #f87171;padding:12px 16px;border-radius:6px;margin:12px 0}
+.arrow{color:#60a5fa;font-weight:700}
+code{background:#0f172a;padding:2px 6px;border-radius:4px;color:#fbbf24;font-size:12px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:900px){.two-col{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>📧 Email Dashboard v6 — Master Plan</h1>
+<p class="sub">Multi-channel (Email · WhatsApp · LinkedIn) · 2-sheet master (CNEE + SHIPPER tách riêng) · Auto-harvest decision makers</p>
+
+<div class="tabs">
+<button class="tab active" onclick="sw(event,'p1')">1️⃣ Vì sao v6</button>
+<button class="tab" onclick="sw(event,'p2')">2️⃣ Data Migration</button>
+<button class="tab" onclick="sw(event,'p3')">3️⃣ Shipper Blacklist</button>
+<button class="tab" onclick="sw(event,'p4')">4️⃣ UI v6 Tabs</button>
+<button class="tab" onclick="sw(event,'p5')">5️⃣ WhatsApp Meta</button>
+<button class="tab" onclick="sw(event,'p6')">6️⃣ LinkedIn</button>
+<button class="tab" onclick="sw(event,'p7')">7️⃣ Pipeline</button>
+<button class="tab" onclick="sw(event,'p8')">8️⃣ Safety</button>
+<button class="tab" onclick="sw(event,'p9')">9️⃣ Sprint</button>
+</div>
+
+<!-- ============ TAB 1 ============ -->
+<div id="p1" class="panel active">
+<div class="card">
+<h2>🎯 Bức tranh tổng v6</h2>
+<p><b>4 điểm khác biệt vs v5:</b></p>
+<ol>
+<li><b>Data master TÁCH 2 SHEET</b> — CNEE (Mỹ/Canada, gửi tự do) vs SHIPPER (VN, HOLD đến khi blacklist VN team xong)</li>
+<li><b>3 kênh thay vì 1</b> — Email (cũ) + WhatsApp Meta Cloud API (chính gốc Meta, không BSP) + LinkedIn (hybrid Sales Nav + safe automation)</li>
+<li><b>Harvest 2-chiều</b> — bounce scan vừa clean vừa thu lượm decision maker thật từ auto-reply</li>
+<li><b>Typo Shield</b> — chặn 345 email <code>.co</code>/<code>.cm</code> đang gửi im lặng</li>
+</ol>
+</div>
+
+<div class="grid">
+<div class="kpi"><div class="label">Open rate hiện tại</div><div class="big red">3.7%</div></div>
+<div class="kpi"><div class="label">Target v6 Email</div><div class="big">12-15%</div></div>
+<div class="kpi"><div class="label">Target v6 WhatsApp</div><div class="big">70-90% delivery · 15-25% reply</div></div>
+<div class="kpi"><div class="label">Target v6 LinkedIn</div><div class="big">20-40% accept · 10-15% reply</div></div>
+<div class="kpi"><div class="label">CNEE pool</div><div class="big">22K → 25-28K</div></div>
+<div class="kpi"><div class="label">SHIPPER pool (new)</div><div class="big amber">5-8K (HOLD)</div></div>
+</div>
+
+<div class="card">
+<h2>🔴 5 vấn đề v6 giải quyết</h2>
+<ol>
+<li><b>Data rời rạc</b> — 7 file xlsx + 9 panjiva raw → 1 master 2-sheet</li>
+<li><b>Panjiva mất nửa</b> — chỉ lấy Email 1/Phone 1, bỏ Email 2/3, Phone 2/3, Shipper, PoR, Carrier</li>
+<li><b>Trộn CNEE+SHIPPER nguy hiểm</b> — Shipper VN dễ đụng team nội bộ đang làm</li>
+<li><b>Single channel Email</b> — khách không mở = im lặng</li>
+<li><b>Bounce 1-chiều</b> — bỏ qua replacement contact từ auto-reply</li>
+</ol>
+</div>
+</div>
+
+<!-- ============ TAB 2 DATA MIGRATION ============ -->
+<div id="p2" class="panel">
+<div class="card">
+<h2>📦 Data Migration — 2 sheet TÁCH RIÊNG</h2>
+<p>File đích: <code>D:/OneDrive/NelsonData/email/<b>contact_unified_v6.xlsx</b></code></p>
+<div class="two-col">
+<div class="good">
+<b><span class="badge b-cnee">Sheet 1: CNEE</span> — Người nhận Mỹ/Canada</b>
+<ul>
+<li>Pool chính, gửi tự do (qua Quick Send)</li>
+<li>Từ: cnee_master_v2_final + panjiva consignee side</li>
+<li>Est. ~25-28K rows sau dedupe</li>
+<li>Kích hoạt ngay Phase 1</li>
+</ul>
+</div>
+<div class="warn">
+<b><span class="badge b-shipper">Sheet 2: SHIPPER</span> — Shipper VN</b>
+<ul>
+<li>HOLD mặc định — KHÔNG gửi cho đến khi Nelson build xong VN team blacklist</li>
+<li>Từ: shipper_master_final + panjiva shipper side (re-extract)</li>
+<li>Est. ~5-8K rows</li>
+<li>Flag <code>STATUS=HOLD_PENDING_VN_BLACKLIST</code> cho mọi row</li>
+</ul>
+</div>
+</div>
+</div>
+
+<div class="card">
+<h3>Schema chung 2 sheet (35 cột)</h3>
+<div class="pipeline">IDENTITY       : EMAIL (PK) · EMAIL_ALT1 · EMAIL_ALT2 · PHONE · PHONE_ALT1 · PHONE_ALT2 · WHATSAPP · LINKEDIN_URL
+ORG            : COMPANY · PIC · GREETING · POSITION · SIDE (CNEE|SHIPPER fixed per sheet)
+GEO            : COUNTRY · STATE · CITY · TIMEZONE · POL · POD · DESTINATION_REGION
+BUSINESS       : COMMODITY_CATEGORY · HS_CODE_PRIMARY · HS_CODE_SECONDARY · CARRIER · TOTAL_SHIPMENT · AVG_CONT_PER_MONTH
+SCORING        : TIER · PRIORITY_SCORE · EMAIL_QUALITY_SCORE · WA_QUALITY_SCORE · LI_MATCH_SCORE
+OUTREACH       : EMAIL_STATUS · WA_STATUS · LI_STATUS · SEND_COUNT_EMAIL/WA/LI · LAST_SENT_EMAIL/WA/LI
+LIFECYCLE      : REPLY_STATUS · SEQ_STEP · SEQ_STATUS · ACTION · STATE (lead lifecycle)
+META           : SOURCE_FILE · SOURCE_DATE · REPLACEMENT_FOR · DEDUPE_GROUP · NOTES · VN_TEAM_OVERLAP_FLAG (shipper only)</div>
+</div>
+
+<div class="card">
+<h3>Nguồn → phân loại</h3>
+<table>
+<tr><th>File</th><th>Vai trò</th><th>Đích</th><th>Xử lý</th></tr>
+<tr><td>cnee_master_v2_final.xlsx (22,230)</td><td>Master hiện tại</td><td>Sheet CNEE base</td><td><span class="badge b-keep">KEEP</span> giữ priority</td></tr>
+<tr><td>contact_master.xlsx</td><td>Contacts verified</td><td>CNEE enrich</td><td><span class="badge b-fix">MERGE</span></td></tr>
+<tr><td>shipper_master_final.xlsx</td><td>Shipper VN</td><td>Sheet SHIPPER base</td><td><span class="badge b-new">NEW SHEET</span></td></tr>
+<tr><td>replacement_leads.xlsx</td><td>Harvest cũ</td><td>CNEE/SHIPPER theo SIDE</td><td><span class="badge b-fix">MERGE</span></td></tr>
+<tr><td>customer_final.xlsx</td><td>Khách ký HĐ</td><td>CNEE TIER=CUSTOMER</td><td><span class="badge b-crit">PROTECT</span> never bulk</td></tr>
+<tr><td>9× panjiva_raw</td><td>Trade raw</td><td>Split: consignee→CNEE, shipper→SHIPPER</td><td><span class="badge b-new">RE-EXTRACT</span></td></tr>
+<tr><td>cnee_blocked_20260418.xlsx</td><td>Blacklist manual</td><td>Both sheets filter</td><td><span class="badge b-keep">EXCLUDE</span></td></tr>
+</table>
+</div>
+
+<div class="card">
+<h3>Migration workflow <code>scripts/migrate-to-unified-v6.py</code></h3>
+<div class="pipeline">STEP 1  Load cnee_master_v2_final    <span class="arrow">→</span> base Sheet CNEE (22,230 rows)
+STEP 2  LOCK 5 cột priority           <span class="arrow">→</span> EMAIL_STATUS, SEND_COUNT_*, LAST_SENT_*, REPLY_STATUS, TIER
+STEP 3  Load customer_final           <span class="arrow">→</span> CNEE TIER=CUSTOMER (top, never bulk)
+STEP 4  Re-run panjiva_clean v2       <span class="arrow">→</span> extract ALL 15 cols, split consignee↔shipper
+STEP 5  Merge CNEE side               <span class="arrow">→</span> fill blanks only (KHÔNG overwrite priority)
+STEP 6  Build Sheet SHIPPER           <span class="arrow">→</span> all rows flag STATUS=HOLD_PENDING_VN_BLACKLIST
+STEP 7  Merge contact_master          <span class="arrow">→</span> enrich PIC/POSITION
+STEP 8  Merge replacement_leads       <span class="arrow">→</span> REPLACEMENT_FOR metadata
+STEP 9  Dedupe per sheet (by email lower) <span class="arrow">→</span> ưu tiên row có SEND_COUNT>0
+STEP 10 Apply blacklist + typo shield <span class="arrow">→</span> BLOCKED/TYPO_SUSPECT
+STEP 11 STATE → TIMEZONE mapper       <span class="arrow">→</span> cho smart send
+STEP 12 Score TIER + PRIORITY         <span class="arrow">→</span> rule-based
+STEP 13 Validate phone E.164          <span class="arrow">→</span> WHATSAPP col ready
+STEP 14 Backup + save 2-sheet xlsx    <span class="arrow">→</span> + audit log CSV</div>
+</div>
+
+<div class="good">
+<b>✅ Sau migration:</b>
+<ul>
+<li>2 sheet riêng biệt — CNEE gửi được, SHIPPER HOLD</li>
+<li>Priority customers nguyên vẹn (audit trail từng cell)</li>
+<li>POL/STATE/CARRIER fill 5% → 60-70%</li>
+<li>Pool SHIPPER sẵn sàng — chờ anh build blacklist là kích hoạt</li>
+</ul>
+</div>
+</div>
+
+<!-- ============ TAB 3 SHIPPER BLACKLIST ============ -->
+<div id="p3" class="panel">
+<div class="card">
+<h2>🛡 Shipper Blacklist — Không đụng team VN</h2>
+<p>Shipper VN trùng nhiều với team nội bộ đang làm. Cần cơ chế chặn để không chào giá cho khách team đã chăm sóc.</p>
+</div>
+
+<div class="card">
+<h3>File blacklist</h3>
+<code>D:/OneDrive/NelsonData/email/vn_team_overlap.xlsx</code> — 3 sheet:
+<div class="pipeline">Sheet 1: BY_COMPANY
+  | COMPANY_NAME_EXACT | COMPANY_NAME_FUZZY | TEAM_MEMBER | SINCE_DATE | NOTE |
+  (ví dụ: "ABC Wood Co Ltd" — Johnny đang chăm từ 2025-10)
+
+Sheet 2: BY_EMAIL
+  | EMAIL_OR_DOMAIN | TEAM_MEMBER | NOTE |
+  (ví dụ: "@abcwood.com" toàn domain bị block)
+
+Sheet 3: BY_PHONE
+  | PHONE_E164 | TEAM_MEMBER | NOTE |</div>
+</div>
+
+<div class="card">
+<h3>Match logic (3 lớp)</h3>
+<div class="pipeline">Trước mỗi send tới SHIPPER row:
+  ├─ Lớp 1 EXACT     company_name.lower().strip() == blacklist[COMPANY_NAME_EXACT]
+  │                   → nếu match → BLOCK + flag VN_TEAM_OVERLAP_FLAG=Y
+  │
+  ├─ Lớp 2 FUZZY     fuzzy_ratio(company, blacklist[COMPANY_NAME_FUZZY]) > 85
+  │                   → nếu match → HOLD for review (không block hẳn, chờ Nelson confirm)
+  │
+  └─ Lớp 3 EMAIL/PHONE  domain match hoặc phone E.164 match
+                       → BLOCK luôn</div>
+</div>
+
+<div class="card">
+<h3>UI Settings tab — "Shipper Blacklist Builder"</h3>
+<ul>
+<li><span class="btn-demo">📥 Import team list</span> — Nelson upload từ Johnny/Blue/etc</li>
+<li><span class="btn-demo">➕ Add blacklist entry</span> — manual add company/email/phone</li>
+<li><span class="btn-demo">🔍 Scan overlap</span> — run match trên toàn SHIPPER sheet → count bao nhiêu bị overlap</li>
+<li><span class="btn-demo safe">✅ Activate SHIPPER sending</span> — chỉ bật khi blacklist coverage đạt ngưỡng</li>
+<li><span class="btn-demo">📊 Overlap report</span> — xuất xlsx list company nghi trùng</li>
+</ul>
+</div>
+
+<div class="warn">
+<b>Cho đến khi blacklist hoàn chỉnh:</b> toàn bộ Sheet SHIPPER mang flag <code>STATUS=HOLD_PENDING_VN_BLACKLIST</code>. Quick Send + WhatsApp + LinkedIn đều KHÔNG gửi được. Chỉ khi anh bấm <span class="btn-demo safe">✅ Activate SHIPPER</span> thì mới unlock.
+</div>
+</div>
+
+<!-- ============ TAB 4 UI ============ -->
+<div id="p4" class="panel">
+<div class="card">
+<h2>🎨 UI v6 — 8 tabs dashboard</h2>
+</div>
+
+<div class="card">
+<h3>📤 Tab 1: Quick Send <span class="badge b-fix">NÂNG CẤP</span></h3>
+<p>Thêm radio group chọn SIDE <b>bắt buộc</b> trước khi batch:</p>
+<div class="pipeline">┌─ SEND CONFIG ───────────────────────────────────┐
+│ Side:    ( ) CNEE    ( ) SHIPPER                │
+│          └─ CNEE mặc định, SHIPPER disabled nếu │
+│             chưa Activate blacklist              │
+│                                                  │
+│ Channel: ( ) Email   ( ) WhatsApp   ( ) LinkedIn │
+│                                                  │
+│ Pool filter: [TIER: HOT+WARM ▼] [TZ: All ▼]     │
+│ Smart time: [✓] Auto 9am local timezone          │
+│                                                  │
+│ Pool available: 8,240 contacts                   │
+│ After Typo Shield: 8,134 (106 .co suspects held) │
+│ After Cooldown 14d: 5,890                        │
+│                                                  │
+│ [📊 Preview]  [🚀 Start Batch]  [⏸ Pause]       │
+└──────────────────────────────────────────────────┘</div>
+</div>
+
+<div class="card">
+<h3>⭐ Tab 2: Priority <span class="badge b-keep">GIỮ</span></h3>
+<p>Thêm cột WA_STATUS + LI_STATUS + nút kênh trực tiếp mỗi row.</p>
+</div>
+
+<div class="card">
+<h3>📥 Tab 3: Inbox + Harvest <span class="badge b-fix">NÂNG CẤP</span></h3>
+<div class="pipeline">┌─ Auto-Reply Harvest (last 24h) ─────────────────┐
+│ 🔄 From: amagallanes@ewmfg.com                   │
+│    Type: OOO · returns 2026-04-19                │
+│    Found: zzabadne@ewmfg.com (pricing)           │
+│    [✓ Defer send] [➕ Add contact] [Ignore]      │
+│                                                   │
+│ 🚪 From: shannonm.vhf@gmail.com                  │
+│    Type: LEFT_COMPANY                             │
+│    Found: angelahamilton@voguehome.com            │
+│           clarakidd@voguehome.com                 │
+│    [✓ Mark dead + Import 2] [Review each]         │
+└──────────────────────────────────────────────────┘</div>
+</div>
+
+<div class="card">
+<h3>📊 Tab 4: Insights <span class="badge b-keep">GIỮ</span></h3>
+<p>Thêm: Open by TZ · WA delivery · LI accept rate · Harvest yield/tuần.</p>
+</div>
+
+<div class="card">
+<h3>🗂 Tab 5: Contacts <span class="badge b-new">MỚI</span> — 2-sheet browser</h3>
+<p>Toggle đầu tab: <span class="badge b-cnee">CNEE</span> <span class="badge b-shipper">SHIPPER</span></p>
+<ul>
+<li>Filter/sort/edit ngay trong dashboard, không cần mở Excel</li>
+<li><span class="btn-demo">🔄 Refresh master</span> chạy migration + diff preview</li>
+<li><span class="btn-demo">📥 Import Panjiva raw</span> drag-drop → auto split consignee/shipper</li>
+<li><span class="btn-demo safe">✅ Activate SHIPPER</span> (chỉ enable khi blacklist ready)</li>
+<li><span class="btn-demo danger">⏪ Rollback</span> restore backup 1-click</li>
+</ul>
+</div>
+
+<div class="card">
+<h3>📱 Tab 6: WhatsApp <span class="badge b-new">MỚI</span> · <a href="#" onclick="sw2('p5')">xem tab 5</a></h3>
+</div>
+
+<div class="card">
+<h3>💼 Tab 7: LinkedIn <span class="badge b-new">MỚI</span> · <a href="#" onclick="sw2('p6')">xem tab 6</a></h3>
+</div>
+
+<div class="card">
+<h3>⚙ Tab 8: Settings <span class="badge b-fix">NÂNG CẤP</span></h3>
+<ul>
+<li><b>WhatsApp Meta API config</b> — Business Account ID · Phone ID · System User token</li>
+<li><b>LinkedIn integration</b> — Sales Navigator seat · automation tool key</li>
+<li><b>Shipper Blacklist Builder</b> — 5 nút ở Tab 3</li>
+<li><b>Typo Shield</b> — review 345 suspect</li>
+<li><b>Migration audit viewer</b></li>
+</ul>
+</div>
+</div>
+
+<!-- ============ TAB 5 WHATSAPP META ============ -->
+<div id="p5" class="panel">
+<div class="card">
+<h2>📱 WhatsApp Business — Meta Cloud API DIRECT</h2>
+<p><b>Không qua BSP (Twilio/360dialog).</b> Đi thẳng Meta. Free hosting, không phí platform, chỉ trả per message.</p>
+<p><b>Kế hoạch 2 bước:</b> 💚 <b>Tuần 1 SANDBOX FREE</b> (test 5 số, $0) → 💳 <b>Production $20/tháng cap</b> sau khi anh approve.</p>
+</div>
+
+<div class="card" style="border-left:4px solid #10b981">
+<h3>💚 Tuần 1 — SANDBOX FREE (test $0)</h3>
+<div class="pipeline">Meta cấp FREE khi đăng ký:
+  ├─ 1 số test (+1 555 xxx xxxx)
+  ├─ 250 tin/24h miễn phí
+  ├─ Gửi tới tối đa 5 số verified
+  └─ Validator check 22K số → FREE (không tính quota)
+
+5 số test đề xuất:
+  ① Nelson  ② Johnny  ③ Blue/Jennie  ④ Khách quen 1  ⑤ Khách quen 2
+
+Mục tiêu 7 ngày:
+  Day 0-1: setup account + add 5 test numbers
+  Day 2: submit 2 template (en + vi) → Meta approve
+  Day 3-5: test gửi, reply, session 24h, opt-out
+  Day 6: validator quét 22K CNEE → fill WA_STATUS
+  Day 7: review flow → quyết định upgrade</div>
+<b>Chi phí tuần 1: $0</b>
+</div>
+
+<div class="card" style="border-left:4px solid #f59e0b">
+<h3>💳 Sau tuần 1 — PRODUCTION ($20/tháng cap)</h3>
+<div class="pipeline">Upgrade checklist:
+  ├─ Add số DN Pudong Prime thật
+  ├─ Display Name verify (1-3 ngày Meta review)
+  ├─ Nạp $20 credit đầu tiên (thẻ visa)
+  ├─ Dashboard switch SANDBOX → PRODUCTION
+  └─ BUDGET GUARD active: $20/tháng + 20 tin/ngày
+
+Gửi thực tế:
+  ├─ Mix VN+US trung bình $0.030/tin
+  ├─ $20 = ~500-700 tin/tháng = 20-25 tin/ngày
+  ├─ Target: TIER=HOT first (tiết kiệm budget)
+  └─ Auto-pause khi đạt 90% ($18)</div>
+</div>
+
+<div class="card">
+<h3>Setup path (developers.facebook.com)</h3>
+<div class="pipeline">BƯỚC 1  Meta Business Account
+        └─ business.facebook.com → tạo Business Portfolio
+        └─ Verify business (gửi giấy tờ DN Pudong Prime, 2-5 ngày)
+
+BƯỚC 2  Developer App
+        └─ developers.facebook.com → My Apps → Create App
+        └─ Type: Business → attach vào Business Portfolio
+
+BƯỚC 3  Add WhatsApp product
+        └─ App Dashboard → Products → WhatsApp → Set up
+        └─ Auto-tạo test number (gửi free 250 msg/24h sandbox)
+
+BƯỚC 4  Production phone number
+        └─ Add phone number DN (VN mobile OK, phải chưa từng dùng WA Personal)
+        └─ Verify OTP → Display Name review (Meta 1-3 ngày)
+
+BƯỚC 5  System User token (permanent)
+        └─ Business Settings → System Users → Add → Admin
+        └─ Generate token với scope: whatsapp_business_messaging + management
+        └─ LƯU token an toàn (không expiry, dùng trong code)
+
+BƯỚC 6  Template submission
+        └─ WhatsApp Manager → Message Templates → Create
+        └─ Category: MARKETING (cho cold outreach)
+        └─ Language: en_US + vi
+        └─ Meta review 1-24h</div>
+</div>
+
+<div class="card">
+<h3>Pricing 2026 (per-message, không còn per-conversation)</h3>
+<table>
+<tr><th>Destination</th><th>Marketing</th><th>Utility</th><th>Service (reply trong 24h)</th></tr>
+<tr><td>🇻🇳 Vietnam</td><td>~$0.038</td><td>~$0.017</td><td>FREE (1000 đầu/tháng)</td></tr>
+<tr><td>🇺🇸 USA</td><td>~$0.025</td><td>~$0.015</td><td>FREE</td></tr>
+<tr><td>🇮🇳 India</td><td>~$0.012</td><td>~$0.005</td><td>FREE</td></tr>
+<tr><td>🇩🇪 Germany</td><td>~$0.137</td><td>~$0.09</td><td>FREE</td></tr>
+</table>
+<p><i>Giá tham khảo tháng 4/2026 — check lại developers.facebook.com trước khi mua credit.</i></p>
+</div>
+
+<div class="card">
+<h3>Messaging tiers (chống ban)</h3>
+<div class="pipeline">Tier 1 (start)       →  1,000 business-initiated conv/24h
+Tier 2               →  10,000 conv/24h
+Tier 3               →  100,000 conv/24h
+Tier 4 Unlimited     →  sau 100K đạt quality GREEN
+
+Điều kiện lên tier:
+  ├─ Quality rating GREEN 7 ngày liên tục
+  ├─ Đạt 2x tier hiện tại trong 7 ngày
+  └─ Không có policy violation
+
+Xuống tier:
+  ├─ Quality FLAGGED 7 ngày → tier -1 lập tức
+  ├─ Block rate > 2% → warning
+  └─ Policy violation → ban account</div>
+</div>
+
+<div class="card">
+<h3>Tab 6 WhatsApp UI — 4 panel</h3>
+<div class="pipeline">┌─ Panel A: NUMBER VALIDATOR ─────────────────────┐
+│ Input: pick từ Contacts filter                   │
+│ [▶ Validate trên WhatsApp]                        │
+│ → Meta contact check API                          │
+│ → Update WA_STATUS: EXISTS / NOT_EXISTS / BUSINESS│
+│ Result: 8,240 valid · 1,560 not_exist · 890 biz  │
+├─────────────────────────────────────────────────┤
+│ Panel B: TEMPLATE MANAGER                        │
+│ Approved (from Meta):                            │
+│  • rate_intro_vn_usa (MARKETING · en/vi · GREEN) │
+│  • followup_no_reply_7d (pending)                │
+│ [📝 Create template] [🔄 Sync từ Meta]           │
+├─────────────────────────────────────────────────┤
+│ Panel C: CAMPAIGN SEND                           │
+│ Side: (•) CNEE  ( ) SHIPPER (locked)             │
+│ Template: [rate_intro_vn_usa ▼]                  │
+│ Rate limit: 30 msg/min (Tier 1 safe)             │
+│ Schedule: [Smart TZ 9am ▼]                       │
+│ [📊 Preview] [🚀 Send batch]                     │
+│ Progress: 450/1000 · Quality: 🟢 GREEN           │
+├─────────────────────────────────────────────────┤
+│ Panel D: CONVERSATIONS (24h window)              │
+│ 🟢 +84 90 123 4567 · Alexis · 2 new              │
+│    "Quote 40HQ HPH→LGB next week?"                │
+│    [💬 Reply free-form] [📎 Send rate]           │
+└─────────────────────────────────────────────────┘</div>
+</div>
+
+<div class="warn">
+<b>Anti-ban checklist (Meta policy):</b>
+<ul>
+<li>CHỈ dùng template approved cho first-contact (không free-form lần đầu)</li>
+<li>Mọi template phải có opt-out: "Reply STOP to unsubscribe"</li>
+<li>Không gửi cùng template > 2 lần/user/tuần</li>
+<li>Monitor quality rating mỗi ngày — YELLOW → dừng batch, điều tra</li>
+<li>Block rate > 2% → pause immediately</li>
+<li>Chỉ gửi số đã verified qua Validator (tránh NOT_EXISTS nhiều → flag)</li>
+</ul>
+</div>
+
+<div class="good">
+<b>ROI WhatsApp Meta Direct (conservative):</b>
+<ul>
+<li>Validate 22K phone → ~8-12K có WA</li>
+<li>Tier 1 start = 1,000 conv/24h × 30d = 30K touch/tháng</li>
+<li>Reply 2-5% = 600-1,500 conv/tháng</li>
+<li>Cost: ~$0.038 VN × 30K = $1,140/tháng (hoặc $0.025 US)</li>
+<li>Không phí BSP (tiết kiệm $50-500/tháng)</li>
+<li>Break-even 1 HĐ = bù phí 2-3 tháng</li>
+</ul>
+</div>
+</div>
+
+<!-- ============ TAB 6 LINKEDIN ============ -->
+<div id="p6" class="panel">
+<div class="card">
+<h2>💼 LinkedIn — Hybrid strategy (Sales Nav + safe automation)</h2>
+<p>LinkedIn 2026: automation ban risk <b>23% trong 90 ngày</b> nếu dùng browser extension. Plan v6 đi đường an toàn.</p>
+</div>
+
+<div class="card">
+<h3>2 bước khai thác LinkedIn từ data hiện có</h3>
+
+<h4>Bước 1: Reverse lookup email/phone → LinkedIn URL</h4>
+<div class="pipeline">Tool options:
+  ├─ LinkedIn Contact Sync (FREE)
+  │   └─ Import phone CSV vào LinkedIn Contacts → auto match
+  │   └─ Match rate: 20-40% (mobile cao hơn landline)
+  │   └─ SAFE — API chính thức của LinkedIn
+  │
+  ├─ Lix API (paid, $0.05-0.15/lookup)
+  │   └─ Email → LinkedIn URL, match rate 30-60%
+  │   └─ Chạy được bulk, có async endpoint
+  │
+  └─ Clearout Reverse (paid, ~$0.03/lookup)
+      └─ Email/Domain → LinkedIn profile + extract info
+
+→ Output: fill cột LINKEDIN_URL + LI_MATCH_SCORE trong master</div>
+
+<h4>Bước 2: Outreach qua LinkedIn</h4>
+<div class="pipeline">Option A: Sales Navigator (CHÍNH GỐC LINKEDIN, 0% ban)
+  ├─ $99/tháng/seat
+  ├─ Manual search + InMail (50/tháng)
+  ├─ Lead IQ (email reveal)
+  └─ CRM sync
+
+Option B: Cloud automation (safe, 3-5% ban risk)
+  ├─ Expandi / La Growth Machine / HeyReach
+  ├─ $75-150/tháng
+  ├─ Residential IP (giả simulate device thật)
+  ├─ Limit 15-25 connection/ngày · 80-120/tuần
+  └─ Auto: Connect → Follow-up → Inmail sequence
+
+❌ Browser extension (Dux-Soup, Linked Helper, etc)
+  └─ BAN RISK 23-40% — KHÔNG dùng
+
+Đề xuất: Option A + B kết hợp
+  ├─ Sales Nav cho research & warm leads
+  └─ Expandi cho cold connection campaign (safe limits)</div>
+</div>
+
+<div class="card">
+<h3>Tab 7 LinkedIn UI — 3 panel</h3>
+<div class="pipeline">┌─ Panel A: PROFILE ENRICHMENT ───────────────────┐
+│ Source: (•) Email  ( ) Phone                     │
+│ Pool: [TIER: HOT ▼] = 1,850 contacts             │
+│ Provider: [Lix API ▼]                            │
+│ [🔍 Run enrichment]                               │
+│ Result: 612 matched · 1,238 no profile · cost $92│
+│ → Auto fill LINKEDIN_URL + POSITION              │
+├─────────────────────────────────────────────────┤
+│ Panel B: CONNECTION CAMPAIGN (Expandi)           │
+│ Side: (•) CNEE  ( ) SHIPPER (locked)             │
+│ Sequence:                                         │
+│   Day 0: Connection request + note (200 char)    │
+│   Day 3: Follow-up message                        │
+│   Day 7: InMail pitch                             │
+│ Daily limit: 20 connections/day (SAFE)           │
+│ [📊 Preview] [🚀 Start campaign]                 │
+├─────────────────────────────────────────────────┤
+│ Panel C: INBOX (unified)                         │
+│ View LinkedIn replies → merge vào reply scanner  │
+│ Auto-update REPLY_STATUS trong master            │
+└─────────────────────────────────────────────────┘</div>
+</div>
+
+<div class="danger-box">
+<b>Rủi ro LinkedIn 2026 — KHÔNG được làm:</b>
+<ul>
+<li>Browser extension (Dux-Soup, Linked Helper) — 40% bị flag Q1 2026</li>
+<li>Gửi > 25 connection/ngày — flag ngay</li>
+<li>Message identical cho nhiều user — spam detection</li>
+<li>Không có "warm up" giai đoạn — account mới gửi ngay = ban</li>
+<li>Scrape profile bằng scraper custom — Proxycurl đã bị LinkedIn kiện shutdown 1/2025</li>
+</ul>
+</div>
+
+<div class="good">
+<b>ROI LinkedIn (conservative):</b>
+<ul>
+<li>Enrich 5,000 HOT/WARM contact → ~2,000 có LinkedIn URL</li>
+<li>Sales Nav + Expandi: 80 connection/tuần × 4 = 320/tháng</li>
+<li>Accept rate 25% = 80 new connection/tháng</li>
+<li>Reply rate 12% = 10-15 conversation/tháng</li>
+<li>Cost: $99 Sales Nav + $100 Expandi + ~$150 enrichment = $350/tháng</li>
+<li>Quality cao hơn email (B2B trade decision maker đều trên LinkedIn)</li>
+</ul>
+</div>
+</div>
+
+<!-- ============ TAB 7 PIPELINE ============ -->
+<div id="p7" class="panel">
+<div class="card">
+<h2>🔄 Pipeline end-to-end v6</h2>
+</div>
+
+<div class="card">
+<h3>Data ingestion (weekly)</h3>
+<div class="pipeline">Panjiva raw (9 files)
+   │
+   ▼
+panjiva_clean_v2.py  ── extract 15 cols đầy đủ, split consignee↔shipper
+   │
+   ▼ (2 branches)
+   ├── CNEE rows  ─▶  Sheet CNEE merge
+   └── SHIPPER rows ─▶ Sheet SHIPPER merge (flag HOLD)
+            │
+            ▼
+   migrate-to-unified-v6.py  ── 14-step pipeline
+            │
+            ▼
+   contact_unified_v6.xlsx (2 sheets, 30-35K total)
+            │
+            ├─▶ Email pipeline (existing, split by SIDE)
+            ├─▶ WhatsApp pipeline (Meta Cloud API)
+            ├─▶ LinkedIn pipeline (Sales Nav + Expandi)
+            └─▶ Bounce + Harvest scanner</div>
+</div>
+
+<div class="card">
+<h3>Daily send pipeline (multi-channel, smart TZ)</h3>
+<div class="pipeline">06:00  Bounce + Harvest scanner run
+       ├─ NDR detect → clean
+       ├─ OOO detect → defer + harvest backups
+       ├─ LEFT detect → dead + harvest replacements
+       └─ Positive reply → TIER=HOT, alert
+
+08:00  Queue builder (multi-channel)
+       ├─ Filter: SIDE=CNEE (SHIPPER locked until blacklist ready)
+       ├─ Filter: TIER in (HOT, WARM, COLD)
+       ├─ Filter: EMAIL_STATUS=VALID, not BLOCKED/TYPO
+       ├─ Split by TIMEZONE  → 3 queues US East/Central/West
+       ├─ Split by channel priority:
+       │   ├─ Has WA_STATUS=EXISTS  → WhatsApp queue (higher prio)
+       │   ├─ Has LINKEDIN_URL      → LinkedIn queue
+       │   └─ Else                   → Email queue
+       └─ Rate limits: Email 28/min · WA 30/min · LI 20/day
+
+09:00 local (each TZ)  Queue fires
+       ├─ Email via Outlook COM
+       ├─ WhatsApp via Meta Cloud API (template)
+       └─ LinkedIn via Sales Nav/Expandi
+
+Continuous  Typo Shield + policy checks
+       ├─ Block .co/.cm typos
+       ├─ WA quality monitor (auto-pause if YELLOW)
+       └─ LI connection daily limit enforcement</div>
+</div>
+</div>
+
+<!-- ============ TAB 8 SAFETY ============ -->
+<div id="p8" class="panel">
+<div class="card">
+<h2>🛡 Safety — Không làm hư data priority</h2>
+</div>
+
+<div class="warn">
+<b>Rule sắt đá — 5 cột không bao giờ overwrite:</b>
+<ol>
+<li><code>EMAIL_STATUS</code> · <code>WA_STATUS</code> · <code>LI_STATUS</code></li>
+<li><code>SEND_COUNT_*</code> (email/wa/li)</li>
+<li><code>LAST_SENT_*</code></li>
+<li><code>REPLY_STATUS</code></li>
+<li><code>TIER</code> nếu = CUSTOMER hoặc VIP → khóa vĩnh viễn</li>
+</ol>
+</div>
+
+<div class="card">
+<h3>3 lớp bảo vệ</h3>
+<ol>
+<li><b>Backup trước thao tác</b> — rotation 14 bản, path <code>backups/contact_unified_v6.backup_YYYYMMDD_HHMM.xlsx</code></li>
+<li><b>Dry-run mode</b> — mọi script có <code>--dry-run</code> in diff preview</li>
+<li><b>Audit log CSV</b> — từng row: action (NEW/UPDATE/SKIP), cột nào đổi, value trước/sau</li>
+</ol>
+</div>
+
+<div class="card">
+<h3>Customer protection flow (trước mọi bulk send)</h3>
+<div class="pipeline">Check:
+  ├─ TIER == CUSTOMER           → SKIP bulk (manual 1-1 only)
+  ├─ SIDE == SHIPPER và chưa Activate → SKIP
+  ├─ VN_TEAM_OVERLAP_FLAG == Y   → SKIP
+  ├─ REPLY_STATUS != null        → SKIP (đã có relationship)
+  ├─ Cooldown 14d                → SKIP
+  ├─ TYPO_SUSPECT                → HOLD Nelson review
+  └─ Channel-specific:
+      ├─ EMAIL: EMAIL_STATUS not VALID → SKIP
+      ├─ WA:    WA_STATUS != EXISTS → SKIP
+      └─ LI:    LI_STATUS != CONNECTED → SKIP (connect first)</div>
+</div>
+
+<div class="good">
+<b>Rollback (1-click từ Contacts tab):</b>
+<ul>
+<li>Nút <span class="btn-demo danger">⏪ Rollback last migration</span> restore backup mới nhất</li>
+<li>Git tag mỗi schema change</li>
+<li>Audit log là evidence để debug mọi thay đổi</li>
+</ul>
+</div>
+</div>
+
+<!-- ============ TAB 9 SPRINT ============ -->
+<div id="p9" class="panel">
+<div class="card">
+<h2>📅 Sprint plan — 6 phase, ~42h tổng</h2>
+</div>
+
+<div class="card">
+<h3>Phase 1 — Data Migration Foundation (10h) 🔥 PRIORITY</h3>
+<ul>
+<li>Sửa panjiva_clean.py v2 — extract 15 cột + split CNEE/SHIPPER (2.5h)</li>
+<li>Viết migrate-to-unified-v6.py — 14 step, 2-sheet output (3.5h)</li>
+<li>Dry-run trên 7 file + validate output (1h)</li>
+<li>Run thật + verify priority intact (1h)</li>
+<li>Backup rotation + audit log (1h)</li>
+<li>Migration audit viewer UI (1h)</li>
+</ul>
+<div class="good">Deliverable: <code>contact_unified_v6.xlsx</code> 2 sheet, ~30K rows, priority nguyên vẹn</div>
+</div>
+
+<div class="card">
+<h3>Phase 2 — Typo Shield + Bounce Harvest v2 (6h)</h3>
+<ul>
+<li>Fix email_verifier.py regex (1h)</li>
+<li>Fuzzy domain + 345 suspect review UI (1.5h)</li>
+<li>bounce_harvest_v2.py — OOO vs LEFT detector + extract (2.5h)</li>
+<li>Inbox tab Harvest panel (1h)</li>
+</ul>
+</div>
+
+<div class="card">
+<h3>Phase 3 — Shipper Blacklist System (4h)</h3>
+<ul>
+<li><code>vn_team_overlap.xlsx</code> template 3 sheet (0.5h)</li>
+<li>3-layer match logic (exact + fuzzy + email/phone) (1.5h)</li>
+<li>Settings UI Shipper Blacklist Builder 5 nút (1.5h)</li>
+<li>Activate SHIPPER gate + unlock mechanism (0.5h)</li>
+</ul>
+</div>
+
+<div class="card">
+<h3>Phase 4 — Contacts Tab UI (4h)</h3>
+<ul>
+<li>2-sheet browser với toggle CNEE/SHIPPER (2h)</li>
+<li>Refresh master + diff preview (1h)</li>
+<li>Drag-drop Panjiva import + rollback button (1h)</li>
+</ul>
+</div>
+
+<div class="card">
+<h3>Phase 5A — WhatsApp SANDBOX (FREE tier, tuần 1, 6h) 💚 $0</h3>
+<ul>
+<li><b>Nelson làm trước (1-2 ngày):</b> Apply Business Portfolio + App + test number (FREE)</li>
+<li>Setup token + add 5 test recipients (Nelson + 2 team + 2 khách quen) (0.5h)</li>
+<li>Submit 2 template (en + vi) → Meta review 1-24h (0.5h)</li>
+<li>wa_validator.py — Meta contact check bulk 22K số (1.5h, FREE)</li>
+<li>wa_sender.py SANDBOX mode — gửi 5 test recipient (2h)</li>
+<li>Tab 6 WhatsApp UI — 4 panel (SANDBOX badge hiển thị) (1.5h)</li>
+</ul>
+<div class="good"><b>Tuần 1 cost:</b> <b>$0</b> · gửi 250 tin/24h tới 5 số test · validator quét 22K số free · confirm flow OK trước khi production</div>
+
+<h3>Phase 5B — WhatsApp PRODUCTION (sau approve, 4h) 💳 $20/tháng cap</h3>
+<ul>
+<li><b>Nelson làm:</b> Add số DN Pudong Prime thật + Display Name verify (1-3 ngày) + nạp $20 credit</li>
+<li>Switch dashboard SANDBOX → PRODUCTION mode (0.5h)</li>
+<li>BUDGET GUARD widget — hard cap $20/tháng, daily cap 20 tin, auto-pause 90% (1.5h)</li>
+<li>Quality rating monitor + auto-pause khi YELLOW (1h)</li>
+<li>Smart queue TIER=HOT first (tiết kiệm budget) (1h)</li>
+</ul>
+<div class="good"><b>Production:</b> $20/tháng = ~500 tin tới khách VIP = kỳ vọng 75-125 conversation/tháng</div>
+</div>
+
+<div class="card">
+<h3>Phase 6 — LinkedIn Integration (8h)</h3>
+<ul>
+<li><b>Nelson làm trước:</b> Sales Nav seat ($99) + Expandi account ($100)</li>
+<li>Lix API enrichment wrapper (2h)</li>
+<li>LinkedIn URL fill trong master (1h)</li>
+<li>Expandi webhook integration cho send+receive (3h)</li>
+<li>Tab 7 LinkedIn UI — 3 panel (2h)</li>
+</ul>
+</div>
+
+<div class="card">
+<h3>🎯 Gantt đề xuất</h3>
+<div class="pipeline">Tuần 1  Day 1-2   Phase 1 Data Migration (10h)
+        Day 3     Phase 2 Typo + Harvest start (3h)
+        Day 4     Phase 2 finish + Phase 3 start (3+2h)
+
+Tuần 2  Day 5     Phase 3 finish + Phase 4 (2+4h)
+        Day 6     Phase 5 WhatsApp (nếu Meta approve kịp)
+        Day 7     Phase 5 WhatsApp finish
+        Day 8     Phase 6 LinkedIn
+
+Parallel  Nelson làm song song Tuần 1:
+          ├─ Apply Meta Business Portfolio + Phone verify
+          ├─ Build vn_team_overlap.xlsx với Johnny/Blue/etc
+          ├─ Mua Sales Nav + Expandi subscription
+          └─ Approve 2-3 WhatsApp templates (en + vi)</div>
+</div>
+
+<div class="good">
+<b>Sau 2 tuần, Nelson có:</b>
+<ul>
+<li>✅ 1 master file 2-sheet (CNEE gửi tự do, SHIPPER HOLD an toàn)</li>
+<li>✅ Priority customers nguyên vẹn</li>
+<li>✅ Email open 3.7% → 12-15% (smart TZ + data đầy)</li>
+<li>✅ WhatsApp Meta Direct — $1,100/tháng, 600-1,500 conv</li>
+<li>✅ LinkedIn hybrid — $350/tháng, 10-15 quality conv</li>
+<li>✅ Harvest tự động 150-200 decision maker thật/tháng</li>
+<li>✅ 0 email typo gửi im lặng</li>
+<li>✅ Shipper Blacklist chặn đụng team VN</li>
+</ul>
+</div>
+
+<div class="warn">
+<b>Nelson cần duyệt 4 điều trước khi em start Phase 1:</b>
+<ol>
+<li>Schema 35 cột — OK chưa? Cần thêm/bớt gì?</li>
+<li>Sheet CNEE + Sheet SHIPPER tách riêng — đồng ý?</li>
+<li>WhatsApp đi thẳng Meta (không BSP) — đồng ý mua tài khoản Business?</li>
+<li>LinkedIn Option A+B hybrid (Sales Nav + Expandi) — đồng ý? Hay chỉ làm Sales Nav thôi?</li>
+</ol>
+</div>
+</div>
+
+</div>
+<script>
+function sw(e,id){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  e.target.classList.add('active');
+  document.getElementById(id).classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function sw2(id){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  const idx=['p1','p2','p3','p4','p5','p6','p7','p8','p9'].indexOf(id);
+  document.querySelectorAll('.tab')[idx].classList.add('active');
+  document.getElementById(id).classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+</script>
+</body>
+</html>

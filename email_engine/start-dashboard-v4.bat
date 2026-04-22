@@ -1,10 +1,10 @@
 @echo off
-title Nelson Email Dashboard v5
+title Nelson Email Dashboard v6
 cd /d "%~dp0\.."
 
 echo.
 echo ================================================
-echo   NELSON EMAIL DASHBOARD v5
+echo   NELSON EMAIL DASHBOARD v6
 echo   API: http://localhost:8100
 echo ================================================
 echo.
@@ -26,7 +26,7 @@ timeout /t 6 /nobreak >nul
 powershell -NoProfile -Command "Start-Process -WindowStyle Hidden -FilePath 'pythonw' -ArgumentList 'outlook_queue_worker.py','--workers','3','--loop' -WorkingDirectory '%~dp0' -RedirectStandardError '%~dp0worker_err.log'"
 
 :: Open dashboard in browser
-start "" "plans\visuals\email-dashboard-v5.html"
+start "" "plans\visuals\email-dashboard-v6.html"
 
 echo [OK] API started on :8100
 echo [OK] FAST worker started (3 threads, loop)
