@@ -270,6 +270,26 @@ Public Sub ApplyQuickSearch()
         End If
     Next c
 
+    ' 2026-04-22: Apply ribbon toggle filters (Source col 9 + Note col 8 contains SOC)
+    Dim srcFilter As String
+    Dim socFilter As Boolean
+    On Error Resume Next
+    srcFilter = ERPv14Ribbon.GetCurrentSourceFilter()
+    socFilter = ERPv14Ribbon.GetCurrentSocFilter()
+    On Error GoTo 0
+
+    ' Filter col 9 (Source) — contains match (SCFI/FAK/FIX may have variants)
+    If Len(srcFilter) > 0 Then
+        ws.Range("A1:P" & lr).AutoFilter Field:=9, Criteria1:="=*" & srcFilter & "*"
+        hasSearch = True
+    End If
+
+    ' Filter col 8 (Note) — contains SOC
+    If socFilter Then
+        ws.Range("A1:P" & lr).AutoFilter Field:=8, Criteria1:="=*SOC*"
+        hasSearch = True
+    End If
+
 UpdateStatus:
     ' Bonus: write visible row count to Q1 for quick verification
     Dim visible As Long

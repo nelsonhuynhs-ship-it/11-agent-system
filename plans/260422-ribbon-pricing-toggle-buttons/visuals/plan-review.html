@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="vi" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan Review — Ribbon Pricing Toggle Buttons</title>
+<style>
+  :root {
+    --rose-50: #fff1f2;  --rose-100: #ffe4e6;  --rose-300: #fda4af;
+    --rose-400: #fb7185;  --rose-500: #f43f5e;  --rose-600: #e11d48;
+    --rose-700: #be123c;  --cranberry-500: #9f1239;  --cranberry-700: #881337;
+    --slate-50: #f8fafc;  --slate-200: #e2e8f0;  --slate-400: #94a3b8;
+    --slate-500: #64748b;  --slate-600: #475569;  --slate-700: #334155;
+    --slate-800: #1e293b;  --slate-900: #0f172a;  --slate-950: #020617;
+    --amber: #f59e0b;  --green: #22c55e;  --blue: #3b82f6;  --red: #ef4444;
+  }
+  [data-theme="dark"] {
+    --bg: var(--slate-950);
+    --bg-card: var(--slate-900);
+    --bg-elev: var(--slate-800);
+    --border: var(--slate-700);
+    --text: var(--slate-50);
+    --text-mute: var(--slate-400);
+    --accent: var(--rose-400);
+    --accent-2: var(--cranberry-500);
+    --accent-bg: rgba(251, 113, 133, 0.1);
+    --ribbon-bg: var(--slate-800);
+    --btn-bg: var(--slate-700);
+    --btn-hover: var(--rose-700);
+    --btn-active: var(--rose-500);
+    --shadow: 0 10px 40px -10px rgba(0,0,0,0.6);
+  }
+  [data-theme="light"] {
+    --bg: #fdf7f8;
+    --bg-card: #ffffff;
+    --bg-elev: #fff1f2;
+    --border: #ffe4e6;
+    --text: var(--slate-900);
+    --text-mute: var(--slate-500);
+    --accent: var(--rose-600);
+    --accent-2: var(--cranberry-700);
+    --accent-bg: rgba(225, 29, 72, 0.08);
+    --ribbon-bg: #f1f5f9;
+    --btn-bg: #ffffff;
+    --btn-hover: var(--rose-100);
+    --btn-active: var(--rose-500);
+    --shadow: 0 4px 20px -4px rgba(159, 18, 57, 0.15);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif;
+    background: var(--bg); color: var(--text);
+    line-height: 1.55; font-size: 15px;
+    transition: background 0.3s, color 0.3s;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 32px 24px 80px; }
+  header.hero {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 24px; padding-bottom: 28px; border-bottom: 1px solid var(--border); margin-bottom: 32px;
+  }
+  .hero h1 {
+    font-size: 30px; font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    margin-bottom: 8px;
+  }
+  .hero .sub { color: var(--text-mute); max-width: 720px; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .chip {
+    padding: 4px 10px; border-radius: 999px;
+    background: var(--accent-bg); color: var(--accent);
+    border: 1px solid var(--accent);
+    font-size: 12px; font-weight: 600;
+  }
+  .theme-btn {
+    padding: 8px 14px; border: 1px solid var(--border);
+    background: var(--bg-card); color: var(--text);
+    border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500;
+  }
+  .theme-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  section { margin-bottom: 36px; }
+  h2 {
+    font-size: 20px; font-weight: 700; margin-bottom: 14px;
+    color: var(--accent); padding-left: 12px;
+    border-left: 3px solid var(--accent);
+  }
+  h3 { font-size: 15px; margin: 16px 0 8px; color: var(--text); }
+
+  .card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px; box-shadow: var(--shadow);
+  }
+
+  /* Ribbon mockup styling */
+  .ribbon-mock {
+    background: var(--ribbon-bg);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: 'Segoe UI', sans-serif;
+    font-size: 12px;
+    margin: 10px 0;
+  }
+  .ribbon-mock .group-label {
+    color: var(--text-mute);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+  }
+  .ribbon-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+  }
+  .ribbon-label { color: var(--text-mute); font-size: 11px; margin-right: 2px; }
+  .ribbon-combo {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 12px;
+    color: var(--text);
+    min-width: 80px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .ribbon-combo::after { content: "▼"; font-size: 8px; color: var(--text-mute); }
+  .ribbon-btn {
+    background: var(--btn-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 12px;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-weight: 500;
+  }
+  .ribbon-btn:hover { background: var(--btn-hover); color: white; border-color: var(--accent); }
+  .ribbon-btn.active {
+    background: var(--btn-active);
+    color: white;
+    border-color: var(--btn-active);
+    font-weight: 600;
+    box-shadow: 0 2px 6px rgba(244, 63, 94, 0.3);
+  }
+  .ribbon-btn.removed {
+    text-decoration: line-through;
+    opacity: 0.5;
+    color: var(--red);
+    cursor: not-allowed;
+  }
+  .ribbon-btn.new {
+    position: relative;
+  }
+  .ribbon-btn.new::before {
+    content: "✨";
+    position: absolute;
+    top: -8px; right: -8px;
+    background: var(--amber);
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 14px 0;
+  }
+  @media (max-width: 900px) { .compare-grid { grid-template-columns: 1fr; } }
+
+  .option-card {
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    background: var(--bg-card);
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .option-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .option-card.recommended { border-color: var(--accent); background: var(--accent-bg); }
+  .option-card h3 { color: var(--accent); margin-top: 0; }
+  .badge-recommend {
+    display: inline-block; padding: 2px 8px; font-size: 11px;
+    background: var(--accent); color: white; border-radius: 999px;
+    font-weight: 600; margin-left: 6px;
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 12px; }
+  th, td {
+    padding: 8px 12px; text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+       color: var(--text-mute); background: var(--bg-elev); font-weight: 600; }
+  code {
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 12.5px;
+    background: var(--bg-elev); padding: 2px 6px; border-radius: 4px;
+    color: var(--accent);
+  }
+
+  ul { list-style: none; padding-left: 0; }
+  ul li { padding: 5px 0 5px 22px; position: relative; color: var(--text); }
+  ul li::before { content: "→"; position: absolute; left: 4px; color: var(--accent); font-weight: 700; }
+
+  .question {
+    background: var(--bg-card);
+    border-left: 3px solid var(--amber);
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin: 8px 0;
+  }
+  .question .q-num { color: var(--amber); font-weight: 700; }
+  .question .q-opts { margin-top: 6px; color: var(--text-mute); font-size: 13px; }
+
+  .pro-con { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  .pro-con > div { padding: 10px 12px; border-radius: 6px; font-size: 13px; }
+  .pros { background: rgba(34, 197, 94, 0.08); border-left: 3px solid var(--green); }
+  .cons { background: rgba(239, 68, 68, 0.08); border-left: 3px solid var(--red); }
+  .pros strong, .cons strong { display: block; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div>
+    <h1>Ribbon Pricing Tab — Toggle Buttons</h1>
+    <p class="sub">Thay combo box Note bằng nút bấm nhanh cho filter Source + SOC/COC. Mục tiêu: giảm thời gian check giá từ 4-5 click/query xuống 1 click.</p>
+    <div class="chips">
+      <span class="chip">⏳ Pending Approval</span>
+      <span class="chip">⌛ 2 giờ</span>
+      <span class="chip">📅 2026-04-22</span>
+      <span class="chip">🎯 P2 UX</span>
+    </div>
+  </div>
+  <button class="theme-btn" id="themeBtn">🌙 Dark</button>
+</header>
+
+<!-- PROBLEM -->
+<section>
+  <h2>🎯 Pain Point Hiện Tại</h2>
+  <div class="card">
+    <p>Mỗi ngày check giá — anh filter theo 5-10 query khác nhau:</p>
+    <ul>
+      <li>Click dropdown filter cột <code>Source</code> → chọn FAK/FIX/SCFI → OK (4 click)</li>
+      <li>Muốn SOC only: click filter cột <code>Note</code> → chọn SOC (3 click)</li>
+      <li>Combo box <code>Note</code> trong ribbon chỉ dùng 1 case hẹp mà chiếm ~18 ký tự width</li>
+    </ul>
+    <p style="margin-top: 10px;"><strong>Nelson muốn:</strong> 1 click nút toggle trên ribbon = instant filter.</p>
+  </div>
+</section>
+
+<!-- CURRENT STATE -->
+<section>
+  <h2>📸 Layout Hiện Tại</h2>
+  <div class="ribbon-mock">
+    <div class="group-label">Search</div>
+    <div class="ribbon-row">
+      <span class="ribbon-label">Carrier</span><span class="ribbon-combo">ONE</span>
+      <span class="ribbon-label">POL</span><span class="ribbon-combo">HCM</span>
+      <span class="ribbon-label">POD</span><span class="ribbon-combo"></span>
+      <span class="ribbon-label">Place</span><span class="ribbon-combo"></span>
+      <span class="ribbon-label">Exp</span><span class="ribbon-combo">Active only</span>
+    </div>
+    <div class="ribbon-row">
+      <span class="ribbon-label">Note</span>
+      <span class="ribbon-combo removed" style="min-width: 180px;">(combo to remove — 18 chars wide)</span>
+      <span class="ribbon-btn">Best Price</span>
+      <span class="ribbon-btn">Clear</span>
+      <span class="ribbon-btn">Freshness</span>
+    </div>
+  </div>
+</section>
+
+<!-- FILTER MODES -->
+<section>
+  <h2>📋 Filter Modes Cần</h2>
+  <div class="card">
+    <table>
+      <thead><tr><th>Mode</th><th>Kết quả</th><th>Use Case</th></tr></thead>
+      <tbody>
+        <tr><td><strong>All</strong> (default)</td><td>Hiện tất cả (COC + SOC, FAK+FIX+SCFI)</td><td>Khách hỏi giá chung</td></tr>
+        <tr><td>SCFI only</td><td>Chỉ SCFI</td><td>Quote khách HPL SCFI</td></tr>
+        <tr><td>FAK only</td><td>FAK (COC + SOC mix)</td><td>Check spot market</td></tr>
+        <tr><td>FIX COC only</td><td>FIX Special Rate COC</td><td>Check contract rate COC</td></tr>
+        <tr><td>FIX SOC only</td><td>FIX Special Rate SOC</td><td>Check SOC contract</td></tr>
+        <tr><td>SOC only</td><td>Tất cả SOC bất kể source</td><td>Check tổng SOC capacity</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- OPTIONS -->
+<section>
+  <h2>🏗 2 Layout Options</h2>
+  <div class="compare-grid">
+    <!-- OPTION A -->
+    <div class="option-card">
+      <h3>Option A — Single Row (KISS)</h3>
+      <p style="color: var(--text-mute); font-size: 13px;">6 toggle radio-style, chỉ 1 active tại 1 thời điểm.</p>
+      <div class="ribbon-mock">
+        <div class="group-label">Search</div>
+        <div class="ribbon-row">
+          <span class="ribbon-label">Carrier</span><span class="ribbon-combo">ONE</span>
+          <span class="ribbon-label">POL</span><span class="ribbon-combo">HCM</span>
+          <span class="ribbon-label">POD</span><span class="ribbon-combo"></span>
+          <span class="ribbon-label">Place</span><span class="ribbon-combo"></span>
+          <span class="ribbon-label">Exp</span><span class="ribbon-combo">Active</span>
+        </div>
+        <div class="ribbon-row">
+          <span class="ribbon-btn active">All</span>
+          <span class="ribbon-btn new">SCFI</span>
+          <span class="ribbon-btn new">FAK</span>
+          <span class="ribbon-btn new">FIX COC</span>
+          <span class="ribbon-btn new">FIX SOC</span>
+          <span class="ribbon-btn new">SOC</span>
+        </div>
+        <div class="ribbon-row">
+          <span class="ribbon-btn">Best Price</span>
+          <span class="ribbon-btn">Clear</span>
+          <span class="ribbon-btn">Freshness</span>
+        </div>
+      </div>
+      <div class="pro-con">
+        <div class="pros"><strong>✅ Pro</strong>1 row flat, easy to scan. Click 1 nút = change state ngay.</div>
+        <div class="cons"><strong>❌ Con</strong>6 buttons hơi nhiều. "All" có thể redundant.</div>
+      </div>
+    </div>
+
+    <!-- OPTION B -->
+    <div class="option-card recommended">
+      <h3>Option B — 2 Dimensions <span class="badge-recommend">EM RECOMMEND</span></h3>
+      <p style="color: var(--text-mute); font-size: 13px;">Source radio (3 btn) + SOC toggle (1 btn). Combine được nhiều mode.</p>
+      <div class="ribbon-mock">
+        <div class="group-label">Search</div>
+        <div class="ribbon-row">
+          <span class="ribbon-label">Carrier</span><span class="ribbon-combo">ONE</span>
+          <span class="ribbon-label">POL</span><span class="ribbon-combo">HCM</span>
+          <span class="ribbon-label">POD</span><span class="ribbon-combo"></span>
+          <span class="ribbon-label">Place</span><span class="ribbon-combo"></span>
+          <span class="ribbon-label">Exp</span><span class="ribbon-combo">Active</span>
+        </div>
+        <div class="ribbon-row">
+          <span class="ribbon-label">Source</span>
+          <span class="ribbon-btn new">SCFI</span>
+          <span class="ribbon-btn new">FAK</span>
+          <span class="ribbon-btn new">FIX</span>
+          <span style="color: var(--text-mute); margin: 0 10px;">|</span>
+          <span class="ribbon-label">Type</span>
+          <span class="ribbon-btn new">SOC</span>
+        </div>
+        <div class="ribbon-row">
+          <span class="ribbon-btn">Best Price</span>
+          <span class="ribbon-btn">Clear</span>
+          <span class="ribbon-btn">Freshness</span>
+        </div>
+      </div>
+      <div class="pro-con">
+        <div class="pros"><strong>✅ Pro</strong>2 dimension rõ ràng. FAK+SOC=FAK SOC. 4 buttons tổng, ít hơn A. Không cần "All" (none pressed = all).</div>
+        <div class="cons"><strong>❌ Con</strong>Logic AND combine cần giải thích 1 lần. SCFI+SOC không tồn tại → auto-disable.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DATA FLOW -->
+<section>
+  <h2>🔧 Cách Filter Hoạt Động (Option B)</h2>
+  <div class="card">
+    <table>
+      <thead><tr><th>Source button</th><th>SOC button</th><th>Filter kết quả</th></tr></thead>
+      <tbody>
+        <tr><td>(none)</td><td>(off)</td><td><strong>All</strong> — mặc định, hiện hết</td></tr>
+        <tr><td>FAK</td><td>off</td><td>FAK only (COC + SOC mix)</td></tr>
+        <tr><td>FAK</td><td>on</td><td>FAK SOC only</td></tr>
+        <tr><td>FIX</td><td>off</td><td>FIX only (COC + SOC)</td></tr>
+        <tr><td>FIX</td><td>on</td><td>FIX SOC only</td></tr>
+        <tr><td>FIX</td><td>off (COC khả dụng)</td><td>+ press COC helper → FIX COC only</td></tr>
+        <tr><td>SCFI</td><td>auto-disabled</td><td>SCFI only (không có SOC SCFI)</td></tr>
+        <tr><td>(none)</td><td>on</td><td><strong>SOC</strong> cross-source</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- QUESTIONS -->
+<section>
+  <h2>❓ 5 Câu Hỏi Cần Anh Chốt</h2>
+  <div class="question">
+    <div><span class="q-num">1.</span> <strong>Option A hay B?</strong></div>
+    <div class="q-opts">A = 6 radio flat · B = 2 dimensions (Source × SOC) — em recommend B</div>
+  </div>
+  <div class="question">
+    <div><span class="q-num">2.</span> <strong>"All" button explicit?</strong></div>
+    <div class="q-opts">Có nút "All" hay chọn "không press nào = All" (cleaner UX)</div>
+  </div>
+  <div class="question">
+    <div><span class="q-num">3.</span> <strong>Button size?</strong></div>
+    <div class="q-opts">Small compact (5-6/row) hay Normal (3-4/row)?</div>
+  </div>
+  <div class="question">
+    <div><span class="q-num">4.</span> <strong>SCFI + SOC edge case?</strong></div>
+    <div class="q-opts">Tự disable SOC khi Source=SCFI, hay allow nhưng cho empty result?</div>
+  </div>
+  <div class="question">
+    <div><span class="q-num">5.</span> <strong>Persistence khi switch sheet?</strong></div>
+    <div class="q-opts">Filter state persist Pricing Dry ↔ Reefer, hay reset khi switch?</div>
+  </div>
+</section>
+
+<!-- IMPLEMENTATION -->
+<section>
+  <h2>📐 Implementation (2h)</h2>
+  <div class="card">
+    <table>
+      <thead><tr><th>Phase</th><th>Tasks</th><th>Effort</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Remove cmbNote từ CustomUI + 4 callbacks. Add 4 toggle buttons</td><td>30m</td></tr>
+        <tr><td>2</td><td>VBA state vars (m_SourceFilter, m_SocFilter) + OnAction handlers</td><td>45m</td></tr>
+        <tr><td>3</td><td>Wire toggle state vào ApplyQuickSearch — filter col 8 Note + col 9 Source</td><td>30m</td></tr>
+        <tr><td>4</td><td>Test 6 filter modes + E2E test</td><td>15m</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- DECISION -->
+<section>
+  <h2>✋ Anh Chốt</h2>
+  <div class="card" style="border-color: var(--accent); border-width: 2px;">
+    <p>Trả lời 5 câu hỏi trên → em spawn sub-agent ship ngay (Agent cho VBA/XML + Agent cho E2E extend).</p>
+    <p style="margin-top: 10px; color: var(--text-mute); font-size: 13px;">
+      <strong>Suggested quick answer:</strong> Option B · không nút "All" explicit · Normal size · auto-disable SCFI+SOC · persist cross-sheet
+    </p>
+  </div>
+</section>
+
+</div>
+</body>
+</html>

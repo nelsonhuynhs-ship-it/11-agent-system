@@ -34,11 +34,28 @@
                     getText="GetText_SearchExp"
                     getItemCount="GetItemCount_Exp"
                     getItemLabel="GetItemLabel_Exp"/>
-          <comboBox id="cmbNote" label="Note" sizeString="000000000000000000"
-                    onChange="OnChange_SearchNote"
-                    getText="GetText_SearchNote"
-                    getItemCount="GetItemCount_Note"
-                    getItemLabel="GetItemLabel_Note"/>
+          <toggleButton id="btnSrcSCFI" label="SCFI" size="normal"
+                        imageMso="FilterBySelection"
+                        onAction="OnAction_ToggleSrcSCFI"
+                        getPressed="GetPressed_SrcSCFI"
+                        screentip="Filter Source = SCFI"/>
+          <toggleButton id="btnSrcFAK" label="FAK" size="normal"
+                        imageMso="FilterBySelection"
+                        onAction="OnAction_ToggleSrcFAK"
+                        getPressed="GetPressed_SrcFAK"
+                        screentip="Filter Source = FAK"/>
+          <toggleButton id="btnSrcFIX" label="FIX" size="normal"
+                        imageMso="FilterBySelection"
+                        onAction="OnAction_ToggleSrcFIX"
+                        getPressed="GetPressed_SrcFIX"
+                        screentip="Filter Source = FIX (Special Rate)"/>
+          <separator id="sepSrcSoc"/>
+          <toggleButton id="btnSoc" label="SOC" size="normal"
+                        imageMso="FilterBySelection"
+                        onAction="OnAction_ToggleSoc"
+                        getPressed="GetPressed_Soc"
+                        getEnabled="GetEnabled_Soc"
+                        screentip="Filter Note contains SOC"/>
           <button id="btnBestPrice" label="Best Price" size="normal"
                   imageMso="ConditionalFormattingColorScalesGallery"
                   onAction="OnAction_HighlightBest"

@@ -86,6 +86,10 @@ Private m_BulkOutputPath As String
 ' Declared here (module-level) per gotcha #11: no declarations after first Sub.
 Private m_LastQuotedLabel As String
 
+' 2026-04-22 Ribbon toggle filter state (Nelson decision: reset on sheet switch)
+Private m_SourceFilter As String    ' "" | "SCFI" | "FAK" | "FIX"
+Private m_SocFilter As Boolean      ' True = Note contains SOC only
+
 ' Exp preset filter constants (Fix 1 — 2026-04-20)
 Private Const EXP_PRESET_ACTIVE As String = "Active only"
 Private Const EXP_PRESET_WEEK As String = "This week"
@@ -129,8 +133,6 @@ Private m_Places() As String
 Private m_PlaceCount As Long
 Private m_Exps() As String
 Private m_ExpCount As Long
-Private m_Notes() As String
-Private m_NoteCount As Long
 Private m_Customers() As String
 Private m_CustomerCount As Long
 
@@ -337,7 +339,6 @@ Private Sub BuildComboLists()
     Dim dPOD As Object: Set dPOD = CreateObject("Scripting.Dictionary")
     Dim dPlace As Object: Set dPlace = CreateObject("Scripting.Dictionary")
     Dim dExp As Object: Set dExp = CreateObject("Scripting.Dictionary")
-    Dim dNote As Object: Set dNote = CreateObject("Scripting.Dictionary")
 
     Dim r As Long, v As String
     For r = DATA_START_ROW To lr
@@ -356,8 +357,6 @@ Private Sub BuildComboLists()
             v = Trim(ws.Cells(r, COL_EXP).Value)
             If v <> "" And Not dExp.Exists(v) Then dExp.Add v, v
         End If
-        v = Trim(ws.Cells(r, COL_NOTE).Value)
-        If v <> "" And Not dNote.Exists(v) Then dNote.Add v, v
     Next r
 
     ' Convert to arrays
@@ -371,8 +370,6 @@ Private Sub BuildComboLists()
     If m_PlaceCount > 0 Then m_Places = dPlace.Keys
     m_ExpCount = dExp.Count
     If m_ExpCount > 0 Then m_Exps = dExp.Keys
-    m_NoteCount = dNote.Count
-    If m_NoteCount > 0 Then m_Notes = dNote.Keys
 
     ' Customer list from CRM sheet
     Dim wsCRM As Worksheet
@@ -553,35 +550,6 @@ Public Sub OnChange_SearchExp(control As IRibbonControl, text As String)
 End Sub
 
 ' ============================================================
-'  COMBOBOX CALLBACKS — Note
-' ============================================================
-Public Sub GetItemCount_Note(control As IRibbonControl, ByRef count As Variant)
-    count = m_NoteCount
-End Sub
-Public Sub GetItemLabel_Note(control As IRibbonControl, index As Long, ByRef label As Variant)
-    On Error Resume Next
-    If index >= 0 And index < m_NoteCount Then label = m_Notes(index) Else label = ""
-    On Error GoTo 0
-End Sub
-Public Sub OnChange_SearchNote(control As IRibbonControl, text As String)
-    On Error Resume Next
-    m_SearchNote = text
-    Dim ws As Worksheet: Set ws = ERPv14Core.GetActivePricingSheet()
-    If ws Is Nothing Then Exit Sub
-    Application.EnableEvents = False
-    If Trim(text) = "" Then
-        ERPv14Core.RestorePlaceholder COL_NOTE
-    Else
-        ws.Cells(1, COL_NOTE).Value = text
-        ws.Cells(1, COL_NOTE).Font.Color = RGB(154, 52, 18)
-        ws.Cells(1, COL_NOTE).Font.Italic = False
-    End If
-    Application.EnableEvents = True
-    ERPv14Core.ApplyQuickSearch
-    On Error GoTo 0
-End Sub
-
-' ============================================================
 '  SEARCH COMBOBOX — getText callbacks (clear display on Invalidate)
 ' ============================================================
 Public Sub GetText_SearchCarrier(control As IRibbonControl, ByRef text As Variant)
@@ -600,9 +568,6 @@ Public Sub GetText_SearchExp(control As IRibbonControl, ByRef text As Variant)
     ' Return current preset label so ribbon displays selection after Invalidate
     If Len(m_ExpPreset) = 0 Then m_ExpPreset = EXP_PRESET_ACTIVE
     text = m_ExpPreset
-End Sub
-Public Sub GetText_SearchNote(control As IRibbonControl, ByRef text As Variant)
-    text = m_SearchNote
 End Sub
 
 ' ============================================================
@@ -3010,7 +2975,9 @@ Public Sub OnAction_ClearSearch(control As IRibbonControl)
     ' Fix 1: Exp resets to "Active only", not blank
     m_ExpPreset = EXP_PRESET_ACTIVE
     m_SearchExp = EXP_PRESET_ACTIVE
-    m_SearchNote = ""
+    ' 2026-04-22: Reset toggle filters
+    m_SourceFilter = ""
+    m_SocFilter = False
 
     Application.EnableEvents = False
     Dim c As Integer
@@ -3032,9 +2999,100 @@ Public Sub OnAction_ClearSearch(control As IRibbonControl)
         Next r
     End If
 
-    ' Invalidate ribbon to clear comboBox text
+    ' Invalidate ribbon to clear comboBox text + toggle states
     If Not ribbonUI Is Nothing Then ribbonUI.Invalidate
     On Error GoTo 0
+End Sub
+
+' ============================================================
+'  TOGGLE FILTER BUTTONS — Source (SCFI/FAK/FIX) + SOC
+'  2026-04-22 — Nelson decision: Option B (2D), no All button,
+'  SCFI auto-disables SOC, reset on sheet switch.
+' ============================================================
+
+' Radio semantic: only ONE Source active. Pressing same again = unpress (empty = All).
+Public Sub OnAction_ToggleSrcSCFI(control As IRibbonControl, ByRef pressed As Boolean)
+    On Error Resume Next
+    If pressed Then
+        m_SourceFilter = "SCFI"
+        ' Auto-disable SOC when SCFI (SCFI is always COC — per Nelson decision)
+        m_SocFilter = False
+    Else
+        m_SourceFilter = ""
+    End If
+    InvalidateFilterButtons
+    ERPv14Core.ApplyQuickSearch
+End Sub
+
+Public Sub OnAction_ToggleSrcFAK(control As IRibbonControl, ByRef pressed As Boolean)
+    On Error Resume Next
+    m_SourceFilter = IIf(pressed, "FAK", "")
+    InvalidateFilterButtons
+    ERPv14Core.ApplyQuickSearch
+End Sub
+
+Public Sub OnAction_ToggleSrcFIX(control As IRibbonControl, ByRef pressed As Boolean)
+    On Error Resume Next
+    m_SourceFilter = IIf(pressed, "FIX", "")
+    InvalidateFilterButtons
+    ERPv14Core.ApplyQuickSearch
+End Sub
+
+Public Sub OnAction_ToggleSoc(control As IRibbonControl, ByRef pressed As Boolean)
+    On Error Resume Next
+    m_SocFilter = pressed
+    InvalidateFilterButtons
+    ERPv14Core.ApplyQuickSearch
+End Sub
+
+' getPressed callbacks — ribbon queries these to show button state
+Public Sub GetPressed_SrcSCFI(control As IRibbonControl, ByRef pressed)
+    pressed = (m_SourceFilter = "SCFI")
+End Sub
+
+Public Sub GetPressed_SrcFAK(control As IRibbonControl, ByRef pressed)
+    pressed = (m_SourceFilter = "FAK")
+End Sub
+
+Public Sub GetPressed_SrcFIX(control As IRibbonControl, ByRef pressed)
+    pressed = (m_SourceFilter = "FIX")
+End Sub
+
+Public Sub GetPressed_Soc(control As IRibbonControl, ByRef pressed)
+    pressed = m_SocFilter
+End Sub
+
+Public Sub GetEnabled_Soc(control As IRibbonControl, ByRef enabled)
+    ' SCFI is always COC — disable SOC button when SCFI active
+    enabled = (m_SourceFilter <> "SCFI")
+End Sub
+
+' Invalidate all 4 toggle buttons so ribbon re-queries pressed/enabled state
+Private Sub InvalidateFilterButtons()
+    On Error Resume Next
+    If ribbonUI Is Nothing Then Exit Sub
+    ribbonUI.InvalidateControl "btnSrcSCFI"
+    ribbonUI.InvalidateControl "btnSrcFAK"
+    ribbonUI.InvalidateControl "btnSrcFIX"
+    ribbonUI.InvalidateControl "btnSoc"
+End Sub
+
+' Public getters — called by ERPv14Core.ApplyQuickSearch to read filter state
+Public Function GetCurrentSourceFilter() As String
+    GetCurrentSourceFilter = m_SourceFilter
+End Function
+
+Public Function GetCurrentSocFilter() As Boolean
+    GetCurrentSocFilter = m_SocFilter
+End Function
+
+' Called by Workbook_SheetActivate when user switches Pricing Dry <-> Reefer.
+' Per Nelson decision: filter state resets on sheet switch (fresh start mindset).
+Public Sub ResetToggleFilters()
+    On Error Resume Next
+    m_SourceFilter = ""
+    m_SocFilter = False
+    InvalidateFilterButtons
 End Sub
 
 ' ============================================================

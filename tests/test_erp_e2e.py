@@ -343,6 +343,107 @@ def test_rate_mix_tier_markup_values(excel, wb):
     ok("Old tier values ($275, $350) correctly removed")
 
 
+def test_ribbon_toggle_buttons_exist(excel, wb):
+    """Verify Pricing ribbon has 4 new toggle buttons (SCFI/FAK/FIX/SOC)."""
+    info("Testing Ribbon toggle buttons...")
+    import zipfile, shutil, tempfile
+    fd, tmp = tempfile.mkstemp(suffix=".xlsm")
+    os.close(fd)
+    try:
+        shutil.copy2(ERP_PATH, tmp)
+        with zipfile.ZipFile(tmp, 'r') as z:
+            cu_xml = z.read('customUI/customUI14.xml').decode('utf-8')
+    finally:
+        try: os.remove(tmp)
+        except Exception: pass
+
+    required_ids = ['btnSrcSCFI', 'btnSrcFAK', 'btnSrcFIX', 'btnSoc']
+    for rid in required_ids:
+        if f'id="{rid}"' not in cu_xml:
+            fail(f"CustomUI missing toggleButton id={rid}")
+        ok(f"CustomUI has toggleButton id={rid}")
+
+    # Verify cmbNote REMOVED
+    if 'id="cmbNote"' in cu_xml:
+        fail("Old cmbNote comboBox still present in CustomUI — should be removed")
+    ok("Old cmbNote removed from CustomUI")
+
+    # Verify toggleButton (not button) attribute
+    import re
+    for rid in required_ids:
+        m = re.search(rf'<toggleButton[^>]*id="{rid}"', cu_xml)
+        if not m:
+            fail(f"{rid} exists but not as <toggleButton> element")
+        ok(f"{rid} is correctly <toggleButton>")
+
+
+def test_ribbon_toggle_vba_compiles(excel, wb):
+    """Verify Ribbon toggle VBA subs compile (loaded into ERPv14Ribbon module)."""
+    info("Testing Ribbon toggle VBA compilation...")
+    vbproj = wb.VBProject
+    try:
+        ribbon_mod = vbproj.VBComponents("ERPv14Ribbon")
+    except Exception as e:
+        fail(f"ERPv14Ribbon module missing: {e}")
+
+    code = ribbon_mod.CodeModule.Lines(1, ribbon_mod.CodeModule.CountOfLines)
+
+    required_subs = [
+        "OnAction_ToggleSrcSCFI",
+        "OnAction_ToggleSrcFAK",
+        "OnAction_ToggleSrcFIX",
+        "OnAction_ToggleSoc",
+        "GetPressed_SrcSCFI",
+        "GetPressed_SrcFAK",
+        "GetPressed_SrcFIX",
+        "GetPressed_Soc",
+        "GetEnabled_Soc",
+        "ResetToggleFilters",
+        "GetCurrentSourceFilter",
+        "GetCurrentSocFilter",
+    ]
+    for sub_name in required_subs:
+        if sub_name not in code:
+            fail(f"VBA sub/fn missing: {sub_name}")
+        ok(f"VBA sub/fn present: {sub_name}")
+
+    # Verify old cmbNote subs REMOVED
+    removed_subs = [
+        "OnChange_SearchNote",
+        "GetText_SearchNote",
+        "GetItemCount_Note",
+        "GetItemLabel_Note",
+    ]
+    for sub_name in removed_subs:
+        if sub_name in code:
+            fail(f"Old VBA sub still present (should be removed): {sub_name}")
+        ok(f"Old VBA sub removed: {sub_name}")
+
+    # Verify state vars present
+    for var_name in ["m_SourceFilter", "m_SocFilter"]:
+        if var_name not in code:
+            fail(f"VBA state var missing: {var_name}")
+        ok(f"VBA state var present: {var_name}")
+
+
+def test_ribbon_toggle_applyquicksearch_integration(excel, wb):
+    """Verify ApplyQuickSearch integrates with new toggle filter state."""
+    info("Testing ApplyQuickSearch integration...")
+    vbproj = wb.VBProject
+    try:
+        core_mod = vbproj.VBComponents("ERPv14Core")
+    except Exception as e:
+        fail(f"ERPv14Core module missing: {e}")
+
+    code = core_mod.CodeModule.Lines(1, core_mod.CodeModule.CountOfLines)
+
+    # ApplyQuickSearch must reference the new getters
+    for ref in ["GetCurrentSourceFilter", "GetCurrentSocFilter"]:
+        if ref not in code:
+            fail(f"ApplyQuickSearch does not call {ref} — toggle filter wiring incomplete")
+        ok(f"ApplyQuickSearch references {ref}")
+
+
 def test_vba_sub_compiles(excel, wb):
     """Verify key VBA subs exist and compile (callable without crash)."""
     info("Testing VBA subs compile (via indirect callable check)...")
@@ -386,7 +487,12 @@ def main():
         test_rate_mix_vba_compiles(excel, wb)
         test_rate_mix_tier_markup_values(excel, wb)
 
-        # Step 6: save + close
+        # Step 6: test Ribbon toggle buttons
+        test_ribbon_toggle_buttons_exist(excel, wb)
+        test_ribbon_toggle_vba_compiles(excel, wb)
+        test_ribbon_toggle_applyquicksearch_integration(excel, wb)
+
+        # Step 7: save + close
         wb.Save()
         wb.Close(SaveChanges=False)
         excel.Quit()
