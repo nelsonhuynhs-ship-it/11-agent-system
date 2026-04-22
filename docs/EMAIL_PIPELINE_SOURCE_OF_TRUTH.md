@@ -1,48 +1,109 @@
 # Email Pipeline — Source of Truth
 
-**Last updated:** 2026-04-17
+**Last updated:** 2026-04-22 23:00
 **Status:** 🔒 AUTHORITATIVE — DO NOT bypass
+**Version:** v6.1 (verified 2026-04-22 — Rotation Engine queue integration tested live)
 
 ---
 
 ## ONE sentence
 
-**Email send = `email_engine/web_server.py` (local PC) → Outlook COM desktop.**
-Không có API VPS, không có webapp Next.js trong chuỗi gửi email.
+**Email send = `email_engine/web_server.py` (local PC) → 5-filter anti-spam layer → Smart Send Window → Outlook COM desktop.**
+Không có API VPS, không có webapp Next.js trong chuỗi gửi email. Master data = 2-sheet unified v6.
 
 ---
 
-## Allowed path (only one)
+## Allowed path (only one) — v6 Architecture
 
 ```
-┌─ Nelson click [SEND] ─┐
-│  plans/visuals/        │
-│  email-dashboard-v4    │
-│  .html (local browser) │
-└───────────┬────────────┘
-            │ HTTP (localhost)
+┌─ Nelson click [SEND] / Daily Rotation ─┐
+│  web browser:                           │
+│  - Quick Send (batch 50+)               │
+│  - Daily Rotation 08:00 auto            │
+│  → plans/visuals/email-dashboard-v6.   │
+│    html (local browser)                 │
+└───────────┬─────────────────────────────┘
+            │ HTTP (localhost:8100)
             ▼
-┌──────────────────────────────────────────┐
-│ email_engine/web_server.py  (local PC)   │
-│   GET  /api/rate-preview                 │
-│   POST /api/send                         │
-│   GET  /api/arb-rates                    │
-│                                          │
-│   → auto_rate_builder.                   │
-│       build_rate_table_for_customer()    │
-│   → _build_html_table()  (RENDER)        │
-│   → outlook.CreateItem().Send()          │
-│   → _log_send() → email_log.csv          │
-└──────────────────────────────────────────┘
+┌─────────────────────────────────────────────────┐
+│ email_engine/web_server.py  (local PC)          │
+│   GET  /api/rate-preview                        │
+│   POST /api/send                                │
+│   GET  /api/rotation/today                      │
+│   POST /api/rotation/run-today                  │
+│                                                 │
+│ → Filter chain (5 layers):                      │
+│   1. EXCLUDED list check                        │
+│   2. SUPPRESSED status check                    │
+│   3. Cooldown 7d enforcement                    │
+│   4. Hard limit 3/30d check                     │
+│   5. Typo Shield (RapidFuzz domain)             │
+│                                                 │
+│ → auto_rate_builder.                           │
+│     build_rate_table_for_customer()             │
+│ → smart_send_window.                           │
+│     plan_send_time(contact, tz)                │
+│ → outlook.CreateItem().Send()                  │
+│ → _log_send() → email_log.csv                  │
+│ → Update SEND_COUNT + LAST_SENT_DATE           │
+└─────────────────────────────────────────────────┘
+            │
+            ▼
+┌──────────────────────────────────┐
+│ Scan Sent (auto-trigger after    │
+│ batch completion via webhook)    │
+│                                  │
+│ scan-sent-outlook.py:            │
+│   → Read Outlook Sent (14d)      │
+│   → bounce_harvest_v2.py         │
+│      (OOO/LEFT detect)           │
+│   → Update EMAIL_STATUS +        │
+│      REPLY_STATUS                │
+│   → Queue replacements           │
+└──────────────────────────────────┘
 ```
 
-**Data sources:**
+**Data flow (daily rotation scenario):**
+
+```
+Master file: contact_unified_v6.xlsx (CNEE sheet)
+           ↓
+   rotation_engine.py::build_daily_plan()
+   (reads config/rotation_quota.json)
+           ↓
+   Filter 5 layers + sort by SEND_COUNT ASC
+           ↓
+   Returns JSON: { date, target, by_commodity }
+           ↓
+   Dashboard shows progress bars per commodity
+           ↓
+   Nelson clicks "Start today's batch"
+           ↓
+   POST /api/rotation/run-today
+           ↓
+   web_server loop: for each email in plan
+     → smart_send_window.plan_send_time()
+     → outlook.CreateItem().Send()
+     → Update master: SEND_COUNT+1, LAST_SENT_DATE=today
+           ↓
+   After batch: scan-sent-outlook.py runs auto
+   (webhook trigger or Task Scheduler)
+           ↓
+   Next day: build_daily_plan() skips 7d cooldown
+   emails → new cohort picked
+```
+
+**Data sources (v6):**
+- Master contact data → `D:/OneDrive/NelsonData/email/contact_unified_v6.xlsx` (CNEE sheet)
+- Excluded customers → `email_engine/data/excluded_customers.json` (Nelson manual + scanner auto)
+- Rotation quota → `email_engine/config/rotation_quota.json`
+- Daily plans → `email_engine/data/daily_plans/YYYY-MM-DD.json` (archive)
+- Replacement candidates → `email_engine/data/replacement_candidates.json` (harvest queue)
 - Rates → `Pricing_Engine/data/Cleaned_Master_History.parquet` (OneDrive, via DuckDB)
-- CNEE → `email_engine/data/cnee_master_v2.xlsx` (fallback v1)
-- Config → `email_engine/data/config.xlsx`
 - Port map → `email_engine/data/Port_Code_Mapping_Final.xlsx`
 - ARB rates → `email_engine/data/arb_rates.yaml`
 - Log → `email_engine/logs/email_log.csv`
+- Sent scan log → `email_engine/logs/scan_sent_YYYY-MM-DD_HHMM.log`
 
 ---
 

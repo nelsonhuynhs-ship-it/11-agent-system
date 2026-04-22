@@ -1,6 +1,6 @@
 # Nelson Freight — SYSTEM STANDARDS
 
-**Last updated:** 2026-04-20
+**Last updated:** 2026-04-22 23:00
 **Status:** 🔒 **SINGLE SOURCE OF TRUTH.** Tất cả chuẩn vận hành hệ thống ở đây. Mọi thay đổi code PHẢI check file này trước. Không tạo file chuẩn khác ở folder khác.
 
 **Cách dùng:**
@@ -24,10 +24,13 @@
 | ERP VBA exports (.bas canonical) | `D:/OneDrive/NelsonData/erp/*.bas` |
 | ERP refresh script | `D:/OneDrive/NelsonData/erp/refresh-v14.py` |
 | ERP VBA mirror (repo backup) | `ERP/vba-v14-mirror/` |
-| Email dashboard HTML | `plans/visuals/email-dashboard-v4.html` |
+| Email dashboard HTML | `plans/visuals/email-dashboard-v6.html` |
 | Email local server | `email_engine/web_server.py` |
-| CNEE master data | `D:/OneDrive/NelsonData/email/cnee_master_v2.xlsx` |
+| CNEE master data v6 | `D:/OneDrive/NelsonData/email/contact_unified_v6.xlsx` (2-sheet CNEE+SHIPPER) |
+| CNEE master data v2 (fallback) | `D:/OneDrive/NelsonData/email/cnee_master_v2.xlsx` |
 | Email log | `email_engine/logs/email_log.csv` |
+| Rotation quota config | `email_engine/config/rotation_quota.json` |
+| Daily rotation plans | `email_engine/data/daily_plans/YYYY-MM-DD.json` |
 | Repo root (PC Home) | `D:/NELSON/2. Areas/Engine_test/` |
 
 **RULE 1.1** — Code Python đọc path qua `shared/paths.py` (resolve OneDrive). Không hard-code string paths trừ fallback.
@@ -195,6 +198,79 @@ ThisWorkbook.Close SaveChanges:=False
 
 ---
 
+## Section 6.5 — Email Anti-Spam Standards (v6 2026-04-22)
+
+**Master data:** `D:/OneDrive/NelsonData/email/contact_unified_v6.xlsx` (2-sheet: CNEE + SHIPPER)
+
+**5-col LOCK (không được edit) — Schema fixed:**
+| Column | Type | Purpose |
+|--------|------|---------|
+| `EMAIL_STATUS` | Enum: ACTIVE/EXCLUDED/SUPPRESSED/HOLD/DEAD | Send eligibility |
+| `SEND_COUNT` | Integer | Total sends since baseline |
+| `LAST_SENT_DATE` | Date | Last successful send (ISO 8601) |
+| `REPLY_STATUS` | Enum: NONE/OOO/LEFT/BOUNCED | Auto-reply classifier |
+| `TIER` | Enum: CUSTOMER/VIP/PROSPECT | Priority level |
+
+**RULE 6.5.1 — Cooldown enforcement (hard, no override):**
+- Minimum 7 days between sends to same recipient
+- Checked by `rotation_engine.py` before queue
+- Violation = log WARN + skip email + increment deficiency counter
+
+**RULE 6.5.2 — Hard send limit per window:**
+- Max 3 sends per 30-day rolling window per recipient
+- Enforced at:
+  - `build_daily_plan()` exclusion filter (before pick)
+  - `smart_send_window` queue validation (before Outlook)
+- Violation = log ERROR + orphan email + manual review flag
+
+**RULE 6.5.3 — Daily quota + rotation:**
+- Target: 700 emails/weekday (Monday–Friday only)
+- Config: `email_engine/config/rotation_quota.json` (by commodity)
+- Default distribution:
+  ```
+  FLOORING       150    FURNITURE_INDOOR  150
+  CANDLE         100    RUBBER            100
+  PLASTIC        100    PLYWOOD            50
+  FOOD_AMBIENT    30    OTHERS             20
+  ```
+- Redist logic: commodity not enough candidates → spill to next commodity (auto)
+- **Skip on:** Saturday/Sunday + US/VN holidays (via `us_holidays.py`, `vn_holidays.py`)
+
+**RULE 6.5.4 — Excluded list (3 files):**
+| File | Purpose | Updated by |
+|------|---------|-----------|
+| `email_engine/data/excluded_customers.json` | Direct customers (Nelson manual HOLD) | Nelson manual |
+| `email_engine/data/excluded_emails.json` | Hard bounces, spam complaints | Scanner auto-detect |
+| `email_engine/data/competitor_blacklist.json` | VN team overlap (for SHIPPER sheet) | Panjiva clean script |
+
+**Scan trigger:** After each Quick Send batch completes, `scan-sent-outlook.py` auto-runs (Task Scheduler):
+- Read Outlook Sent folder (last 14 days)
+- Extract auto-reply subject/body
+- Classify: OOO / LEFT / BOUNCED
+- Update `REPLY_STATUS` + `EMAIL_STATUS` in master file
+- Commit to git log: `scan_sent_YYYY-MM-DD_HHMM.log`
+
+**RULE 6.5.5 — Typo Shield (RapidFuzz fuzzy domain match):**
+- Threshold 1: ≥92% confidence → auto-BLOCK (log ERROR, skip)
+- Threshold 2: 85–91% confidence → HOLD (manual review flag, ask Nelson)
+- Threshold 3: <85% confidence → OK (send)
+- Domain list: `email_engine/core/typo_domains.py` (TOP_DOMAINS ~300 entries)
+- Usage: called in `web_server.py` before Outlook queue, also in batch verifier
+
+**RULE 6.5.6 — Bounce Harvest v2 (OOO/LEFT auto-detect):**
+- OOO reply → parse return date → set `DEFER_UNTIL` (resume send after date)
+- LEFT reply → extract replacement contact (position: PRICING/BOOKING/OPS) → queue for Nelson approval before master insert
+- Detection: regex patterns in `email_engine/core/harvest_patterns.py`
+- Storage: Replacement queue in `email_engine/data/replacement_candidates.json` (append-only)
+
+**RULE 6.5.7 — Smart Send Window (timezone-aware scheduling):**
+- Target: Tue/Wed/Thu 9–11h local time (contact's TIMEZONE col)
+- Avoid: Mon before 10h, Fri after 15h, Sat/Sun, US federal holidays
+- URGENT bypass: contact['URGENT'] == True → send immediately
+- Module: `email_engine/core/smart_send_window.py::plan_send_time(contact_row)`
+
+---
+
 ## Section 7 — Windows Task Scheduler
 
 **Task được register under `\Nelson\` hoặc root:**
@@ -314,6 +390,24 @@ D:/OneDrive/NelsonData/erp/refresh-v14.py — Parquet → ERP xlsm writer
 
 ---
 
+## Section 11.5 — Email Intelligence (NEW 2026-04-22)
+
+**Modules for rate & ARB intelligence:**
+
+| Module | Purpose | Status |
+|--------|---------|--------|
+| `email_engine/core/rule_engine.py` | POL + ARB origin resolution per ORIGIN_COUNTRY | 🔨 TBD (next session) |
+| `email_engine/data/arb_rates.yaml` | Rate tables per origin (shanghai, port_klang, lat_krabang, phnom_penh) | ✅ Exists |
+| `email_engine/core/auto_rate_builder.py` | Generate rate table HTML per customer | ✅ Integrated (2026-04-22) |
+
+**RULE 11.5.1 — ARB Mapping:**
+- POL resolution uses `rule_engine.py` per ORIGIN_COUNTRY (VN/MY/TH/CN/KH)
+- Malaysia (MY) fallback: `port_klang` when POL empty
+- China (CN): direct carrier lanes (NOT via Vietnam)
+- Details: See `docs/ARB_ORIGIN_MAPPING.md`
+
+---
+
 ## Section 12 — Incident Log (drift history)
 
 Mỗi lần chuẩn bị vi phạm / gây bug → ghi vào đây để AI/dev future học.
@@ -341,6 +435,46 @@ Mỗi lần chuẩn bị vi phạm / gây bug → ghi vào đây để AI/dev fu
 - Root cause: spec Nelson chốt không được document → refactor sau drift
 - Fix: RULE 3.1 ở section 3 + validator check
 - Commit: (pending)
+
+**2026-04-22 — Daily Rotation Engine queue integration (verified live)**
+- **Symptom:** `queue_to_outlook_worker()` logged emails instead of queuing to Outlook
+- **Root cause:** Function call to `queue_store.enqueue_batch()` was missing; import path incorrect (`auto_rate_builder` instead of `email_engine.core.auto_rate_builder`)
+- **Fix:** Wired actual queue integration + corrected import + implemented lane-level grouping (24 unique lanes per batch instead of 700 rate builder calls)
+- **Verification:** Batch ROT_1776868843 (700 emails) → 700/700 SENT, 0 FAILED
+- **Commit:** (pending)
+- **Files changed:** `email_engine/core/rotation_engine.py`, `email_engine/api/routes/rotation_router.py`
+
+**2026-04-22 — ARB Origin Mapping research (China correction)**
+- **Symptom:** AI documentation claimed China routes transit via Vietnam (HPH), would under-quote
+- **Reality:** China ports (Shanghai, Ningbo) have direct carrier lanes with independent full pricing (ONE/CMA/HPL/YML)
+- **Incident:** High-impact misunderstanding caught before implementation
+- **Resolution:** Document corrected in `docs/ARB_ORIGIN_MAPPING.md`; implementation `rule_engine.py` deferred to next session
+- **Parallel finding:** 7,232 Malaysia CNEE (32% of pool) currently mismapped to HCM → need `port_klang` fallback rule
+
+**2026-04-21 — ERP Refresh All mở OneDrive Web thay vì refresh (lần thứ 3)**
+- **Symptom:** Nelson bấm Refresh All → tự động mở file xlsm trên OneDrive Web trong browser, không chạy refresh pipeline. Local xlsm không được update. Đã xảy ra **3 lần** (17/04, 20/04, 21/04) — fix xong lần này tạm hết.
+- **Pattern chập chờn:** Cùng 1 laptop. Đôi lúc work (nhà), đôi lúc fail (công ty hoặc sau restart). Không có log entry khi fail → black box.
+- **Root cause:** `ThisWorkbook.FullName` trả về **URL** (`https://...`) khi Excel mở file từ:
+  - Teams chat link click
+  - Outlook attachment (cloud)
+  - Office 365 Recent Files > Cloud version
+  - AutoSave restore sau crash
+  - OneDrive "Files On-Demand" chưa fully synced
+  VBA spawn bootstrap.bat với URL → `start "" "https://..."` → Windows defaults → browser mở.
+- **Secondary bug:** `refresh_all_log.txt` bị bootstrap.bat TRUNCATE mỗi run (line 37: `echo ... > "%LOGF%"`) → mọi CLICK log từ VBA trước đó bị xoá → không thể debug retroactive.
+- **Fix (2026-04-21):**
+  1. VBA `OnAction_RefreshAll`: detect URL via `InStr(LCase(path), "://") > 0` → redirect to `CANONICAL_ERP_PATH` + user confirm dialog (warn file Web vs Local)
+  2. Bootstrap.bat: defense-in-depth URL guard at top — findstr http:// → fallback canonical or exit code 10
+  3. New helper `LogRefreshClick` → append to SEPARATE file `refresh_click_log.txt` (not truncated)
+  4. Click log status codes: `LOCAL_OK_SPAWNING`, `URL_REDIRECTED`, `URL_BLOCKED_NO_LOCAL`, `URL_USER_CANCELLED`, `WMI_FAIL_RC*`, `WMI_SPAWNED_PID*`, `ERROR_*`
+- **Prevention going forward:** Luôn mở ERP xlsm từ Desktop shortcut "ERP Master v14" (target = local path). Nếu mở từ Teams/Outlook → VBA sẽ redirect + warn.
+- **Commit:** (pending)
+- **Plan doc:** `plans/260421-refresh-all-fix/plan.md`
+- **Files changed:**
+  - `D:/OneDrive/NelsonData/erp/erp-v14-jobs-automation.bas` (OnAction_RefreshAll + LogRefreshClick + constants)
+  - `ERP/vba-v14-mirror/erp-v14-jobs-automation.bas` (mirror sync)
+  - `scripts/refresh-all-bootstrap.bat` (URL guard)
+  - Reimport via `scripts/reimport-erp-vba-modules.py`
 
 ---
 
