@@ -5,8 +5,21 @@ from pathlib import Path
 
 log = logging.getLogger("email_verifier")
 
+# TLD whitelist — replaces the too-permissive {2,} that passed .co/.cm/.og typos.
+# Only allow TLDs known to appear in legitimate B2B freight prospect emails.
+# If a real business TLD is missing, add it here — do NOT revert to {2,}.
+_VALID_TLDS = (
+    r"com|net|org|vn|io|edu|gov|asia"
+    r"|co\.uk|co\.vn|co\.jp|co\.in|co\.kr"
+    r"|jp|cn|kr|sg|th|my|id|ph|au|ca"
+    r"|de|fr|nl|eu|mx|br|ar|it|es|pl|cz|ro"
+    r"|us|biz|info|pro|mobi|name|coop|aero"
+    r"|hk|tw|in|pk|bd|lk|np|ae|sa|eg|ng|za"
+)
+
 EMAIL_REGEX = re.compile(
-    r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
+    r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.(?:" + _VALID_TLDS + r")$",
+    re.IGNORECASE,
 )
 
 try:

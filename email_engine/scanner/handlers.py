@@ -122,6 +122,25 @@ except Exception:
     def _mem_append(*args, **kwargs) -> bool:  # type: ignore
         return False
 
+# Bounce Harvest v2 — OOO + LEFT detector (Phase 2)
+try:
+    from email_engine.core.bounce_harvest_v2 import (  # type: ignore
+        scan as _bh_scan,
+        apply_ooo_to_master as _bh_apply_ooo,
+        apply_left_to_master as _bh_apply_left,
+    )
+    _BH_V2_AVAILABLE = True
+except Exception:
+    _BH_V2_AVAILABLE = False
+    def _bh_scan(subject, body, sender_email):  # type: ignore
+        class _R:
+            kind = "UNKNOWN"; replacements = []; notes = ""
+        return _R()
+    def _bh_apply_ooo(result, update_fn) -> bool:  # type: ignore
+        return False
+    def _bh_apply_left(result, update_fn) -> bool:  # type: ignore
+        return False
+
 # LLM structured reply extractor (A1 — added 2026-04-19)
 try:
     from email_engine.core.llm_extract_reply import extract_reply_context as _llm_extract  # type: ignore
@@ -333,6 +352,14 @@ def handle_bounce(item: Any, bounced_email: str) -> None:
         log.warning("handle_bounce vault error: %s", exc)
     # === A1 END ===
 
+    # === S1v3 BEGIN — Bounce Knowledge learning ===
+    try:
+        from email_engine.core.bounce_knowledge import learn_from_bounce
+        learn_from_bounce(target, severity, subject)
+    except Exception as exc:
+        log.warning("bounce KB learn failed: %s", exc)
+    # === S1v3 END ===
+
     # Phase C: Move NDR mail to Deleted Items (Inbox cleanup)
     if _move_to_deleted(item):
         log.info("BOUNCE logged + moved to Deleted: %s (%s)", target, severity)
@@ -345,7 +372,12 @@ def handle_bounce(item: Any, bounced_email: str) -> None:
 
 
 def handle_auto_reply(item: Any, cnee_email: str) -> None:
-    """Out-of-office / automatic reply handler."""
+    """Out-of-office / automatic reply handler.
+
+    Phase 2: runs bounce_harvest_v2.scan() to detect OOO vs LEFT signals.
+    - OOO  → sets DEFER_UNTIL on master, suppresses sends until return date
+    - LEFT → marks EMAIL_STATUS=DEAD, queues replacements for Nelson review
+    """
     subject = _safe_attr(item, "Subject")
     body = _safe_attr(item, "Body")
     email = (cnee_email or "").lower().strip()
@@ -366,6 +398,37 @@ def handle_auto_reply(item: Any, cnee_email: str) -> None:
             **({"ACTION": decision["action"]} if decision.get("action") else {}),
         },
     )
+
+    # === Phase 2 BEGIN — Bounce Harvest v2 ===
+    if _BH_V2_AVAILABLE:
+        try:
+            harvest = _bh_scan(subject, body, email)
+
+            if harvest.kind == "OOO":
+                _bh_apply_ooo(harvest, _update_master)
+                log.info(
+                    "harvest_v2 OOO applied: %s defer_until=%s",
+                    email,
+                    getattr(harvest, "defer_until", "?"),
+                )
+
+            elif harvest.kind == "LEFT":
+                _bh_apply_left(harvest, _update_master)
+                replacements = getattr(harvest, "replacements", [])
+                if replacements:
+                    rep_emails = [r.email for r in replacements]
+                    log.info("harvest_v2 LEFT replacements queued for review: %s", rep_emails)
+                    tg.send_alert(
+                        f"<b>Harvest: contact LEFT</b>\n"
+                        f"Dead: {email}\n"
+                        f"Replacements (needs review): {', '.join(rep_emails)}"
+                    )
+                else:
+                    log.info("harvest_v2 LEFT: %s — no replacements found", email)
+
+        except Exception as exc:
+            log.warning("harvest_v2 hook failed for %s: %s", email, exc)
+    # === Phase 2 END ===
 
     # Low-priority alert — daily report is enough; don't spam Nelson mid-day.
     log.info("AUTO_REPLY logged for %s", email)
