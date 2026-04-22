@@ -1,7 +1,9 @@
 ---
 title: "ERP Contract # + Group Rate Pipeline Fix"
 description: "Carry Contract number + Group Rate from parquet → Pricing Dry/Reefer → Active Jobs COST tooltip + booking email. ONE group code resolver (12 priority rules) for Dry + Reefer."
-status: pending
+status: completed
+shipped: 2026-04-21
+commit: 291349b
 priority: P1
 effort: 4h
 branch: main

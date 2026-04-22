@@ -1,7 +1,9 @@
 ---
 title: "ERP Full Tracking System — Booking Pool + 7-Stage Tooltip + 48h SI Alert"
 description: "Complete booking lifecycle tracking: Keep Space + Direct flows, Booking Pool sheet, scanner auto-populate, MarkQuoteWin link mode, SI/CY/Payment metadata, 48h Telegram alerts"
-status: pending-approval
+status: completed
+shipped: 2026-04-22
+commits: [phase-1-5 ship, ab036ea si-alert-integration, 8682e0b si-merge]
 priority: P1
 effort: 10h
 branch: main
