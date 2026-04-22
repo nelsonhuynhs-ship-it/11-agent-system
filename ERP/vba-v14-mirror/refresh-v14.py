@@ -308,37 +308,70 @@ if 'Rate_Type' in pivot.columns:
 # 2026-04-12: shorten verbose commodity strings for display
 pivot = normalize_commodity_display(pivot)
 
-# Dedup: latest per route+carrier+note+source
-# 2026-04-13: Added 'Source' so FAK/SCFI/FIX for the same route all survive.
-# Without Source, dedup keeps only the newest → FIX rows disappear when FAK is newer.
-route_key = [c for c in ['POL', 'POD', 'Place', 'Carrier', 'Note', 'Source'] if c in pivot.columns]
-if route_key:
-    sort_col = 'RefreshDate' if 'RefreshDate' in pivot.columns else 'Eff'
-    pivot = pivot.sort_values(sort_col, ascending=False, na_position='last')
-    pivot = pivot.drop_duplicates(subset=route_key, keep='first')
+# 2026-04-22 BUG FIX (Nelson audit): The previous dedup used route_key WITHOUT
+# 'Commodity', so for a lane with BOTH a dry-only Commodity row (e.g.
+# "SHORT TERM GDSM") and a reefer-only Commodity row (e.g. "REEFER FAK") sharing
+# the same (POL, POD, Place, Carrier, Note, Source), drop_duplicates kept only
+# ONE arbitrarily — causing entire ports/lanes to disappear from Pricing
+# Dry OR Reefer depending on which Commodity sorted first.
+#
+# Symptoms reported:
+#   - FAK COC ONE HCM-TACOMA (SHORT TERM GDSM) missing from Pricing Dry
+#   - ONE Reefer missing NORFOLK/HALIFAX NS/SAVANNAH
+#   - COSCO Reefer missing BOSTON/BALTIMORE
+#
+# Fix: Split rows into dry-pool vs reefer-pool BEFORE dedup, then dedup
+# independently within each pool. Same lane CAN now appear in both sheets
+# if it has both dry and reefer rates — which is the correct behavior.
 
-sort_col = 'RefreshDate' if 'RefreshDate' in pivot.columns else 'Eff'
-if sort_col in pivot.columns:
-    pivot = pivot.sort_values(sort_col, ascending=False, na_position='last')
-
-# Count RF data
 rf_cols = [c for c in ['20RF', '40RF'] if c in pivot.columns]
-rf_count = pivot[rf_cols].notna().any(axis=1).sum() if rf_cols else 0
-print(f"  {len(pivot):,} unique routes ({rf_count} with reefer)")
-
 dry_cols = [c for c in ['20GP', '40GP', '40HQ', '45HQ', '40NOR'] if c in pivot.columns]
-reefer_only_notes = pivot['Note'].astype(str).str.contains('REEFER', case=False, na=False) if 'Note' in pivot.columns else pd.Series(False, index=pivot.index)
-reefer_only_commodities = pivot['Commodity'].astype(str).str.contains('REEFER', case=False, na=False) if 'Commodity' in pivot.columns else pd.Series(False, index=pivot.index)
-dry_mask = pivot[dry_cols].notna().any(axis=1) if dry_cols else pd.Series(False, index=pivot.index)
-reefer_rate_mask = pivot[rf_cols].notna().any(axis=1) if rf_cols else pd.Series(False, index=pivot.index)
-reefer_mask = reefer_rate_mask | reefer_only_notes | reefer_only_commodities
 
-pivot_dry = pivot[dry_mask & ~reefer_only_notes & ~reefer_only_commodities].copy()
-pivot_reefer = pivot[reefer_mask].copy()
+# Signals for classification
+has_reefer_rates = pivot[rf_cols].notna().any(axis=1) if rf_cols else pd.Series(False, index=pivot.index)
+has_dry_rates = pivot[dry_cols].notna().any(axis=1) if dry_cols else pd.Series(False, index=pivot.index)
+reefer_note_mask = pivot['Note'].astype(str).str.contains('REEFER', case=False, na=False) if 'Note' in pivot.columns else pd.Series(False, index=pivot.index)
+reefer_cmd_mask = pivot['Commodity'].astype(str).str.contains('REEFER', case=False, na=False) if 'Commodity' in pivot.columns else pd.Series(False, index=pivot.index)
+reefer_context = reefer_note_mask | reefer_cmd_mask
 
-# Fix: If a route made it to reefer but has no 20RF or 40RF rate, drop it.
+# Split BEFORE dedup — row can belong to both pools if it has both types of rates
+# (rare but possible — the dedup within each pool handles it cleanly)
+dry_candidates = pivot[has_dry_rates & ~reefer_context].copy()
+reefer_candidates = pivot[has_reefer_rates | reefer_context].copy()
+
+# Dedup within each pool — route_key intentionally excludes Commodity
+# so latest Commodity per (POL,POD,Place,Carrier,Note,Source) wins,
+# but dry and reefer pools are independent.
+route_key = [c for c in ['POL', 'POD', 'Place', 'Carrier', 'Note', 'Source'] if c in pivot.columns]
+sort_col = 'RefreshDate' if 'RefreshDate' in pivot.columns else 'Eff'
+
+if route_key:
+    dry_candidates = dry_candidates.sort_values(sort_col, ascending=False, na_position='last')
+    pivot_dry = dry_candidates.drop_duplicates(subset=route_key, keep='first')
+
+    reefer_candidates = reefer_candidates.sort_values(sort_col, ascending=False, na_position='last')
+    pivot_reefer = reefer_candidates.drop_duplicates(subset=route_key, keep='first')
+else:
+    pivot_dry = dry_candidates
+    pivot_reefer = reefer_candidates
+
+# Drop reefer rows that have no 20RF/40RF value (may happen if row was tagged
+# reefer by Note/Commodity but actually has no reefer rate)
 if rf_cols:
     pivot_reefer = pivot_reefer.dropna(how='all', subset=rf_cols)
+
+# 2026-04-22: Normalize carrier's "FIXED RATE" note → Nelson's "Special Rate"
+# convention. Applied AT ERP BOUNDARY only — parquet stays raw for audit.
+# Affects Pricing Dry/Reefer Note col + downstream Quote sheet Via col.
+for _df in (pivot_dry, pivot_reefer):
+    if 'Note' in _df.columns and 'Source' in _df.columns:
+        _fix_mask = _df['Source'] == 'FIX'
+        _df.loc[_fix_mask, 'Note'] = _df.loc[_fix_mask, 'Note'].astype(str).str.replace(
+            r'(?i)^\s*fixed\s+rate\s*$', 'Special Rate', regex=True
+        )
+
+# Stats (kept for operator visibility)
+print(f"  Dry pool: {len(pivot_dry):,} rows | Reefer pool: {len(pivot_reefer):,} rows")
 
 # ===============================================================
 # STEP 3: Build ChargeBreakdown data (per route+carrier+container)

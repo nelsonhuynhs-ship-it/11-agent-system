@@ -257,10 +257,18 @@ def test_new_keep_space(excel, wb):
 def test_rate_mix_ribbon_exists(excel, wb):
     """Verify Rate Mix ribbon group loaded after reimport."""
     info("Testing Rate Mix ribbon group...")
-    import zipfile
-    path = wb.FullName
-    with zipfile.ZipFile(path, 'r') as z:
-        cu_xml = z.read('customUI/customUI14.xml').decode('utf-8')
+    import zipfile, shutil, tempfile
+    # wb.FullName may return OneDrive URL if file opened from cloud — use ERP_PATH constant
+    # and copy to tmp to avoid Excel file lock.
+    fd, tmp = tempfile.mkstemp(suffix=".xlsm")
+    os.close(fd)
+    try:
+        shutil.copy2(ERP_PATH, tmp)
+        with zipfile.ZipFile(tmp, 'r') as z:
+            cu_xml = z.read('customUI/customUI14.xml').decode('utf-8')
+    finally:
+        try: os.remove(tmp)
+        except Exception: pass
 
     required_ids = ['grpRateMix', 'ebFixQty', 'ebFakQty', 'lblMixSell', 'btnMixQuote']
     for rid in required_ids:
