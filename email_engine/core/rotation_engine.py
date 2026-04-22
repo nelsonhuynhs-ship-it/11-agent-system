@@ -181,22 +181,26 @@ def build_daily_plan(
     return plan
 
 
-_REGION_MAP: dict[str, str] = {
-    "USLAX": "West Coast", "USLGB": "West Coast",
-    "USNYC": "East Coast", "USSAV": "East Coast", "USORF": "East Coast",
-    "USCHS": "East Coast", "USTIW": "East Coast",
-    "USCHI": "Midwest", "USDAL": "Midwest",
-}
-_DEFAULT_POL    = "HPH"
-_DEFAULT_MARKUP = 20
-_DEFAULT_DESTS  = "USLAX,USLGB,USNYC"
+_DEFAULT_DESTS = "USLAX,USLGB,USNYC"
 
 
-def queue_to_outlook_worker(plan: dict[str, Any]) -> int:
+def queue_to_outlook_worker(
+    plan: dict[str, Any],
+    user_markup: int = 20,
+    campaign_override: str | None = None,
+) -> int:
     """Build email content per contact and INSERT into email_queue via enqueue_batch.
 
+    Uses rule_engine.resolve_config to derive POL, ARB origin, markup, and subject
+    per contact — replaces previous hardcoded POL=HPH / markup=20 defaults.
+
     Lane-batches rate table generation: 1 build_rate_table_for_customer call per
-    unique (pol, destinations) pair — avoids N+1 slow calls.
+    unique (pol, destinations, arb_origin) tuple — avoids N+1 slow calls.
+
+    Args:
+        plan:              Daily plan dict from build_daily_plan().
+        user_markup:       USD markup Nelson entered for this batch (default 20).
+        campaign_override: Force commodity label for all contacts (optional).
 
     Returns number of rows actually inserted.
     """
@@ -213,6 +217,7 @@ def queue_to_outlook_worker(plan: dict[str, Any]) -> int:
             log.error("queue_to_outlook_worker: auto_rate_builder unavailable — %s", exc)
             return 0
 
+    from email_engine.core.rule_engine import resolve_config
     from email_engine.queue_store import enqueue_batch, init_db
     init_db()  # idempotent — ensures schema exists
 
@@ -220,9 +225,9 @@ def queue_to_outlook_worker(plan: dict[str, Any]) -> int:
     email_col = "EMAIL" if "EMAIL" in df.columns else "CNEE_EMAIL"
     df_lookup = df.set_index(df[email_col].str.lower().str.strip())
 
-    # ── Pass 1: collect per-email metadata + group by lane ────────────────────
-    email_meta: list[dict[str, Any]] = []   # metadata for each contact
-    lanes_needed: set[tuple[str, str]] = set()
+    # ── Pass 1: resolve per-email config via rule_engine + group by lane ──────
+    email_meta: list[dict[str, Any]] = []
+    lanes_needed: set[tuple[str, str, str | None]] = set()  # (pol, destinations, arb_origin)
 
     for commodity, info in plan.get("by_commodity", {}).items():
         for email in info.get("emails", []):
@@ -233,27 +238,30 @@ def queue_to_outlook_worker(plan: dict[str, Any]) -> int:
                     log.debug("queue_to_outlook_worker: email not in master — %s", email)
                     continue
 
-                # pandas returns Series if multiple rows match; use first
+                # pandas returns DataFrame if multiple rows match; use first
                 if isinstance(row, pd.DataFrame):
                     row = row.iloc[0]
 
-                pol = str(row.get("POL", "")).strip().upper() or _DEFAULT_POL
-                dest_raw = str(row.get("DESTINATION", "")).strip()
-                destinations = (
-                    dest_raw if dest_raw and dest_raw.lower() not in ("nan", "none", "")
-                    else _DEFAULT_DESTS
+                config = resolve_config(
+                    row.to_dict() if hasattr(row, "to_dict") else dict(row),
+                    user_markup=user_markup,
+                    campaign_override=campaign_override or commodity,
                 )
 
                 email_meta.append({
-                    "email":        email.strip(),
-                    "pol":          pol,
-                    "destinations": destinations,
-                    "company":      str(row.get("COMPANY", "")).strip(),
-                    "pic":          str(row.get("PIC", "")).strip() or "there",
-                    "tier":         str(row.get("TIER", "")).strip(),
-                    "commodity":    commodity,
+                    "email":        config["email"] or email.strip(),
+                    "pol":          config["pol"],
+                    "destinations": config["destination"],
+                    "arb_origin":   config["arb_origin"],
+                    "markup":       config["markup"],
+                    "company":      config["company"],
+                    "pic":          config["pic"],
+                    "tier":         config["tier"],
+                    "commodity":    config["commodity"],
+                    "subject":      config["subject"],
+                    "country":      config["country"],
                 })
-                lanes_needed.add((pol, destinations))
+                lanes_needed.add((config["pol"], config["destination"], config["arb_origin"]))
             except Exception as exc:
                 log.warning("queue_to_outlook_worker: metadata error for %s: %s", email, exc)
 
@@ -261,23 +269,26 @@ def queue_to_outlook_worker(plan: dict[str, Any]) -> int:
         log.warning("queue_to_outlook_worker: no valid emails found in plan")
         return 0
 
-    # ── Pass 2: build rate tables — 1 per unique (pol, destinations) ──────────
-    lane_html: dict[tuple[str, str], str] = {}
-    for pol, destinations in lanes_needed:
+    # ── Pass 2: build rate tables — 1 per unique (pol, destinations, arb_origin) ──
+    lane_html: dict[tuple[str, str, str | None], str] = {}
+    for pol, destinations, arb_origin in lanes_needed:
         try:
             result = build_rate_table_for_customer(
                 pol=pol,
                 destinations=destinations,
-                markup=_DEFAULT_MARKUP,
+                markup=user_markup,
+                arb_origin=arb_origin,
             )
-            lane_html[(pol, destinations)] = result.get("html", "")
+            lane_html[(pol, destinations, arb_origin)] = result.get("html", "")
         except Exception as exc:
-            log.warning("queue_to_outlook_worker: rate build failed for %s→%s: %s", pol, destinations, exc)
-            lane_html[(pol, destinations)] = ""  # graceful: skip rate table but don't crash batch
+            log.warning(
+                "queue_to_outlook_worker: rate build failed for %s→%s arb=%s: %s",
+                pol, destinations, arb_origin, exc,
+            )
+            lane_html[(pol, destinations, arb_origin)] = ""  # graceful: skip rate table
 
     # ── Pass 3: assemble email dicts + enqueue ────────────────────────────────
-    week_num = datetime.now().isocalendar()[1]
-    batch_id = f"ROT_{int(time.time())}"
+    batch_id  = f"ROT_{int(time.time())}"
     plan_date = plan.get("date", date.today().isoformat())
 
     batch_emails: list[dict[str, Any]] = []
@@ -285,11 +296,8 @@ def queue_to_outlook_worker(plan: dict[str, Any]) -> int:
         try:
             pol         = meta["pol"]
             destinations = meta["destinations"]
-            first_dest  = destinations.split(",")[0].strip().upper()
-            pod_region  = _REGION_MAP.get(first_dest, "US")
-
-            rate_html   = lane_html.get((pol, destinations), "")
-            subject     = f"Ocean Freight Update — {pol} to {pod_region} | Week {week_num} | NELSON"
+            arb_origin  = meta["arb_origin"]
+            rate_html   = lane_html.get((pol, destinations, arb_origin), "")
             html_body   = (
                 f"<p>Dear {meta['pic']},</p>"
                 f"<p>Please find our latest ocean freight rates to the US, "
@@ -301,16 +309,18 @@ def queue_to_outlook_worker(plan: dict[str, Any]) -> int:
 
             batch_emails.append({
                 "cnee_email":     meta["email"],
-                "subject":        subject,
+                "subject":        meta["subject"],
                 "html_body":      html_body,
                 "tier":           meta["tier"],
                 "priority_score": 50,
                 "campaign_id":    meta["commodity"],
                 "meta_json": {
-                    "source":    "daily_rotation",
-                    "commodity": meta["commodity"],
-                    "plan_date": plan_date,
-                    "pol":       pol,
+                    "source":     "daily_rotation",
+                    "commodity":  meta["commodity"],
+                    "plan_date":  plan_date,
+                    "pol":        pol,
+                    "arb_origin": arb_origin,
+                    "country":    meta["country"],
                 },
             })
         except Exception as exc:

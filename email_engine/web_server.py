@@ -33,12 +33,12 @@ try:
 except ImportError:
     PARQUET_FILE = ENGINE_TEST / "Pricing_Engine" / "data" / "Cleaned_Master_History.parquet"
 
-# 2026-04-17: load full 28K CNEE from OneDrive canonical file (per data-source-correction
-# memory). Previous data.xlsx local was the 5K subset — we want ALL prospects now.
-# File order: OneDrive v2_final (newest 28K) > v2 > local 5K fallback.
+# 2026-04-22: migrate primary source → contact_unified_v6.xlsx (22,842 rows, v6 schema).
+# Fallback chain: v6 → v5 (cnee_master_v2_final) → v2 → local 5K emergency fallback.
 _ONEDRIVE_EMAIL = Path("D:/OneDrive/NelsonData/email")
 _CNEE_CANDIDATES = [
-    _ONEDRIVE_EMAIL / "cnee_master_v2_final.xlsx",
+    _ONEDRIVE_EMAIL / "contact_unified_v6.xlsx",      # v6 primary (22,842 rows)
+    _ONEDRIVE_EMAIL / "cnee_master_v2_final.xlsx",    # v5 fallback (22,230 rows)
     _ONEDRIVE_EMAIL / "cnee_master_v2.xlsx",
     BASE_DIR / "data.xlsx",  # final fallback
 ]
@@ -46,6 +46,7 @@ _CNEE_CANDIDATES = [
 DATA_FILE   = next((p for p in _CNEE_CANDIDATES if p.exists()), _CNEE_CANDIDATES[-1])
 CONFIG_FILE = BASE_DIR / "data" / "config.xlsx"
 LOG_FILE    = BASE_DIR / "logs" / "email_log.csv"
+CNEE_V6     = _ONEDRIVE_EMAIL / "contact_unified_v6.xlsx"
 CNEE_V2     = _ONEDRIVE_EMAIL / "cnee_master_v2_final.xlsx"
 CNEE_V1     = _ONEDRIVE_EMAIL / "cnee_master.xlsx"
 (BASE_DIR / "logs").mkdir(exist_ok=True)
@@ -54,7 +55,12 @@ SEND_PROGRESS: dict = {}  # campaign_id → {sent, total, errors, status}
 SCAN_PENDING: bool = False  # Set True after batch complete → auto-trigger sent scan after 5 min
 
 log.info(f"Loading contacts from {DATA_FILE}...")
-df_contacts = pd.read_excel(DATA_FILE)
+# v6 file has 2 sheets (CNEE + SHIPPER) — always load the CNEE sheet.
+# Single-sheet files (v5/fallback) ignore sheet_name when name not found.
+try:
+    df_contacts = pd.read_excel(DATA_FILE, sheet_name="CNEE")
+except Exception:
+    df_contacts = pd.read_excel(DATA_FILE)
 df_contacts.columns = df_contacts.columns.str.strip().str.upper()
 
 # Column compatibility: v2_final uses EMAIL/COMPANY/PIC/CAMPAIGN_ID; legacy uses
@@ -1349,8 +1355,17 @@ _CNEE_CACHE: dict = {"mtime": 0.0, "df": None, "path": None}
 
 
 def _get_cnee_df():
-    """Return cached CNEE dataframe. Reloads if xlsx mtime changed."""
-    cnee_src = CNEE_V2 if CNEE_V2.exists() else (CNEE_V1 if CNEE_V1.exists() else None)
+    """Return cached CNEE dataframe. Reloads if xlsx mtime changed.
+
+    Priority: v6 (contact_unified_v6.xlsx sheet=CNEE) → v5 (cnee_master_v2_final)
+             → v1 (cnee_master). Normalizes schema so v5 legacy cols (CNEE_EMAIL,
+             CNEE_NAME, CMD_NAME) map to v6 canonical (EMAIL, COMPANY, COMMODITY_CATEGORY).
+    """
+    cnee_src = (
+        CNEE_V6 if CNEE_V6.exists() else
+        (CNEE_V2 if CNEE_V2.exists() else
+         (CNEE_V1 if CNEE_V1.exists() else None))
+    )
     if not cnee_src:
         return None
     try:
@@ -1364,8 +1379,27 @@ def _get_cnee_df():
     ):
         return _CNEE_CACHE["df"]
     log.info(f"Loading CNEE master: {cnee_src.name} ({cnee_src.stat().st_size/1024/1024:.1f} MB)")
-    df = pd.read_excel(cnee_src)
+    # v6 is 2-sheet (CNEE + SHIPPER); v5/v1 single sheet
+    try:
+        from email_engine.core.xlsx_lock import xlsx_read_lock
+        with xlsx_read_lock(cnee_src):
+            if cnee_src == CNEE_V6:
+                df = pd.read_excel(cnee_src, sheet_name="CNEE")
+            else:
+                df = pd.read_excel(cnee_src)
+    except Exception:
+        # Fallback without lock if filelock unavailable
+        if cnee_src == CNEE_V6:
+            df = pd.read_excel(cnee_src, sheet_name="CNEE")
+        else:
+            df = pd.read_excel(cnee_src)
     df.columns = df.columns.str.strip().str.upper()
+    # Schema adapter — ensure v5 legacy cols map to v6 canonical
+    try:
+        from email_engine.core.cnee_schema_adapter import normalize_schema
+        df = normalize_schema(df)
+    except Exception:
+        pass
     _CNEE_CACHE["mtime"] = mtime
     _CNEE_CACHE["df"] = df
     _CNEE_CACHE["path"] = str(cnee_src)
@@ -1766,23 +1800,18 @@ except Exception as _e:
     _scanner = None  # type: ignore
 
 
-# Resolve CNEE master v2 location (OneDrive primary, local fallback)
+# Resolve CNEE master location — v6 primary, v5 fallback (OneDrive → local)
 def _resolve_cnee_master_v2() -> Path:
-    try:
-        from shared.paths import EMAIL_DATA  # type: ignore
-        p = EMAIL_DATA / "cnee_master_v2.xlsx"
-        if p.exists():
-            return p
-    except Exception:
-        pass
     for candidate in [
-        Path("D:/OneDrive/NelsonData/email/cnee_master_v2_final.xlsx"),  # 28K full
+        Path("D:/OneDrive/NelsonData/email/contact_unified_v6.xlsx"),    # v6 primary
+        Path("D:/OneDrive/NelsonData/email/cnee_master_v2_final.xlsx"),  # v5 fallback
         Path("D:/OneDrive/NelsonData/email/cnee_master_v2.xlsx"),
+        CNEE_V6,
         CNEE_V2,
     ]:
         if candidate.exists():
             return candidate
-    return CNEE_V2  # last-resort (may not exist yet)
+    return CNEE_V6  # last-resort (may not exist yet)
 
 
 CNEE_MASTER_V2_PATH = _resolve_cnee_master_v2()
@@ -2934,9 +2963,13 @@ def a3_draft_smart(req: _A3DraftRequest):
 @app.get("/api/data-health/v2")
 def data_health_v2():
     """Enhanced data health with EMAIL_STATUS + STATE breakdown.
-    Reads cnee_master_v2_final.xlsx and returns KPIs used in Insights tab.
+    Reads contact_unified_v6.xlsx (v6 primary) and returns KPIs used in Insights tab.
     """
-    cnee_src = CNEE_V2 if CNEE_V2.exists() else (CNEE_V1 if CNEE_V1.exists() else None)
+    cnee_src = (
+        CNEE_V6 if CNEE_V6.exists()
+        else CNEE_V2 if CNEE_V2.exists()
+        else (CNEE_V1 if CNEE_V1.exists() else None)
+    )
     if not cnee_src:
         return {"error": "cnee_master not found", "total": 0}
     try:

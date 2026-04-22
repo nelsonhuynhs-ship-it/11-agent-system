@@ -199,7 +199,8 @@ def list_contacts(
         offset    = (page - 1) * limit
 
         # Safe column check — not all schemas guaranteed to have every column
-        cols_available = {r[0].upper() for r in con.execute(f"PRAGMA table_info({tbl})").fetchall()}
+        # DuckDB PRAGMA table_info returns (cid, name, type, notnull, dflt, pk) — use r[1] for name
+        cols_available = {r[1].upper() for r in con.execute(f"PRAGMA table_info({tbl})").fetchall()}
 
         def col(c: str) -> str:
             return c if c in cols_available else f"NULL AS {c}"

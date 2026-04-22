@@ -376,13 +376,23 @@ def run_migration(
 
 
 def _write_two_sheet(cnee_df: pd.DataFrame, shipper_df: pd.DataFrame, path: Path) -> None:
-    """Write 2-sheet XLSX atomically (write to tmp then rename)."""
+    """Write 2-sheet XLSX atomically (write to tmp then rename).
+
+    Uses xlsx_write_lock so no reader can open the file while writing.
+    """
+    import sys as _sys
+    _repo_root = Path(__file__).parent.parent
+    if str(_repo_root) not in _sys.path:
+        _sys.path.insert(0, str(_repo_root))
+    from email_engine.core.xlsx_lock import xlsx_write_lock
+
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp.xlsx")
-    with pd.ExcelWriter(tmp, engine="openpyxl") as writer:
-        cnee_df.to_excel(writer, sheet_name="CNEE",    index=False)
-        shipper_df.to_excel(writer, sheet_name="SHIPPER", index=False)
-    tmp.replace(path)
+    with xlsx_write_lock(path):
+        with pd.ExcelWriter(tmp, engine="openpyxl") as writer:
+            cnee_df.to_excel(writer, sheet_name="CNEE",    index=False)
+            shipper_df.to_excel(writer, sheet_name="SHIPPER", index=False)
+        tmp.replace(path)
 
 
 # ── CLI ────────────────────────────────────────────────────────────────────────

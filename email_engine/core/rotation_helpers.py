@@ -74,7 +74,10 @@ def load_master_df() -> pd.DataFrame:
     """Load contact_unified_v6.xlsx sheet CNEE; raise FileNotFoundError if missing.
 
     Caches in-process using file mtime — re-reads only when file changes on disk.
+    Uses xlsx_read_lock to prevent reading while a concurrent write is in progress.
     """
+    from email_engine.core.xlsx_lock import xlsx_read_lock  # inline import avoids circular
+
     if not MASTER_FILE.exists():
         raise FileNotFoundError(
             f"Master file not found: {MASTER_FILE}. "
@@ -83,7 +86,8 @@ def load_master_df() -> pd.DataFrame:
     mtime = MASTER_FILE.stat().st_mtime
     if _MASTER_CACHE["df"] is not None and _MASTER_CACHE["mtime"] == mtime:
         return _MASTER_CACHE["df"]
-    df = pd.read_excel(MASTER_FILE, sheet_name="CNEE")
+    with xlsx_read_lock(MASTER_FILE):
+        df = pd.read_excel(MASTER_FILE, sheet_name="CNEE")
     df.columns = df.columns.str.strip().str.upper()
     _MASTER_CACHE["df"] = df
     _MASTER_CACHE["mtime"] = mtime

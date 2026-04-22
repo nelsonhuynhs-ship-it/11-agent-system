@@ -30,9 +30,13 @@ log = logging.getLogger("sent-scan")
 # ── Paths ─────────────────────────────────────────────────────────
 _ONEDRIVE_EMAIL = Path("D:/OneDrive/NelsonData/email")
 _BACKUP_DIR     = _ONEDRIVE_EMAIL / "backups"
-_MASTER_V2      = _ONEDRIVE_EMAIL / "cnee_master_v2_final.xlsx"
+_MASTER_V6      = _ONEDRIVE_EMAIL / "contact_unified_v6.xlsx"     # v6 primary
+_MASTER_V2      = _ONEDRIVE_EMAIL / "cnee_master_v2_final.xlsx"   # v5 fallback
 _ENGINE_TEST    = Path(__file__).parent.parent
 _EXCLUDED_FILE  = _ENGINE_TEST / "email_engine" / "data" / "excluded_emails.json"
+
+# Resolve master target — prefer v6
+_MASTER_TARGET = _MASTER_V6 if _MASTER_V6.exists() else _MASTER_V2
 
 _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
 
@@ -199,38 +203,78 @@ def write_json_summary(rows: list[dict], backup_dir: Path, days: int, threshold:
 # ── --update-master ───────────────────────────────────────────────
 
 def update_master(rows: list[dict]) -> int:
-    """Update SEND_COUNT + LAST_SENT_DATE in cnee_master_v2_final.xlsx."""
-    if not _MASTER_V2.exists():
-        log.warning(f"Master not found at {_MASTER_V2} — skipping update")
+    """Update SEND_COUNT + LAST_SENT_DATE in contact_unified_v6.xlsx (v6 primary).
+
+    Falls back to cnee_master_v2_final.xlsx if v6 not present.
+    Uses xlsx_write_lock to prevent concurrent write corruption.
+    """
+    # Re-resolve at call time (v6 may have appeared since startup)
+    master_path = _MASTER_V6 if _MASTER_V6.exists() else _MASTER_V2
+    if not master_path.exists():
+        log.warning(f"Master not found at {master_path} — skipping update")
         return 0
+
     try:
-        import pandas as pd
-        df = pd.read_excel(_MASTER_V2)
-        df.columns = df.columns.str.strip().str.upper()
-        email_col = "EMAIL" if "EMAIL" in df.columns else "CNEE_EMAIL"
-        if email_col not in df.columns:
-            log.warning("No EMAIL/CNEE_EMAIL column in master — skipping update")
-            return 0
-
-        lookup = {r["email"]: r for r in rows}
-        updated = 0
-        for idx, row in df.iterrows():
-            em = str(row.get(email_col, "")).lower().strip()
-            if em in lookup:
-                rec = lookup[em]
-                if "SEND_COUNT" in df.columns:
-                    df.at[idx, "SEND_COUNT"] = rec["count"]
-                if "LAST_SENT_DATE" in df.columns:
-                    df.at[idx, "LAST_SENT_DATE"] = rec["last_sent"]
-                updated += 1
-
-        # Backup before save
-        ts  = datetime.now().strftime("%Y%m%d_%H%M")
-        bak = _MASTER_V2.parent / f"cnee_master_v2_final.backup_{ts}.xlsx"
         import shutil
-        shutil.copy2(_MASTER_V2, bak)
-        df.to_excel(_MASTER_V2, index=False)
-        log.info(f"Master updated: {updated} rows  (backup: {bak.name})")
+        import pandas as pd
+        from pathlib import Path as _Path
+
+        sys.path.insert(0, str(_ENGINE_TEST))
+        from email_engine.core.xlsx_lock import xlsx_write_lock
+
+        # Determine sheet to read/write (v6 has CNEE sheet, v5 has no sheet)
+        is_v6 = master_path.name == "contact_unified_v6.xlsx"
+        sheet_name = "CNEE" if is_v6 else None
+
+        with xlsx_write_lock(master_path):
+            if sheet_name:
+                try:
+                    df = pd.read_excel(master_path, sheet_name=sheet_name)
+                except Exception:
+                    df = pd.read_excel(master_path)
+            else:
+                df = pd.read_excel(master_path)
+
+            df.columns = df.columns.str.strip().str.upper()
+            email_col = "EMAIL" if "EMAIL" in df.columns else "CNEE_EMAIL"
+            if email_col not in df.columns:
+                log.warning("No EMAIL/CNEE_EMAIL column in master — skipping update")
+                return 0
+
+            lookup = {r["email"]: r for r in rows}
+            updated = 0
+            for idx, row in df.iterrows():
+                em = str(row.get(email_col, "")).lower().strip()
+                if em in lookup:
+                    rec = lookup[em]
+                    if "SEND_COUNT" in df.columns:
+                        df.at[idx, "SEND_COUNT"] = rec["count"]
+                    if "LAST_SENT_DATE" in df.columns:
+                        df.at[idx, "LAST_SENT_DATE"] = rec["last_sent"]
+                    updated += 1
+
+            # Backup before save
+            ts  = datetime.now().strftime("%Y%m%d_%H%M")
+            bak_name = f"{master_path.stem}.backup_{ts}.xlsx"
+            bak = master_path.parent / bak_name
+            shutil.copy2(master_path, bak)
+
+            if is_v6:
+                # Preserve SHIPPER sheet when writing back
+                try:
+                    df_shipper = pd.read_excel(master_path, sheet_name="SHIPPER")
+                except Exception:
+                    df_shipper = pd.DataFrame()
+                tmp = master_path.with_suffix(".tmp.xlsx")
+                with pd.ExcelWriter(tmp, engine="openpyxl") as writer:
+                    df.to_excel(writer, sheet_name="CNEE", index=False)
+                    if not df_shipper.empty:
+                        df_shipper.to_excel(writer, sheet_name="SHIPPER", index=False)
+                tmp.replace(master_path)
+            else:
+                df.to_excel(master_path, index=False)
+
+        log.info(f"Master updated: {updated} rows  (backup: {bak.name})  target={master_path.name}")
         return updated
     except Exception as exc:
         log.error(f"update_master failed: {exc}")
@@ -302,7 +346,7 @@ def main():
     parser = argparse.ArgumentParser(description="Scan Outlook Sent Items")
     parser.add_argument("--days",            type=int, default=14, help="Days to look back (default 14)")
     parser.add_argument("--threshold",       type=int, default=3,  help="Min send count to flag (default 3)")
-    parser.add_argument("--update-master",   action="store_true",  help="Update SEND_COUNT in cnee_master_v2_final.xlsx")
+    parser.add_argument("--update-master",   action="store_true",  help="Update SEND_COUNT in contact_unified_v6.xlsx (v5 fallback)")
     parser.add_argument("--block-threshold", type=int, default=0,  help="Auto-add to excluded_emails.json if sent >= N (0=disabled)")
     args = parser.parse_args()
 

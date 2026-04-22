@@ -308,14 +308,32 @@ def update_quota(body: QuotaUpdateBody) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+class RunTodayRequest(BaseModel):
+    user_markup: Optional[int] = 20
+    campaign_override: Optional[str] = None
+
+
 @router.post("/run-today")
-def run_today(background_tasks: BackgroundTasks) -> dict[str, Any]:
-    """Manually trigger today's rotation batch (queues in background)."""
+def run_today(
+    background_tasks: BackgroundTasks,
+    req: Optional[RunTodayRequest] = None,
+) -> dict[str, Any]:
+    """Manually trigger today's rotation batch (queues in background).
+
+    Accepts optional JSON body::
+
+        { "user_markup": 30, "campaign_override": "FLOORING" }
+
+    Both fields are optional — defaults: markup=20, no campaign override.
+    """
     today = date.today()
-    background_tasks.add_task(_run_rotation_background, today)
+    markup = (req.user_markup if req and req.user_markup is not None else 20)
+    campaign = (req.campaign_override if req else None)
+    background_tasks.add_task(_run_rotation_background, today, markup, campaign)
     return {
         "status": "queued",
         "date": today.isoformat(),
+        "user_markup": markup,
         "message": "Rotation triggered in background. Check /api/rotation/today in ~10s.",
     }
 
@@ -326,14 +344,109 @@ def get_cycle() -> dict[str, Any]:
     return _get_cycle_info_cached()
 
 
+@router.get("/preview-sample")
+def preview_sample(
+    count: int = Query(default=3, ge=1, le=10),
+    markup: int = Query(default=20, ge=0, le=500),
+) -> dict[str, Any]:
+    """Return N sample emails as they would render — for UI preview modal.
+
+    Picks the first contact from each of the top `count` commodities in
+    today's plan and resolves their rate table + subject via rule_engine.
+    Falls back to a fresh build_daily_plan() if no archived plan exists.
+    """
+    try:
+        from email_engine.core.rule_engine import resolve_config
+        from email_engine.core.auto_rate_builder import build_rate_table_for_customer
+        from email_engine.core.rotation_engine import build_daily_plan
+    except ImportError as exc:
+        raise HTTPException(status_code=503, detail=f"Engine unavailable: {exc}")
+
+    # Load or build plan
+    plan = _load_plan(date.today())
+    if plan is None or plan.get("skipped_reason"):
+        try:
+            plan = build_daily_plan()
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail=f"Plan build failed: {exc}")
+
+    # Load master contact data
+    df = _load_master_df_safe()
+    if df is None:
+        raise HTTPException(status_code=503, detail="Master contact file unavailable")
+
+    email_col = "EMAIL" if "EMAIL" in df.columns else "CNEE_EMAIL"
+    df_indexed = df.set_index(df[email_col].str.lower().str.strip())
+
+    samples: list[dict[str, Any]] = []
+    commodities = list(plan.get("by_commodity", {}).items())[:count]
+
+    for commodity, info in commodities:
+        emails = info.get("emails", [])
+        if not emails:
+            continue
+
+        sample_email = emails[0].strip()
+        key = sample_email.lower()
+        row_raw = df_indexed.loc[key] if key in df_indexed.index else {}
+
+        if isinstance(row_raw, pd.DataFrame):
+            row_raw = row_raw.iloc[0]
+
+        row_dict = row_raw.to_dict() if hasattr(row_raw, "to_dict") else {}
+
+        try:
+            config = resolve_config(row_dict, user_markup=markup, campaign_override=commodity)
+        except Exception as exc:
+            log.warning("preview_sample: resolve_config error for %s: %s", sample_email, exc)
+            continue
+
+        rate_html = ""
+        try:
+            result = build_rate_table_for_customer(
+                pol=config["pol"],
+                destinations=config["destination"],
+                markup=config["markup"],
+                arb_origin=config["arb_origin"],
+            )
+            rate_html = result.get("html", "")
+        except Exception as exc:
+            log.warning("preview_sample: rate build failed for %s: %s", sample_email, exc)
+
+        samples.append({
+            "commodity":  commodity,
+            "email":      config["email"] or sample_email,
+            "company":    config["company"],
+            "pic":        config["pic"],
+            "country":    config["country"],
+            "pol":        config["pol"],
+            "arb_origin": config["arb_origin"],
+            "subject":    config["subject"],
+            "rate_html":  rate_html,
+        })
+
+    return {"samples": samples, "markup": markup, "count": len(samples)}
+
+
 # ── Background task ───────────────────────────────────────────────────────────
 
-def _run_rotation_background(target_date: date) -> None:
+def _run_rotation_background(
+    target_date: date,
+    user_markup: int = 20,
+    campaign_override: Optional[str] = None,
+) -> None:
     try:
         from email_engine.core.rotation_engine import build_daily_plan, queue_to_outlook_worker
         plan = build_daily_plan(target_date=target_date)
-        queued = queue_to_outlook_worker(plan)
-        log.info("ROTATION_BG: date=%s queued=%d", target_date, queued)
+        queued = queue_to_outlook_worker(
+            plan,
+            user_markup=user_markup,
+            campaign_override=campaign_override,
+        )
+        log.info(
+            "ROTATION_BG: date=%s queued=%d markup=%d campaign=%s",
+            target_date, queued, user_markup, campaign_override or "all",
+        )
     except Exception as exc:
         log.error("_run_rotation_background: %s", exc)
     finally:
