@@ -241,6 +241,101 @@ progress::-moz-progress-bar{background:var(--accent);border-radius:5px}
   .rp-stats{min-width:110px;font-size:11px}
   .quota-row{grid-template-columns:90px 1fr 50px}
 }
+
+/* ═══ PHASE 2+3: Smart Config + Preview Modal ═══ */
+.rt-smart-config label {
+  font-weight:500;
+  color:var(--ink);
+}
+.rt-smart-config input[type="number"] {
+  font-family:inherit;
+}
+details.manual-override summary::-webkit-details-marker { display:none; }
+details.manual-override[open] > summary {
+  background:var(--paper);
+  border-bottom:1px solid var(--line-2);
+  border-radius:4px 4px 0 0;
+}
+
+/* Preview modal */
+.preview-modal-overlay {
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(26,26,26,0.52);
+  z-index:2000;
+  align-items:center;
+  justify-content:center;
+}
+.preview-modal-overlay.open {
+  display:flex;
+}
+.preview-modal-box {
+  background:var(--paper);
+  border:1px solid var(--line);
+  border-radius:6px;
+  width:90vw;
+  max-width:900px;
+  max-height:85vh;
+  overflow:auto;
+  padding:24px;
+  position:relative;
+  box-shadow:0 16px 48px rgba(0,0,0,.18);
+}
+.preview-modal-box h2 {
+  font-family:'Noto Serif JP',serif;
+  font-size:18px;
+  font-weight:500;
+  margin:0 0 6px;
+}
+.preview-modal-close {
+  position:absolute;
+  top:14px;
+  right:16px;
+  background:none;
+  border:none;
+  font-size:20px;
+  cursor:pointer;
+  color:var(--muted);
+  line-height:1;
+  padding:0 4px;
+}
+.preview-modal-close:hover { color:var(--ink); }
+.preview-sample-card {
+  border:1px solid var(--line);
+  border-radius:4px;
+  padding:16px;
+  margin:12px 0;
+  background:var(--paper-2);
+}
+.preview-sample-meta {
+  display:grid;
+  grid-template-columns:90px 1fr;
+  gap:4px 14px;
+  font-size:12.5px;
+  margin-bottom:12px;
+}
+.preview-sample-meta .pm-label { color:var(--muted); }
+.preview-sample-meta .pm-val   { color:var(--ink); }
+.preview-sample-meta .pm-accent { color:var(--accent); font-weight:500; }
+.preview-sample-rate {
+  border-top:1px dashed var(--line);
+  padding-top:12px;
+  font-size:12px;
+  overflow-x:auto;
+}
+.preview-modal-footer {
+  margin-top:24px;
+  padding-top:16px;
+  border-top:1px solid var(--line);
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+}
+@media(max-width:600px){
+  .preview-modal-box { padding:16px; width:95vw; }
+  .preview-sample-meta { grid-template-columns:70px 1fr; font-size:11.5px; }
+}
 </style>
 </head>
 <body>
@@ -356,6 +451,27 @@ progress::-moz-progress-bar{background:var(--accent);border-radius:5px}
     <div class="rt-yesterday" id="rtYesterday">HÔM QUA: — sent</div>
   </div>
 
+  <!-- Phase 2: Smart config inline -->
+  <div class="rt-smart-config" style="margin-top:12px;padding:12px 16px;background:var(--paper);border-radius:4px;border:1px solid var(--line)">
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;align-items:center;font-size:13px">
+      <label for="rtMarkup" style="font-weight:500;color:var(--ink);white-space:nowrap">Markup USD</label>
+      <input type="number" id="rtMarkup" value="20" min="0" max="200" step="5"
+             style="padding:4px 8px;border:1px solid var(--line);border-radius:3px;width:80px;font-family:inherit;background:var(--paper-2);font-size:13px" />
+
+      <span style="color:var(--muted);font-size:12px;white-space:nowrap">POL / ARB</span>
+      <span style="color:var(--muted);font-size:12px">Auto theo ORIGIN_COUNTRY &mdash; VN&rarr;HCM &nbsp;|&nbsp; MY&rarr;PKG+port_klang (7,232) &nbsp;|&nbsp; CN&rarr;SHA/NGB direct &nbsp;|&nbsp; KH&rarr;HCM+phnom_penh</span>
+
+      <span style="color:var(--muted);font-size:12px;white-space:nowrap">Subject</span>
+      <span style="color:var(--muted);font-size:12px">Random 5 templates / email (anti-spam)</span>
+
+      <span></span>
+      <button class="btn btn-sm" onclick="openPreviewModal()" style="width:fit-content;border-color:var(--accent);color:var(--accent);background:var(--paper)">
+        &#128065; Preview 3 samples
+      </button>
+    </div>
+  </div>
+</div>
+
   <!-- Widget B: Commodity Progress -->
   <div class="rotation-progress" id="rotationProgress">
     <h3 id="rpTitle">Tiến độ Vòng 1</h3>
@@ -369,58 +485,66 @@ progress::-moz-progress-bar{background:var(--accent);border-radius:5px}
     <div class="rp-grand-total" id="rpGrandTotal">—</div>
   </div>
 
-  <section class="section">
-    <div class="section-head">
-      <div class="section-title">配信 · Send configuration</div>
-    </div>
-    <div class="form-row">
-      <div class="field">
-        <div class="field-label">Campaign</div>
-        <select class="field-select" id="inpCampaign"><option>Loading...</option></select>
-      </div>
-      <div class="field">
-        <div class="field-label">POL</div>
-        <select class="field-select" id="inpPol"><option value="HPH">HPH</option><option value="HCM">HCM</option></select>
-      </div>
-      <div class="field">
-        <div class="field-label">Destination</div>
-        <input class="field-input" id="inpDest" placeholder="blank = each contact's POD">
-      </div>
-      <div class="field">
-        <div class="field-label">Markup USD</div>
-        <input class="field-input" id="inpMarkup" value="20" type="number">
-      </div>
-      <div class="field">
-        <div class="field-label">ARB origin</div>
-        <select class="field-select" id="inpArb"><option value="">none</option></select>
-      </div>
-      <div class="field">
-        <div class="field-label">Subject</div>
-        <select class="field-select" id="inpSubjectPolicy">
-          <option value="random" selected>random per email (anti-spam)</option>
-          <option value="shared">shared per batch (branding)</option>
-          <option value="fixed">fixed text...</option>
-        </select>
-      </div>
-      <div class="field" id="fieldSubjectFixed" style="display:none">
-        <div class="field-label">Fixed subject text</div>
-        <input class="field-input" id="inpSubjectFixed" placeholder="e.g. Nelson Weekly HPH Rate — Week 17">
-      </div>
-      <button class="btn btn-primary" id="btnLoadRates">Load Rates</button>
-    </div>
+  <!-- Phase 2: Manual Override accordion — collapsed by default -->
+  <details class="manual-override" style="margin-top:20px">
+    <summary style="cursor:pointer;padding:11px 16px;background:var(--paper-2);border:1px solid var(--line);border-radius:4px;font-size:12.5px;font-weight:500;color:var(--muted-2);user-select:none;list-style:none">
+      &#9660; MANUAL OVERRIDE &mdash; <span style="font-weight:400;font-size:11.5px">chỉ dùng khi cần force 1 batch đặc biệt</span>
+    </summary>
+    <div style="padding:20px 16px;border:1px solid var(--line);border-top:none;border-radius:0 0 4px 4px;background:var(--paper)">
+      <section class="section" style="margin-bottom:0">
+        <div class="section-head">
+          <div class="section-title">配信 · Send configuration</div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <div class="field-label">Campaign</div>
+            <select class="field-select" id="inpCampaign"><option>Loading...</option></select>
+          </div>
+          <div class="field">
+            <div class="field-label">POL</div>
+            <select class="field-select" id="inpPol"><option value="HPH">HPH</option><option value="HCM">HCM</option></select>
+          </div>
+          <div class="field">
+            <div class="field-label">Destination</div>
+            <input class="field-input" id="inpDest" placeholder="blank = each contact's POD">
+          </div>
+          <div class="field">
+            <div class="field-label">Markup USD</div>
+            <input class="field-input" id="inpMarkup" value="20" type="number">
+          </div>
+          <div class="field">
+            <div class="field-label">ARB origin</div>
+            <select class="field-select" id="inpArb"><option value="">none</option></select>
+          </div>
+          <div class="field">
+            <div class="field-label">Subject</div>
+            <select class="field-select" id="inpSubjectPolicy">
+              <option value="random" selected>random per email (anti-spam)</option>
+              <option value="shared">shared per batch (branding)</option>
+              <option value="fixed">fixed text...</option>
+            </select>
+          </div>
+          <div class="field" id="fieldSubjectFixed" style="display:none">
+            <div class="field-label">Fixed subject text</div>
+            <input class="field-input" id="inpSubjectFixed" placeholder="e.g. Nelson Weekly HPH Rate — Week 17">
+          </div>
+          <button class="btn btn-primary" id="btnLoadRates">Load Rates</button>
+        </div>
 
-    <!-- A4: Strategy hint per campaign -->
-    <div id="qsStrategyHint" style="display:none;margin-top:12px;padding:12px 16px;background:var(--paper-2);border:1px solid var(--line);border-radius:2px;font-size:12.5px">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
-        <div id="qsStrategyText" style="flex:1;color:var(--ink-2)">Loading strategy...</div>
-        <button onclick="document.getElementById('qsStrategyHint').style.display='none'" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;line-height:1;flex-shrink:0">&times;</button>
-      </div>
-      <div id="qsStrategyRationale" style="margin-top:6px;color:var(--muted);font-size:11.5px;display:none"></div>
-      <div style="margin-top:6px">
-        <button onclick="toggleStrategyRationale()" style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:11.5px;padding:0">Vi sao? (expand)</button>
-      </div>
+        <!-- A4: Strategy hint per campaign -->
+        <div id="qsStrategyHint" style="display:none;margin-top:12px;padding:12px 16px;background:var(--paper-2);border:1px solid var(--line);border-radius:2px;font-size:12.5px">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+            <div id="qsStrategyText" style="flex:1;color:var(--ink-2)">Loading strategy...</div>
+            <button onclick="document.getElementById('qsStrategyHint').style.display='none'" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;line-height:1;flex-shrink:0">&times;</button>
+          </div>
+          <div id="qsStrategyRationale" style="margin-top:6px;color:var(--muted);font-size:11.5px;display:none"></div>
+          <div style="margin-top:6px">
+            <button onclick="toggleStrategyRationale()" style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:11.5px;padding:0">Vi sao? (expand)</button>
+          </div>
+        </div>
+      </section>
     </div>
-  </section>
+  </details>
 
   <section class="grid-main">
     <div class="panel">
@@ -4403,13 +4527,18 @@ if (document.readyState === 'loading') {
   // ── start batch ───────────────────────────────────
   window.startTodayBatch = async function() {
     var btn = _el('rtStartBatch');
+    var markup = parseInt((_el('rtMarkup') || {}).value || '20', 10) || 20;
     btn.disabled = true;
     btn.textContent = 'Starting...';
     try {
-      var r = await fetch(API + '/api/rotation/run-today', { method: 'POST' });
+      var r = await fetch(API + '/api/rotation/run-today', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_markup: markup })
+      });
       if (r.ok) {
-        if (typeof toast === 'function') toast('Batch started — queued to Outlook worker', 'ok');
-        loadRotationToday();
+        if (typeof toast === 'function') toast('Batch started — markup $' + markup, 'ok');
+        setTimeout(loadRotationToday, 2000);
       } else {
         if (typeof toast === 'function') toast('Start batch failed: ' + r.status, 'err');
       }
@@ -4420,6 +4549,66 @@ if (document.readyState === 'loading') {
       btn.textContent = '\u25B6 Start batch';
     }
   };
+
+  // ── preview modal ─────────────────────────────────
+  window.openPreviewModal = async function() {
+    var markup = parseInt((_el('rtMarkup') || {}).value || '20', 10) || 20;
+    var overlay = _el('previewModal');
+    overlay.classList.add('open');
+    _el('previewSamples').innerHTML =
+      '<div style="padding:32px 0;text-align:center;color:var(--muted)"><span class="spinner"></span> Loading samples...</div>';
+
+    try {
+      var r = await fetch(API + '/api/rotation/preview-sample?count=3&markup=' + markup);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      var d = await r.json();
+      if (!d.samples || !d.samples.length) {
+        _el('previewSamples').innerHTML =
+          '<div style="padding:24px;color:var(--muted);text-align:center">No samples available — check that today\'s plan is built.</div>';
+        return;
+      }
+      var html = d.samples.map(function(s) {
+        return '<div class="preview-sample-card">' +
+          '<div class="preview-sample-meta">' +
+            '<span class="pm-label">Commodity</span><b class="pm-val">' + _esc(s.commodity) + '</b>' +
+            '<span class="pm-label">To</span><span class="pm-val" style="font-family:\'JetBrains Mono\',monospace;font-size:11.5px">' + _esc(s.email) + '</span>' +
+            '<span class="pm-label">Company</span><span class="pm-val">' + _esc(s.company || '—') + '</span>' +
+            '<span class="pm-label">Country</span><span class="pm-val">' + _esc(s.country || '—') + '</span>' +
+            '<span class="pm-label">POL</span><span class="pm-val pm-accent">' + _esc(s.pol) + '</span>' +
+            '<span class="pm-label">ARB</span><span class="pm-val">' + _esc(s.arb_origin || '(none — direct)') + '</span>' +
+            '<span class="pm-label">Subject</span><span class="pm-val" style="font-size:11.5px">' + _esc(s.subject) + '</span>' +
+          '</div>' +
+          '<div class="preview-sample-rate">' + (s.rate_html || '<em style="color:var(--muted)">No rate table</em>') + '</div>' +
+        '</div>';
+      }).join('');
+      _el('previewSamples').innerHTML = html;
+    } catch(e) {
+      _el('previewSamples').innerHTML =
+        '<div style="padding:20px;color:var(--err)">Error loading samples: ' + _esc(e.message) + '</div>';
+    }
+  };
+
+  window.closePreviewModal = function() {
+    _el('previewModal').classList.remove('open');
+  };
+
+  window.confirmAndSend = async function() {
+    closePreviewModal();
+    await startTodayBatch();
+  };
+
+  // close preview modal on overlay click
+  document.addEventListener('click', function(e) {
+    if (e.target && e.target.id === 'previewModal') closePreviewModal();
+  });
+
+  // escape HTML helper (local scope)
+  function _esc(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
 
   // ── quota modal ───────────────────────────────────
   var _quotaFields = [
@@ -4564,6 +4753,33 @@ if (document.readyState === 'loading') {
     <div class="quota-modal-foot">
       <button class="btn btn-sm" onclick="closeQuotaModal()">Huy</button>
       <button class="btn btn-primary btn-sm" id="quotaSaveBtn" onclick="saveQuota()">Luu quota</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PHASE 3: PREVIEW MODAL ═══ -->
+<div id="previewModal" class="preview-modal-overlay">
+  <div class="preview-modal-box">
+    <button class="preview-modal-close" onclick="closePreviewModal()" aria-label="Close">&times;</button>
+    <h2>&#128065; Preview 3 sample emails</h2>
+    <p style="color:var(--muted);font-size:12.5px;margin-bottom:4px">
+      Mẫu render với markup anh vừa nhập — rate table thật per ORIGIN_COUNTRY.
+    </p>
+    <p style="color:var(--muted-2);font-size:11.5px;margin-bottom:0">
+      Click <b>Confirm &amp; Send</b> để queue toàn bộ batch hôm nay.
+    </p>
+
+    <div id="previewSamples" style="margin-top:16px">
+      <div style="padding:32px 0;text-align:center;color:var(--muted)">
+        <span class="spinner"></span> Loading samples...
+      </div>
+    </div>
+
+    <div class="preview-modal-footer">
+      <button class="btn btn-sm" onclick="closePreviewModal()">Cancel</button>
+      <button class="btn btn-accent btn-sm" id="previewConfirmBtn" onclick="confirmAndSend()">
+        &#10003; Confirm &amp; Send batch
+      </button>
     </div>
   </div>
 </div>
