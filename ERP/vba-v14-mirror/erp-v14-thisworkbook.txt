@@ -1,0 +1,64 @@
+' ============================================================
+'  Workbook_Open — disable AutoSave on OneDrive
+'  AutoSave + xlsm + OneDrive corrupts VBA modules silently.
+'  Force user to save manually with Ctrl+S so VBA stays intact.
+'  Added 2026-04-15 (after AutoSave dropped ERPv14Ribbon module).
+' ============================================================
+Private Sub Workbook_Open()
+    On Error Resume Next
+    If Me.AutoSaveOn Then
+        Me.AutoSaveOn = False
+    End If
+    On Error GoTo 0
+End Sub
+
+' ============================================================
+'  P1 — Sheet activate event (auto-refresh ribbon on tab switch)
+'  Added 2026-04-11 via scripts/reimport-erp-vba.py
+'  Plan: 260411-2121-erp-workflow-upgrade phase-01
+' ============================================================
+Private Sub Workbook_SheetActivate(ByVal Sh As Object)
+    On Error Resume Next
+    ' Only react when entering a pricing sheet
+    If InStr(1, Sh.Name, "Pricing", vbTextCompare) = 0 Then Exit Sub
+
+    ' Clear stale row 1 search placeholders from the PREVIOUS sheet
+    ERPv14Core.ClearAllSearchPlaceholders Sh
+
+    ' Refresh ribbon state from the active cell on the new sheet
+    ERPv14Ribbon.RefreshRibbonFromSheet Sh
+
+    ' 2026-04-22: Reset toggle filters per Nelson decision (fresh start on sheet switch)
+    ERPv14Ribbon.ResetToggleFilters
+    On Error GoTo 0
+End Sub
+
+' ============================================================
+'  2026-04-22 BUG FIX — SelectionChange for ALL pricing sheets
+'
+'  Problem: Worksheet_SelectionChange event was only in Sheet1 module.
+'  When user clicked row on a different sheet (e.g. Pricing Dry if it
+'  wasn't Sheet1), m_SourceRow did not update → ribbon + Quote read
+'  stale row from last Sheet1 click, causing wrong carrier in quote.
+'
+'  Fix: workbook-level Workbook_SheetSelectionChange fires for every
+'  sheet. Filter to pricing sheets only, update ribbon state.
+' ============================================================
+Private Sub Workbook_SheetSelectionChange(ByVal Sh As Object, ByVal Target As Range)
+    On Error Resume Next
+    ' Only respond on pricing sheets (Dry / Reefer)
+    If InStr(1, Sh.Name, "Pricing", vbTextCompare) = 0 Then Exit Sub
+    ' Guard: single-cell click only (ignore range selection)
+    If Target.Cells.Count > 1 Then Exit Sub
+    ' Skip header rows
+    If Target.Row < 2 Then Exit Sub
+
+    ' Update ribbon module's cached row data
+    ERPv14Ribbon.LoadRowToRibbon Target.Row
+
+    ' Force ribbon redraw to reflect new row
+    If Not ERPv14Ribbon.ribbonUI Is Nothing Then
+        ERPv14Ribbon.ribbonUI.Invalidate
+    End If
+    On Error GoTo 0
+End Sub
