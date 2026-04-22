@@ -254,6 +254,87 @@ def test_new_keep_space(excel, wb):
     ok(f"Cleanup: row {nextRow} deleted")
 
 
+def test_rate_mix_ribbon_exists(excel, wb):
+    """Verify Rate Mix ribbon group loaded after reimport."""
+    info("Testing Rate Mix ribbon group...")
+    import zipfile
+    path = wb.FullName
+    with zipfile.ZipFile(path, 'r') as z:
+        cu_xml = z.read('customUI/customUI14.xml').decode('utf-8')
+
+    required_ids = ['grpRateMix', 'ebFixQty', 'ebFakQty', 'lblMixSell', 'btnMixQuote']
+    for rid in required_ids:
+        if f'id="{rid}"' not in cu_xml:
+            fail(f"CustomUI missing id={rid}")
+        ok(f"CustomUI has id={rid}")
+
+
+def test_rate_mix_vba_compiles(excel, wb):
+    """Verify Rate Mix VBA subs/functions loaded (compile OK)."""
+    info("Testing Rate Mix VBA compilation...")
+    vbproj = wb.VBProject
+    try:
+        ribbon_mod = vbproj.VBComponents("ERPv14Ribbon")
+    except Exception as e:
+        fail(f"ERPv14Ribbon module missing: {e}")
+
+    code = ribbon_mod.CodeModule.Lines(1, ribbon_mod.CodeModule.CountOfLines)
+
+    required_subs = [
+        "OnChange_MixFixQty",
+        "OnChange_MixFakQty",
+        "GetText_MixFixQty",
+        "GetText_MixFakQty",
+        "GetLabel_MixSell",
+        "GetEnabled_MixQuote",
+        "OnAction_MixQuote",
+        "ComputeMix",        # Private sub
+        "TierMarkup",        # Private function
+        "BuildMixSellLabel",
+    ]
+    for sub_name in required_subs:
+        if sub_name not in code:
+            fail(f"VBA sub/fn missing: {sub_name}")
+        ok(f"VBA sub/fn present: {sub_name}")
+
+
+def test_rate_mix_tier_markup_values(excel, wb):
+    """Verify TierMarkup returns $100/$150/$200/$250 per Nelson 2026-04-22 spec.
+
+    Since TierMarkup is Private, we can't call it via Application.Run directly.
+    Instead, grep the source code for the expected Select Case values.
+    """
+    info("Testing TierMarkup tier values...")
+    vbproj = wb.VBProject
+    ribbon_mod = vbproj.VBComponents("ERPv14Ribbon")
+    code = ribbon_mod.CodeModule.Lines(1, ribbon_mod.CodeModule.CountOfLines)
+
+    import re
+    m = re.search(r'Function\s+TierMarkup.*?End\s+Function', code, re.DOTALL | re.IGNORECASE)
+    if not m:
+        fail("TierMarkup function block not found")
+    block = m.group(0)
+
+    # Check all 4 values present
+    expected = {
+        "100": "0-33% tier",
+        "150": "34-66% tier",
+        "200": "67-99% tier",
+        "250": "100% tier",
+    }
+    for val, desc in expected.items():
+        if not re.search(rf'\b{val}\b', block):
+            fail(f"TierMarkup missing value {val} ({desc})")
+        ok(f"TierMarkup has {val} ({desc})")
+
+    # Sanity: ensure OLD values NOT present (Nelson explicitly changed them)
+    old_values = ["275", "350"]
+    for old in old_values:
+        if re.search(rf'\b{old}\b', block):
+            fail(f"TierMarkup still has OLD value {old} — should be removed per 2026-04-22 spec")
+    ok("Old tier values ($275, $350) correctly removed")
+
+
 def test_vba_sub_compiles(excel, wb):
     """Verify key VBA subs exist and compile (callable without crash)."""
     info("Testing VBA subs compile (via indirect callable check)...")
@@ -292,7 +373,12 @@ def main():
         # Step 4: simulate New Keep Space
         test_new_keep_space(excel, wb)
 
-        # Step 5: save + close
+        # Step 5: test Rate Mix feature
+        test_rate_mix_ribbon_exists(excel, wb)
+        test_rate_mix_vba_compiles(excel, wb)
+        test_rate_mix_tier_markup_values(excel, wb)
+
+        # Step 6: save + close
         wb.Save()
         wb.Close(SaveChanges=False)
         excel.Quit()

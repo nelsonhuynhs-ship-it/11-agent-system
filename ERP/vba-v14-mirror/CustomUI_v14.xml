@@ -90,7 +90,21 @@
           <labelControl id="lblProfit" getLabel="GetLabel_Profit"/>
         </group>
 
-        <!-- GROUP 5: QUOTE ACTION -->
+        <!-- GROUP 5: RATE MIX (FIX+FAK blend, tiered markup, 1-click mix quote) -->
+        <group id="grpRateMix" label="Rate Mix">
+          <editBox id="ebFixQty" label="FIX x" sizeString="00"
+                   onChange="OnChange_MixFixQty" getText="GetText_MixFixQty"/>
+          <editBox id="ebFakQty" label="FAK x" sizeString="00"
+                   onChange="OnChange_MixFakQty" getText="GetText_MixFakQty"/>
+          <labelControl id="lblMixSell" getLabel="GetLabel_MixSell"/>
+          <button id="btnMixQuote" label="Mix Quote"
+                  imageMso="CreateTable" size="large"
+                  onAction="OnAction_MixQuote"
+                  getEnabled="GetEnabled_MixQuote"
+                  screentip="Blend FIX+FAK rates at entered ratio, apply tier markup, create PENDING quote"/>
+        </group>
+
+        <!-- GROUP 6: QUOTE ACTION -->
         <group id="grpQuoteAction" label="Quote">
           <comboBox id="cmbCustomer" label="Customer" sizeString="000000000000"
                     onChange="OnChange_Customer"

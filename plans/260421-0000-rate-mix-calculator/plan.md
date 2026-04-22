@@ -32,18 +32,44 @@ sell         = blended_cost + markup
 
 | FAK% band | Markup USD |
 |-----------|------------|
-| 0–33 | 150 |
-| 34–66 | 200 |
-| 67–99 | 275 (avg of 250–300) |
-| 100 | 350 |
+| 0–33 | 100 |
+| 34–66 | 150 |
+| 67–99 | 200 |
+| 100 | 250 |
 
 Example verified: 1 FIX $2,000 + 2 FAK $2,800 → blend $2,533 → FAK%=66.7% → tier `67-99` → $275 markup → sell **$2,808**.
 
 ## Scope (YAGNI)
 
-**In:** Pricing Dry only (no Reefer v1), 40HC container only (Nelson's primary), 1 POD/carrier pair at a time, manual ratio input, preview in labels before QUOTE.
+**In:** Pricing Dry only (no Reefer RF), **4 container types: 20GP + 40HC + 45HC + 40NOR**. 1 POD/carrier pair at a time, 1 ratio applied to ALL applicable containers (auto-skip if peer row missing rate). Preview labels before QUOTE. **6 carriers** with both FIX+FAK contracts: CMA/HMM/HPL/ONE/YML/ZIM.
 
-**Out:** Auto-ratio suggestion, multi-container blend grid, Reefer FAK, Quote_History reporting split, historical ratio tracking, Pudong API feed.
+**Container coverage by carrier (verified from parquet 2026-04-22):**
+
+| Carrier | 20GP | 40HC | 45HC | 40NOR |
+|---------|------|------|------|-------|
+| CMA | ✅ | ✅ | ✅ | ❌ |
+| HMM | ✅ | ✅ | ✅ | ❌ |
+| HPL | ✅ | ✅ | ❌ | ❌ |
+| ONE | ✅ | ✅ | ✅ | ✅ (ONLY carrier) |
+| YML | ✅ | ✅ | ✅ | ❌ |
+| ZIM | ✅ | ✅ | ✅ | ❌ |
+
+Cells without peer rate: auto-skip, label displays only blendable containers.
+
+**Out:** Auto-ratio suggestion, Reefer 20RF/40RF FAK blend (no FIX peers exist), carrier-specific tier markup override, Quote_History reporting split, historical ratio tracking, Pudong API feed.
+
+## Tier Markup Update (2026-04-22)
+
+Nelson confirmed tighter margin bands for NHANH · CẠNH TRANH policy:
+- Old: $150 / $200 / $275 / $350
+- **New: $100 / $150 / $200 / $250** (tolerance smaller, more competitive)
+
+## Container Handling Note
+
+Existing `OnAction_GenerateQuote` (line 1288-1305 ribbon-callbacks.bas) auto-detects
+containers from Pricing Dry row (20GP/40GP/40HC/45HC/40NOR/20RF/40RF) and presents
+editable CSV popup. **No change needed** for 45HC/40NOR scenarios — Rate Mix
+adds a SEPARATE path for FIX+FAK blend, not replacing the general quote flow.
 
 ## Architecture
 

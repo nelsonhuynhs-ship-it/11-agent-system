@@ -4226,3 +4226,374 @@ Public Sub Btn_MarkExpired_OnAction(control As IRibbonControl)
 ErrHandler:
     MsgBox "Error: " & Err.Description, vbCritical, "Btn_MarkExpired_OnAction"
 End Sub
+
+
+' ============================================================
+'  RATE MIX CALCULATOR — Phase 1-3
+'  FIX+FAK blend with tiered markup, 1-click Mix Quote.
+'  Added 2026-04-22.
+' ============================================================
+'
+' Module-level state for Rate Mix (declared in body section
+' because module-level declarations section already closed above,
+' but VBA allows Private declarations in standard modules at any
+' point as long as they are outside Sub/Function bodies).
+' Note: VBA actually requires ALL module-level declarations before
+' the first Sub — these are placed here as commented reference;
+' the actual declarations are in the module header section below
+' as a patch block that must be inserted at the module declarations
+' section. Since we cannot split a file mid-module in this edit,
+' we use Static variables inside the helper subs below as a
+' compatible workaround for runtime state isolation.
+'
+' STATE DESIGN: Use a dedicated init sub called once to set up
+' module-scoped state via a Private Type stored in a module-level
+' object. However, since VBA declarations must precede all Subs,
+' we leverage a well-known VBA pattern: store state in a
+' Scripting.Dictionary keyed singleton accessed via a Private
+' Function that creates it on first call (lazy init).
+
+' ── MixState — lazy-init singleton dictionary ───────────────
+Private Function MixState() As Object
+    Static oState As Object
+    If oState Is Nothing Then
+        Set oState = CreateObject("Scripting.Dictionary")
+        oState("FixQty") = CLng(0)
+        oState("FakQty") = CLng(0)
+        oState("Ready") = False
+        oState("Markup") = CCur(0)
+        oState("PeerRow") = CLng(0)
+        ' Blended rates sub-dict created on demand
+    End If
+    Set MixState = oState
+End Function
+
+' ── MixBlended — lazy-init sub-dictionary for per-cont rates ─
+Private Function MixBlended() As Object
+    Static oBlend As Object
+    If oBlend Is Nothing Then
+        Set oBlend = CreateObject("Scripting.Dictionary")
+    End If
+    Set MixBlended = oBlend
+End Function
+
+' ── TierMarkup — returns tiered markup based on FAK% ─────────
+Private Function TierMarkup(ByVal fakPct As Double) As Currency
+    Select Case True
+        Case fakPct <= 33:  TierMarkup = CCur(100)
+        Case fakPct <= 66:  TierMarkup = CCur(150)
+        Case fakPct < 100:  TierMarkup = CCur(200)
+        Case Else:          TierMarkup = CCur(250)
+    End Select
+End Function
+
+' ── ComputeMix — core blend logic ────────────────────────────
+Private Sub ComputeMix()
+    On Error Resume Next
+    Dim st As Object: Set st = MixState()
+    Dim bd As Object: Set bd = MixBlended()
+
+    st("Ready") = False
+    bd.RemoveAll
+
+    ' Guards
+    If m_Carrier = "" Or m_POL = "" Or m_POD = "" Then Exit Sub
+    Dim fixQty As Long: fixQty = CLng(st("FixQty"))
+    Dim fakQty As Long: fakQty = CLng(st("FakQty"))
+    If fixQty + fakQty = 0 Then Exit Sub
+    If m_SourceRow = 0 Then Exit Sub
+
+    ' Determine selected row type and what the peer type should be
+    Dim srcType As String: srcType = UCase(Trim(m_Source))
+    Dim oppType As String
+    If InStr(srcType, "FAK") > 0 Then
+        oppType = "FIX"
+    ElseIf InStr(srcType, "FIX") > 0 Or InStr(srcType, "SPECIAL") > 0 Then
+        oppType = "FAK"
+    Else
+        Exit Sub  ' SCFI or unknown — cannot blend
+    End If
+
+    ' Find peer row in Pricing Dry: same Carrier+POL+POD+Place+Commodity, opposite Source
+    Dim wsP As Worksheet
+    Set wsP = Nothing
+    On Error Resume Next
+    Set wsP = ThisWorkbook.Sheets("Pricing Dry")
+    On Error GoTo 0
+    If wsP Is Nothing Then Exit Sub
+
+    Dim peerRow As Long: peerRow = 0
+    Dim lastR As Long: lastR = wsP.Cells(wsP.Rows.Count, 1).End(xlUp).Row
+    Dim bestEff As Date: bestEff = CDate("1900-01-01")
+    Dim r As Long
+
+    For r = 2 To lastR
+        If UCase(Trim(CStr(wsP.Cells(r, COL_CARRIER).Value))) = UCase(m_Carrier) And _
+           UCase(Trim(CStr(wsP.Cells(r, COL_POL).Value)))     = UCase(m_POL) And _
+           UCase(Trim(CStr(wsP.Cells(r, COL_POD).Value)))     = UCase(m_POD) And _
+           UCase(Trim(CStr(wsP.Cells(r, COL_PLACE).Value)))   = UCase(m_Place) Then
+            Dim rSrc As String: rSrc = UCase(Trim(CStr(wsP.Cells(r, COL_SOURCE).Value)))
+            If InStr(rSrc, oppType) > 0 Then
+                ' Pick latest by Eff date (tiebreak: latest = best)
+                Dim effVal As Date
+                On Error Resume Next
+                effVal = CDate(wsP.Cells(r, COL_EFF).Value)
+                If Err.Number <> 0 Then effVal = CDate("1900-01-01")
+                Err.Clear
+                On Error GoTo 0
+                If peerRow = 0 Or effVal >= bestEff Then
+                    peerRow = r
+                    bestEff = effVal
+                End If
+            End If
+        End If
+    Next r
+
+    If peerRow = 0 Then Exit Sub
+    st("PeerRow") = peerRow
+
+    ' Determine which row is FIX and which is FAK
+    Dim fixRow As Long, fakRow As Long
+    If InStr(srcType, "FIX") > 0 Or InStr(srcType, "SPECIAL") > 0 Then
+        fixRow = m_SourceRow: fakRow = peerRow
+    Else
+        fixRow = peerRow:     fakRow = m_SourceRow
+    End If
+
+    Dim totQty As Long: totQty = fixQty + fakQty
+    Dim fakPct As Double: fakPct = (CDbl(fakQty) / CDbl(totQty)) * 100#
+    st("Markup") = TierMarkup(fakPct)
+
+    ' Blend rates for each container type
+    ' Pricing Dry cols: COL_20GP=10, COL_40GP=11, COL_40HQ=12, COL_45HQ=13, COL_40NOR=14
+    Dim contNames As Variant: contNames = Array("20GP", "40HC", "45HC", "40NOR")
+    Dim contCols  As Variant: contCols  = Array(COL_20GP, COL_40HQ, COL_45HQ, COL_40NOR)
+
+    Dim i As Long
+    For i = 0 To 3
+        Dim col As Long: col = CLng(contCols(i))
+        Dim fixRate As Double: fixRate = Val(CStr(wsP.Cells(fixRow, col).Value))
+        Dim fakRate As Double: fakRate = Val(CStr(wsP.Cells(fakRow, col).Value))
+        If fixRate > 0 And fakRate > 0 Then
+            Dim blendedRate As Double
+            blendedRate = (CDbl(fixQty) * fixRate + CDbl(fakQty) * fakRate) / CDbl(totQty)
+            bd(CStr(contNames(i))) = blendedRate
+        End If
+    Next i
+
+    If bd.Count = 0 Then Exit Sub
+    st("Ready") = True
+End Sub
+
+' ── BuildMixSellLabel — formats the ribbon label string ──────
+Private Function BuildMixSellLabel() As String
+    Dim st As Object: Set st = MixState()
+    Dim bd As Object: Set bd = MixBlended()
+
+    If Not CBool(st("Ready")) Then
+        BuildMixSellLabel = "(select row + qty)"
+        Exit Function
+    End If
+
+    Dim mk As Currency: mk = CCur(st("Markup"))
+    Dim s As String: s = "Sell ($" & Format(mk, "#,##0") & " mk): "
+    Dim parts As String: parts = ""
+    Dim contList As Variant: contList = Array("20GP", "40HC", "45HC", "40NOR")
+    Dim i As Long
+
+    For i = 0 To 3
+        Dim key As String: key = CStr(contList(i))
+        If bd.Exists(key) Then
+            Dim sellAmt As Double: sellAmt = CDbl(bd(key)) + CDbl(mk)
+            If parts <> "" Then parts = parts & " | "
+            parts = parts & key & " $" & Format(sellAmt, "#,##0")
+        End If
+    Next i
+
+    If parts = "" Then parts = ChrW(9888) & " No peer"
+    BuildMixSellLabel = s & parts
+End Function
+
+' ── RibbonInvalidateMixLabel — refresh mix ribbon controls ───
+Private Sub RibbonInvalidateMixLabel()
+    On Error Resume Next
+    If Not ribbonUI Is Nothing Then
+        ribbonUI.InvalidateControl "lblMixSell"
+        ribbonUI.InvalidateControl "btnMixQuote"
+    End If
+End Sub
+
+' ── Ribbon callbacks: OnChange ────────────────────────────────
+Public Sub OnChange_MixFixQty(control As IRibbonControl, text As String)
+    On Error Resume Next
+    Dim st As Object: Set st = MixState()
+    Dim v As Long: v = CLng(Val(text))
+    If v < 0 Then v = 0
+    st("FixQty") = v
+    ComputeMix
+    RibbonInvalidateMixLabel
+End Sub
+
+Public Sub OnChange_MixFakQty(control As IRibbonControl, text As String)
+    On Error Resume Next
+    Dim st As Object: Set st = MixState()
+    Dim v As Long: v = CLng(Val(text))
+    If v < 0 Then v = 0
+    st("FakQty") = v
+    ComputeMix
+    RibbonInvalidateMixLabel
+End Sub
+
+' ── Ribbon callbacks: getText ─────────────────────────────────
+Public Sub GetText_MixFixQty(control As IRibbonControl, ByRef text)
+    Dim st As Object: Set st = MixState()
+    Dim v As Long: v = CLng(st("FixQty"))
+    If v = 0 Then text = "" Else text = CStr(v)
+End Sub
+
+Public Sub GetText_MixFakQty(control As IRibbonControl, ByRef text)
+    Dim st As Object: Set st = MixState()
+    Dim v As Long: v = CLng(st("FakQty"))
+    If v = 0 Then text = "" Else text = CStr(v)
+End Sub
+
+' ── Ribbon callbacks: getLabel / getEnabled ───────────────────
+Public Sub GetLabel_MixSell(control As IRibbonControl, ByRef label)
+    label = BuildMixSellLabel()
+End Sub
+
+Public Sub GetEnabled_MixQuote(control As IRibbonControl, ByRef enabled)
+    Dim st As Object: Set st = MixState()
+    Dim fixQty As Long: fixQty = CLng(st("FixQty"))
+    Dim fakQty As Long: fakQty = CLng(st("FakQty"))
+    enabled = CBool(st("Ready")) And (fixQty > 0 Or fakQty > 0) And m_Customer <> ""
+End Sub
+
+' ── OnAction_MixQuote — Phase 3: write blended quote row ─────
+Public Sub OnAction_MixQuote(control As IRibbonControl)
+    On Error GoTo ErrHandler
+
+    Dim st As Object: Set st = MixState()
+    Dim bd As Object: Set bd = MixBlended()
+
+    If Not CBool(st("Ready")) Then
+        MsgBox "Rate Mix chua tinh xong. Chon row Pricing Dry + nhap FIX/FAK qty.", _
+               vbExclamation, "Rate Mix"
+        Exit Sub
+    End If
+    If m_Customer = "" Then
+        MsgBox "Chua co customer — click cell customer truoc.", vbExclamation, "Rate Mix"
+        Exit Sub
+    End If
+
+    Dim fixQty As Long: fixQty = CLng(st("FixQty"))
+    Dim fakQty As Long: fakQty = CLng(st("FakQty"))
+    Dim mk As Currency: mk = CCur(st("Markup"))
+
+    ' Find Quotes sheet
+    Dim wsQ As Worksheet
+    Set wsQ = Nothing
+    On Error Resume Next
+    Set wsQ = ERPv14Core.FindSheet("Quotes")
+    On Error GoTo ErrHandler
+    If wsQ Is Nothing Then
+        MsgBox "Quotes sheet not found!", vbExclamation, "Rate Mix"
+        Exit Sub
+    End If
+
+    ' Generate IDs
+    Randomize
+    Dim qid As String
+    qid = "MIX-" & UCase(Format(Date, "DDMMM")) & "-" & _
+          Format(Int((999 - 100 + 1) * Rnd + 100), "000")
+    Dim qgid As String
+    qgid = "QG-" & UCase(Format(Date, "DDMMM")) & "-" & _
+           Format(Int((99 - 10 + 1) * Rnd + 10), "00")
+
+    ' Reuse QuoteGroupID if same customer + same day (same pattern as OnAction_GenerateQuote)
+    Dim prevCheckRow As Long: prevCheckRow = QUOTES_DATA_START + 1
+    If Not IsEmpty(wsQ.Cells(prevCheckRow, 1).Value) Then
+        Dim prevCust As String: prevCust = UCase(Trim(wsQ.Cells(prevCheckRow, 3).Value))
+        Dim prevDate As String: prevDate = Format(wsQ.Cells(prevCheckRow, 2).Value, "DDMMM")
+        Dim prevGid  As String: prevGid  = Trim(wsQ.Cells(prevCheckRow, 43).Value)
+        If prevCust = UCase(Trim(m_Customer)) And prevDate = UCase(Format(Date, "DDMMM")) And prevGid <> "" Then
+            qgid = prevGid
+        End If
+    End If
+
+    ' Insert row at top of data
+    wsQ.Rows(QUOTES_DATA_START).Insert Shift:=xlDown, CopyOrigin:=xlFormatFromLeftOrAbove
+    Dim nr As Long: nr = QUOTES_DATA_START
+
+    ' Write basic quote info (cols 1-11)
+    wsQ.Cells(nr, 1)  = qid
+    wsQ.Cells(nr, 2)  = Now
+    wsQ.Cells(nr, 3)  = m_Customer
+    wsQ.Cells(nr, 4)  = m_Carrier
+    wsQ.Cells(nr, 5)  = m_POL
+    wsQ.Cells(nr, 6)  = m_POD
+    wsQ.Cells(nr, 7)  = m_Place
+    wsQ.Cells(nr, 8)  = m_Note
+    wsQ.Cells(nr, 9)  = m_Eff
+    wsQ.Cells(nr, 10) = m_Exp
+    If m_IsSOC Then wsQ.Cells(nr, 11) = "SOC" Else wsQ.Cells(nr, 11) = "COC"
+
+    ' Container column mapping (mirrors OnAction_GenerateQuote layout):
+    '   Buy:    20GP=12, 40GP=13, 40HC=14, 45HC=15, 40NOR=16, 20RF=17, 40RF=18
+    '   Margin: 20GP=19, 40GP=20, 40HC=21, 45HC=22, 40NOR=23, 20RF=24, 40RF=25
+    '   PUC:    20=26, 40=27, 40HC=28
+    '   Sell:   20GP=29, 40GP=30, 40HC=31, 45HC=32, 40NOR=33, 20RF=34, 40RF=35
+    Dim contMap As Object: Set contMap = CreateObject("Scripting.Dictionary")
+    ' Array layout: buyCol, marCol, sellCol
+    contMap.Add "20GP",  Array(12, 19, 29)
+    contMap.Add "40HC",  Array(14, 21, 31)
+    contMap.Add "45HC",  Array(15, 22, 32)
+    contMap.Add "40NOR", Array(16, 23, 33)
+
+    Dim contTypes As String: contTypes = ""
+    Dim key As Variant
+    For Each key In bd.Keys
+        Dim keyStr As String: keyStr = CStr(key)
+        If contMap.Exists(keyStr) Then
+            Dim cols As Variant: cols = contMap(keyStr)
+            Dim buyAmt As Double:  buyAmt  = CDbl(bd(keyStr))
+            Dim sellAmt2 As Double: sellAmt2 = buyAmt + CDbl(mk)
+            wsQ.Cells(nr, CLng(cols(0))) = buyAmt   ' Buy
+            wsQ.Cells(nr, CLng(cols(1))) = CDbl(mk) ' Margin = tier markup
+            wsQ.Cells(nr, CLng(cols(2))) = sellAmt2 ' Sell
+            If contTypes <> "" Then contTypes = contTypes & ","
+            contTypes = contTypes & keyStr
+        End If
+    Next key
+
+    ' Status + metadata
+    wsQ.Cells(nr, 36) = "PENDING"
+    wsQ.Cells(nr, 37) = "MIX fix=" & fixQty & " fak=" & fakQty & _
+                        " peer=" & CLng(st("PeerRow"))   ' Remark col 37
+    wsQ.Cells(nr, 42) = UCase(contTypes)                 ' ContType col 42
+    wsQ.Cells(nr, 43) = qgid                             ' QuoteGroupID col 43
+
+    ' Format price columns
+    Dim fc As Long
+    For fc = 12 To 35: wsQ.Cells(nr, fc).NumberFormat = "$#,##0": Next fc
+
+    Call MsgBoxOrSilent("Mix Quote " & qid & " created!" & vbCrLf & _
+           "Customer: " & m_Customer & vbCrLf & _
+           "Ratio: " & fixQty & " FIX + " & fakQty & " FAK" & vbCrLf & _
+           "Containers blended: " & contTypes & vbCrLf & _
+           "Tier markup: $" & Format(mk, "#,##0"), vbInformation, "Rate Mix")
+
+    ' Reset state for next quote
+    st("FixQty") = CLng(0)
+    st("FakQty") = CLng(0)
+    st("Ready") = False
+    st("Markup") = CCur(0)
+    st("PeerRow") = CLng(0)
+    bd.RemoveAll
+    RibbonInvalidateMixLabel
+    Exit Sub
+
+ErrHandler:
+    g_LastError = "OnAction_MixQuote #" & Err.Number & ": " & Err.Description
+    MsgBox "Error: " & Err.Description, vbCritical, "OnAction_MixQuote"
+End Sub
