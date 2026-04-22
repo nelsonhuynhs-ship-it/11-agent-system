@@ -147,7 +147,7 @@ $pkgs = @(
     "pandas", "openpyxl", "fastapi", "uvicorn", "filelock",
     "holidays", "rapidfuzz", "pywin32", "python-dateutil",
     "pydantic", "xlrd", "duckdb", "apscheduler", "requests",
-    "python-dotenv"
+    "python-dotenv", "python-multipart"
 )
 Write-Log "  Installing: $($pkgs -join ', ')" "Gray"
 pip install $pkgs --quiet --disable-pip-version-check 2>&1 | Out-String | Write-Log
