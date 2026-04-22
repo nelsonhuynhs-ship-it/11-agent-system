@@ -4314,7 +4314,14 @@ Private Sub ComputeMix()
         Exit Sub  ' SCFI or unknown — cannot blend
     End If
 
-    ' Find peer row in Pricing Dry: same Carrier+POL+POD+Place+Commodity, opposite Source
+    ' 2026-04-22 BUG FIX (Nelson policy): FIX vs FAK blend MUST both be COC.
+    ' SOC rates from FAK file cannot be used as peer for FIX (different cost structure).
+    ' If selected row is SOC → no blend (user must select the COC row instead).
+    Dim selNote As String: selNote = UCase(Trim(CStr(ThisWorkbook.Sheets("Pricing Dry").Cells(m_SourceRow, COL_NOTE).Value)))
+    If InStr(selNote, "SOC") > 0 Then Exit Sub
+
+    ' Find peer row in Pricing Dry: same Carrier+POL+POD+Place, opposite Source,
+    ' AND Note does NOT contain "SOC" (must be COC to be valid peer).
     Dim wsP As Worksheet
     Set wsP = Nothing
     On Error Resume Next
@@ -4333,7 +4340,9 @@ Private Sub ComputeMix()
            UCase(Trim(CStr(wsP.Cells(r, COL_POD).Value)))     = UCase(m_POD) And _
            UCase(Trim(CStr(wsP.Cells(r, COL_PLACE).Value)))   = UCase(m_Place) Then
             Dim rSrc As String: rSrc = UCase(Trim(CStr(wsP.Cells(r, COL_SOURCE).Value)))
-            If InStr(rSrc, oppType) > 0 Then
+            Dim rNote As String: rNote = UCase(Trim(CStr(wsP.Cells(r, COL_NOTE).Value)))
+            ' Peer must match opposite Source AND be COC (Note NOT containing SOC)
+            If InStr(rSrc, oppType) > 0 And InStr(rNote, "SOC") = 0 Then
                 ' Pick latest by Eff date (tiebreak: latest = best)
                 Dim effVal As Date
                 On Error Resume Next
