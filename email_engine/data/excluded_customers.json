@@ -11,6 +11,13 @@
       "campaign": "FLOORING",
       "added_at": "2026-04-17",
       "added_by": "Nelson"
+    },
+    "apinvoices@xerox.com": {
+      "reason": "auto-reply spam — received 10 emails in 1 week due to missing cooldown",
+      "company": "Xerox",
+      "campaign": "N/A",
+      "added_at": "2026-04-22",
+      "added_by": "Nelson (Phase 2.5 emergency block)"
     }
   }
 }

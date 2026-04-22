@@ -51,6 +51,7 @@ CNEE_V1     = _ONEDRIVE_EMAIL / "cnee_master.xlsx"
 (BASE_DIR / "logs").mkdir(exist_ok=True)
 
 SEND_PROGRESS: dict = {}  # campaign_id → {sent, total, errors, status}
+SCAN_PENDING: bool = False  # Set True after batch complete → auto-trigger sent scan after 5 min
 
 log.info(f"Loading contacts from {DATA_FILE}...")
 df_contacts = pd.read_excel(DATA_FILE)
@@ -136,6 +137,7 @@ class SendRequest(BaseModel):
     preset: str = ""  # Optional preset: "friday_hpl_scfi_hcm" → force POL=HCM + prefer HPL SCFI rates
     test_mode: bool = False  # If True, redirect all recipients to test_to_email
     test_to_email: str = "huynhyohan@gmail.com"  # Nelson's personal email for template verification
+    use_smart_window: bool = False  # Phase 2.5: defer sends to optimal local time windows
 
 def err(code: int, msg: str):
     raise HTTPException(status_code=code, detail={"error": msg})
@@ -478,8 +480,8 @@ def _clean_pic(pic: str, company: str) -> str:
     return "Team"
 
 @app.get("/api/contacts")
-def get_contacts(campaign: str):
-    subset = df_contacts[df_contacts["CMD_NAME"] == campaign].copy() if campaign != "ALL" else df_contacts.copy()
+def get_contacts(campaign: Optional[str] = Query(None)):
+    subset = df_contacts[df_contacts["CMD_NAME"] == campaign].copy() if (campaign and campaign != "ALL") else df_contacts.copy()
     subset = subset[subset["CNEE_EMAIL"].notna()]
     subset["_el"] = subset["CNEE_EMAIL"].astype(str).str.lower().str.strip()
     subset = subset.drop_duplicates(subset="_el")
@@ -551,6 +553,27 @@ def _load_cooldown_map() -> dict:
     except Exception:
         return {}
 
+_DEFER_QUEUE_FILE = BASE_DIR / "logs" / "defer_queue.csv"
+
+def _add_to_defer_queue(email: str, scheduled_at: datetime, campaign_id: str) -> None:
+    """Append a deferred contact to defer_queue.csv for later processing."""
+    try:
+        exists = _DEFER_QUEUE_FILE.exists()
+        with open(_DEFER_QUEUE_FILE, "a", newline="", encoding="utf-8") as f:
+            import csv as _csv_mod
+            w = _csv_mod.writer(f)
+            if not exists:
+                w.writerow(["email", "scheduled_at_utc", "campaign_id", "queued_at"])
+            w.writerow([
+                email,
+                scheduled_at.strftime("%Y-%m-%d %H:%M:%S"),
+                campaign_id,
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            ])
+    except Exception as exc:
+        log.warning(f"_add_to_defer_queue failed: {exc}")
+
+
 def _do_send(campaign_id: str, req: SendRequest):
     from auto_rate_builder import build_rate_table_for_customer
     prog = SEND_PROGRESS[campaign_id]
@@ -568,7 +591,7 @@ def _do_send(campaign_id: str, req: SendRequest):
     closing   = CFG.get("CLOSINGTEXT", CFG.get("ClosingText", ""))
     signature = CFG.get("SIGNATURE", CFG.get("Signature", ""))
     cooldown_map = _load_cooldown_map()
-    cutoff = datetime.now() - pd.Timedelta(hours=48)
+    cutoff = datetime.now() - pd.Timedelta(days=14)  # Phase 2.5: 48h → 14d cooldown
 
     # AI-powered intro templates (fallback to config.xlsx default)
     AI_INTROS = {
@@ -602,12 +625,64 @@ def _do_send(campaign_id: str, req: SendRequest):
             log.info(f"SUPPRESSED -> {c.email}")
             continue
 
-        # Cooldown check: skip if sent within last 48 hours
+        # Cooldown check: skip if sent within last 14 days
         last_sent = cooldown_map.get(c.email.strip().lower())
         if last_sent and last_sent > cutoff and not c.force_send:
             prog["skipped_cooldown"] = prog.get("skipped_cooldown", 0) + 1
             log.info(f"COOLDOWN -> {c.email} (last: {last_sent})")
             continue
+
+        # SEND_COUNT hard limit: max 3 sends total per contact (Phase 2.5)
+        # Row-level lookup from cnee_master so we catch count even without email_log
+        try:
+            _cnee_row = _get_cnee_df()
+            _row_mask = _cnee_row["EMAIL"].astype(str).str.lower().str.strip() == em_lower if _cnee_row is not None and "EMAIL" in _cnee_row.columns else None
+            if _cnee_row is not None and _row_mask is not None and _row_mask.any():
+                _sc_raw = _cnee_row.loc[_row_mask, "SEND_COUNT"].iloc[0] if "SEND_COUNT" in _cnee_row.columns else 0
+            else:
+                _sc_raw = 0
+        except Exception:
+            _sc_raw = 0
+        send_count = int(_sc_raw or 0) if str(_sc_raw).replace(".", "").isdigit() else 0
+        if send_count >= 3 and not c.force_send:
+            prog["skipped_hard_limit"] = prog.get("skipped_hard_limit", 0) + 1
+            log.warning(f"HARD_LIMIT_3 -> {c.email} (count: {send_count})")
+            continue
+
+        # Typo shield: block high-confidence domain typos (Phase 2.5)
+        try:
+            from email_engine.core.typo_shield import check_typo
+            typo_result = check_typo(c.email)
+            if typo_result.is_suspect and typo_result.confidence >= 85 and not c.force_send:
+                prog["skipped_typo"] = prog.get("skipped_typo", 0) + 1
+                log.warning(f"TYPO_BLOCK -> {c.email} (suggest: {typo_result.suggested_fix}, confidence: {typo_result.confidence:.0f})")
+                continue
+        except Exception as _te:
+            log.debug(f"typo_shield check failed for {c.email}: {_te}")
+
+        # Smart send window: defer if outside optimal send time (Phase 2.5)
+        if getattr(req, "use_smart_window", False):
+            try:
+                from email_engine.core.smart_send_window import plan_send_time
+                from datetime import timezone as _tz
+                _cnee_df_ref = _get_cnee_df()
+                _contact_row: dict = {}
+                if _cnee_df_ref is not None:
+                    _em_mask = _cnee_df_ref.get("EMAIL", pd.Series(dtype=str)).astype(str).str.lower().str.strip() == em_lower
+                    if _em_mask.any():
+                        _contact_row = _cnee_df_ref[_em_mask].iloc[0].to_dict()
+                _contact_row["URGENT"] = getattr(c, "urgent", False)
+                scheduled = plan_send_time(_contact_row, now_utc=datetime.now(_tz.utc))
+                now_naive = datetime.now()
+                scheduled_naive = scheduled.replace(tzinfo=None) if scheduled.tzinfo else scheduled
+                if scheduled_naive > now_naive + timedelta(minutes=1):
+                    _add_to_defer_queue(c.email, scheduled_naive, campaign_id)
+                    prog["deferred_smart_send"] = prog.get("deferred_smart_send", 0) + 1
+                    log.info(f"DEFERRED -> {c.email} (scheduled: {scheduled_naive.strftime('%Y-%m-%d %H:%M')})")
+                    continue
+            except Exception as _swe:
+                log.debug(f"smart_send_window check failed for {c.email}: {_swe}")
+
         try:
             # Preset mode override (Mode 2 per Nelson 2026-04-17):
             #   "friday_hpl_scfi_hcm" → force POL=HCM, builder auto prefers HPL SCFI
@@ -668,6 +743,36 @@ def _do_send(campaign_id: str, req: SendRequest):
 
     prog["status"] = "done"
 
+    # Auto-trigger sent scan 5 min after batch completes (if at least 1 email sent)
+    if prog.get("sent", 0) > 0:
+        global SCAN_PENDING
+        SCAN_PENDING = True
+        log.info(f"[SentScan] Batch done ({prog['sent']} sent) — scan pending in 5 min")
+        import threading
+
+        def _deferred_scan():
+            import time as _t
+            _t.sleep(300)  # wait 5 minutes
+            try:
+                import subprocess, sys as _sys
+                _script = Path(__file__).parent.parent / "scripts" / "scan-sent-outlook.py"
+                if _script.exists():
+                    subprocess.Popen(
+                        [_sys.executable, str(_script), "--days", "7", "--update-master",
+                         "--block-threshold", "5"],
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    )
+                    log.info("[SentScan] Auto-scan triggered (7d, update-master, block>=5)")
+                else:
+                    log.warning(f"[SentScan] Script not found: {_script}")
+            except Exception as _exc:
+                log.warning(f"[SentScan] Auto-scan trigger failed: {_exc}")
+            finally:
+                global SCAN_PENDING
+                SCAN_PENDING = False
+
+        threading.Thread(target=_deferred_scan, daemon=True).start()
+
 @app.post("/api/send", status_code=202)
 def send_emails(req: SendRequest, background_tasks: BackgroundTasks):
     campaign_id = f"DASH_{datetime.now():%Y%m%d_%H%M%S}"
@@ -681,6 +786,36 @@ def send_status(campaign_id: str):
     if prog is None:
         err(404, f"campaign_id '{campaign_id}' not found")
     return {"campaign_id": campaign_id, **prog}
+
+@app.get("/api/sent-scan/pending")
+def scan_pending_status():
+    """Return whether an auto-triggered sent-scan is pending after the last batch."""
+    return {"scan_pending": SCAN_PENDING}
+
+@app.get("/api/send-stats")
+def send_stats():
+    """Phase 2.5: return aggregate stats for Quick Send counter widget."""
+    try:
+        df = _get_cnee_df()
+        if df is None:
+            return {"total": 0, "unsent": 0, "sent_once_plus": 0, "in_cooldown": 0, "sent_today": 0}
+        now = datetime.now()
+        cutoff_14d = now - timedelta(days=14)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        sc = pd.to_numeric(df.get("SEND_COUNT", pd.Series(dtype=float)), errors="coerce").fillna(0)
+        last_sent_raw = df.get("LAST_SENT_DATE", pd.Series(dtype=str))
+        last_sent = pd.to_datetime(last_sent_raw, errors="coerce")
+        return {
+            "total": int(len(df)),
+            "unsent": int((sc == 0).sum()),
+            "sent_once_plus": int((sc >= 1).sum()),
+            "in_cooldown": int((last_sent > cutoff_14d).sum()),
+            "sent_today": int((last_sent >= today_start).sum()),
+        }
+    except Exception as exc:
+        log.warning(f"send_stats error: {exc}")
+        return {"total": 0, "unsent": 0, "sent_once_plus": 0, "in_cooldown": 0, "sent_today": 0}
+
 
 @app.get("/api/history")
 def get_history(limit: int = 100, email: str = None, campaign_id: str = None):
@@ -1279,7 +1414,12 @@ def v4_prospects(campaign: str = "", pol: str = "", destination: str = "",
         df = df[~df["TIER"].astype(str).str.upper().isin(["VIP", "HOT"])]
 
     cooldown_map = _load_cooldown_map()
-    cutoff = datetime.now() - pd.Timedelta(hours=48)
+    cutoff = datetime.now() - pd.Timedelta(days=14)  # Phase 2.5: 48h → 14d cooldown
+
+    # Phase 2.5: sort unsent first (SEND_COUNT=0), then ascending — freshest prospects first
+    if "SEND_COUNT" in df.columns:
+        df = df.assign(_sc=pd.to_numeric(df["SEND_COUNT"], errors="coerce").fillna(0))
+        df = df.sort_values("_sc", ascending=True).drop(columns=["_sc"])
 
     # ── First pass: build prospect rows + collect unique (pol, pod) lanes ──
     prospects = []
@@ -2160,6 +2300,79 @@ def queue_pending(worker_id: str = Query(...), limit: int = 1):
     return {"jobs": jobs, "count": len(jobs)}
 
 
+@app.get("/api/email-rate/batch/progress")
+def batch_progress(batch_id: str = Query(None)):
+    """Real-time progress for a batch OR all recent activity.
+
+    If batch_id provided: stats for that batch only.
+    If omitted: last 30 min global stats.
+
+    Returns: {total, sent, pending, picked, failed, rate_per_min, eta_seconds, updated_at}
+    """
+    if _queue_store is None:
+        raise HTTPException(503, "queue_store module unavailable")
+    import sqlite3
+    from datetime import datetime, timedelta
+    try:
+        conn = sqlite3.connect(_queue_store._DB_PATH, timeout=10)
+        conn.row_factory = sqlite3.Row
+
+        where = "WHERE batch_id = ?" if batch_id else "WHERE enqueued_at >= datetime('now', '-30 minutes')"
+        params = [batch_id] if batch_id else []
+
+        # Status breakdown
+        counts = {'total': 0, 'sent': 0, 'pending': 0, 'picked': 0, 'failed': 0}
+        rows = conn.execute(
+            f"SELECT status, COUNT(*) AS n FROM email_queue {where} GROUP BY status",
+            params,
+        ).fetchall()
+        for r in rows:
+            counts[r['status']] = r['n']
+            counts['total'] += r['n']
+
+        # Rate per minute (sent in last 5 min)
+        rate_window_start = (datetime.utcnow() - timedelta(minutes=5)).strftime('%Y-%m-%d %H:%M:%S')
+        sent_5m_params = params + [rate_window_start]
+        sent_5m = conn.execute(
+            f"SELECT COUNT(*) FROM email_queue {where} AND status='sent' AND sent_at >= ?",
+            sent_5m_params,
+        ).fetchone()[0]
+        rate_per_min = round(sent_5m / 5, 2)
+
+        # ETA
+        remaining = counts['pending'] + counts['picked']
+        eta_seconds = int(remaining / rate_per_min * 60) if rate_per_min > 0 else None
+
+        # Active workers (picked jobs = in flight)
+        workers = conn.execute(
+            f"SELECT DISTINCT worker_id FROM email_queue {where} AND status='picked' AND worker_id IS NOT NULL",
+            params,
+        ).fetchall()
+        active_workers = [w['worker_id'] for w in workers]
+
+        # Most recent activity (last sent / picked time)
+        last_activity = conn.execute(
+            f"SELECT MAX(COALESCE(sent_at, picked_at, enqueued_at)) FROM email_queue {where}",
+            params,
+        ).fetchone()[0]
+
+        return {
+            'batch_id': batch_id,
+            'total': counts['total'],
+            'sent': counts['sent'],
+            'pending': counts['pending'],
+            'picked': counts['picked'],
+            'failed': counts['failed'],
+            'rate_per_min': rate_per_min,
+            'eta_seconds': eta_seconds,
+            'active_workers': active_workers,
+            'last_activity': last_activity,
+            'percent': round(counts['sent'] / counts['total'] * 100, 1) if counts['total'] else 0,
+        }
+    finally:
+        conn.close()
+
+
 class MarkFailedRequest(BaseModel):
     error: str = ""
 
@@ -2395,6 +2608,30 @@ try:
     log.info("[R3] shipment_brief router mounted (/api/shipment/*)")
 except ImportError as _e:
     log.warning(f"[R3] shipment_brief router unavailable: {_e}")
+
+# Phase 4 — Contacts Tab (contact_unified_v6.xlsx → /api/contacts/*)
+try:
+    from email_engine.api.routes.contacts_router import router as _contacts_router
+    app.include_router(_contacts_router)
+    log.info("[R4] contacts_router mounted (/api/contacts/*)")
+except ImportError as _e:
+    log.warning(f"[R4] contacts_router unavailable: {_e}")
+
+# Sent Scan — Outlook Sent Items spam audit (/api/sent-scan/*)
+try:
+    from email_engine.api.routes.sent_scan_router import router as _sent_scan_router
+    app.include_router(_sent_scan_router)
+    log.info("[SentScan] sent_scan_router mounted (/api/sent-scan/*)")
+except ImportError as _e:
+    log.warning(f"[SentScan] sent_scan_router unavailable: {_e}")
+
+# Daily Rotation Engine — /api/rotation/*
+try:
+    from email_engine.api.routes.rotation_router import router as _rotation_router
+    app.include_router(_rotation_router)
+    log.info("[Rotation] rotation_router mounted (/api/rotation/*)")
+except ImportError as _e:
+    log.warning(f"[Rotation] rotation_router unavailable: {_e}")
 
 
 # === A2 BEGIN ===
@@ -3245,6 +3482,102 @@ def panjiva_history(limit: int = Query(default=20, le=100)):
     return {"jobs": jobs, "count": len(jobs)}
 
 # === A5 END ===
+
+
+# ============================================================================
+# S1v3 — BOUNCE KNOWLEDGE BASE ENDPOINTS
+# ============================================================================
+
+@app.get("/api/bounce-kb/summary")
+def bounce_kb_summary():
+    """Return counts per category from the Bounce Knowledge Base."""
+    try:
+        from email_engine.core.bounce_knowledge import get_kb_summary
+        return get_kb_summary()
+    except Exception as exc:
+        log.error(f"[KB] summary error: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/bounce-kb/dead-domains")
+def bounce_kb_dead_domains(limit: int = Query(default=50, le=200)):
+    """Return top dead/risky domains sorted by bounce count."""
+    try:
+        from email_engine.core.bounce_knowledge import load_kb
+        kb = load_kb()
+        domains = kb.get("auto_dead_domains", {})
+        results = [
+            {"domain": d, **meta}
+            for d, meta in domains.items()
+            if meta.get("classification") in ("DEAD", "RISKY", "LEARNING")
+        ]
+        results.sort(key=lambda x: (-x.get("bounces", 0), x["domain"]))
+        return {"domains": results[:limit], "total": len(results)}
+    except Exception as exc:
+        log.error(f"[KB] dead-domains error: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/bounce-kb/manual-add")
+def bounce_kb_manual_add(
+    domain: str = Query(default=""),
+    email: str = Query(default=""),
+):
+    """Add a domain or email to the manual competitor block lists."""
+    if not domain and not email:
+        raise HTTPException(status_code=400, detail="Provide domain or email param")
+    try:
+        from email_engine.core.bounce_knowledge import load_kb, save_kb
+        kb = load_kb()
+        added = {}
+        if domain:
+            d = domain.lower().strip()
+            if d not in kb.get("domains", []):
+                kb.setdefault("domains", []).append(d)
+                added["domain"] = d
+        if email:
+            e = email.lower().strip()
+            if e not in kb.get("emails", []):
+                kb.setdefault("emails", []).append(e)
+                added["email"] = e
+        save_kb(kb)
+        return {"ok": True, "added": added}
+    except Exception as exc:
+        log.error(f"[KB] manual-add error: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/bounce-kb/remove-learned")
+def bounce_kb_remove_learned(domain: str = Query(...)):
+    """Remove a domain from auto_dead_domains (un-learn)."""
+    try:
+        from email_engine.core.bounce_knowledge import load_kb, save_kb
+        kb = load_kb()
+        auto = kb.get("auto_dead_domains", {})
+        if domain in auto:
+            del auto[domain]
+            save_kb(kb)
+            return {"ok": True, "removed": domain}
+        return {"ok": False, "msg": f"{domain} not found in auto_dead_domains"}
+    except Exception as exc:
+        log.error(f"[KB] remove-learned error: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/bounce-kb/sync-disposable")
+def bounce_kb_sync_disposable():
+    """Refresh disposable domain list from GitHub."""
+    try:
+        from email_engine.core.bounce_knowledge import sync_disposable_domains
+        count = sync_disposable_domains()
+        if count == 0:
+            return {"ok": False, "synced": 0, "msg": "Sync returned 0 — check network or source URL"}
+        return {"ok": True, "synced": count}
+    except Exception as exc:
+        log.error(f"[KB] sync-disposable error: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+# === S1v3 END ===
 
 
 if __name__ == "__main__":
