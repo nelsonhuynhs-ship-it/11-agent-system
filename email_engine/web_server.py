@@ -72,7 +72,10 @@ _CNEE_CANDIDATES = [
 ]
 
 DATA_FILE   = next((p for p in _CNEE_CANDIDATES if p.exists()), _CNEE_CANDIDATES[-1])
-CONFIG_FILE = BASE_DIR / "data" / "config.xlsx"
+CONFIG_FILE = next((p for p in [
+    _ONEDRIVE_EMAIL / "config.xlsx",      # OneDrive primary
+    BASE_DIR / "data" / "config.xlsx",    # Local legacy fallback
+] if p.exists()), _ONEDRIVE_EMAIL / "config.xlsx")
 LOG_FILE    = BASE_DIR / "logs" / "email_log.csv"
 CNEE_V6     = _ONEDRIVE_EMAIL / "contact_unified_v6.xlsx"
 CNEE_V2     = _ONEDRIVE_EMAIL / "cnee_master_v2_final.xlsx"
