@@ -1,89 +1,147 @@
 # ════════════════════════════════════════════════════════════════
-# Setup PC Home — FreightBrian clone + full environment
+# Setup PC Home — FreightBrian clone + full environment (v2)
 # Run: right-click → "Run with PowerShell"
-# Or:  powershell -ExecutionPolicy Bypass -File setup-pchome.ps1
 # ════════════════════════════════════════════════════════════════
 
-$ErrorActionPreference = "Stop"
-$REPO_URL = "git@github.com:nelsonhuynhs-ship-it/FrieghtBrian.git"
-$TARGET_DIR = "D:\NELSON\2. Areas\Engine_test"
-$PARENT_DIR = "D:\NELSON\2. Areas"
+$REPO_URL    = "git@github.com:nelsonhuynhs-ship-it/FrieghtBrian.git"
+$TARGET_DIR  = "D:\NELSON\2. Areas\Engine_test"
+$PARENT_DIR  = "D:\NELSON\2. Areas"
+$LOG_FILE    = "$env:USERPROFILE\Desktop\setup-pchome.log"
 
-Write-Host "`n===========================================" -ForegroundColor Cyan
-Write-Host " NELSON FREIGHT — PC HOME SETUP" -ForegroundColor Cyan
-Write-Host "===========================================`n" -ForegroundColor Cyan
+# Logging helper — ghi ra file + console
+function Write-Log($msg, $color = "White") {
+    $line = "[$(Get-Date -Format 'HH:mm:ss')] $msg"
+    Add-Content -Path $LOG_FILE -Value $line
+    Write-Host $msg -ForegroundColor $color
+}
 
-# ────────────────────────────────────────────────────────────
-# STEP 1 — Check prerequisites
-# ────────────────────────────────────────────────────────────
-Write-Host "[1/9] Checking prerequisites..." -ForegroundColor Yellow
+# ⚠ Luôn pause ở cuối, dù success hay fail
+function Wait-Before-Exit {
+    Write-Host ""
+    Write-Host "───────────────────────────────────────────" -ForegroundColor Cyan
+    Write-Host " Log saved: $LOG_FILE" -ForegroundColor Gray
+    Write-Host "───────────────────────────────────────────" -ForegroundColor Cyan
+    Write-Host ""
+    Read-Host "Press ENTER to close this window"
+}
+
+# Bắt tất cả exception để pause trước khi tắt
+trap {
+    Write-Log "`n✗ UNEXPECTED ERROR: $($_.Exception.Message)" "Red"
+    Write-Log "  Line: $($_.InvocationInfo.ScriptLineNumber)" "Red"
+    Write-Log "  Stack: $($_.ScriptStackTrace)" "Gray"
+    Wait-Before-Exit
+    exit 1
+}
+
+# Clear log file
+"Setup PC Home — started $(Get-Date)" | Out-File -FilePath $LOG_FILE -Force
+
+Write-Log "`n===========================================" "Cyan"
+Write-Log " NELSON FREIGHT — PC HOME SETUP v2" "Cyan"
+Write-Log "===========================================`n" "Cyan"
+
+# ════════════════════════════════════════════════
+# STEP 1 — Prerequisites
+# ════════════════════════════════════════════════
+Write-Log "[1/9] Checking prerequisites..." "Yellow"
 
 function Test-Command($cmd) {
     return [bool](Get-Command $cmd -ErrorAction SilentlyContinue)
 }
 
 $checks = @{
-    "git"    = "Git not installed. Install: https://git-scm.com/download/win"
-    "python" = "Python not installed. Install anaconda or python.org"
-    "ssh"    = "SSH client missing. Windows 10+ has it built-in, enable in Optional Features"
+    "git"    = "Git missing. Install: https://git-scm.com/download/win"
+    "python" = "Python missing. Install: anaconda.com or python.org"
+    "ssh"    = "SSH missing. Enable Windows Optional Feature: OpenSSH Client"
 }
 
 $missing = @()
 foreach ($cmd in $checks.Keys) {
     if (Test-Command $cmd) {
-        Write-Host "  OK $cmd" -ForegroundColor Green
+        Write-Log "  OK $cmd" "Green"
     } else {
-        Write-Host "  X  $cmd — $($checks[$cmd])" -ForegroundColor Red
+        Write-Log "  X  $cmd — $($checks[$cmd])" "Red"
         $missing += $cmd
     }
 }
 
 if ($missing.Count -gt 0) {
-    Write-Host "`nInstall missing tools first, then re-run this script." -ForegroundColor Red
+    Write-Log "`nInstall missing tools, then re-run this script." "Red"
+    Wait-Before-Exit
     exit 1
 }
 
-# ────────────────────────────────────────────────────────────
-# STEP 2 — Verify SSH to GitHub
-# ────────────────────────────────────────────────────────────
-Write-Host "`n[2/9] Testing SSH to GitHub..." -ForegroundColor Yellow
-$sshTest = ssh -T -o BatchMode=yes -o StrictHostKeyChecking=no git@github.com 2>&1
-if ($sshTest -match "successfully authenticated") {
-    Write-Host "  OK SSH authenticated" -ForegroundColor Green
+# ════════════════════════════════════════════════
+# STEP 2 — Verify SSH to GitHub (parse improved)
+# ════════════════════════════════════════════════
+Write-Log "`n[2/9] Testing SSH to GitHub..." "Yellow"
+
+$sshKeyPath = "$env:USERPROFILE\.ssh\id_ed25519"
+$sshKeyPathAlt = "$env:USERPROFILE\.ssh\id_rsa"
+$sshKeyPathPchome = "$env:USERPROFILE\.ssh\id_pchome"
+
+$hasKey = (Test-Path $sshKeyPath) -or (Test-Path $sshKeyPathAlt) -or (Test-Path $sshKeyPathPchome)
+
+if (-not $hasKey) {
+    Write-Log "  ! No SSH key found. Generating new one..." "Yellow"
+    $email = Read-Host "  Enter your GitHub email (e.g., nelsonhuynhs@gmail.com)"
+    if (-not $email) { $email = "pchome@nelson" }
+    ssh-keygen -t ed25519 -C $email -f $sshKeyPath -N '""'
+    Write-Log "  OK Key generated at $sshKeyPath" "Green"
+    Write-Log "`n  ══════════════════════════════════════" "Cyan"
+    Write-Log "  COPY THIS PUBLIC KEY to GitHub:" "Yellow"
+    Write-Log "  https://github.com/settings/keys → New SSH key" "Yellow"
+    Write-Log "  ══════════════════════════════════════`n" "Cyan"
+    Get-Content "$sshKeyPath.pub" | Write-Host -ForegroundColor Green
+    Write-Log "`n  Copy key → GitHub → paste → Save" "Yellow"
+    Read-Host "`n  Press ENTER after you added key to GitHub"
+}
+
+# Test SSH — parse flexible
+Write-Log "  Testing GitHub connection..." "Cyan"
+$sshTest = ssh -T -o BatchMode=yes -o StrictHostKeyChecking=no git@github.com 2>&1 | Out-String
+Write-Log "  SSH response: $sshTest" "Gray"
+
+if ($sshTest -match "successfully authenticated" -or $sshTest -match "Hi .+!") {
+    Write-Log "  OK SSH authenticated" "Green"
 } else {
-    Write-Host "  X  SSH not configured. Generate key:" -ForegroundColor Red
-    Write-Host "     ssh-keygen -t ed25519 -C pchome@nelson" -ForegroundColor Yellow
-    Write-Host "     Then add public key to GitHub Settings → SSH Keys" -ForegroundColor Yellow
-    Write-Host "     Re-run this script after done." -ForegroundColor Yellow
+    Write-Log "  X  SSH test failed." "Red"
+    Write-Log "  Possible causes:" "Yellow"
+    Write-Log "    - Public key not added to GitHub yet" "Yellow"
+    Write-Log "    - Firewall blocking port 22 (try: ssh -p 443 -T git@ssh.github.com)" "Yellow"
+    Wait-Before-Exit
     exit 1
 }
 
-# ────────────────────────────────────────────────────────────
+# ════════════════════════════════════════════════
 # STEP 3 — Clone or pull repo
-# ────────────────────────────────────────────────────────────
-Write-Host "`n[3/9] Cloning FreightBrian repo..." -ForegroundColor Yellow
+# ════════════════════════════════════════════════
+Write-Log "`n[3/9] Cloning FreightBrian repo..." "Yellow"
 
 if (-not (Test-Path $PARENT_DIR)) {
     New-Item -ItemType Directory -Path $PARENT_DIR -Force | Out-Null
+    Write-Log "  Created parent dir: $PARENT_DIR" "Gray"
 }
 
-if (Test-Path $TARGET_DIR\.git) {
-    Write-Host "  Repo exists — pulling latest..." -ForegroundColor Cyan
+if (Test-Path "$TARGET_DIR\.git") {
+    Write-Log "  Repo exists — pulling latest..." "Cyan"
     Set-Location $TARGET_DIR
-    git pull origin main
+    git pull origin main 2>&1 | Out-String | Write-Log
 } else {
     Set-Location $PARENT_DIR
-    git clone $REPO_URL Engine_test
+    Write-Log "  Cloning fresh..." "Cyan"
+    git clone $REPO_URL Engine_test 2>&1 | Out-String | Write-Log
     Set-Location $TARGET_DIR
 }
 
 $commit = git log --oneline -1
-Write-Host "  OK Latest: $commit" -ForegroundColor Green
+Write-Log "  OK Latest commit: $commit" "Green"
 
-# ────────────────────────────────────────────────────────────
+# ════════════════════════════════════════════════
 # STEP 4 — Install Python dependencies
-# ────────────────────────────────────────────────────────────
-Write-Host "`n[4/9] Installing Python packages..." -ForegroundColor Yellow
+# ════════════════════════════════════════════════
+Write-Log "`n[4/9] Installing Python packages..." "Yellow"
 
 $pkgs = @(
     "pandas", "openpyxl", "fastapi", "uvicorn", "filelock",
@@ -91,13 +149,14 @@ $pkgs = @(
     "pydantic", "xlrd", "duckdb", "apscheduler", "requests",
     "python-dotenv"
 )
-pip install $pkgs --quiet --disable-pip-version-check
-Write-Host "  OK Dependencies installed" -ForegroundColor Green
+Write-Log "  Installing: $($pkgs -join ', ')" "Gray"
+pip install $pkgs --quiet --disable-pip-version-check 2>&1 | Out-String | Write-Log
+Write-Log "  OK Dependencies installed" "Green"
 
-# ────────────────────────────────────────────────────────────
-# STEP 5 — Set environment variables
-# ────────────────────────────────────────────────────────────
-Write-Host "`n[5/9] Setting Windows environment variables..." -ForegroundColor Yellow
+# ════════════════════════════════════════════════
+# STEP 5 — Environment variables
+# ════════════════════════════════════════════════
+Write-Log "`n[5/9] Setting environment variables..." "Yellow"
 
 $envVars = @{
     "BOT_TOKEN"       = "8697753100:AAF0HVN0VxK-ilyz_GUdE_JOCSr3D3QCFys"
@@ -107,39 +166,34 @@ $envVars = @{
 
 foreach ($key in $envVars.Keys) {
     [System.Environment]::SetEnvironmentVariable($key, $envVars[$key], "User")
-    Write-Host "  OK $key set" -ForegroundColor Green
+    Write-Log "  OK $key set" "Green"
 }
 
-# ────────────────────────────────────────────────────────────
-# STEP 6 — Check OneDrive sync
-# ────────────────────────────────────────────────────────────
-Write-Host "`n[6/9] Checking OneDrive sync..." -ForegroundColor Yellow
+# ════════════════════════════════════════════════
+# STEP 6 — OneDrive check
+# ════════════════════════════════════════════════
+Write-Log "`n[6/9] Checking OneDrive sync..." "Yellow"
 
 $onedriveFiles = @{
-    "Contacts v6" = "D:\OneDrive\NelsonData\email\contact_unified_v6.xlsx"
+    "Contacts v6"    = "D:\OneDrive\NelsonData\email\contact_unified_v6.xlsx"
     "Pricing master" = "D:\OneDrive\NelsonData\pricing\Cleaned_Master_History.parquet"
 }
 
-$missingData = $false
 foreach ($name in $onedriveFiles.Keys) {
     $path = $onedriveFiles[$name]
     if (Test-Path $path) {
         $size = [math]::Round((Get-Item $path).Length / 1MB, 1)
-        Write-Host "  OK $name (${size}MB)" -ForegroundColor Green
+        Write-Log "  OK $name (${size}MB)" "Green"
     } else {
-        Write-Host "  !  $name missing — wait for OneDrive sync" -ForegroundColor Yellow
-        $missingData = $true
+        Write-Log "  !  $name not synced yet" "Yellow"
+        Write-Log "     Path: $path" "Gray"
     }
 }
 
-if ($missingData) {
-    Write-Host "  Open OneDrive app, sign in, wait 10-30 min for full sync." -ForegroundColor Yellow
-}
-
-# ────────────────────────────────────────────────────────────
-# STEP 7 — Copy .env files (manual guidance)
-# ────────────────────────────────────────────────────────────
-Write-Host "`n[7/9] Secrets (.env files)..." -ForegroundColor Yellow
+# ════════════════════════════════════════════════
+# STEP 7 — .env secrets (manual)
+# ════════════════════════════════════════════════
+Write-Log "`n[7/9] Checking .env secrets..." "Yellow"
 
 $envFiles = @(
     "$TARGET_DIR\email_engine\.env",
@@ -149,60 +203,63 @@ $envFiles = @(
 $envMissing = @()
 foreach ($ef in $envFiles) {
     if (Test-Path $ef) {
-        Write-Host "  OK $(Split-Path $ef -Leaf)" -ForegroundColor Green
+        Write-Log "  OK $(Split-Path $ef -Leaf)" "Green"
     } else {
-        Write-Host "  !  Missing: $ef" -ForegroundColor Yellow
+        Write-Log "  !  Missing: $ef" "Yellow"
         $envMissing += $ef
     }
 }
 
 if ($envMissing.Count -gt 0) {
-    Write-Host "`n  Copy .env files from Laptop VP manually:" -ForegroundColor Yellow
-    Write-Host "  1. Laptop: zip email_engine/.env + api/.env → upload OneDrive private folder" -ForegroundColor White
-    Write-Host "  2. PC Home: download zip → extract to above paths" -ForegroundColor White
+    Write-Log "`n  Copy .env from Laptop VP manually (Telegram/USB/OneDrive)" "Yellow"
 }
 
-# ────────────────────────────────────────────────────────────
+# ════════════════════════════════════════════════
 # STEP 8 — Desktop shortcut
-# ────────────────────────────────────────────────────────────
-Write-Host "`n[8/9] Creating Desktop shortcut..." -ForegroundColor Yellow
+# ════════════════════════════════════════════════
+Write-Log "`n[8/9] Creating Desktop shortcut..." "Yellow"
 
-$desktopPath = [Environment]::GetFolderPath("Desktop")
-$shortcutPath = Join-Path $desktopPath "Nelson Email Dashboard.lnk"
-$wshell = New-Object -ComObject WScript.Shell
-$shortcut = $wshell.CreateShortcut($shortcutPath)
-$shortcut.TargetPath = "$TARGET_DIR\email_engine\start-dashboard-v4.bat"
-$shortcut.WorkingDirectory = "$TARGET_DIR\email_engine"
-$shortcut.Description = "Nelson Email Dashboard v6"
-$shortcut.Save()
-Write-Host "  OK Shortcut created" -ForegroundColor Green
+try {
+    $desktopPath = [Environment]::GetFolderPath("Desktop")
+    $shortcutPath = Join-Path $desktopPath "Nelson Email Dashboard.lnk"
+    $wshell = New-Object -ComObject WScript.Shell
+    $shortcut = $wshell.CreateShortcut($shortcutPath)
+    $shortcut.TargetPath = "$TARGET_DIR\email_engine\start-dashboard-v4.bat"
+    $shortcut.WorkingDirectory = "$TARGET_DIR\email_engine"
+    $shortcut.Description = "Nelson Email Dashboard v6"
+    $shortcut.Save()
+    Write-Log "  OK Shortcut created at $shortcutPath" "Green"
+} catch {
+    Write-Log "  !  Shortcut creation failed: $_" "Yellow"
+    Write-Log "     Create manually later" "Gray"
+}
 
-# ────────────────────────────────────────────────────────────
-# STEP 9 — Task Scheduler (REGISTER BUT DISABLED)
-# ────────────────────────────────────────────────────────────
-Write-Host "`n[9/9] Task Scheduler..." -ForegroundColor Yellow
-Write-Host "  ! Skipping auto-register." -ForegroundColor Yellow
-Write-Host "  Laptop VP is still primary. Register this PC only when switching:" -ForegroundColor Cyan
-Write-Host "    schtasks /Create /TN NelsonEmailRotation /TR ..." -ForegroundColor Gray
+# ════════════════════════════════════════════════
+# STEP 9 — Task Scheduler (SKIP by default)
+# ════════════════════════════════════════════════
+Write-Log "`n[9/9] Task Scheduler..." "Yellow"
+Write-Log "  ! Skipping auto-register (Laptop VP still primary)" "Yellow"
+Write-Log "  When switching PC Home → primary, run:" "Cyan"
+Write-Log "    schtasks /Create /TN NelsonEmailRotation ``" "Gray"
+Write-Log "      /TR 'D:\NELSON\2. Areas\Engine_test\scripts\daily-rotation-trigger.bat' ``" "Gray"
+Write-Log "      /SC DAILY /ST 08:00 /RU Nelson" "Gray"
 
-# ────────────────────────────────────────────────────────────
+# ════════════════════════════════════════════════
 # SUMMARY
-# ────────────────────────────────────────────────────────────
-Write-Host "`n===========================================" -ForegroundColor Cyan
-Write-Host " SETUP COMPLETE" -ForegroundColor Green
-Write-Host "===========================================`n" -ForegroundColor Cyan
+# ════════════════════════════════════════════════
+Write-Log "`n===========================================" "Cyan"
+Write-Log " SETUP COMPLETE" "Green"
+Write-Log "===========================================`n" "Cyan"
 
-Write-Host "Next steps:" -ForegroundColor Yellow
+Write-Log "Next steps:" "Yellow"
 if ($envMissing.Count -gt 0) {
-    Write-Host "  1. Copy .env files from Laptop VP (see Step 7 above)" -ForegroundColor White
+    Write-Log "  1. Copy .env files from Laptop VP" "White"
 }
-if ($missingData) {
-    Write-Host "  2. Wait for OneDrive sync to finish" -ForegroundColor White
-}
-Write-Host "  3. Close + reopen PowerShell (reload env vars)" -ForegroundColor White
-Write-Host "  4. Test: cd '$TARGET_DIR\email_engine'" -ForegroundColor White
-Write-Host "     python web_server.py" -ForegroundColor White
-Write-Host "     Browser: http://localhost:8100/api/send-stats" -ForegroundColor White
-Write-Host "     Expected: total=22842`n" -ForegroundColor White
+Write-Log "  2. Close + reopen PowerShell (reload env vars)" "White"
+Write-Log "  3. Test run:" "White"
+Write-Log "     cd '$TARGET_DIR\email_engine'" "Gray"
+Write-Log "     python web_server.py" "Gray"
+Write-Log "     Open: http://localhost:8100/api/send-stats" "Gray"
+Write-Log "     Expected: total=22842`n" "Gray"
 
-Write-Host "Full guide: docs/SETUP_PC_HOME.md" -ForegroundColor Gray
+Wait-Before-Exit
