@@ -7,6 +7,36 @@
 
 ---
 
+## Session 2026-04-22 23:30 Shipped (Rule Engine + Smart Consolidation ✅)
+
+**Completion:** Rule Engine + Smart Consolidation session finalized 2026-04-22 23:30
+
+**New capabilities:**
+- ✅ `rule_engine.resolve_config()` auto-resolves POL + ARB per contact's ORIGIN_COUNTRY
+- ✅ Malaysia (7,232 contacts) now route POL=PKG + ARB=port_klang (was HPH)
+- ✅ China routes handle NGB variant correctly → `ningbo` key
+- ✅ Smart Send UI consolidated: Markup input + Preview modal in 1 widget
+- ✅ Master file unified: `contact_unified_v6.xlsx` sheet="CNEE" (22,842 rows)
+- ✅ Filelock added: prevent concurrent write corruption
+- ✅ Schema adapter: schema-agnostic v5/v6 load with fallback chain
+
+**Files shipped:**
+- `email_engine/core/rule_engine.py` (218 LOC)
+- `email_engine/core/xlsx_lock.py` (NEW)
+- `email_engine/core/cnee_schema_adapter.py` (NEW)
+- `email_engine/web_server.py` (_get_cnee_df updated)
+- `api/routers/contacts_router.py` (DuckDB fix)
+- `plans/visuals/email-dashboard-v6.html` (UI)
+
+**Verification:**
+- Unit tests: 29/29 PASS
+- Integration tests: 5/5 PASS
+- Code review: 9.25/10 (0 critical, 8 minor follow-up)
+
+**See:** `plans/260422-2330-rule-engine-smart-consolidation/plan.md` for full details.
+
+---
+
 ## Mục tiêu v6
 
 Biến email tool từ 1 kênh (Email) thành **multi-channel outreach platform**:

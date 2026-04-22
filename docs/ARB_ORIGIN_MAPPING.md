@@ -1,7 +1,7 @@
 # ARB Origin Mapping — Shipping Market Rules
 
-**Last updated:** 2026-04-22 23:00
-**Status:** 📋 Reference doc (implementation pending in `email_engine/core/rule_engine.py`)
+**Last updated:** 2026-04-22 23:30
+**Status:** ✅ IMPLEMENTED in `email_engine/core/rule_engine.py` (2026-04-22 23:30)
 **Source:** `email_engine/data/arb_rates.yaml` + Nelson market knowledge (confirmed 2026-04-22)
 
 ---
@@ -141,73 +141,29 @@ arb_origins:
 
 ---
 
-## Implementation Pointer (for `rule_engine.py`)
+## Implementation (✅ SHIPPED 2026-04-22 23:30)
 
-Target file: `email_engine/core/rule_engine.py` (to be created in next session)
+**File:** `email_engine/core/rule_engine.py`
 
-**Pseudocode:**
+**Implementation status:** ✅ Complete (218 LOC, 13/13 tests PASS)
 
-```python
-ARB_MAPPING = {
-    "VN": {
-        "pol_default": "HCM",  # fallback to HCM for South Vietnam
-        "arb_key": None
-    },
-    "MY": {
-        "pol_default": "PKG",  # CRITICAL: Port Klang, not HCM
-        "arb_key": "port_klang"
-    },
-    "TH": {
-        "pol_default": "BKK",
-        "arb_key": "lat_krabang"
-    },
-    "CN": {
-        "pol_default": "SHA",  # Shanghai default, can switch to NGB
-        "arb_key": "shanghai"  # Full rate, not surcharge
-    },
-    "KH": {
-        "pol_default": "HCM",  # Transit consolidation
-        "arb_key": "phnom_penh"  # Surcharge model
-    }
-}
+**Key implementation details:**
+- `ARB_MAPPING`: 9 countries (VN/MY/TH/CN/KH/BD/IN/PH/ID)
+- `resolve_config(row, user_markup=20, campaign_override=None)`: Returns per-email config dict
+- CN NGB variant correctly maps to `ningbo` key
+- Schema-adaptive: handles both v5 and v6 contact formats
+- Wired into `rotation_engine.queue_to_outlook_worker()`
 
-def resolve_pol_and_arb(row, user_markup_usd=20):
-    """
-    Resolve POL and ARB origin from contact row.
-    
-    Args:
-        row: contact dict with ORIGIN_COUNTRY, POL, DESTINATION columns
-        user_markup_usd: Nelson's fixed markup per batch (default 20)
-    
-    Returns:
-        {
-            "pol": "PORT",
-            "arb_origin": "arb_key_or_none",
-            "markup_usd": user_markup_usd,
-            "destination": "USLGB,USLAX"
-        }
-    """
-    country = row.get("ORIGIN_COUNTRY", "VN").upper().strip()
-    rule = ARB_MAPPING.get(country, ARB_MAPPING["VN"])
-    
-    # Use POL from row if present, else fallback to rule default
-    pol = row.get("POL", "").upper().strip()
-    if not pol:
-        pol = rule["pol_default"]
-    
-    # Special case: China Ningbo variant
-    if country == "CN" and pol in ("NGB", "NINGBO"):
-        arb_origin = "ningbo"
-    else:
-        arb_origin = rule["arb_key"]
-    
-    return {
-        "pol": pol,
-        "arb_origin": arb_origin,
-        "markup_usd": user_markup_usd,
-        "destination": row.get("DESTINATION", "USLGB,USLAX")
-    }
-```
+**Integration flow:**
+1. `rotation_engine.build_daily_plan()` loads contact rows
+2. For each contact, call `rule_engine.resolve_config(row, user_markup)`
+3. Returns dict: `{pol, destination, arb_origin, markup, subject, campaign}`
+4. `queue_to_outlook_worker()` uses resolved config (no hardcoded HPH/markup=20)
+
+**Malaysia impact verified:**
+- Before: ALL 7,232 Malaysia contacts default POL=HPH
+- After: POL=PKG + ARB=port_klang (correct routing)
+- Verified via integration test: rotation/today endpoint returns correct config
 
 ---
 
