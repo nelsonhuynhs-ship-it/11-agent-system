@@ -35,7 +35,35 @@ except ImportError:
 
 # 2026-04-22: migrate primary source → contact_unified_v6.xlsx (22,842 rows, v6 schema).
 # Fallback chain: v6 → v5 (cnee_master_v2_final) → v2 → local 5K emergency fallback.
-_ONEDRIVE_EMAIL = Path("D:/OneDrive/NelsonData/email")
+# 2026-04-22 23:50: dynamic OneDrive resolution (Laptop=D:/OneDrive, PC Home=C:/Users/ADMIN/OneDrive).
+# Priority: env var NELSON_DATA_DIR → common OneDrive locations → legacy D:/ fallback.
+def _resolve_onedrive_email_dir() -> Path:
+    """Find NelsonData/email folder across known OneDrive locations."""
+    # 1. Explicit env var (set by shared/paths.py or Nelson manually)
+    env_dir = os.environ.get("NELSON_DATA_DIR", "").strip()
+    if env_dir and (Path(env_dir) / "email").exists():
+        return Path(env_dir) / "email"
+    # 2. OneDrive env var (Windows-set, personal account)
+    onedrive_root = os.environ.get("OneDriveConsumer") or os.environ.get("OneDrive", "")
+    if onedrive_root:
+        candidate = Path(onedrive_root) / "NelsonData" / "email"
+        if candidate.exists():
+            return candidate
+    # 3. Common fallback paths
+    for candidate in [
+        Path("D:/OneDrive/NelsonData/email"),                                # Laptop VP
+        Path.home() / "OneDrive" / "NelsonData" / "email",                   # PC Home generic
+        Path("C:/Users/ADMIN/OneDrive/NelsonData/email"),                    # PC Home ADMIN user
+        Path("C:/Users/Nelson/OneDrive/NelsonData/email"),                   # PC Home Nelson user
+    ]:
+        if candidate.exists():
+            return candidate
+    # 4. Last resort: return D:/ default (will fail gracefully via DATA_FILE fallback)
+    return Path("D:/OneDrive/NelsonData/email")
+
+_ONEDRIVE_EMAIL = _resolve_onedrive_email_dir()
+log.info(f"Resolved OneDrive email dir: {_ONEDRIVE_EMAIL}")
+
 _CNEE_CANDIDATES = [
     _ONEDRIVE_EMAIL / "contact_unified_v6.xlsx",      # v6 primary (22,842 rows)
     _ONEDRIVE_EMAIL / "cnee_master_v2_final.xlsx",    # v5 fallback (22,230 rows)
