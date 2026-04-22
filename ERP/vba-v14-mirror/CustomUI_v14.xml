@@ -139,12 +139,12 @@
 
       </tab>
 
-      <!-- ========== TAB 2: OPERATIONS (v4 — 100% mockup match) ========== -->
+      <!-- ========== TAB 2: OPERATIONS (v4 cleanup — 6 groups) ========== -->
       <tab id="tabOperations" label="Operations" visible="true">
 
-        <!-- GROUP 1: THÁNG — month combo dropdown showing job counts per month -->
-        <group id="grpThang" label="Tháng">
-          <comboBox id="cmbMonth" label="Tháng"
+        <!-- GROUP 1: MONTH — month combo dropdown showing job counts per month -->
+        <group id="grpThang" label="Month">
+          <comboBox id="cmbMonth" label="Month"
                     sizeString="APR 2026 (999 jobs)"
                     getItemCount="GetItemCount_Month"
                     getItemLabel="GetItemLabel_Month"
@@ -153,30 +153,14 @@
                     screentip="Chon thang de loc Active Jobs + Archive. Vi du: APR 2026 (26 jobs)"/>
         </group>
 
-        <!-- GROUP 2: JOBS -->
-        <group id="grpJobs" label="Jobs">
-          <button id="btnJobArchive" label="Archive" size="large"
-                  imageMso="OutlookArchive" onAction="OnAction_ArchiveJob"
-                  screentip="Archive dòng Active Job đã Delivered sang sheet Archive"/>
-          <button id="btnJobEmail" label="Email" size="large"
-                  imageMso="NewMailMessage" onAction="OnAction_EnrichEmail"
-                  screentip="Fill mailto: Request_BKG + SERVICE (CY-CY / CY-DOOR)"/>
-        </group>
-
-        <!-- GROUP 3: TRACKING -->
-        <group id="grpTracking" label="Tracking">
-          <button id="btnTrackStatus" label="Status" size="large"
-                  imageMso="MilestoneInsert" onAction="OnAction_TrackingSync"
-                  screentip="Tính lại TRACKING dots cho mọi Active Job (7 stages BKG→Done)"/>
-          <button id="btnTrackYml" label="YML Scan" size="large"
-                  imageMso="TaskListImport" onAction="OnAction_YmlScan"
-                  screentip="Parse Outlook emails từ YML → update tracking events"/>
+        <!-- GROUP 2: MILESTONES -->
+        <group id="grpTracking" label="Milestones">
           <button id="btnSyncMilestones" label="Sync Milestones" size="large"
                   imageMso="Refresh" onAction="Btn_SyncMilestones_OnAction"
                   screentip="Flush milestone_state.jsonl vào Active Jobs (ATD_DATE + NOTIFIED_ATD/ETA7 cols)"/>
         </group>
 
-        <!-- GROUP 4: BOOKING POOL -->
+        <!-- GROUP 3: BOOKING POOL -->
         <group id="grpBookingPool" label="Booking Pool">
           <button id="btnNewKeepSpace" label="New Keep Space"
                   imageMso="AppointmentColor6" size="large"
@@ -192,35 +176,7 @@
                   screentip="Scan Pool HOLDING &gt; 30 ngày → set Status=EXPIRED"/>
         </group>
 
-        <!-- GROUP 5: ALERTS (static labels; handlers show count in MsgBox) -->
-        <group id="grpAlerts" label="Alerts">
-          <button id="btnAlertPriceWatch" label="Price Watch" size="large"
-                  imageMso="ConditionalFormattingAboveAverage"
-                  onAction="OnAction_PriceWatch"
-                  screentip="Scan PENDING quotes vs Pricing mới — alert khi giá giảm"/>
-          <button id="btnAlertEta" label="ETA Alert" size="large"
-                  imageMso="AlertsMenu"
-                  onAction="OnAction_ReleaseAlert"
-                  screentip="Release emails pending &#8805; 2h không confirm — push khách ngay"/>
-          <button id="btnTargetAdd" label="Target" size="normal"
-                  imageMso="EventOpen"
-                  onAction="OnAction_TargetAdd"
-                  screentip="Add price target watch for selected Quotes row — price_watch.py alerts when matched"/>
-        </group>
-
-        <!-- GROUP 6: REPORT -->
-        <group id="grpReport" label="Report">
-          <button id="btnRptMonth" label="Tháng Rpt" size="large"
-                  imageMso="TableExportToSharePointList"
-                  onAction="OnAction_MonthlyReportV4"
-                  screentip="Export Monthly Performance (24 cột theo template Nelson)"/>
-          <button id="btnRptWeek" label="Tuần Rpt" size="large"
-                  imageMso="ReviewShowReviewersMenu"
-                  onAction="OnAction_WeeklyReport"
-                  screentip="Export Weekly Sales KPI (12 cột)"/>
-        </group>
-
-        <!-- GROUP 7: QUOTE (kept — essential WIN/LOST flow) -->
+        <!-- GROUP 4: QUOTE (kept — essential WIN/LOST flow) -->
         <group id="grpQuoteStatus" label="Quote">
           <button id="btnWin" label="WIN" size="large"
                   imageMso="AcceptInvitation" onAction="OnAction_MarkQuoteWin"
@@ -247,27 +203,7 @@
                   screentip="Move selected Active Job row to Archive sheet"/>
         </group>
 
-        <!-- GROUP 8: ADVANCED (F4 FAST ID, F7 Reefer, F10 Enrich $, F-ReloadVBA) -->
-        <group id="grpAdv" label="Advanced">
-          <button id="btnTransitTime" label="Transit Time" size="normal"
-                  imageMso="AppointmentColor0" onAction="OnAction_TransitTime"
-                  screentip="F9: Auto-compute ETA from ETD (WC/EC/Gulf/Inland rules)"/>
-          <button id="btnFastId" label="FAST ID" size="normal"
-                  imageMso="CheckForIssues" onAction="OnAction_FastIdCheck"
-                  screentip="F4: Validate FAST_ID format"/>
-          <button id="btnReefer" label="Reefer Plug" size="normal"
-                  imageMso="ServerReportSubscriptions" onAction="OnAction_ReeferPlug"
-                  screentip="F7: Optimal drop date for 20RF/40RF"/>
-          <button id="btnEnrichMonthly" label="Enrich $" size="normal"
-                  imageMso="SumSummation" onAction="OnAction_EnrichMonthly"
-                  screentip="F10: Add KICK BACK cols to Monthly report"/>
-          <button id="btnReloadVBA" label="Reload VBA" size="normal"
-                  imageMso="RefreshScript"
-                  onAction="OnAction_ReloadVBA"
-                  screentip="Save + close + re-import all .bas modules via WMI bootstrap, then reopen xlsm"/>
-        </group>
-
-        <!-- GROUP 9: RATE DATA -->
+        <!-- GROUP 5: RATE DATA -->
         <group id="grpRateData" label="Rate Data">
           <button id="btnRefreshAll" label="Refresh All" size="large"
                   imageMso="RefreshAll" onAction="OnAction_RefreshAll"
@@ -281,6 +217,14 @@
           <labelControl id="lblRateVer2" getLabel="GetLabel_RateVer2"/>
           <labelControl id="lblRateVer3" getLabel="GetLabel_RateVer3"/>
           <labelControl id="lblRateVer4" getLabel="GetLabel_RateVer4"/>
+        </group>
+
+        <!-- GROUP 6: DEV -->
+        <group id="grpAdv" label="Dev">
+          <button id="btnReloadVBA" label="Reload VBA" size="normal"
+                  imageMso="RefreshScript"
+                  onAction="OnAction_ReloadVBA"
+                  screentip="Save + close + re-import all .bas modules via WMI bootstrap, then reopen xlsm"/>
         </group>
 
       </tab>

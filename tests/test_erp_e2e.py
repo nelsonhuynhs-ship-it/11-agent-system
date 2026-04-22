@@ -463,6 +463,89 @@ def test_vba_sub_compiles(excel, wb):
             fail(f"Module {m} not loaded: {e}")
 
 
+def test_ribbon_operations_cleanup(excel, wb):
+    """Verify Tab Operations has exactly 6 groups + removed 13 controls."""
+    info("Testing Operations tab cleanup...")
+    import zipfile
+    import shutil
+    import tempfile
+    fd, tmp = tempfile.mkstemp(suffix=".xlsm")
+    os.close(fd)
+    try:
+        shutil.copy2(ERP_PATH, tmp)
+        with zipfile.ZipFile(tmp, 'r') as z:
+            cu_xml = z.read('customUI/customUI14.xml').decode('utf-8')
+    finally:
+        try:
+            os.remove(tmp)
+        except Exception:
+            pass
+
+    # Verify REMOVED button IDs absent
+    removed_ids = [
+        "btnJobArchive", "btnJobEmail",
+        "btnTrackStatus", "btnTrackYml",
+        "btnAlertPriceWatch", "btnAlertEta", "btnTargetAdd",
+        "btnRptMonth", "btnRptWeek",
+        "btnTransitTime", "btnFastId", "btnReefer", "btnEnrichMonthly",
+    ]
+    for rid in removed_ids:
+        if f'id="{rid}"' in cu_xml:
+            fail(f"Removed button still present: {rid}")
+        ok(f"Removed: {rid}")
+
+    # Verify KEPT IDs still present
+    kept_ids = [
+        "cmbMonth", "btnSyncMilestones",
+        "btnNewKeepSpace", "btnSyncPool", "btnMarkExpired",
+        "btnWin", "btnLost", "btnRenegotiate",
+        "btnQuoteImage", "btnQuoteImageBulk", "btnExpired", "btnCancelJob",
+        "btnRefreshAll", "btnRefreshRates",
+        "btnReloadVBA",
+    ]
+    for rid in kept_ids:
+        if f'id="{rid}"' not in cu_xml:
+            fail(f"Kept control missing: {rid}")
+        ok(f"Kept: {rid}")
+
+    # Verify removed groups absent
+    for grp in ["grpJobs", "grpAlerts", "grpReport"]:
+        if f'id="{grp}"' in cu_xml:
+            fail(f"Removed group still present: {grp}")
+        ok(f"Group removed: {grp}")
+
+
+def test_orphan_vba_subs_removed(excel, wb):
+    """Verify 13 orphan VBA subs deleted from ERPv14Ribbon module."""
+    info("Testing orphan VBA subs removal...")
+    vbproj = wb.VBProject
+    ribbon_mod = vbproj.VBComponents("ERPv14Ribbon")
+    code = ribbon_mod.CodeModule.Lines(1, ribbon_mod.CodeModule.CountOfLines)
+
+    removed_subs = [
+        "OnAction_ArchiveJob",
+        "OnAction_EnrichEmail",
+        "OnAction_TrackingSync",
+        "OnAction_YmlScan",
+        "OnAction_PriceWatch",
+        "OnAction_ReleaseAlert",
+        "OnAction_TargetAdd",
+        "OnAction_MonthlyReportV4",
+        "OnAction_WeeklyReport",
+        "OnAction_TransitTime",
+        "OnAction_FastIdCheck",
+        "OnAction_ReeferPlug",
+        "OnAction_EnrichMonthly",
+    ]
+    import re
+    for sub_name in removed_subs:
+        # Must not appear as Sub/Function DECLARATION (may appear in comments OK)
+        pattern = rf'(?:Public\s+|Private\s+)?(?:Sub|Function)\s+{re.escape(sub_name)}\s*\('
+        if re.search(pattern, code, re.IGNORECASE):
+            fail(f"Orphan VBA sub still present: {sub_name}")
+        ok(f"VBA sub removed: {sub_name}")
+
+
 def main():
     print(f"\n{C}=== ERP E2E Test Suite ==={X}\n")
 
@@ -492,7 +575,11 @@ def main():
         test_ribbon_toggle_vba_compiles(excel, wb)
         test_ribbon_toggle_applyquicksearch_integration(excel, wb)
 
-        # Step 7: save + close
+        # Step 7: test Operations tab cleanup
+        test_ribbon_operations_cleanup(excel, wb)
+        test_orphan_vba_subs_removed(excel, wb)
+
+        # Step 8: save + close
         wb.Save()
         wb.Close(SaveChanges=False)
         excel.Quit()
