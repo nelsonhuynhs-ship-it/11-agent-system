@@ -1,5 +1,29 @@
 # NEXT SESSION PROMPT — ERP v14 continuation
 
+## ⭐ PRIORITY TASK — Import Profit Reports (2-3h)
+
+**Resume task:** Import 11 tháng historical profit reports (5/2025 → 3/2026) vào Active Jobs/Archive để populate data cho Sync Milestones + TRACKING tooltip.
+
+**Memory context:**
+- `memory/project-import-profit-reports-next-session.md` — FULL scope, mapping, edge cases, workflow
+- `memory/project-erp-state-20260422.md` — overall ERP state after today's 10 commits
+
+**Source file:** `D:/OneDrive/NelsonData/erp/monthly_reports/SALES PROFIT - MAR 2026 - NELSON CHINH.xlsx`
+**Scope:** 11 sheets MAY 2025 → MAR 2026 (~150-170 jobs)
+**Target:** Archive sheet (past months), Active Jobs (APR 2026 not imported — source doesn't have it)
+**Tracking default:** ALL GREEN dots (Delivered) for past jobs, refine via email backfill later
+
+**Start command:**
+```
+Resume ERP — import profit reports historical 5/2025→3/2026.
+Đọc memory: memory/project-import-profit-reports-next-session.md
+Start Phase 1 dry-run ngay.
+```
+
+---
+
+## 📚 Legacy Resume Prompt (general ERP)
+
 **Paste nguyên chunk này vào đầu session mới để AI tiếp tục đúng track ERP:**
 
 ---
