@@ -1,0 +1,17 @@
+{
+  "daily_total": 700,
+  "by_commodity": {
+    "FLOORING": 150,
+    "FURNITURE_INDOOR": 150,
+    "CANDLE": 100,
+    "RUBBER": 100,
+    "PLASTIC": 100,
+    "PLYWOOD": 50,
+    "FOOD_AMBIENT": 30,
+    "OTHERS": 20
+  },
+  "cooldown_days": 7,
+  "hard_limit_count": 3,
+  "hard_limit_window_days": 30,
+  "_comment": "Sum by_commodity must == daily_total. Edit via POST /api/rotation/quota."
+}
