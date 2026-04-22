@@ -749,12 +749,34 @@ def main() -> None:
     # Persist state
     save_state(state)
 
+    # ── Phase 5-merged: time-based SI 48h alert ─────────────────────────────
+    # Same shipment-monitoring domain, just different data source (xlsm).
+    # Merged 2026-04-22 per Nelson architecture review: 1 sub-job for the
+    # entire shipment lifecycle (event-driven + time-driven).
+    si_stats = {"alerts_sent": 0, "rows_checked": 0}
+    try:
+        import importlib.util
+        _si_script = PROJECT_ROOT.parent / "scripts" / "si-48h-alert.py"
+        if _si_script.exists():
+            _spec = importlib.util.spec_from_file_location("si_48h_alert_module", _si_script)
+            _mod = importlib.util.module_from_spec(_spec)
+            _spec.loader.exec_module(_mod)
+            si_result = _mod.run_alert(dry_run=False)
+            if si_result.get("status") == "ok":
+                si_stats["alerts_sent"] = si_result.get("alerts_sent", 0)
+                si_stats["rows_checked"] = si_result.get("rows_checked", 0)
+            elif si_result.get("status") == "error":
+                log.warning("SI 48h alert error: %s", si_result.get("error"))
+    except Exception as _si_err:
+        log.warning("SI 48h alert skipped: %s", _si_err)
+
     # Summary
     log.info("=" * 60)
     log.info("DONE | Scanned: %d | New: %d | Advanced: %d | "
-             "Risks: %d | Payments: %d | Skipped: %d",
+             "Risks: %d | Payments: %d | Skipped: %d | SI-alerts: %d/%d",
              stats["scanned"], stats["new"], stats["advanced"],
-             stats["risks"], stats["payments"], stats["skipped"])
+             stats["risks"], stats["payments"], stats["skipped"],
+             si_stats["alerts_sent"], si_stats["rows_checked"])
     log.info("State: %d shipments tracked | %s",
              len(state.get("shipments", {})), STATE_FILE)
     log.info("=" * 60)

@@ -229,34 +229,16 @@ def run_nelson_customer_sort(config: dict, dry_run: bool = False) -> dict:
         return {"status": "error", "error": str(e)}
 
 
-def run_si_48h_alert(config: dict, dry_run: bool = False) -> dict:
-    """Run 48h SI cutoff alert — scans Active Jobs, Telegram if SI < 48h + Docs not done.
-
-    Integrated as job #7 (instead of separate daily Task Scheduler entry) —
-    leverages existing 30-min cadence + dedup per-day ensures no spam.
-    """
-    try:
-        # File has hyphen ("si-48h-alert.py") — use importlib to load by path
-        import importlib.util
-        script_path = Path(_repo_root) / "scripts" / "si-48h-alert.py"
-        spec = importlib.util.spec_from_file_location("si_48h_alert_module", script_path)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        return mod.run_alert(dry_run=dry_run)
-    except Exception as e:
-        log.error("[si_48h_alert] Error: %s\n%s", e, traceback.format_exc())
-        return {"status": "error", "error": str(e)}
-
-
 # Job name → runner function mapping
+# Note: si_48h_alert merged INTO shipment_brain (2026-04-22) per architecture review —
+# same "shipment lifecycle monitoring" domain, just event-driven + time-driven concerns.
 _JOB_RUNNERS = {
     "mentee_classification":  run_mentee_classification,
     "pricing_import":         run_pricing_import,
-    "shipment_brain":         run_shipment_brain,
+    "shipment_brain":         run_shipment_brain,       # includes SI 48h alert
     "knowledge_ingest":       run_knowledge_ingest,
     "nelson_customer_sort":   run_nelson_customer_sort,
-    "reply_processing":       run_reply_processing,   # job #6 — inbox reply/bounce handler
-    "si_48h_alert":           run_si_48h_alert,       # job #7 — SI cutoff warning
+    "reply_processing":       run_reply_processing,
 }
 
 
