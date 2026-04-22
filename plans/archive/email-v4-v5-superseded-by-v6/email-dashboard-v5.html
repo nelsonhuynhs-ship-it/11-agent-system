@@ -630,41 +630,9 @@ input,select{font-family:inherit}
 </section>
 
 <!-- ═══════════════ SETTINGS VIEW ═══════════════ -->
-<section class="view" id="viewSettings">
-  <header class="page-head">
-    <div><h1 class="page-title">⚙ Settings</h1>
-      <div class="page-sub">Control center — ARM/DISARM · rules · integrations</div>
-    </div>
-  </header>
-  <section class="section">
-    <div class="section-head">
-      <div class="section-title">🛑 Kill Switch</div>
-      <div class="section-sub">ARM = worker stops picking new jobs · DISARM = resume</div>
-    </div>
-    <div style="padding:20px;border:1px solid var(--line);display:flex;align-items:center;gap:16px">
-      <span id="settingsKillStatus" style="font-size:13px;color:var(--muted)">Checking...</span>
-      <button class="btn btn-danger" id="settingsBtnKill">ARM</button>
-      <button class="btn btn-sm" id="settingsBtnKillClear" style="display:none;background:var(--good);color:#fff;border-color:var(--good)">DISARM</button>
-    </div>
-  </section>
-  <!-- Auto-learn Customer Folders — pending Sprint 6 (Reflection layer) -->
-  <section class="section" id="settingsAutoLearn">
-    <div class="section-head"><div class="section-title">🧠 Auto-learn khách mới</div><div class="section-sub" style="color:var(--muted)">Coming Sprint 6 · Memory Reflection</div></div>
-    <div style="padding:16px;background:var(--paper-2);color:var(--muted);font-size:12.5px;border-left:2px solid var(--line)">Sếp kéo 1 email vô folder khách → hệ thống tự nhớ sender, add vô customer_rules.json lần sau tự route.</div>
-  </section>
-  <section class="section" id="settingsScheduled">
-    <div class="section-head"><div class="section-title">⏱ Scheduled Jobs</div><div class="section-sub" style="color:var(--muted)">Coming · Task Scheduler inventory</div></div>
-    <div style="padding:16px;background:var(--paper-2);color:var(--muted);font-size:12.5px;border-left:2px solid var(--line)">Quản lý 7 scheduled tasks từ dashboard — enable/disable không cần mở Task Scheduler.</div>
-  </section>
-  <section class="section" id="settingsRules">
-    <div class="section-head"><div class="section-title">👤 Customer Rules</div><div class="section-sub" style="color:var(--muted)">Coming · customer_rules.json editor</div></div>
-    <div style="padding:16px;background:var(--paper-2);color:var(--muted);font-size:12.5px;border-left:2px solid var(--line)">Edit preferred_pods, preferred_carriers, markup per customer trực tiếp từ UI.</div>
-  </section>
-  <section class="section" id="settingsHealth">
-    <div class="section-head"><div class="section-title">💚 System Health</div><div class="section-sub" style="color:var(--muted)">Coming · system health checks</div></div>
-    <div style="padding:16px;background:var(--paper-2);color:var(--muted);font-size:12.5px;border-left:2px solid var(--line)">Parquet freshness · Outlook COM status · API ping · Worker queue depth.</div>
-  </section>
-</section>
+<!-- OLD DUPLICATE viewSettings section removed 2026-04-21 — caused duplicate ID, Panjiva/Suppression/KB sections hidden.
+     Kill Switch + placeholders merged into main viewSettings section below (line ~997). -->
+<section class="view" id="viewSettingsLegacyStub" style="display:none!important"></section>
 
 <!-- Keep old view shells as hidden stubs (JS backward-compat — don't delete these IDs) -->
 <section class="view" id="viewAnalytics" style="display:none!important"></section>
@@ -997,10 +965,23 @@ input,select{font-family:inherit}
 <section class="view" id="viewSettings">
   <header class="page-head">
     <div>
-      <h1 class="page-title">Settings</h1>
-      <div class="page-sub">ARM/DISARM · Data Import · Scheduled Jobs</div>
+      <h1 class="page-title">⚙ Settings</h1>
+      <div class="page-sub">Control center — Kill Switch · Data Import · Suppression · Bounce KB</div>
     </div>
   </header>
+
+  <!-- Kill Switch (moved from old duplicate section) -->
+  <section class="section" style="margin-bottom:32px">
+    <div class="section-head">
+      <div class="section-title">🛑 Kill Switch</div>
+      <div class="section-sub">ARM = worker stops picking new jobs · DISARM = resume</div>
+    </div>
+    <div style="padding:20px;border:1px solid var(--line);display:flex;align-items:center;gap:16px">
+      <span id="settingsKillStatus" style="font-size:13px;color:var(--muted)">Checking...</span>
+      <button class="btn btn-danger" id="settingsBtnKill">ARM</button>
+      <button class="btn btn-sm" id="settingsBtnKillClear" style="display:none;background:var(--good);color:#fff;border-color:var(--good)">DISARM</button>
+    </div>
+  </section>
 
   <!-- Panjiva Import Section (A5) -->
   <div id="settingsPanjiva">
@@ -1093,6 +1074,72 @@ input,select{font-family:inherit}
         <tr><td colspan="5" class="empty-state">Click Refresh to load suppression list</td></tr>
       </tbody>
     </table>
+  </section>
+
+  <!-- Bounce Knowledge Base section (Sprint 1 v3) -->
+  <section class="section" id="settingsBounceKB" style="margin-top:32px;margin-bottom:32px">
+    <div class="section-head">
+      <div>
+        <div class="section-title">Bounce Knowledge Base <span class="count-chip" id="kbVersionChip">v—</span></div>
+        <div class="section-sub">Hệ thống tự học từ bounce thật — auto-filter mọi import mới</div>
+      </div>
+      <button class="btn btn-sm" onclick="loadKBSummary()">Refresh</button>
+    </div>
+
+    <!-- 5 KPI cards -->
+    <div class="kpi-row" id="kbKpiRow" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">
+      <div class="kpi-card" style="flex:1;min-width:120px;background:#1e1e2e;border:1px solid #333;border-radius:8px;padding:14px 18px">
+        <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em">Dead Domains</div>
+        <div id="kbDeadCount" style="font-size:28px;font-weight:700;color:#f38ba8">—</div>
+        <div style="font-size:10px;color:#666">auto-learned DEAD</div>
+      </div>
+      <div class="kpi-card" style="flex:1;min-width:120px;background:#1e1e2e;border:1px solid #333;border-radius:8px;padding:14px 18px">
+        <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em">Risky Domains</div>
+        <div id="kbRiskyCount" style="font-size:28px;font-weight:700;color:#fab387">—</div>
+        <div style="font-size:10px;color:#666">30-80% bounce</div>
+      </div>
+      <div class="kpi-card" style="flex:1;min-width:120px;background:#1e1e2e;border:1px solid #333;border-radius:8px;padding:14px 18px">
+        <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em">Disposable</div>
+        <div id="kbDisposableCount" style="font-size:28px;font-weight:700;color:#cba6f7">—</div>
+        <div style="font-size:10px;color:#666;white-space:nowrap" id="kbDisposableSync">from GitHub</div>
+      </div>
+      <div class="kpi-card" style="flex:1;min-width:120px;background:#1e1e2e;border:1px solid #333;border-radius:8px;padding:14px 18px">
+        <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em">Role Prefixes</div>
+        <div id="kbRoleCount" style="font-size:28px;font-weight:700;color:#89dceb">—</div>
+        <div style="font-size:10px;color:#666">low priority</div>
+      </div>
+      <div class="kpi-card" style="flex:1;min-width:120px;background:#1e1e2e;border:1px solid #333;border-radius:8px;padding:14px 18px">
+        <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em">Manual Block</div>
+        <div id="kbManualCount" style="font-size:28px;font-weight:700;color:#a6e3a1">—</div>
+        <div style="font-size:10px;color:#666">domains + emails</div>
+      </div>
+    </div>
+
+    <!-- Top Dead Domains table -->
+    <div style="font-size:13px;font-weight:600;color:#cdd6f4;margin-bottom:8px">Top Dead / Risky Domains (auto-learned)</div>
+    <table class="tbl" id="kbDeadTable">
+      <thead>
+        <tr>
+          <th>Domain</th>
+          <th>Class</th>
+          <th>Bounces</th>
+          <th>Sends</th>
+          <th>Rate</th>
+          <th>Last Bounce</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="kbDeadBody">
+        <tr><td colspan="7" class="empty-state">Click Refresh to load</td></tr>
+      </tbody>
+    </table>
+
+    <!-- Action buttons -->
+    <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+      <button class="btn" onclick="kbManualAddPrompt()">+ Manual Block</button>
+      <button class="btn btn-ghost" onclick="kbExport()">Export KB</button>
+      <button class="btn btn-ghost" id="btnSyncDisposable" onclick="kbSyncDisposable()">Sync Disposable List</button>
+    </div>
   </section>
 </section>
 
@@ -1742,6 +1789,10 @@ async function enqueueBatches(){
         statusEl.textContent = Store.dryRun ? `dry ${r.would_queue||0}` : `queued ${r.queued||chunk.length}`;
         statusEl.classList.add('sent');
       }
+      // 🆕 Start progress polling for this batch (unless dry-run)
+      if (!Store.dryRun && !Store.testMode && r.queued > 0) {
+        startBatchProgress(bid, i, r.queued);
+      }
       // Aggregate suppression stats across batches
       if (r.suppression_stats) {
         const s = r.suppression_stats;
@@ -1771,6 +1822,72 @@ async function enqueueBatches(){
     toast(`Skipped ${totalSuppressed} · Queued ${totalQueued}`, 'info', 6000);
   }
   toast(`${Store.dryRun?'Dry-run':'Sent'} ${k} batch${k>1?'es':''}` + (Store.testMode?' (TEST mode)':''), 'success', 5000);
+}
+
+/* ═══════════════ BATCH PROGRESS POLLING ═══════════════ */
+const _batchPolls = {};
+
+function startBatchProgress(batch_id, batchIdx, total) {
+  // Upgrade batch-item to show progress bar
+  const row = document.querySelectorAll('.batch-item')[batchIdx];
+  if (!row) return;
+  row.innerHTML = `
+    <div style="flex:1">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+        <span>Batch ${batchIdx+1} · ${total} emails</span>
+        <span id="bp-${batchIdx}-stat" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)">starting...</span>
+      </div>
+      <div style="height:4px;background:var(--line-2);border-radius:2px;overflow:hidden">
+        <div id="bp-${batchIdx}-bar" style="height:100%;background:var(--accent);width:0%;transition:width .5s ease"></div>
+      </div>
+      <div id="bp-${batchIdx}-detail" style="font-size:10.5px;color:var(--muted);margin-top:3px;font-family:'JetBrains Mono',monospace"></div>
+    </div>
+  `;
+
+  // Poll every 3s
+  const intervalId = setInterval(async () => {
+    try {
+      const r = await api(`/api/email-rate/batch/progress?batch_id=${encodeURIComponent(batch_id)}`);
+      const bar = document.getElementById(`bp-${batchIdx}-bar`);
+      const stat = document.getElementById(`bp-${batchIdx}-stat`);
+      const detail = document.getElementById(`bp-${batchIdx}-detail`);
+      if (!bar) { clearInterval(intervalId); return; }
+
+      const pct = r.percent || 0;
+      bar.style.width = pct + '%';
+      bar.style.background = pct >= 100 ? 'var(--good)' : 'var(--accent)';
+
+      if (stat) stat.textContent = `${r.sent}/${r.total} (${pct}%)`;
+      if (detail) {
+        const etaStr = r.eta_seconds !== null && r.eta_seconds !== undefined
+          ? (r.eta_seconds > 60 ? `~${Math.round(r.eta_seconds/60)}m` : `~${r.eta_seconds}s`)
+          : '—';
+        const workers = r.active_workers?.length || 0;
+        const parts = [
+          `rate: ${r.rate_per_min}/min`,
+          `ETA: ${etaStr}`,
+          `workers: ${workers}`,
+        ];
+        if (r.pending > 0) parts.push(`pending: ${r.pending}`);
+        if (r.failed > 0) parts.push(`❌ failed: ${r.failed}`);
+        detail.textContent = parts.join(' · ');
+      }
+
+      // Stop polling when done
+      if (r.pending === 0 && r.picked === 0) {
+        clearInterval(intervalId);
+        delete _batchPolls[batch_id];
+        if (stat) stat.style.color = r.failed > 0 ? 'var(--warn)' : 'var(--good)';
+        if (detail) detail.textContent = r.failed > 0
+          ? `✓ ${r.sent} sent · ❌ ${r.failed} failed — click to retry`
+          : `✓ All ${r.sent} sent successfully`;
+      }
+    } catch(e) {
+      // Silent retry on network error
+    }
+  }, 3000);
+
+  _batchPolls[batch_id] = intervalId;
 }
 
 /* ═══════════════ PRIORITY ═══════════════ */
@@ -2652,9 +2769,10 @@ async function loadDataHealth() {
             ).join('')}
           </div>
         </div>` : ''}
-      <div style="display:flex;gap:10px;align-items:center;margin-top:12px">
-        <button class="btn btn-sm btn-danger" onclick="suppressHardBounce()">🗑 Loại bỏ hard bounce khỏi pool gửi</button>
-        <span style="font-size:11.5px;color:var(--muted)">Marks EMAIL_STATUS=SUPPRESSED for all hard bounce rows</span>
+      <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap">
+        <button class="btn btn-sm" onclick="viewSuppressionList()">📋 Xem Suppression List (${d.hard_bounce || 0})</button>
+        <button class="btn btn-sm btn-ghost" onclick="viewBounceKB()">🧠 Bounce Knowledge Base</button>
+        <span style="font-size:11.5px;color:var(--muted)">✅ Hard bounce đã tự động bị skip trong Quick Send · Scanner tự học domain chết mỗi scan</span>
       </div>
       ${!d.has_email_status_col ? '<div style="margin-top:8px;color:var(--warn);font-size:12px">⚠ EMAIL_STATUS column missing — run migrate_cnee_add_status_state.py</div>' : ''}
       ${!d.has_state_col ? '<div style="margin-top:4px;color:var(--warn);font-size:12px">⚠ STATE column missing — run migration script with --write</div>' : ''}
@@ -2664,9 +2782,32 @@ async function loadDataHealth() {
   }
 }
 
-async function suppressHardBounce() {
-  if (!confirm('Mark all HARD_BOUNCE rows as SUPPRESSED in cnee_master? This prevents them from being sent to.')) return;
-  toast('Feature pending — suppression via writeback coming soon', 'warn', 4000);
+async function viewSuppressionList() {
+  // Navigate to Settings tab + scroll to Suppression List section
+  document.querySelector('[data-view="viewSettings"]')?.click();
+  setTimeout(() => {
+    const el = document.getElementById('settingsSuppression') ||
+               document.querySelector('section[id*="uppression"]');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      el.style.outline = '2px solid var(--accent)';
+      setTimeout(() => { el.style.outline = ''; }, 2000);
+    }
+    toast('Hard bounces đều tự động bị skip — có thể unsuppress từ đây', 'info', 5000);
+  }, 400);
+}
+
+async function viewBounceKB() {
+  document.querySelector('[data-view="viewSettings"]')?.click();
+  setTimeout(() => {
+    const el = document.getElementById('bounceKnowledge') ||
+               document.querySelector('section[id*="ounceKnowl"]');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      el.style.outline = '2px solid var(--accent)';
+      setTimeout(() => { el.style.outline = ''; }, 2000);
+    }
+  }, 400);
 }
 
 /* ═══════════════ A1 — SETTINGS TAB ═══════════════ */
@@ -2697,6 +2838,8 @@ function bindSettingsControls() {
   refreshSettingsKill();
   // Load suppression list when Settings tab opens
   loadSuppression();
+  // Load bounce KB summary when Settings tab opens
+  loadKBSummary().catch(() => {});
 }
 
 /* ═══════════════ SUPPRESSION LIST (Phase B 2026-04-21) ═══════════════ */
@@ -2742,6 +2885,115 @@ async function unsuppress(email) {
     }
   } catch(e) {
     toast('Failed: ' + e.message, 'err');
+  }
+}
+
+/* ═══════════════ BOUNCE KNOWLEDGE BASE (Sprint 1 v3) ═══════════════ */
+async function loadKBSummary() {
+  try {
+    const s = await api('/api/bounce-kb/summary');
+    document.getElementById('kbDeadCount').textContent    = s.dead_domains ?? '—';
+    document.getElementById('kbRiskyCount').textContent   = s.risky_domains ?? '—';
+    document.getElementById('kbDisposableCount').textContent = s.disposable ?? '—';
+    document.getElementById('kbRoleCount').textContent    = s.role_prefixes ?? '—';
+    const manualEl = document.getElementById('kbManualCount');
+    if (manualEl) manualEl.textContent = ((s.manual_domains||0) + (s.manual_emails||0));
+    const vChip = document.getElementById('kbVersionChip');
+    if (vChip) vChip.textContent = 'v' + (s.kb_version || '?');
+    const syncEl = document.getElementById('kbDisposableSync');
+    if (syncEl && s.disposable_last_sync)
+      syncEl.textContent = 'synced ' + s.disposable_last_sync.slice(0,10);
+    await loadKBDeadDomains();
+  } catch(e) {
+    toast('KB summary failed: ' + e.message, 'err');
+  }
+}
+
+async function loadKBDeadDomains() {
+  const tbody = document.getElementById('kbDeadBody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><span class="spinner"></span> Loading...</td></tr>';
+  try {
+    const r = await api('/api/bounce-kb/dead-domains?limit=50');
+    const items = r.domains || [];
+    if (items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No dead domains learned yet — bounces will populate this</td></tr>';
+      return;
+    }
+    tbody.innerHTML = items.map(d => {
+      const cls = d.classification === 'DEAD' ? 'tag-err' : d.classification === 'RISKY' ? 'tag-warn' : 'tag';
+      const rate = d.bounce_rate != null ? (d.bounce_rate * 100).toFixed(0) + '%' : '—';
+      const last = (d.last_bounce || '').slice(0, 10);
+      return `<tr>
+        <td class="mono" style="font-size:12px">${esc(d.domain)}</td>
+        <td><span class="tag ${cls}">${esc(d.classification||'—')}</span></td>
+        <td style="text-align:right">${d.bounces ?? 0}</td>
+        <td style="text-align:right">${d.sends_total ?? 0}</td>
+        <td style="text-align:right;color:${d.classification==='DEAD'?'#f38ba8':d.classification==='RISKY'?'#fab387':'#a6e3a1'}">${rate}</td>
+        <td class="mono" style="font-size:11px">${last}</td>
+        <td><button class="btn btn-xs btn-ghost" onclick="kbRemoveDomain('${esc(d.domain)}')">Remove</button></td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Failed: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+async function kbRemoveDomain(domain) {
+  if (!domain) return;
+  if (!confirm(`Remove "${domain}" from auto-learned dead domains? It may bounce again.`)) return;
+  try {
+    const r = await api(`/api/bounce-kb/remove-learned?domain=${encodeURIComponent(domain)}`, { method: 'POST' });
+    if (r.ok) {
+      toast('Removed: ' + domain, 'success', 3000);
+      loadKBSummary();
+    } else {
+      toast(r.msg || 'Not found', 'err');
+    }
+  } catch(e) {
+    toast('Failed: ' + e.message, 'err');
+  }
+}
+
+async function kbManualAddPrompt() {
+  const input = prompt('Block domain (e.g. spamco.com) or email (e.g. user@bad.com):');
+  if (!input || !input.trim()) return;
+  const val = input.trim().toLowerCase();
+  const isDomain = !val.includes('@');
+  try {
+    const param = isDomain ? `domain=${encodeURIComponent(val)}` : `email=${encodeURIComponent(val)}`;
+    const r = await api(`/api/bounce-kb/manual-add?${param}`, { method: 'POST' });
+    if (r.ok) {
+      toast('Blocked: ' + val, 'success', 3000);
+      loadKBSummary();
+    } else {
+      toast('Already blocked or error', 'err');
+    }
+  } catch(e) {
+    toast('Failed: ' + e.message, 'err');
+  }
+}
+
+function kbExport() {
+  const url = 'http://localhost:8100/api/bounce-kb/dead-domains?limit=200';
+  window.open(url, '_blank');
+}
+
+async function kbSyncDisposable() {
+  const btn = document.getElementById('btnSyncDisposable');
+  if (btn) { btn.disabled = true; btn.textContent = 'Syncing...'; }
+  try {
+    const r = await api('/api/bounce-kb/sync-disposable', { method: 'POST' });
+    if (r.ok) {
+      toast(`Synced ${r.synced} disposable domains`, 'success', 4000);
+      loadKBSummary();
+    } else {
+      toast(r.msg || 'Sync returned 0', 'err');
+    }
+  } catch(e) {
+    toast('Sync failed: ' + e.message, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Sync Disposable List'; }
   }
 }
 

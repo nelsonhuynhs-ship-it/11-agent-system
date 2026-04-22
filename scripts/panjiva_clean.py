@@ -243,6 +243,62 @@ def _filter_blacklist(df: pd.DataFrame, bl: dict) -> tuple[pd.DataFrame, int]:
     return df_clean, excluded
 
 
+# ── Step 2b: Bounce KB filter (Sprint 1 v3) ──────────────────────────────────
+def _filter_bounce_kb(df: pd.DataFrame) -> tuple[pd.DataFrame, int, int]:
+    """Apply bounce knowledge base filter on top of manual blacklist.
+
+    Returns (df_clean, dropped_count, flagged_count).
+    Flagged emails are kept but marked with PRIORITY=LOW.
+    """
+    try:
+        from email_engine.core.bounce_knowledge import filter_emails, filter_company_name
+    except ImportError as exc:
+        log.warning(f"Step 2b BOUNCE_KB: import failed ({exc}) — skipping")
+        return df, 0, 0
+
+    emails = df["EMAIL"].tolist()
+    try:
+        result = filter_emails(emails)
+    except Exception as exc:
+        log.error(f"Step 2b BOUNCE_KB: filter_emails failed ({exc}) — rejecting import for safety")
+        raise
+
+    dropped_set = {item["email"].lower() for item in result["dropped"]}
+    flagged_map = {item["email"].lower(): item["reason"] for item in result["flagged"]}
+
+    # Also check company keywords via bounce KB (catches any new additions)
+    additional_drop = set()
+    for _, row in df.iterrows():
+        if row["EMAIL"].lower() in dropped_set:
+            continue
+        try:
+            blocked, _kw = filter_company_name(row.get("COMPANY", ""))
+            if blocked:
+                additional_drop.add(row["EMAIL"].lower())
+        except Exception:
+            pass
+
+    all_dropped = dropped_set | additional_drop
+
+    # Apply
+    mask_keep = ~df["EMAIL"].str.lower().isin(all_dropped)
+    df_clean = df[mask_keep].copy().reset_index(drop=True)
+
+    # Mark flagged rows as LOW priority
+    if "PRIORITY" not in df_clean.columns:
+        df_clean["PRIORITY"] = "NORMAL"
+    flagged_mask = df_clean["EMAIL"].str.lower().isin(flagged_map)
+    df_clean.loc[flagged_mask, "PRIORITY"] = "LOW"
+
+    dropped_count = int(len(all_dropped))
+    flagged_count = int(flagged_mask.sum())
+    log.info(
+        f"Step 2b BOUNCE_KB: dropped {dropped_count}, flagged {flagged_count} (LOW priority), "
+        f"kept {len(df_clean)}"
+    )
+    return df_clean, dropped_count, flagged_count
+
+
 # ── Step 3: LLM classify commodity ────────────────────────────────────────────
 def _classify_commodity_keywords(product_desc: str, hs_code: str) -> str:
     """Fast keyword-based classifier (no LLM call)."""
@@ -583,7 +639,9 @@ def clean_panjiva(
     report: dict = {
         "input_rows": 0, "output_added": 0, "duplicates": 0,
         "new_pic_same_company": 0, "bounces_excluded": 0,
-        "blacklist_excluded": 0, "commodity_breakdown": {},
+        "blacklist_excluded": 0,
+        "bounce_kb_dropped": 0, "bounce_kb_flagged": 0,
+        "commodity_breakdown": {},
         "state_breakdown": {}, "state_unparseable": 0,
         "source_tag": source_tag or "PANJIVA",
         "duration_sec": 0, "backup_file": None,
@@ -606,6 +664,12 @@ def clean_panjiva(
         bl = _load_blacklist()
         df, blacklist_excluded = _filter_blacklist(df, bl)
         report["blacklist_excluded"] = blacklist_excluded
+
+        # ── Step 2b: Bounce KB filter (Sprint 1 v3) ───────────────────────────
+        _update_job(2, "Bounce KB filter", 30)
+        df, kb_dropped, kb_flagged = _filter_bounce_kb(df)
+        report["bounce_kb_dropped"] = kb_dropped
+        report["bounce_kb_flagged"] = kb_flagged
 
         # ── Step 3: LLM classify ──────────────────────────────────────────────
         _update_job(3, "LLM classify", 45)
