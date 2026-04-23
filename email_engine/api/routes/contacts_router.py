@@ -21,7 +21,10 @@ log = logging.getLogger("contacts_router")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _ONEDRIVE = Path("D:/OneDrive/NelsonData/email")
-UNIFIED_V6 = _ONEDRIVE / "contact_unified_v6.xlsx"
+# v7 primary; fall back to v6 only if v7 missing. Variable name kept for back-compat.
+_V7 = _ONEDRIVE / "contact_unified_v7.xlsx"
+_V6 = _ONEDRIVE / "contact_unified_v6.xlsx"
+UNIFIED_V6 = _V7 if _V7.exists() else _V6
 BACKUP_DIR  = _ONEDRIVE / "backups"
 BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 

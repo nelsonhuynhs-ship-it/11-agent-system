@@ -592,7 +592,7 @@ def _load_cooldown_map() -> dict:
     if not LOG_FILE.exists():
         return {}
     try:
-        df = pd.read_csv(LOG_FILE, usecols=["timestamp", "email"])
+        df = pd.read_csv(LOG_FILE, usecols=["timestamp", "email"], on_bad_lines="skip", engine="python")
         df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
         return df.dropna().groupby("email")["timestamp"].max().to_dict()
     except Exception:
@@ -866,7 +866,8 @@ def send_stats():
 def get_history(limit: int = 100, email: str = None, campaign_id: str = None):
     if not LOG_FILE.exists():
         return []
-    df = pd.read_csv(LOG_FILE)
+    # Tolerate schema drift (7→13 cols across v5/v6/v7). Skip malformed rows.
+    df = pd.read_csv(LOG_FILE, on_bad_lines="skip", engine="python")
     if email:
         df = df[df["email"].str.lower() == email.strip().lower()]
     if campaign_id:
@@ -877,7 +878,8 @@ def get_history(limit: int = 100, email: str = None, campaign_id: str = None):
 def get_history_stats():
     if not LOG_FILE.exists():
         return {"total_sent_today": 0, "total_sent_week": 0, "unique_recipients_today": 0, "top_campaigns": []}
-    df = pd.read_csv(LOG_FILE)
+    # Tolerate schema drift (7→13 cols across v5/v6/v7). Skip malformed rows.
+    df = pd.read_csv(LOG_FILE, on_bad_lines="skip", engine="python")
     df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
     df = df.dropna(subset=["timestamp"])
     now = datetime.now()
@@ -1218,7 +1220,8 @@ _ANALYTICS_TTL = 60  # seconds
 def _load_email_log() -> "pd.DataFrame":
     if not LOG_FILE.exists():
         return pd.DataFrame(columns=["timestamp","email","subject","campaign_id","status","reply_timestamp","cycle_id"])
-    df = pd.read_csv(LOG_FILE)
+    # Tolerate schema drift (7→13 cols across v5/v6/v7). Skip malformed rows.
+    df = pd.read_csv(LOG_FILE, on_bad_lines="skip", engine="python")
     df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
     return df.dropna(subset=["timestamp"])
 
@@ -1847,10 +1850,11 @@ except Exception as _e:
     _scanner = None  # type: ignore
 
 
-# Resolve CNEE master location — v6 primary, v5 fallback (OneDrive → local)
+# Resolve CNEE master location — v7 primary, v6 → v5 fallback (OneDrive → local)
 def _resolve_cnee_master_v2() -> Path:
     for candidate in [
-        Path("D:/OneDrive/NelsonData/email/contact_unified_v6.xlsx"),    # v6 primary
+        Path("D:/OneDrive/NelsonData/email/contact_unified_v7.xlsx"),    # v7 primary (22,854 rows)
+        Path("D:/OneDrive/NelsonData/email/contact_unified_v6.xlsx"),    # v6 fallback
         Path("D:/OneDrive/NelsonData/email/cnee_master_v2_final.xlsx"),  # v5 fallback
         Path("D:/OneDrive/NelsonData/email/cnee_master_v2.xlsx"),
         CNEE_V6,

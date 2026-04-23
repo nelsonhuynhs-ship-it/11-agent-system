@@ -26,7 +26,10 @@ log = logging.getLogger("rotation_engine")
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _BASE       = Path(__file__).parent.parent        # email_engine/
 _ONEDRIVE   = Path("D:/OneDrive/NelsonData/email")
-MASTER_FILE = _ONEDRIVE / "contact_unified_v6.xlsx"
+# v7 primary (22,854 CNEE × 62 cols). Fallback v6 only if v7 missing on this machine.
+_V7 = _ONEDRIVE / "contact_unified_v7.xlsx"
+_V6 = _ONEDRIVE / "contact_unified_v6.xlsx"
+MASTER_FILE = _V7 if _V7.exists() else _V6
 QUOTA_FILE  = _BASE / "config" / "rotation_quota.json"
 EXCL_FILE   = _BASE / "data" / "excluded_customers.json"
 PLANS_DIR   = _BASE / "data" / "daily_plans"
