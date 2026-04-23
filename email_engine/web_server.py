@@ -7,6 +7,12 @@ from typing import List, Optional
 BASE_DIR = Path(__file__).parent
 ENGINE_TEST = BASE_DIR.parent
 
+# Single source of truth for dashboard version.
+# Bump here on each release; UI reads via /api/version — NO need to rename files.
+DASHBOARD_VERSION = "v7"
+DASHBOARD_RELEASED = "2026-04-23"
+DASHBOARD_MASTER_FILE = "contact_unified_v7.xlsx"
+
 # Load .env early so LLM keys + SMTP creds available to all downstream modules.
 try:
     from dotenv import load_dotenv as _load_dotenv
@@ -1769,16 +1775,21 @@ def v4_email_log(limit: int = 100):
 
 @app.get("/", response_class=HTMLResponse)
 def serve_dashboard():
-    # Prefer the v4 dashboard in plans/visuals; fall back to legacy.
-    candidates = [
-        ENGINE_TEST / "plans" / "visuals" / "email-dashboard-v5.html",   # 2026-04-18 Japanese minimal
-        ENGINE_TEST / "plans" / "visuals" / "email-dashboard-v4.html",   # fallback
-        ENGINE_TEST / "email_dashboard.html",
-    ]
-    for html in candidates:
-        if html.exists():
-            return html.read_text(encoding="utf-8")
+    # Canonical unversioned path. Version string lives in DASHBOARD_VERSION,
+    # surfaced via /api/version and rendered by the HTML at runtime.
+    html = ENGINE_TEST / "plans" / "visuals" / "email-dashboard.html"
+    if html.exists():
+        return html.read_text(encoding="utf-8")
     return "<h1>Dashboard HTML not found</h1>"
+
+
+@app.get("/api/version")
+def api_version():
+    return {
+        "version": DASHBOARD_VERSION,
+        "released": DASHBOARD_RELEASED,
+        "master_file": DASHBOARD_MASTER_FILE,
+    }
 
 
 # ============================================================================

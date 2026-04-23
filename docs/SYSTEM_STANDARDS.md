@@ -310,7 +310,7 @@ Shortcut ở `C:/Users/Nelson/OneDrive/Desktop/`:
 | Shortcut | Target | Purpose |
 |----------|--------|---------|
 | `ERP Master v14.lnk` | `D:\OneDrive\NelsonData\erp\ERP_Master_v14.xlsm` | Mở ERP Excel |
-| `Nelson Email Dashboard.lnk` | `scripts\start-dashboard-v4.bat` → `email_engine/web_server.py` | Local email server |
+| `Nelson Email Dashboard.lnk` | `email_engine\start-dashboard.bat` → `http://localhost:8100/` | Local email server (canonical unversioned) |
 | `Refresh Pricing NOW.lnk` | `scripts\refresh-pricing-now.bat` | Full refresh pipeline (import + parquet + xlsm) |
 | `Scan Pricing (preview).lnk` | `scripts\refresh-pricing-scan-only.bat` | Preview rate file scan (no import) |
 | `Verify ERP.lnk` | `scripts\verify-erp.bat` | Run ERP validation tests |
@@ -319,6 +319,17 @@ Shortcut ở `C:/Users/Nelson/OneDrive/Desktop/`:
 **RULE 8.1** — Shortcut mới = thêm row vào bảng này + target phải là file trong repo (không ad-hoc).
 
 **RULE 8.2** — Target path có khoảng trắng → shortcut phải handle (shortcut format cho phép, không cần quote).
+
+**RULE 8.3 — Dashboard version KHÔNG được trong filename** (ghi 2026-04-23 sau incident mở v6 tĩnh thay v7 live):
+- **Filename cố định (không version):** `plans/visuals/email-dashboard.html`, `email_engine/start-dashboard.bat`
+- **Version chỉ ở 3 nơi** (tự động sync qua API):
+  1. Constants ở đầu [email_engine/web_server.py](../email_engine/web_server.py): `DASHBOARD_VERSION`, `DASHBOARD_RELEASED`, `DASHBOARD_MASTER_FILE`
+  2. Endpoint `/api/version` trả JSON
+  3. UI header đọc `/api/version` và render (`Email · v7 · 2026-04-23`) + `document.title`
+- **Shortcut + .bat phải mở URL `http://localhost:8100/`**, KHÔNG bao giờ mở `file:///...html` trực tiếp (API bị CORS chặn).
+- **HTML có guard**: detect `window.location.protocol === 'file:'` → hiện banner đỏ cảnh báo.
+- **Bump version** = sửa 1 dòng `DASHBOARD_VERSION` + reload browser. KHÔNG rename file, KHÔNG sửa .bat, KHÔNG sửa .lnk.
+- **Vi phạm sẽ dẫn đến repeat incident 2026-04-23** (Nelson thấy v6 trong khi hệ thống đã chạy v7).
 
 ---
 
