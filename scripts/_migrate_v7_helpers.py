@@ -3,7 +3,8 @@
 scripts/_migrate_v7_helpers.py — Helpers for migrate-to-unified-v7.py
 ======================================================================
 Contains: schema definition, v7 new cols, enrich logic, merge helpers,
-          TIER scoring, backup rotation (v7 variant).
+          TIER scoring, backup rotation (v7 variant),
+          Contact Info sheet parser (shipment-level gold emails).
 """
 
 from __future__ import annotations
@@ -385,3 +386,150 @@ def dedup_panjiva_batch(combined: pd.DataFrame) -> pd.DataFrame:
     invalid_df.drop(columns=["_em"], errors="ignore", inplace=True)
     result = pd.concat([agg_df, invalid_df], ignore_index=True)
     return result
+
+
+# ── Contact Info sheet → v7 rows ──────────────────────────────────────────────
+
+def parse_contact_info_to_v7_rows(
+    contacts_df: pd.DataFrame,
+    aggregated_df: pd.DataFrame,
+    commodity_hint: str = "",
+    origin_country_hint: str = "",
+    source_file: str = "",
+) -> pd.DataFrame:
+    """Convert Contact Info sheet rows → v7-schema rows.
+
+    Contact Info sheet columns (Panjiva standard):
+      Company, Contact Type, Contact Name, Position, Email, Phone,
+      Profile URL, Company URL
+
+    Strategy:
+    - 1 contact row = 1 output row (multi-PIC per company OK)
+    - Skip rows without valid email
+    - Enrich firmographic from aggregated_df by fuzzy company name match
+    - Source tag: PANJIVA_CONTACT
+
+    Args:
+        contacts_df:     Raw Contact Info sheet DataFrame
+        aggregated_df:   Aggregated CNEE rows from same shipment file
+        commodity_hint:  Commodity category string
+        origin_country_hint: ISO 2-letter origin country
+        source_file:     Source filename for audit trail
+
+    Returns:
+        DataFrame with v7 schema columns. Empty if no valid emails.
+    """
+    if contacts_df.empty:
+        return pd.DataFrame(columns=SCHEMA_V7_COLS)
+
+    # ── Normalize column names (case-insensitive) ─────────────────────────────
+    col_map: dict[str, str] = {}
+    for col in contacts_df.columns:
+        cl = col.strip().lower()
+        if cl == "company":
+            col_map[col] = "COMPANY"
+        elif cl in ("contact name", "name"):
+            col_map[col] = "PIC_NAME"
+        elif cl == "position":
+            col_map[col] = "PIC_POSITION"
+        elif cl == "email":
+            col_map[col] = "EMAIL"
+        elif cl == "phone":
+            col_map[col] = "PHONE_PRIMARY"
+        elif cl in ("profile url", "panjiva url"):
+            col_map[col] = "PANJIVA_URL"
+        elif cl in ("company url", "website"):
+            col_map[col] = "WEBSITE"
+
+    df = contacts_df.rename(columns=col_map).copy()
+
+    # Ensure required columns exist
+    for req_col in ("EMAIL", "COMPANY", "PIC_NAME", "PIC_POSITION"):
+        if req_col not in df.columns:
+            df[req_col] = ""
+
+    # ── Build aggregated lookup dict: COMPANY_NORM → row dict ────────────────
+    agg_lookup: dict[str, dict] = {}
+    if not aggregated_df.empty and "COMPANY" in aggregated_df.columns:
+        for _, agg_row in aggregated_df.iterrows():
+            co_norm = re.sub(r"[^A-Z0-9 ]", "", str(agg_row.get("COMPANY", "") or "").upper().strip())
+            if co_norm:
+                agg_lookup[co_norm] = agg_row.to_dict()
+
+    def _agg_lookup_fuzzy(company: str) -> dict:
+        """Find best matching aggregated row by normalized company name."""
+        co_norm = re.sub(r"[^A-Z0-9 ]", "", (company or "").upper().strip())
+        if not co_norm:
+            return {}
+        # Exact match first
+        if co_norm in agg_lookup:
+            return agg_lookup[co_norm]
+        # Prefix match (e.g. "ADIDAS AMERICA" matches "ADIDAS AMERICA INC")
+        for key, val in agg_lookup.items():
+            if co_norm in key or key in co_norm:
+                return val
+        return {}
+
+    # ── Build output rows ─────────────────────────────────────────────────────
+    rows: list[dict] = []
+    import_date = datetime.now().strftime("%Y-%m-%d")
+
+    for _, row in df.iterrows():
+        email_raw = str(row.get("EMAIL", "") or "").strip().lower()
+        if not valid_email(email_raw):
+            continue
+
+        company = str(row.get("COMPANY", "") or "").strip()
+        pic_name = str(row.get("PIC_NAME", "") or "").strip()
+        pic_pos = str(row.get("PIC_POSITION", "") or "").strip()
+        phone = str(row.get("PHONE_PRIMARY", "") or "").strip()
+        panjiva_url = str(row.get("PANJIVA_URL", "") or "").strip()
+        website = str(row.get("WEBSITE", "") or "").strip()
+
+        # Firmographic enrichment from aggregated shipment data
+        agg = _agg_lookup_fuzzy(company)
+
+        new_row: dict = {col: "" for col in SCHEMA_V7_COLS}
+        new_row["EMAIL"]              = email_raw
+        new_row["COMPANY"]           = company
+        new_row["PIC_NAME"]          = pic_name
+        new_row["PIC_POSITION"]      = pic_pos
+        new_row["PHONE_PRIMARY"]     = phone
+        new_row["PANJIVA_URL"]       = panjiva_url or agg.get("PANJIVA_URL", "")
+        new_row["WEBSITE"]           = website or agg.get("WEBSITE", "")
+        new_row["COMMODITY_CATEGORY"] = commodity_hint.upper() if commodity_hint else ""
+        new_row["ORIGIN_COUNTRY"]    = origin_country_hint.upper() if origin_country_hint else ""
+        new_row["ORIGIN_COUNTRIES"]  = agg.get("ORIGIN_COUNTRIES", origin_country_hint.upper() if origin_country_hint else "")
+        new_row["POL_LIST"]          = agg.get("POL_LIST", "")
+        new_row["PRIMARY_POL"]       = agg.get("PRIMARY_POL", "")
+        new_row["MULTI_ORIGIN"]      = agg.get("MULTI_ORIGIN", False)
+        new_row["TOP_CARRIER"]       = agg.get("TOP_CARRIER", "") if "TOP_CARRIER" in SCHEMA_V7_COLS else ""
+        new_row["TOTAL_SHIPMENTS_ALL"] = agg.get("TOTAL_SHIPMENTS_ALL", "")
+        new_row["LAST_SHIPMENT_DATE"]  = agg.get("LAST_SHIPMENT_DATE", "")
+        new_row["ADDRESS"]           = agg.get("ADDRESS", "")
+        new_row["STATE"]             = agg.get("STATE", "")
+        new_row["CITY"]              = agg.get("CITY", "")
+        new_row["ZIP"]               = agg.get("ZIP", "")
+        new_row["COUNTRY_DEST"]      = agg.get("COUNTRY_DEST", "US")
+        new_row["EMAIL_STATUS"]      = "NEW"
+        new_row["SEND_COUNT"]        = "0"
+        new_row["SEND_COUNT_EMAIL"]  = "0"
+        new_row["SEND_COUNT_WA"]     = "0"
+        new_row["SEND_COUNT_LI"]     = "0"
+        new_row["ACTIVATE_GATE"]     = "ACTIVE"
+        new_row["SHEET"]             = "CNEE"
+        new_row["SOURCE_TAG"]        = "PANJIVA_CONTACT"
+        new_row["IMPORT_DATE"]       = import_date
+        new_row["TIER"]              = ""  # set by TIER_AUTO_SCORE step
+
+        rows.append(new_row)
+
+    if not rows:
+        return pd.DataFrame(columns=SCHEMA_V7_COLS)
+
+    result = pd.DataFrame(rows)
+    # Ensure all schema cols present
+    for col in SCHEMA_V7_COLS:
+        if col not in result.columns:
+            result[col] = ""
+    return result[[c for c in SCHEMA_V7_COLS if c in result.columns]].reset_index(drop=True)

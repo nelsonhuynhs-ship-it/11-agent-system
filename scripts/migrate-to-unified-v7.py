@@ -60,7 +60,7 @@ V6_DEFAULT       = ONEDRIVE_EMAIL / "contact_unified_v6.xlsx"
 V7_DEFAULT       = ONEDRIVE_EMAIL / "contact_unified_v7.xlsx"
 BACKUP_DIR       = ONEDRIVE_EMAIL / "backups"
 PANJIVA_DIR_DEF  = ONEDRIVE_EMAIL / "panjiva"
-PANJIVA_GLOB     = "Panjiva-buyer-*.xlsx"
+PANJIVA_GLOB     = "Panjiva-*.xlsx"  # picks up both buyer-level and shipment-level files
 
 _RUN_TS = datetime.now().strftime("%Y%m%d_%H%M")
 AUDIT_LOG_PATH   = BACKUP_DIR / f"migration_v7_audit_{_RUN_TS}.csv"
@@ -81,50 +81,130 @@ from _migrate_v7_helpers import (
     apply_tier_auto_score,
     norm_email,
     valid_email,
+    parse_contact_info_to_v7_rows,
 )
 from scripts.lib.audit_logger import AuditLogger
 
 
-# ── Step 3: Parse Panjiva files ───────────────────────────────────────────────
+# ── Step 3: Parse Panjiva files (hybrid: buyer-level + shipment-level) ────────
 
-def _parse_panjiva_files(panjiva_files: list[Path]) -> pd.DataFrame:
-    """Call panjiva_clean_v3 for each file, concat results.
+def _parse_panjiva_files(
+    panjiva_files: list[Path],
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, int]]:
+    """Hybrid dispatcher: buyer-level → clean_panjiva_buyer_file,
+    shipment-level → clean_panjiva_shipment_file (Contact Info primary email source).
+
+    Returns (buyers_df, contacts_df, shippers_df, parse_counts) where:
+      buyers_df   — rows from buyer-level files (has EMAIL col)
+      contacts_df — rows from Contact Info sheets, already converted to v7 schema
+      shippers_df — unique shippers extracted from shipment files
+      parse_counts — {
+          'buyer_files': N,  'shipment_files': N,
+          'buyer_rows': N,   'contact_emails': N,
+          'shipper_rows': N,
+      }
 
     Graceful: 1 bad file logs error but does NOT crash the migration.
-    Returns combined DataFrame (may be empty if all files fail).
     """
-    # Lazy import — panjiva_clean_v3 is built by a parallel agent
     try:
-        from panjiva_clean_v3 import clean_panjiva_buyer_file, auto_hint_from_filename  # type: ignore[import]
+        from panjiva_clean_v3 import (  # type: ignore[import]
+            clean_panjiva_buyer_file,
+            clean_panjiva_shipment_file,
+            detect_file_type,
+            auto_hint_from_filename,
+        )
         _has_v3 = True
     except ImportError:
         log.warning("panjiva_clean_v3 not found — Panjiva enrichment step will be skipped.")
-        log.warning("Run this migration again once panjiva_clean_v3.py is available.")
-        _has_v3 = False
+        empty = pd.DataFrame()
+        return empty, empty, empty, {
+            "buyer_files": 0, "shipment_files": 0,
+            "buyer_rows": 0, "contact_emails": 0, "shipper_rows": 0,
+        }
 
-    if not _has_v3 or not panjiva_files:
-        return pd.DataFrame()
+    if not panjiva_files:
+        empty = pd.DataFrame()
+        return empty, empty, empty, {
+            "buyer_files": 0, "shipment_files": 0,
+            "buyer_rows": 0, "contact_emails": 0, "shipper_rows": 0,
+        }
 
-    parts: list[pd.DataFrame] = []
+    buyer_parts:   list[pd.DataFrame] = []
+    contact_parts: list[pd.DataFrame] = []
+    shipper_parts: list[pd.DataFrame] = []
+    counts = {
+        "buyer_files": 0, "shipment_files": 0,
+        "buyer_rows": 0, "contact_emails": 0, "shipper_rows": 0,
+    }
+
     for f in panjiva_files:
         try:
             commodity, country = auto_hint_from_filename(f.name)
-            df = clean_panjiva_buyer_file(f, commodity, country)
-            if isinstance(df, pd.DataFrame) and not df.empty:
-                df["_source_file"] = f.name
-                parts.append(df)
-                log.info(f"  Parsed {f.name}: {len(df)} buyers")
+            file_type = detect_file_type(f)
+
+            if file_type == "shipment-level":
+                # ── Shipment-level: Contact Info is PRIMARY email source ──────
+                result = clean_panjiva_shipment_file(f, commodity, country)
+                counts["shipment_files"] += 1
+
+                contacts_raw = result.get("contacts_df", pd.DataFrame())
+                aggregated   = result.get("aggregated_df", pd.DataFrame())
+                shippers     = result.get("shippers_df", pd.DataFrame())
+
+                if not contacts_raw.empty:
+                    contact_v7 = parse_contact_info_to_v7_rows(
+                        contacts_raw, aggregated, commodity, country, f.name
+                    )
+                    if not contact_v7.empty:
+                        contact_v7["_source_file"] = f.name
+                        contact_parts.append(contact_v7)
+                        counts["contact_emails"] += len(contact_v7)
+                        log.info(
+                            f"  [shipment] {f.name}: "
+                            f"{len(contacts_raw)} contact rows → "
+                            f"{len(contact_v7)} with valid email"
+                        )
+                    else:
+                        log.warning(f"  [shipment] {f.name}: Contact Info has no valid emails")
+                else:
+                    log.warning(f"  [shipment] {f.name}: no Contact Info sheet found")
+
+                if not shippers.empty:
+                    shipper_parts.append(shippers)
+                    counts["shipper_rows"] += len(shippers)
+                    log.info(f"  [shipment] {f.name}: {len(shippers)} shippers extracted")
+
             else:
-                log.warning(f"  {f.name} returned empty DataFrame — skipped")
+                # ── Buyer-level: EMAIL col + EMAIL_ALT1 ──────────────────────
+                df = clean_panjiva_buyer_file(f, commodity, country)
+                counts["buyer_files"] += 1
+                if isinstance(df, pd.DataFrame) and not df.empty:
+                    # Keep only rows that have a valid email (skip no-email rows)
+                    has_email = df.get("EMAIL", pd.Series(dtype=str)).str.contains("@", na=False)
+                    df = df[has_email].copy()
+                    if not df.empty:
+                        df["_source_file"] = f.name
+                        buyer_parts.append(df)
+                        counts["buyer_rows"] += len(df)
+                        log.info(f"  [buyer] {f.name}: {len(df)} rows with valid email")
+                    else:
+                        log.warning(f"  [buyer] {f.name}: no rows with valid email — skipped")
+                else:
+                    log.warning(f"  [buyer] {f.name} returned empty DataFrame — skipped")
+
         except Exception as exc:
             log.error(f"  SKIP {f.name}: {exc}")
 
-    if not parts:
-        return pd.DataFrame()
+    buyers_df   = pd.concat(buyer_parts,   ignore_index=True) if buyer_parts   else pd.DataFrame()
+    contacts_df = pd.concat(contact_parts, ignore_index=True) if contact_parts else pd.DataFrame()
+    shippers_df = pd.concat(shipper_parts, ignore_index=True) if shipper_parts else pd.DataFrame()
 
-    combined = pd.concat(parts, ignore_index=True)
-    log.info(f"Panjiva total: {len(combined)} rows from {len(parts)} file(s)")
-    return combined
+    log.info(
+        f"Parse summary: {counts['buyer_files']} buyer-files ({counts['buyer_rows']} rows), "
+        f"{counts['shipment_files']} shipment-files ({counts['contact_emails']} contact emails, "
+        f"{counts['shipper_rows']} shippers)"
+    )
+    return buyers_df, contacts_df, shippers_df, counts
 
 
 # ── Step 6+7: Merge Panjiva into v6 master ───────────────────────────────────
@@ -295,18 +375,11 @@ def migrate_v6_to_v7(
 ) -> dict:
     """Main migration entry point.
 
-    Returns report dict:
-    {
-        "v6_rows_loaded": int,
-        "panjiva_files_parsed": int,
-        "panjiva_buyers_total": int,
-        "matched_to_v6_enriched": int,
-        "new_buyers_inserted": int,
-        "locked_rows_skipped_update": int,
-        "output_path": str,
-        "backup_path": str,
-        "audit_csv_path": str,
-    }
+    Returns report dict with keys:
+      v6_rows_loaded, panjiva_files_parsed, buyer_level_emails,
+      contact_info_emails, total_panjiva_rows, matched_to_v6_enriched,
+      new_buyers_inserted, locked_rows_skipped_update,
+      shippers_added, output_path, backup_path, audit_csv_path, error.
     """
     log.info("=" * 64)
     log.info(f"  MIGRATE TO UNIFIED V7  {'[DRY RUN]' if dry_run else '[WRITE]'}")
@@ -317,10 +390,13 @@ def migrate_v6_to_v7(
         "dry_run": dry_run,
         "v6_rows_loaded": 0,
         "panjiva_files_parsed": 0,
-        "panjiva_buyers_total": 0,
+        "buyer_level_emails": 0,
+        "contact_info_emails": 0,
+        "total_panjiva_rows": 0,
         "matched_to_v6_enriched": 0,
         "new_buyers_inserted": 0,
         "locked_rows_skipped_update": 0,
+        "shippers_added": 0,
         "output_path": str(output_path),
         "backup_path": "",
         "audit_csv_path": str(AUDIT_LOG_PATH) if not dry_run else "DRY_RUN",
@@ -351,17 +427,33 @@ def migrate_v6_to_v7(
         report["v6_rows_loaded"] = len(cnee_df)
         log.info(f"  CNEE: {len(cnee_df)} rows, SHIPPER: {len(shipper_df)} rows")
 
-        # ── Step 3: Parse Panjiva files ───────────────────────────────────────
-        log.info("Step 3: Parse Panjiva v3 files")
+        # ── Step 3: Parse Panjiva files (hybrid) ─────────────────────────────
+        log.info("Step 3: Parse Panjiva v3 files (buyer-level + shipment-level)")
         panjiva_files = panjiva_files or []
         report["panjiva_files_parsed"] = len(panjiva_files)
 
-        panjiva_raw = _parse_panjiva_files(panjiva_files)
-        report["panjiva_buyers_total"] = len(panjiva_raw)
-        log.info(f"  Panjiva buyers (raw): {len(panjiva_raw)}")
+        buyers_df, contacts_df, new_shippers_df, parse_counts = _parse_panjiva_files(panjiva_files)
+        report["buyer_level_emails"]  = parse_counts["buyer_rows"]
+        report["contact_info_emails"] = parse_counts["contact_emails"]
+
+        # Combine: contacts are PRIMARY (gold), buyers supplement
+        # Both already filtered to valid emails only
+        panjiva_parts: list[pd.DataFrame] = []
+        if not contacts_df.empty:
+            panjiva_parts.append(contacts_df)
+        if not buyers_df.empty:
+            panjiva_parts.append(buyers_df)
+
+        panjiva_raw = pd.concat(panjiva_parts, ignore_index=True) if panjiva_parts else pd.DataFrame()
+        report["total_panjiva_rows"] = len(panjiva_raw)
+        log.info(
+            f"  Contact Info emails: {parse_counts['contact_emails']} | "
+            f"Buyer-level emails: {parse_counts['buyer_rows']} | "
+            f"Total: {len(panjiva_raw)}"
+        )
 
         # ── Step 4: Dedup Panjiva batch ───────────────────────────────────────
-        log.info("Step 4: Dedup within Panjiva batch")
+        log.info("Step 4: Dedup within Panjiva batch (dedup by EMAIL)")
         if not panjiva_raw.empty:
             before = len(panjiva_raw)
             panjiva_deduped = dedup_panjiva_batch(panjiva_raw)
@@ -370,7 +462,7 @@ def migrate_v6_to_v7(
             panjiva_deduped = panjiva_raw
 
         # ── Step 5: Schema migration v6 → v7 ─────────────────────────────────
-        log.info("Step 5: Migrate v6 schema → v7 (add 15 new cols)")
+        log.info("Step 5: Migrate v6 schema → v7 (add new cols)")
         cnee_df = add_v7_columns(cnee_df)
         if not shipper_df.empty:
             shipper_df = add_v7_columns(shipper_df)
@@ -384,6 +476,21 @@ def migrate_v6_to_v7(
         report["matched_to_v6_enriched"]    = merge_counts["enriched"]
         report["new_buyers_inserted"]        = merge_counts["new"]
         report["locked_rows_skipped_update"] = merge_counts["lock_skip"]
+
+        # ── Step 6b: Merge new shippers from shipment files ───────────────────
+        if not new_shippers_df.empty:
+            log.info(f"Step 6b: Merge {len(new_shippers_df)} new shippers into SHIPPER sheet")
+            new_shippers_v7 = add_v7_columns(new_shippers_df)
+            shipper_df = pd.concat([shipper_df, new_shippers_v7], ignore_index=True) \
+                         if not shipper_df.empty else new_shippers_v7
+            # Dedup shippers by company name (case-insensitive)
+            if "COMPANY" in shipper_df.columns:
+                shipper_df["_co_norm"] = shipper_df["COMPANY"].str.upper().str.strip()
+                before_s = len(shipper_df)
+                shipper_df = shipper_df.drop_duplicates(subset=["_co_norm"], keep="first")
+                shipper_df.drop(columns=["_co_norm"], inplace=True)
+                log.info(f"  Shippers after dedup: {before_s} → {len(shipper_df)}")
+            report["shippers_added"] = len(new_shippers_df)
 
         # ── Step 8: Final dedup ───────────────────────────────────────────────
         log.info("Step 8: Final dedup master by EMAIL")
@@ -443,7 +550,7 @@ def migrate_v6_to_v7(
 # ── CLI ────────────────────────────────────────────────────────────────────────
 
 def _find_panjiva_files(panjiva_dir: Path) -> list[Path]:
-    """Auto-scan directory for Panjiva-buyer-*.xlsx files."""
+    """Auto-scan directory for Panjiva-*.xlsx files (buyer-level + shipment-level)."""
     files = sorted(panjiva_dir.glob(PANJIVA_GLOB))
     if not files:
         log.warning(f"No '{PANJIVA_GLOB}' files found in {panjiva_dir}")
@@ -461,10 +568,13 @@ def _print_report(report: dict) -> None:
     print(f"  Dry run                 : {report['dry_run']}")
     print(f"  v6 rows loaded          : {report['v6_rows_loaded']}")
     print(f"  Panjiva files parsed    : {report['panjiva_files_parsed']}")
-    print(f"  Panjiva buyers (raw)    : {report['panjiva_buyers_total']}")
+    print(f"  Contact Info emails     : {report.get('contact_info_emails', 0)}")
+    print(f"  Buyer-level emails      : {report.get('buyer_level_emails', 0)}")
+    print(f"  Total Panjiva rows      : {report.get('total_panjiva_rows', 0)}")
     print(f"  Enriched existing rows  : {report['matched_to_v6_enriched']}")
     print(f"  New buyers inserted     : {report['new_buyers_inserted']}")
     print(f"  Lock-skip (no change)   : {report['locked_rows_skipped_update']}")
+    print(f"  SHIPPER rows added      : {report.get('shippers_added', 0)}")
     print(f"  Output path             : {report['output_path']}")
     print(f"  Backup path             : {report['backup_path'] or '(none)'}")
     print(f"  Audit CSV               : {report['audit_csv_path']}")

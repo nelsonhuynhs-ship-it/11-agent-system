@@ -65,7 +65,8 @@ _ONEDRIVE_EMAIL = _resolve_onedrive_email_dir()
 log.info(f"Resolved OneDrive email dir: {_ONEDRIVE_EMAIL}")
 
 _CNEE_CANDIDATES = [
-    _ONEDRIVE_EMAIL / "contact_unified_v6.xlsx",      # v6 primary (22,842 rows)
+    _ONEDRIVE_EMAIL / "contact_unified_v7.xlsx",      # v7 primary (22,854 rows + enriched firmographic)
+    _ONEDRIVE_EMAIL / "contact_unified_v6.xlsx",      # v6 fallback (22,842 rows)
     _ONEDRIVE_EMAIL / "cnee_master_v2_final.xlsx",    # v5 fallback (22,230 rows)
     _ONEDRIVE_EMAIL / "cnee_master_v2.xlsx",
     BASE_DIR / "data.xlsx",  # final fallback
@@ -77,6 +78,7 @@ CONFIG_FILE = next((p for p in [
     BASE_DIR / "data" / "config.xlsx",    # Local legacy fallback
 ] if p.exists()), _ONEDRIVE_EMAIL / "config.xlsx")
 LOG_FILE    = BASE_DIR / "logs" / "email_log.csv"
+CNEE_V7     = _ONEDRIVE_EMAIL / "contact_unified_v7.xlsx"
 CNEE_V6     = _ONEDRIVE_EMAIL / "contact_unified_v6.xlsx"
 CNEE_V2     = _ONEDRIVE_EMAIL / "cnee_master_v2_final.xlsx"
 CNEE_V1     = _ONEDRIVE_EMAIL / "cnee_master.xlsx"
@@ -1388,14 +1390,17 @@ _CNEE_CACHE: dict = {"mtime": 0.0, "df": None, "path": None}
 def _get_cnee_df():
     """Return cached CNEE dataframe. Reloads if xlsx mtime changed.
 
-    Priority: v6 (contact_unified_v6.xlsx sheet=CNEE) → v5 (cnee_master_v2_final)
-             → v1 (cnee_master). Normalizes schema so v5 legacy cols (CNEE_EMAIL,
-             CNEE_NAME, CMD_NAME) map to v6 canonical (EMAIL, COMPANY, COMMODITY_CATEGORY).
+    Priority: v7 (contact_unified_v7.xlsx sheet=CNEE, 62 cols firmographic enriched)
+             → v6 (contact_unified_v6.xlsx sheet=CNEE)
+             → v5 (cnee_master_v2_final) → v1 (cnee_master).
+    Normalizes schema so legacy cols (CNEE_EMAIL, CNEE_NAME, CMD_NAME) map to
+    v6/v7 canonical (EMAIL, COMPANY, COMMODITY_CATEGORY).
     """
     cnee_src = (
-        CNEE_V6 if CNEE_V6.exists() else
-        (CNEE_V2 if CNEE_V2.exists() else
-         (CNEE_V1 if CNEE_V1.exists() else None))
+        CNEE_V7 if CNEE_V7.exists() else
+        (CNEE_V6 if CNEE_V6.exists() else
+         (CNEE_V2 if CNEE_V2.exists() else
+          (CNEE_V1 if CNEE_V1.exists() else None)))
     )
     if not cnee_src:
         return None
@@ -1414,13 +1419,13 @@ def _get_cnee_df():
     try:
         from email_engine.core.xlsx_lock import xlsx_read_lock
         with xlsx_read_lock(cnee_src):
-            if cnee_src == CNEE_V6:
+            if cnee_src in (CNEE_V7, CNEE_V6):
                 df = pd.read_excel(cnee_src, sheet_name="CNEE")
             else:
                 df = pd.read_excel(cnee_src)
     except Exception:
         # Fallback without lock if filelock unavailable
-        if cnee_src == CNEE_V6:
+        if cnee_src in (CNEE_V7, CNEE_V6):
             df = pd.read_excel(cnee_src, sheet_name="CNEE")
         else:
             df = pd.read_excel(cnee_src)
