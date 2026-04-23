@@ -410,13 +410,13 @@ When `arb_origin` is provided (e.g., "shanghai"):
 ## Layer 4 — Web Server API (FastAPI)
 
 **Source:** `email_engine/web_server.py` + `email_engine/api/routes/*.py`  
-**Port:** 8100 (local PC) | **Last update:** 2026-04-22
+**Port:** 8100 (local PC) | **Last update:** 2026-04-23
 
 ### Contacts Router (`/api/v6/contacts`)
 
 **Source:** `email_engine/api/routes/contacts_router.py`  
-**Backed by:** DuckDB in-memory (reads from `D:/OneDrive/NelsonData/email/contact_unified_v6.xlsx`)  
-**Cache TTL:** 300 seconds
+**Backed by:** DuckDB in-memory (reads from `D:/OneDrive/NelsonData/email/contact_unified_v7.xlsx`)  
+**Cache TTL:** 300 seconds | **Version:** v7 (62 columns)
 
 #### GET /api/v6/contacts (List contacts)
 
@@ -439,7 +439,10 @@ Response 200:
     "LAST_SENT_EMAIL": "2026-04-20",
     "REPLY_STATUS": "REPLIED",
     "TIER": "PROSPECT",
-    ... [39 total columns]
+    "REVENUE_USD": 5000000,
+    "EMPLOYEES": 120,
+    "TIER_AUTO_SCORE": "HOT",
+    ... [55 total v7 columns]
   },
   ...
 ]
@@ -454,7 +457,7 @@ Response 200:
 {
   "EMAIL": "alice@company.com",
   "FIRST_NAME": "Alice",
-  ... [all 41 columns]
+  ... [all 62 v7 columns]
 }
 
 Response 404 if not found
@@ -480,17 +483,19 @@ Response 200: { "message": "Updated", "row_count": 1 }
 - LAST_SENT_EMAIL, LAST_SENT_WA, LAST_SENT_LI
 - REPLY_STATUS
 - TIER (if value is "CUSTOMER" or "VIP")
+- All firmographic fields (REVENUE_USD, EMPLOYEES, PIC_NAME, etc.) — read-only from Panjiva
 
 ---
 
-### CNEE Contact Schema (Layer 4 contract with Layer 5)
+### CNEE Contact Schema v7 (Layer 4 contract with Layer 5)
 
-**Source file:** `D:/OneDrive/NelsonData/email/contact_unified_v6.xlsx` (sheet: CNEE)  
-**Rows:** 22,230 CNEE records  
-**Columns:** 41 total (including 8 system-locked)
+**Source file:** `D:/OneDrive/NelsonData/email/contact_unified_v7.xlsx` (sheet: CNEE)  
+**Rows:** 22,854 CNEE records (v6: 22,230 + 624 new from Panjiva)  
+**Columns:** 62 total (v6: 41 + 21 new firmographic/multi-origin cols)
 
 | Column | Type | Nullable | Description |
 |--------|------|----------|-------------|
+| **Contact Core (v6 preserved)** | | | |
 | EMAIL | string | N | Primary key; email address |
 | FIRST_NAME | string | Y | |
 | LAST_NAME | string | Y | |
@@ -506,6 +511,7 @@ Response 200: { "message": "Updated", "row_count": 1 }
 | COMMODITY_CATEGORY | string | Y | FURNITURE, FLOORING, CANDLE, etc. (18 categories) |
 | ORIGIN_COUNTRY | string | Y | VN, MY, TH, CN, KH, BD, IN, PH, ID (from rule_engine.ARB_MAPPING keys) |
 | DESTINATION_REGION | string | Y | West Coast, East Coast, Gulf Coast, Midwest, Canada, etc. |
+| **System Locked (v6)** | | | |
 | **EMAIL_STATUS** | string | Y | ACTIVE / INACTIVE / BOUNCED / HARD_BOUNCE | **[LOCKED]** |
 | **SEND_COUNT_EMAIL** | int | Y | Cumulative sends via email | **[LOCKED]** |
 | **SEND_COUNT_WA** | int | Y | WhatsApp sends (v6+ feature) | **[LOCKED]** |
@@ -515,12 +521,34 @@ Response 200: { "message": "Updated", "row_count": 1 }
 | **LAST_SENT_LI** | date | Y | YYYY-MM-DD of last LI | **[LOCKED]** |
 | **REPLY_STATUS** | string | Y | REPLIED / NO_REPLY / OOO | **[LOCKED]** |
 | TIER | string | Y | PROSPECT / CUSTOMER / VIP | **[LOCKED if CUSTOMER/VIP]** |
-| STATE | string | Y | (duplicated?) |
-| ... | string | Y | [20 more columns — custom fields per Nelson] |
+| **Firmographic (v7 NEW — from Panjiva)** | | | |
+| REVENUE_USD | float | Y | Annual revenue (USD) — from Panjiva buyer data |
+| EMPLOYEES | int | Y | Total headcount |
+| TOTAL_SHIPMENTS_ALL | int | Y | Lifetime shipment count (all products) |
+| MATCHED_SHIPMENTS | int | Y | Shipments matched to v6 ORIGIN_COUNTRY |
+| PARENT_COMPANY | string | Y | Parent company name (if subsidiary) |
+| DUNS | string | Y | Dun & Bradstreet number |
+| TOP_SUPPLIERS | string | Y | JSON array of top suppliers by shipment count |
+| TOP_PRODUCTS | string | Y | JSON array of top HS codes / commodities |
+| LAST_SHIPMENT_DATE | date | Y | Most recent shipment date |
+| ROUTE_DESC | string | Y | Most common route (e.g., "VN→USLAX") |
+| PANJIVA_URL | string | Y | Link to Panjiva company profile |
+| **Decision Maker (v7 NEW — from Contact Info sheet)** | | | |
+| PIC_NAME | string | Y | Person In Charge name |
+| PIC_POSITION | string | Y | Position (e.g., "Purchasing Manager", "Imports Coordinator") |
+| **Multi-Origin Tracking (v7 NEW)** | | | |
+| POL_LIST | string | Y | Comma-separated unique POLs (e.g., "VN,MY,TH") |
+| ORIGIN_COUNTRIES | string | Y | Comma-separated origin countries |
+| MULTI_ORIGIN | bool | Y | True if >1 origin country |
+| PRIMARY_POL | string | Y | Most frequent POL for this CNEE |
+| **Tier Scoring (v7 NEW)** | | | |
+| TIER_AUTO_SCORE | string | Y | HOT / WARM / COLD (computed from revenue + shipments) |
 
 **RULE 4.1:** Locked columns updated ONLY via system jobs, never user PATCH.
 
 **RULE 4.2:** EMAIL is immutable primary key (no rename/remap).
+
+**RULE 4.3:** Firmographic + Decision Maker cols (v7 new) read-only from Panjiva. Update only via `migrate-to-unified-v7.py` during quarterly refresh.
 
 ---
 
@@ -779,7 +807,68 @@ SUBJECT_TEMPLATES = [
 
 ---
 
-## Change Impact Matrix
+## Layer 4a — Contact Info Sheet (Decision Maker Email Source)
+
+**NEW in v7 Migration (2026-04-23):**
+
+Panjiva shipment-level files include 3 sheets: Info, US Imports Shipments, **Contact Info**.
+Contact Info sheet has higher email coverage (22%) vs. buyer-level files (1–2%).
+
+**Email Source Strategy:**
+1. Contact Info sheet (22% email) = primary CNEE source
+2. Buyer-level files (1–2% email) = firmographic supplement (revenue, employees, suppliers)
+3. Result: v7 schema includes PIC_NAME + PIC_POSITION from Contact Info
+
+**Migration approach:**
+- Extract Contact Info per commodity + country combination
+- Match on (Company name, City, State, Country) with v6 email dedupe
+- Insert new rows where email found but not in v6 yet
+- Lock new PIC_* cols as read-only (Panjiva canonical)
+
+**See:** `scripts/panjiva_clean_v3.py` (Contact Info parser), `scripts/migrate-to-unified-v7.py` (enrichment)
+
+---
+
+## Layer 4b — Firmographic Enrichment
+
+**Added in v7 (data from 8 Panjiva files):**
+
+| Source | Data | Rows | Coverage |
+|--------|------|------|----------|
+| v6 existing | Contact + custom fields | 22,230 | 100% |
+| Panjiva buyer-level | Revenue, employees, suppliers, HQ info | 22,309 | 98% |
+| Panjiva shipment-level | Route, shipment counts, last ship date | 15,245 | 68% (subset of buyers) |
+| Contact Info sheet | PIC name + position | 4,997 (22% of 22,309) | 22% |
+
+**v7 computed metrics:**
+- `TIER_AUTO_SCORE` = algorithm (revenue+shipments+recency) → HOT/WARM/COLD
+- `POL_LIST` = distinct POLs per CNEE from shipment routes
+- `MULTI_ORIGIN` = flag if >1 unique origin country
+
+**Data freshness:** Panjiva export ~monthly. Last import: 2026-04-22.
+
+---
+
+## Multi-Origin Tracking
+
+**NEW in v7:** Detect when company sources from multiple origins.
+
+**Use case:** Malaysia subsidiary also imports from Vietnam → same CNEE, needs quote for both VN + MY routes.
+
+| Column | Example | Logic |
+|--------|---------|-------|
+| ORIGIN_COUNTRIES | "VN,MY,TH" | Distinct countries found in shipment routes |
+| POL_LIST | "HCM,HPH,PKG,BKK" | Unique POLs extracted from shipment data |
+| MULTI_ORIGIN | True | Flag if ORIGIN_COUNTRIES has >1 |
+| PRIMARY_POL | "HCM" | Most frequent POL for this CNEE |
+
+**Rate builder implication:**
+- Single-origin CNEE: `resolve_config()` → ARB_MAPPING[ORIGIN_COUNTRY] → 1 POL
+- Multi-origin CNEE: suggest rates for ALL origins (manual override in UI)
+
+---
+
+## Change Impact Matrix (Updated for v7)
 
 **When you modify X in Layer N, check impact on Y:**
 
@@ -789,10 +878,11 @@ SUBJECT_TEMPLATES = [
 | Change Charge_Name norm logic | 1→3→4→5 | Update panjiva_clean.py + auto_rate_builder + ERP refresh script |
 | Add new ARB_MAPPING country | 6→3 | Update rule_engine.py + test auto_rate_builder with new country |
 | Modify Rate HTML template | 3→6 | Update auto_rate_builder._build_html_table() + email preview UI |
-| Add CNEE schema column | 4→6 | Update contact_unified_v6.xlsx + API schema + dashboard filter UI |
+| Add CNEE v7 schema column | 4→6 | Update contact_unified_v7.xlsx + API schema + dashboard filter UI |
 | Lock/unlock CNEE column | 4 | Update contacts_router._LOCKED_ALWAYS + Layer 5 job writers |
 | Change refresh cascade (30d→90d) | 1→2→3 | Update _date_filter() logic + auto_rate_builder + test |
 | Add ERP sheet | 5 | Update refresh-v14.py + VBA ribbon + ERP SOT doc |
+| Quarterly Panjiva refresh | 4(Layer 4a) | Run `python scripts/migrate-to-unified-v7.py --panjiva-dir {...}` → new v7 file |
 
 ---
 
@@ -844,6 +934,7 @@ python scripts/validate-data-contracts.py
 
 | Date | Version | Changes |
 |---|---|---|
+| 2026-04-23 | 1.1 | **v7 migration applied:** Layer 4 schema 41→62 cols, Contact Info sheet decision maker source, firmographic enrichment (revenue/employees/suppliers), multi-origin tracking (POL_LIST/ORIGIN_COUNTRIES), TIER_AUTO_SCORE. Update impact matrix. 8 Panjiva files → 624 new CNEE + 527 enriched. |
 | 2026-04-22 | 1.0 | Initial comprehensive baseline — all 6 layers documented, cross-layer mappings complete, ARB routing finalized |
 
 ---

@@ -24,10 +24,12 @@
 | ERP VBA exports (.bas canonical) | `D:/OneDrive/NelsonData/erp/*.bas` |
 | ERP refresh script | `D:/OneDrive/NelsonData/erp/refresh-v14.py` |
 | ERP VBA mirror (repo backup) | `ERP/vba-v14-mirror/` |
-| Email dashboard HTML | `plans/visuals/email-dashboard-v6.html` |
+| Email dashboard HTML | `plans/visuals/email-dashboard-v7.html` |
 | Email local server | `email_engine/web_server.py` |
-| CNEE master data v6 | `D:/OneDrive/NelsonData/email/contact_unified_v6.xlsx` (2-sheet CNEE+SHIPPER) |
-| CNEE master data v2 (fallback) | `D:/OneDrive/NelsonData/email/cnee_master_v2.xlsx` |
+| **CNEE master data v7 (PRIMARY)** | **`D:/OneDrive/NelsonData/email/contact_unified_v7.xlsx`** (2-sheet CNEE+SHIPPER, 62 cols, 22,854 rows) |
+| CNEE master data v6 (archived) | `D:/OneDrive/NelsonData/email/backups/contact_unified_v6.xlsx` (fallback if v7 corrupted) |
+| CNEE master data v2 (emergency fallback) | `D:/OneDrive/NelsonData/email/cnee_master_v2_final.xlsx` |
+| Panjiva export files (input) | `D:/OneDrive/NelsonData/email/panjiva/Panjiva-*.xlsx` (buyer-level + shipment-level) |
 | Email log | `email_engine/logs/email_log.csv` |
 | Rotation quota config | `email_engine/config/rotation_quota.json` |
 | Daily rotation plans | `email_engine/data/daily_plans/YYYY-MM-DD.json` |
@@ -36,6 +38,17 @@
 **RULE 1.1** — Code Python đọc path qua `shared/paths.py` (resolve OneDrive). Không hard-code string paths trừ fallback.
 
 **RULE 1.2** — Code VBA đọc path qua `FindScript(relPath)` helper. Không hard-code.
+
+**RULE 1.3** — CNEE data priority chain:
+1. `contact_unified_v7.xlsx` (PRIMARY, 62 cols) — ✅ use này
+2. `contact_unified_v6.xlsx` (fallback, 41 cols) — if v7 corrupt
+3. `cnee_master_v2_final.xlsx` (emergency, v5 schema) — if both above fail
+   
+   **v7 selection rule:** Check `web_server.py::_CNEE_CANDIDATES` constant.
+
+**RULE 1.4 — No email = skip insert.** Panjiva clean script REJECTS rows without valid email. v7 has 0 null EMAIL cells (validated).
+
+**RULE 1.5 — Quarterly v7 refresh:** Run `python scripts/migrate-to-unified-v7.py --panjiva-dir {...}` after downloading new Panjiva exports. Preserves v6 5-col LOCK (EMAIL_STATUS, SEND_COUNT_EMAIL, etc.) 100%. See `docs/PANJIVA_EXPORT_GUIDE.md`.
 
 ---
 

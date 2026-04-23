@@ -1,5 +1,5 @@
 #!/bin/bash
-# pre-commit hook — validate data contracts before every commit
+# pre-commit hook — validate data contracts + check docs staleness
 #
 # Install (run once from repo root):
 #   cp scripts/pre-commit.sh .git/hooks/pre-commit
@@ -17,6 +17,7 @@ if command -v "C:/Users/Nelson/anaconda3/python" &>/dev/null; then
     PYTHON="C:/Users/Nelson/anaconda3/python"
 fi
 
+# 1. Contract validation — BLOCKS commit if schema drift detected
 echo "[pre-commit] Running data contract validation..."
 "$PYTHON" scripts/validate-data-contracts.py
 
@@ -29,5 +30,11 @@ if [ $EXIT_CODE -ne 0 ]; then
     exit 1
 fi
 
-echo "[pre-commit] Contracts OK — proceeding with commit."
+echo "[pre-commit] Contracts OK."
+
+# 2. Docs staleness — WARNS only, does not block commit
+echo "[pre-commit] Checking docs staleness..."
+"$PYTHON" scripts/check-docs-staleness.py
+
+echo "[pre-commit] Done — proceeding with commit."
 exit 0
