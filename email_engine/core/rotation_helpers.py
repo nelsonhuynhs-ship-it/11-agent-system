@@ -21,16 +21,19 @@ from typing import Any
 
 import pandas as pd
 
+from shared.paths import ROTATION_QUOTA_CFG, EMAIL_DATA
+
 log = logging.getLogger("rotation_engine")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _BASE       = Path(__file__).parent.parent        # email_engine/
-_ONEDRIVE   = Path("D:/OneDrive/NelsonData/email")
+_ONEDRIVE   = EMAIL_DATA
 # v7 primary (22,854 CNEE × 62 cols). Fallback v6 only if v7 missing on this machine.
 _V7 = _ONEDRIVE / "contact_unified_v7.xlsx"
 _V6 = _ONEDRIVE / "contact_unified_v6.xlsx"
 MASTER_FILE = _V7 if _V7.exists() else _V6
-QUOTA_FILE  = _BASE / "config" / "rotation_quota.json"
+# SOT: OneDrive config. Local fallback during dev if OneDrive not synced.
+QUOTA_FILE  = ROTATION_QUOTA_CFG if ROTATION_QUOTA_CFG.exists() else _BASE / "config" / "rotation_quota.json"
 EXCL_FILE   = _BASE / "data" / "excluded_customers.json"
 PLANS_DIR   = _BASE / "data" / "daily_plans"
 PLANS_DIR.mkdir(parents=True, exist_ok=True)

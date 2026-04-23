@@ -56,6 +56,12 @@ by_campaign:
   GIFTS:           [USLAX, USLGB, USMIA]
   DECOR:           [USLAX, USLGB, USNYC, USSAV]
 
+# ─── Per-POL overrides (HCM lanes differ from HPH) ──────────────────────────
+# Used by rotation_engine when CNEE has no DESTINATION. HCM = South VN gateway.
+by_pol:
+  HCM: [USNYC, USSAV, USCHS, USHOU, USCHI, USSLC, USDAL]
+  HPH: [USLAX, USLGB, USSAV, USNYC, USORF, USCHS, USTIW, USCHI, USDAL]
+
 # ─── Per-country fallback (if campaign not in the list above) ────────────────
 by_country:
   USA:     [USLAX, USLGB, USNYC, USSAV, USHOU]

@@ -146,6 +146,13 @@ CUSTOMER_RULES = EMAIL_DATA / "customer_rules.json"
 TEAM_RULES = EMAIL_DATA / "rules.json"
 RULES_YAML = EMAIL_DATA / "rules.yaml"
 CONFIG_XLSX = EMAIL_DATA / "config.xlsx"
+
+# ── Email Config (OneDrive — single SOT for all email engine configs) ────────
+EMAIL_CONFIG_DIR    = EMAIL_DATA / "config"
+ROTATION_QUOTA_CFG  = EMAIL_CONFIG_DIR / "rotation_quota.json"
+DEFAULT_ROUTES_CFG  = EMAIL_CONFIG_DIR / "default_routes.yaml"
+SCANNER_CFG         = EMAIL_CONFIG_DIR / "scanner.yaml"
+SEND_TIME_RULES_CFG = EMAIL_CONFIG_DIR / "send_time_rules.json"
 PORT_MAP = EMAIL_DATA / "Port_Code_Mapping_Final.xlsx"
 SHIPMENT_STATE = EMAIL_DATA / "shipment_state.json"
 SHIPMENT_PATTERNS = EMAIL_DATA / "shipment_patterns.yaml"

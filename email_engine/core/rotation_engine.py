@@ -191,11 +191,10 @@ def queue_to_outlook_worker(
 ) -> int:
     """Build email content per contact and INSERT into email_queue via enqueue_batch.
 
-    Uses rule_engine.resolve_config to derive POL, ARB origin, markup, and subject
-    per contact — replaces previous hardcoded POL=HPH / markup=20 defaults.
-
-    Lane-batches rate table generation: 1 build_rate_table_for_customer call per
-    unique (pol, destinations, arb_origin) tuple — avoids N+1 slow calls.
+    Uses rule_engine.resolve_config to derive POL/ARB/markup per contact, then
+    routes through intelligence.builder.build_email() — the central pipeline that
+    includes branded signature, state-colored rate table, skip-no-rates guard, and
+    subject from template selector.
 
     Args:
         plan:              Daily plan dict from build_daily_plan().
@@ -208,16 +207,8 @@ def queue_to_outlook_worker(
         log.info("queue_to_outlook_worker: plan skipped (%s) — nothing queued", plan["skipped_reason"])
         return 0
 
-    try:
-        from email_engine.core.auto_rate_builder import build_rate_table_for_customer
-    except ImportError:
-        try:
-            from auto_rate_builder import build_rate_table_for_customer  # legacy fallback
-        except ImportError as exc:
-            log.error("queue_to_outlook_worker: auto_rate_builder unavailable — %s", exc)
-            return 0
-
     from email_engine.core.rule_engine import resolve_config
+    from email_engine.intelligence.builder import build_email
     from email_engine.queue_store import enqueue_batch, init_db
     init_db()  # idempotent — ensures schema exists
 
@@ -225,9 +216,8 @@ def queue_to_outlook_worker(
     email_col = "EMAIL" if "EMAIL" in df.columns else "CNEE_EMAIL"
     df_lookup = df.set_index(df[email_col].str.lower().str.strip())
 
-    # ── Pass 1: resolve per-email config via rule_engine + group by lane ──────
+    # ── Pass 1: resolve per-email config via rule_engine ─────────────────────
     email_meta: list[dict[str, Any]] = []
-    lanes_needed: set[tuple[str, str, str | None]] = set()  # (pol, destinations, arb_origin)
 
     for commodity, info in plan.get("by_commodity", {}).items():
         for email in info.get("emails", []):
@@ -258,10 +248,8 @@ def queue_to_outlook_worker(
                     "pic":          config["pic"],
                     "tier":         config["tier"],
                     "commodity":    config["commodity"],
-                    "subject":      config["subject"],
                     "country":      config["country"],
                 })
-                lanes_needed.add((config["pol"], config["destination"], config["arb_origin"]))
             except Exception as exc:
                 log.warning("queue_to_outlook_worker: metadata error for %s: %s", email, exc)
 
@@ -269,47 +257,33 @@ def queue_to_outlook_worker(
         log.warning("queue_to_outlook_worker: no valid emails found in plan")
         return 0
 
-    # ── Pass 2: build rate tables — 1 per unique (pol, destinations, arb_origin) ──
-    lane_html: dict[tuple[str, str, str | None], str] = {}
-    for pol, destinations, arb_origin in lanes_needed:
-        try:
-            result = build_rate_table_for_customer(
-                pol=pol,
-                destinations=destinations,
-                markup=user_markup,
-                arb_origin=arb_origin,
-            )
-            lane_html[(pol, destinations, arb_origin)] = result.get("html", "")
-        except Exception as exc:
-            log.warning(
-                "queue_to_outlook_worker: rate build failed for %s→%s arb=%s: %s",
-                pol, destinations, arb_origin, exc,
-            )
-            lane_html[(pol, destinations, arb_origin)] = ""  # graceful: skip rate table
-
-    # ── Pass 3: assemble email dicts + enqueue ────────────────────────────────
+    # ── Pass 2: build each email via central builder (has all safety + branding) ──
     batch_id  = f"ROT_{int(time.time())}"
     plan_date = plan.get("date", date.today().isoformat())
 
     batch_emails: list[dict[str, Any]] = []
     for meta in email_meta:
         try:
-            pol         = meta["pol"]
-            destinations = meta["destinations"]
-            arb_origin  = meta["arb_origin"]
-            rate_html   = lane_html.get((pol, destinations, arb_origin), "")
-            html_body   = (
-                f"<p>Dear {meta['pic']},</p>"
-                f"<p>Please find our latest ocean freight rates to the US, "
-                f"valid through end of the month.</p>"
-                f"{rate_html}"
-                f"<p>Reply for booking or questions.</p>"
-                f"<p>Best,<br>Nelson Huynh<br>Pudong Prime</p>"
+            destinations_list = [
+                d.strip().upper()
+                for d in meta["destinations"].split(",")
+                if d.strip()
+            ]
+            result = build_email(
+                cnee_email=meta["email"],
+                pol=meta["pol"],
+                destinations=destinations_list,
+                markup=float(meta["markup"]),
+                profile={"first_name": meta["pic"], "company": meta["company"]},
             )
+            html_body = result.get("html_body", "")
+            if not html_body or "No rates available" in html_body:
+                log.info("queue_to_outlook_worker: skip %s — no rates", meta["email"])
+                continue
 
             batch_emails.append({
                 "cnee_email":     meta["email"],
-                "subject":        meta["subject"],
+                "subject":        result.get("subject", ""),
                 "html_body":      html_body,
                 "tier":           meta["tier"],
                 "priority_score": 50,
@@ -318,22 +292,22 @@ def queue_to_outlook_worker(
                     "source":     "daily_rotation",
                     "commodity":  meta["commodity"],
                     "plan_date":  plan_date,
-                    "pol":        pol,
-                    "arb_origin": arb_origin,
+                    "pol":        meta["pol"],
+                    "arb_origin": meta["arb_origin"],
                     "country":    meta["country"],
                 },
             })
         except Exception as exc:
-            log.warning("queue_to_outlook_worker: assemble error for %s: %s", meta.get("email"), exc)
+            log.warning("queue_to_outlook_worker: build error for %s: %s", meta.get("email"), exc)
 
     if not batch_emails:
-        log.warning("queue_to_outlook_worker: batch_emails empty after assembly")
+        log.warning("queue_to_outlook_worker: batch_emails empty after build")
         return 0
 
     queued = enqueue_batch(batch_id, batch_emails)
     log.info(
-        "ROTATION: Enqueued %d/%d emails · batch_id=%s · lanes=%d",
-        queued, len(batch_emails), batch_id, len(lanes_needed),
+        "ROTATION: Enqueued %d/%d emails · batch_id=%s",
+        queued, len(batch_emails), batch_id,
     )
 
     _notify_telegram(plan, queued)

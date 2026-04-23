@@ -1873,7 +1873,9 @@ CNEE_MASTER_V2_PATH = _resolve_cnee_master_v2()
 _FALLBACK_DESTINATIONS = ["USLAX", "USLGB", "USSAV", "USNYC", "USORF", "USCHS", "USTIW", "USCHI", "USDAL"]
 
 def _load_default_destinations() -> list[str]:
-    path = BASE_DIR / "config" / "default_routes.yaml"
+    from shared.paths import DEFAULT_ROUTES_CFG
+    _local = BASE_DIR / "config" / "default_routes.yaml"
+    path = DEFAULT_ROUTES_CFG if DEFAULT_ROUTES_CFG.exists() else _local
     try:
         import yaml as _yaml
         with open(path, "r", encoding="utf-8") as fh:
@@ -2720,10 +2722,11 @@ except ImportError as _e:
 
 import json as _json_a2
 
-_SEND_TIME_RULES_FILE = BASE_DIR / "config" / "send_time_rules.json"
+from shared.paths import SEND_TIME_RULES_CFG as _SEND_TIME_RULES_CFG
+_SEND_TIME_RULES_FILE = _SEND_TIME_RULES_CFG if _SEND_TIME_RULES_CFG.exists() else BASE_DIR / "config" / "send_time_rules.json"
 
 def _load_send_time_rules() -> dict:
-    """Load send_time_rules.json → {state_code: rule_dict}."""
+    """Load send_time_rules.json → {state_code: rule_dict}. SOT: OneDrive."""
     try:
         raw = _json_a2.loads(_SEND_TIME_RULES_FILE.read_text(encoding="utf-8"))
         return raw.get("states", {})

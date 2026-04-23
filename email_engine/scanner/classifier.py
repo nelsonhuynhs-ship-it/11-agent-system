@@ -32,7 +32,12 @@ log = logging.getLogger(__name__)
 # Config paths
 # -------------------------------------------------------------------
 _PKG_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_YAML = _PKG_ROOT / "config" / "scanner.yaml"
+_LOCAL_YAML = _PKG_ROOT / "config" / "scanner.yaml"
+try:
+    from shared.paths import SCANNER_CFG as _SCANNER_CFG
+    DEFAULT_YAML = _SCANNER_CFG if _SCANNER_CFG.exists() else _LOCAL_YAML
+except Exception:
+    DEFAULT_YAML = _LOCAL_YAML
 
 # Module-level pattern cache. `load_patterns()` fills this.
 _PATTERNS: dict | None = None
