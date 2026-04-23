@@ -101,7 +101,7 @@ echo "[5/7] Checking critical files on OneDrive..."
 CRITICAL_OK=true
 
 for f in "pricing/Cleaned_Master_History.parquet" \
-         "email/cnee_master.xlsx"; do
+         "email/contact_unified_v7.xlsx"; do
   if rclone ls "onedrive:NelsonData/$f" &>/dev/null; then
     SIZE=$(rclone ls "onedrive:NelsonData/$f" 2>/dev/null | awk '{print $1}')
     echo "  OK: $f ($(numfmt --to=iec $SIZE 2>/dev/null || echo "${SIZE} bytes"))"
@@ -117,7 +117,7 @@ if [ "$CRITICAL_OK" = false ]; then
   echo "  Sync will still work, but API may not function correctly."
   echo "  Make sure OneDrive/NelsonData has:"
   echo "    pricing/Cleaned_Master_History.parquet"
-  echo "    email/cnee_master.xlsx"
+  echo "    email/contact_unified_v7.xlsx"
   read -p "  Continue anyway? (y/n) " CONTINUE
   [ "$CONTINUE" != "y" ] && exit 1
 fi
@@ -183,8 +183,9 @@ if rclone sync onedrive:NelsonData /opt/nelson/data \
   fi
 
   # ── Validate critical files ──────────────────────────────
+  # 2026-04-23: migrated cnee_master.xlsx → contact_unified_v7.xlsx (v7 schema, 22,854 rows)
   PARQUET="/opt/nelson/data/pricing/Cleaned_Master_History.parquet"
-  CNEE="/opt/nelson/data/email/cnee_master.xlsx"
+  CNEE="/opt/nelson/data/email/contact_unified_v7.xlsx"
 
   if [ ! -f "$PARQUET" ]; then
     log_msg "WARN: parquet missing after sync: $PARQUET"
@@ -192,8 +193,8 @@ if rclone sync onedrive:NelsonData /opt/nelson/data \
   fi
 
   if [ ! -f "$CNEE" ]; then
-    log_msg "WARN: cnee_master missing after sync: $CNEE"
-    send_telegram "rclone sync OK but cnee_master.xlsx MISSING! Check OneDrive/NelsonData/email/"
+    log_msg "WARN: cnee master v7 missing after sync: $CNEE"
+    send_telegram "rclone sync OK but contact_unified_v7.xlsx MISSING! Check OneDrive/NelsonData/email/"
   fi
 
 else
