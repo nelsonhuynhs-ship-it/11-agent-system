@@ -13,6 +13,10 @@ DASHBOARD_VERSION = "v7"
 DASHBOARD_RELEASED = "2026-04-23"
 DASHBOARD_MASTER_FILE = "contact_unified_v7.xlsx"
 
+# Captured at import time — compared against file mtimes so dashboard can
+# detect "running code is older than source on disk" and warn Nelson to restart.
+SERVER_START_TS = datetime.now().timestamp()
+
 # Load .env early so LLM keys + SMTP creds available to all downstream modules.
 try:
     from dotenv import load_dotenv as _load_dotenv
@@ -314,12 +318,13 @@ def _normalize_dest_text(text: str) -> list[str]:
     Handles: 'USCHI' (already a code)                           → ['USCHI']
     Handles: 'New York/Newark Area, Newark, New Jersey'         → ['USNYC']
     """
-    if not text or str(text).strip().lower() in ("", "nan", "none"):
+    raw = str(text or "").strip()
+    if not raw or raw.lower() in ("nan", "none"):
         return []
     out: list[str] = []
     seen: set[str] = set()
     # Split on comma, semicolon, slash
-    parts = [p.strip() for p in str(text).replace(";", ",").replace("/", ",").split(",")]
+    parts = [p.strip() for p in raw.replace(";", ",").replace("/", ",").split(",")]
     for part in parts:
         token = part.strip().upper()
         if not token or token.lower() in ("nan", "none"):
@@ -337,11 +342,51 @@ def _normalize_dest_text(text: str) -> list[str]:
                     code = pod
                     break
             if not code:
+                log.debug(f"[_normalize_dest_text] unparsed token: {token!r}")
                 continue
         if code not in seen:
             seen.add(code)
             out.append(code)
+    if raw and not out:
+        log.info(f"[_normalize_dest_text] entire text unparsed: {raw[:80]!r}")
     return out
+
+
+def _resolve_destinations(
+    row_dest: str,
+    requested_dest: str,
+    requested_dests: list[str],
+    defaults: list[str],
+) -> tuple[str, list[str], list[str]]:
+    """Resolve CNEE row + query params → (primary_pod, full_pod_list, known_pods).
+
+    Merge strategy: known POD(s) FIRST, then defaults deduplicated → cross-sell
+    breadth while signaling we know their primary corridor. Used by both
+    /api/prospects (Path A) and /api/bulk/build (Path B) so they stay in sync.
+    """
+    known_pods = _normalize_dest_text(row_dest)
+    if not known_pods and requested_dests:
+        known_pods = [
+            d.strip().upper() for d in requested_dests
+            if d and d.strip() and d.strip().upper() not in ("NAN", "NONE")
+        ]
+
+    merged: list[str] = []
+    for d in known_pods + list(defaults or []):
+        du = (d or "").upper()
+        if du and du not in merged:
+            merged.append(du)
+
+    req = (requested_dest or "").strip().upper()
+    if req and req in merged:
+        primary = req
+    elif known_pods:
+        primary = known_pods[0]
+    elif merged:
+        primary = merged[0]
+    else:
+        primary = "USLAX"
+    return primary, merged, known_pods
 
 def is_competitor(email: str, company: str = "") -> tuple[bool, str]:
     """Return (True, reason) if email belongs to a competitor, else (False, '').
@@ -555,11 +600,18 @@ def get_contacts(campaign: Optional[str] = Query(None)):
     return {"contacts": results, "subject": gen_subject(), "total": len(results), "dropped_bad_email": dropped_bad_email}
 
 @app.get("/api/rate-preview")
-def rate_preview(pol: str, destinations: str, markup: float = 20.0, arb_origin: str = None):
+def rate_preview(pol: str, destinations: str = "", markup: float = 20.0, arb_origin: str = None):
     from auto_rate_builder import build_rate_table_for_customer
+    dests = [
+        d.strip().upper()
+        for d in (destinations or "").replace(";", ",").split(",")
+        if d.strip() and d.strip().lower() not in ("nan", "none")
+    ]
+    if not dests:
+        dests = list(DEFAULT_DESTINATIONS)
     try:
         return build_rate_table_for_customer(
-            pol=pol, destinations=destinations, markup=markup,
+            pol=pol, destinations=",".join(dests), markup=markup,
             arb_origin=arb_origin or None,
         )
     except Exception as e:
@@ -837,29 +889,58 @@ def scan_pending_status():
     """Return whether an auto-triggered sent-scan is pending after the last batch."""
     return {"scan_pending": SCAN_PENDING}
 
+_DEAD_STATUSES = {
+    "HARD_BOUNCE", "DEAD", "INVALID", "NO_MX",
+    "UNSUBSCRIBED", "SOFT_SUPPRESSED", "SPAM",
+}
+
+
+def _empty_send_stats() -> dict:
+    return {
+        "total": 0, "unsent": 0, "sent_once_plus": 0,
+        "in_cooldown": 0, "sent_today": 0,
+        "total_raw": 0, "retired": 0, "retired_breakdown": {},
+    }
+
+
 @app.get("/api/send-stats")
 def send_stats():
-    """Phase 2.5: return aggregate stats for Quick Send counter widget."""
+    """Active pool stats — excludes rows with EMAIL_STATUS in _DEAD_STATUSES.
+
+    `total` = active (pool "vơi dần" when bounces accumulate).
+    `total_raw` = raw file count. `retired` = dead count. `retired_breakdown` = per-status counts.
+    """
     try:
         df = _get_cnee_df()
         if df is None:
-            return {"total": 0, "unsent": 0, "sent_once_plus": 0, "in_cooldown": 0, "sent_today": 0}
+            return _empty_send_stats()
         now = datetime.now()
         cutoff_14d = now - timedelta(days=14)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        sc = pd.to_numeric(df.get("SEND_COUNT", pd.Series(dtype=float)), errors="coerce").fillna(0)
-        last_sent_raw = df.get("LAST_SENT_DATE", pd.Series(dtype=str))
-        last_sent = pd.to_datetime(last_sent_raw, errors="coerce")
+        total_raw = int(len(df))
+
+        status = df.get("EMAIL_STATUS", pd.Series(dtype=str)).astype(str).str.upper().str.strip()
+        dead_mask = status.isin(_DEAD_STATUSES)
+        retired_breakdown = {
+            k: int(v) for k, v in status[dead_mask].value_counts().to_dict().items()
+        }
+        active = df.loc[~dead_mask]
+
+        sc = pd.to_numeric(active.get("SEND_COUNT", pd.Series(dtype=float)), errors="coerce").fillna(0)
+        last_sent = pd.to_datetime(active.get("LAST_SENT_DATE", pd.Series(dtype=str)), errors="coerce")
         return {
-            "total": int(len(df)),
+            "total": int(len(active)),
             "unsent": int((sc == 0).sum()),
             "sent_once_plus": int((sc >= 1).sum()),
             "in_cooldown": int((last_sent > cutoff_14d).sum()),
             "sent_today": int((last_sent >= today_start).sum()),
+            "total_raw": total_raw,
+            "retired": int(dead_mask.sum()),
+            "retired_breakdown": retired_breakdown,
         }
     except Exception as exc:
         log.warning(f"send_stats error: {exc}")
-        return {"total": 0, "unsent": 0, "sent_once_plus": 0, "in_cooldown": 0, "sent_today": 0}
+        return _empty_send_stats()
 
 
 @app.get("/api/history")
@@ -1486,11 +1567,10 @@ def v4_prospects(campaign: str = "", pol: str = "", destination: str = "",
         pol_up = pol.upper()
         row_pol = df["POL"].astype(str).str.upper().str.strip()
         df = df[row_pol.isin([pol_up, "", "NAN", "NONE"])]
-    # 2026-04-17 (Nelson): blast list must NOT include VIP/HOT. Those are
-    # personal-outreach tiers — they get their own /api/prospects/priority
-    # endpoint + separate dashboard panel.
-    if "TIER" in df.columns:
-        df = df[~df["TIER"].astype(str).str.upper().isin(["VIP", "HOT"])]
+    # Priority isolation (2026-04-23): blast list excludes VIP/HOT/replied/personal.
+    # Definition centralised in core.priority_filter.
+    from email_engine.core.priority_filter import drop_priority
+    df = drop_priority(df)
 
     cooldown_map = _load_cooldown_map()
     cutoff = datetime.now() - pd.Timedelta(days=14)  # Phase 2.5: 48h → 14d cooldown
@@ -1519,18 +1599,15 @@ def v4_prospects(campaign: str = "", pol: str = "", destination: str = "",
         if not row_pol or row_pol in ("NAN", "NONE"):
             row_pol = requested_pol
 
-        # DESTINATION may contain "USLAX,USLGB" — pick best match; fallback to defaults
+        # Cross-sell merge: known POD(s) first, then DEFAULT_DESTINATIONS filled
+        # in — so single-POD CNEEs still see the full 10-lane menu.
         row_dest_raw = str(row.get("DESTINATION", "")).strip()
-        if row_dest_raw.lower() in ("", "nan", "none"):
-            row_dest_raw = ""
-        pod_list = [d.strip().upper() for d in row_dest_raw.replace(";", ",").split(",") if d.strip() and d.strip().lower() not in ("nan", "none")]
-        if requested_dest and requested_dest in pod_list:
-            pod = requested_dest
-        elif pod_list:
-            pod = pod_list[0]
-        else:
-            pod = requested_dest or "USLAX"
-            pod_list = DEFAULT_DESTINATIONS.copy()  # so multi-POD email gets all 9 lanes
+        pod, pod_list, _ = _resolve_destinations(
+            row_dest=row_dest_raw,
+            requested_dest=requested_dest,
+            requested_dests=[],
+            defaults=DEFAULT_DESTINATIONS,
+        )
 
         lanes_needed.add((row_pol, pod))
 
@@ -1786,12 +1863,39 @@ def serve_dashboard():
     return "<h1>Dashboard HTML not found</h1>"
 
 
+_CRITICAL_FILES = [
+    "web_server.py",
+    "api/routes/rotation_router.py",
+    "core/rotation_engine.py",
+    "core/rotation_helpers.py",
+    "core/priority_filter.py",
+    "intelligence/builder.py",
+    "intelligence/template_selector.py",
+    "intelligence/template_renderer.py",
+    "templates/email_rules.yaml",
+]
+
+
 @app.get("/api/version")
 def api_version():
+    stale: list[dict] = []
+    for rel in _CRITICAL_FILES:
+        fp = BASE_DIR / rel
+        if not fp.exists():
+            continue
+        mt = fp.stat().st_mtime
+        if mt > SERVER_START_TS:
+            stale.append({
+                "file": rel,
+                "modified": datetime.fromtimestamp(mt).isoformat(timespec="seconds"),
+            })
     return {
         "version": DASHBOARD_VERSION,
         "released": DASHBOARD_RELEASED,
         "master_file": DASHBOARD_MASTER_FILE,
+        "server_started": datetime.fromtimestamp(SERVER_START_TS).isoformat(timespec="seconds"),
+        "stale_files": stale,
+        "needs_restart": bool(stale),
     }
 
 
@@ -1869,8 +1973,8 @@ CNEE_MASTER_V2_PATH = _resolve_cnee_master_v2()
 
 # Default destinations used when a CNEE row has no destination column.
 # Loaded from config/default_routes.yaml (key: fast_bulk_default) so Nelson can
-# edit without code change. Fallback baked-in if YAML missing/corrupt.
-_FALLBACK_DESTINATIONS = ["USLAX", "USLGB", "USSAV", "USNYC", "USORF", "USCHS", "USTIW", "USCHI", "USDAL"]
+# edit without code change. Minimal safe fallback if YAML missing/corrupt.
+_FALLBACK_DESTINATIONS = ["USLAX", "USSAV", "USNYC"]
 
 def _load_default_destinations() -> list[str]:
     from shared.paths import DEFAULT_ROUTES_CFG
@@ -1886,7 +1990,7 @@ def _load_default_destinations() -> list[str]:
             log.info(f"DEFAULT_DESTINATIONS loaded from YAML: {len(cleaned)} lanes")
             return cleaned
     except Exception as e:
-        log.warning(f"default_routes.yaml load failed ({e}) — using fallback 9 lanes")
+        log.warning(f"default_routes.yaml load failed ({e}) — using safe 3-lane fallback")
     return list(_FALLBACK_DESTINATIONS)
 
 DEFAULT_DESTINATIONS = _load_default_destinations()
@@ -1927,6 +2031,25 @@ def _r2_startup():
         app.state.scheduler = None
 
     log.info(f"[R2] modules ready: {_R1}")
+
+    # Pre-warm slow endpoints so the first dashboard F5 doesn't hit 10-17s
+    # cold-load and time out in the browser. Fires once, non-blocking.
+    # Why: /api/send-stats, /api/rotation/today, /api/analytics/overview each
+    # read 22,854-row Excel on first call. Browser parallel fetches timeout.
+    import threading as _th
+    import urllib.request as _ur
+    def _prewarm():
+        import time as _t
+        _t.sleep(2)  # let uvicorn finish binding
+        for ep in ("/api/send-stats", "/api/rotation/today", "/api/rotation/progress", "/api/analytics/overview"):
+            try:
+                t0 = _t.time()
+                with _ur.urlopen(f"http://127.0.0.1:8100{ep}", timeout=60) as r:
+                    r.read()
+                log.info(f"[prewarm] {ep} {r.status} {_t.time()-t0:.1f}s")
+            except Exception as e:
+                log.warning(f"[prewarm] {ep} failed: {e}")
+    _th.Thread(target=_prewarm, name="dashboard-prewarm", daemon=True).start()
 
 
 # ============================================================================
@@ -2082,11 +2205,12 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
             if is_comp:
                 skipped.append({"email": em, "reason": f"competitor blocked ({comp_reason})"})
                 continue
-        # Guard: VIP/HOT are personal-outreach only — never blast (unless test_mode).
-        row_tier = str(row.get("TIER") or "").strip().upper()
-        if row_tier in ("VIP", "HOT") and not req.test_mode:
-            skipped.append({"email": em, "reason": f"tier={row_tier} — personal outreach only, use /api/prospects/priority"})
-            continue
+        # Priority isolation — personal-outreach/replied contacts never blasted (unless test_mode).
+        if not req.test_mode:
+            from email_engine.core.priority_filter import is_priority_row, priority_reason
+            if is_priority_row(row):
+                skipped.append({"email": em, "reason": f"priority ({priority_reason(row)}) — use /api/prospects/priority"})
+                continue
         profile = _row_to_profile(row)
 
         # Merge intel summary when available
@@ -2101,25 +2225,17 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
             except Exception as e:
                 log.debug(f"intel summary failed for {em}: {e}")
 
-        # Destinations: MERGE strategy (2026-04-19) — show 9 default lanes ALWAYS,
-        # but put CNEE's known lane(s) at the FRONT so rate table renders it first
-        # (builder will highlight the primary row). Nelson's ask: "khoe thêm chút
+        # Destinations: MERGE strategy (2026-04-23) — show 10 default lanes ALWAYS,
+        # but put CNEE's known lane(s) at the FRONT. Nelson's ask: "khoe thêm chút
         # đâu biết được khách có đi cảng đó hay không" = show breadth + signal
-        # we know their primary corridor. Deduplicated, known lanes first.
+        # we know their primary corridor. Unified via _resolve_destinations.
         row_dest = str(row.get("DESTINATION") or "").strip()
-        if row_dest.lower() in ("nan", "none"):
-            row_dest = ""
-        known_dests: list[str] = _normalize_dest_text(row_dest)
-        if not known_dests and requested_dests:
-            known_dests = [d for d in requested_dests if d.upper() not in ("NAN", "NONE")]
-        # Always merge with default 9 lanes; known first, default filled in order
-        merged: list[str] = []
-        for d in known_dests + list(DEFAULT_DESTINATIONS):
-            du = d.upper()
-            if du and du not in merged:
-                merged.append(du)
-        dests = merged
-        # Also pass the known-primary hint so builder can highlight first row
+        _, dests, known_dests = _resolve_destinations(
+            row_dest=row_dest,
+            requested_dest="",
+            requested_dests=requested_dests,
+            defaults=DEFAULT_DESTINATIONS,
+        )
         primary_dest = known_dests[0] if known_dests else ""
 
         row_pol_raw = str(row.get("POL") or "").strip().upper()
