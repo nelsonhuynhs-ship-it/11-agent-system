@@ -23,12 +23,14 @@ pol:
 global_default: [USLAX, USLGB, USNYC, USSAV, USHOU]
 
 # Bulk blast default (Rate & Send / Quick Send) — used when CNEE row has no
-# DESTINATION column. 9 main lanes covering HPH/HCM → US main ports + inland.
+# DESTINATION column. 10 main lanes covering HPH/HCM → US main ports + Canada.
 # Edit this list to change bulk-send defaults without touching code.
-fast_bulk_default: [USLAX, USLGB, USSAV, USNYC, USORF, USCHS, USTIW, USCHI, USDAL]
+# Cross-sell strategy (2026-04-23): always show 10 lanes so single-POD CNEE
+# discovers alternative corridors. CAVAN included for Canada coverage.
+fast_bulk_default: [USLAX, USOAK, USTIW, USSAV, USNYC, USMIA, USHOU, USCHI, USDAL, CAVAN]
 
-# Maximum destinations per single email (keep body readable)
-max_destinations_per_email: 5
+# Maximum destinations per single email (enforced in builder.build_email)
+max_destinations_per_email: 10
 
 # Ports to never quote (blacklist — e.g. embargoed, or Nelson has no carrier access)
 forbidden_ports: [IRBND, KPFNJ]

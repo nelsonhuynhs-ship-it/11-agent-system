@@ -112,18 +112,26 @@ def load_patterns(yaml_path: str | Path | None = None) -> dict:
 # -------------------------------------------------------------------
 # CNEE master lookup (lazy)
 # -------------------------------------------------------------------
+# 2026-04-24: updated paths from v2 → v7. Root cause of "scanner missed
+# real reply": scanner loaded stale v2 master (22,230 rows) but Nelson's
+# active pool is v7 (22,854 rows). New CNEE sent yesterday wasn't in v2 →
+# classifier returned IRRELEVANT → replies_new=0.
 _CNEE_CACHE: set[str] | None = None
 _CNEE_PATHS = [
-    # OneDrive v2 (authoritative per data-source-correction.md)
+    # OneDrive v7 (authoritative 2026-04-23+)
+    Path(r"D:/OneDrive/NelsonData/email/contact_unified_v7.xlsx"),
+    # v5 fallback
+    Path(r"D:/OneDrive/NelsonData/email/cnee_master_v2_final.xlsx"),
     Path(r"D:/OneDrive/NelsonData/email/cnee_master_v2.xlsx"),
     # Repo fallback
+    _PKG_ROOT / "data" / "contact_unified_v7.xlsx",
     _PKG_ROOT / "data" / "cnee_master_v2.xlsx",
     _PKG_ROOT / "data" / "cnee_master.xlsx",
 ]
 
 
 def _load_cnee_emails() -> set[str]:
-    """Return lowercase set of emails from cnee_master_v2. Cached.
+    """Return lowercase set of emails from v7 master (or v5 fallback). Cached.
 
     Best-effort: if no file, returns empty set and REAL_REPLY will be IRRELEVANT.
     """
@@ -142,16 +150,27 @@ def _load_cnee_emails() -> set[str]:
         if not path.exists():
             continue
         try:
-            df = pd.read_excel(path)
-            df.columns = df.columns.str.strip().str.upper()
+            # v7 has multi-sheet (CNEE + SHIPPER) — read both when possible
             emails: set[str] = set()
-            for col in ("EMAIL", "CNEE_EMAIL", "SHIPPER_EMAIL"):
-                if col in df.columns:
-                    s = df[col].dropna().astype(str).str.lower().str.strip()
-                    emails.update(e for e in s if "@" in e)
-            _CNEE_CACHE = emails
-            log.info("Loaded %d CNEE emails from %s", len(emails), path.name)
-            return _CNEE_CACHE
+            try:
+                xls = pd.ExcelFile(path)
+                sheet_names = xls.sheet_names
+            except Exception:
+                sheet_names = [0]
+            for sheet in sheet_names:
+                try:
+                    df = pd.read_excel(path, sheet_name=sheet)
+                    df.columns = df.columns.str.strip().str.upper()
+                    for col in ("EMAIL", "CNEE_EMAIL", "SHIPPER_EMAIL", "CONTACT_EMAIL"):
+                        if col in df.columns:
+                            s = df[col].dropna().astype(str).str.lower().str.strip()
+                            emails.update(e for e in s if "@" in e)
+                except Exception as exc:
+                    log.debug("skip sheet %s in %s: %s", sheet, path.name, exc)
+            if emails:
+                _CNEE_CACHE = emails
+                log.info("Loaded %d CNEE emails from %s", len(emails), path.name)
+                return _CNEE_CACHE
         except Exception as exc:
             log.warning("Could not read %s: %s", path, exc)
 
@@ -227,10 +246,16 @@ def classify(item: Any, patterns: dict | None = None, cnee_emails: set[str] | No
         if kwl in subject or kwl in body_lower:
             return "UNSUBSCRIBE"
 
-    # 3) AUTO_REPLY — subject-only (body substring too noisy)
+    # 3) AUTO_REPLY — subject patterns OR carrier sender domains
+    # 2026-04-24: sender_domains covers YML/Maersk/MSC etc tracking bots.
+    # Nelson subscribes to carrier tracking → daily reports flood inbox.
+    # Not real CNEE replies, should classify as AUTO_REPLY (no Telegram ping).
     auto_cfg = p.get("auto_reply", {})
     for sp in auto_cfg.get("subject_patterns", []):
         if sp.lower() in subject:
+            return "AUTO_REPLY"
+    for dom in auto_cfg.get("sender_domains", []):
+        if sender.endswith("@" + dom.lower()):
             return "AUTO_REPLY"
 
     # 4) REAL_REPLY — sender is a known CNEE

@@ -115,15 +115,19 @@ def _score_template(
     tmpl: dict,
     destinations: list[str],
     states: list[str],
-) -> tuple[int, str] | None:
+) -> tuple[int, int, int, str] | None:
     """
-    Return (score, reason) if template matches — else None.
+    Return (score, match_count, neg_tmpl_size, reason) if template matches — else None.
 
     Higher score = more specific.
         - Exact dest + exact state  → 4
         - Exact dest + any state    → 3
         - Any dest  + exact state   → 2
         - Any dest  + any state     → 1
+
+    Tie-breakers (applied in tuple-order):
+        - match_count: prefer template that matches MORE of the input destinations.
+        - neg_tmpl_size: prefer smaller (more focused) template when match_count ties.
     """
     match_cfg = tmpl.get("match") or {}
     tmpl_dests = _normalize_list(match_cfg.get("destinations"))
@@ -146,14 +150,17 @@ def _score_template(
     if not (dest_match and state_match):
         return None
 
-    # Scoring
+    match_count = 0 if any_dest else sum(1 for d in dests_u if d in tmpl_dests)
+    tmpl_size = 0 if any_dest else len([d for d in tmpl_dests if d != "ANY"])
+    neg_tmpl_size = -tmpl_size
+
     if not any_dest and not any_state:
-        return (4, "exact_lane_and_state")
+        return (4, match_count, neg_tmpl_size, "exact_lane_and_state")
     if not any_dest and any_state:
-        return (3, "exact_lane_any_state")
+        return (3, match_count, neg_tmpl_size, "exact_lane_any_state")
     if any_dest and not any_state:
-        return (2, "any_lane_exact_state")
-    return (1, "default")
+        return (2, match_count, neg_tmpl_size, "any_lane_exact_state")
+    return (1, match_count, neg_tmpl_size, "default")
 
 
 def match(destinations: list[str], states: list[str], yaml_path: str | Path | None = None) -> dict:
@@ -169,16 +176,17 @@ def match(destinations: list[str], states: list[str], yaml_path: str | Path | No
     if not templates:
         return _safe_default(reason="no_templates")
 
-    best: tuple[int, str, dict] | None = None
+    best: tuple[tuple[int, int, int], str, dict] | None = None
     for tmpl in templates:
         if not isinstance(tmpl, dict):
             continue
         scored = _score_template(tmpl, destinations, states)
         if scored is None:
             continue
-        score, reason = scored
-        if best is None or score > best[0]:
-            best = (score, reason, tmpl)
+        score, match_count, neg_tmpl_size, reason = scored
+        key = (score, match_count, neg_tmpl_size)
+        if best is None or key > best[0]:
+            best = (key, reason, tmpl)
 
     if best is None:
         # Try explicit "default" id

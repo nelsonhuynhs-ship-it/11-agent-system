@@ -164,6 +164,13 @@ def _get_eligible_candidates(
         bad_status = {"HARD_BOUNCE", "UNSUBSCRIBED", "SPAM", "INVALID"}
         cdf = cdf[~cdf["EMAIL_STATUS"].astype(str).str.upper().isin(bad_status)]
 
+    # Priority isolation — NEVER blast contacts who replied or are VIP/HOT/personal
+    from email_engine.core.priority_filter import drop_priority
+    before = len(cdf)
+    cdf = drop_priority(cdf)
+    if before - len(cdf) > 0:
+        log.info("rotation: dropped %d priority contacts from %s pool", before - len(cdf), commodity)
+
     # Sort: SEND_COUNT ASC, LAST_SENT_DATE ASC NULLS FIRST
     sort_keys: list[str] = []
     if "SEND_COUNT" in cdf.columns:

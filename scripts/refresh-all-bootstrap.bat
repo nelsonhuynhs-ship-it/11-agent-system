@@ -27,12 +27,31 @@ setlocal EnableExtensions EnableDelayedExpansion
 set "XLSM=%~1"
 set "LOGF=%~2"
 set "REPO=D:\NELSON\2. Areas\Engine_test"
+set "CANONICAL=D:\OneDrive\NelsonData\erp\ERP_Master_v14.xlsm"
 
 if "%XLSM%"=="" (
     echo [bootstrap] ERROR: xlsm arg missing > "%LOGF%"
     exit /b 9
 )
 if "%LOGF%"=="" set "LOGF=%~dp1refresh_all_log.txt"
+
+REM 2026-04-21 URL guard: defense-in-depth
+REM VBA OnAction_RefreshAll should have redirected URL → canonical already,
+REM but if it didn't, refuse to proceed with URL path.
+echo %XLSM% | findstr /i /c:"http://" /c:"https://" >nul
+if %ERRORLEVEL%==0 (
+    echo [bootstrap] ERROR: XLSM is URL, not local path. Aborting. >> "%LOGF%"
+    echo [bootstrap] URL received: %XLSM% >> "%LOGF%"
+    echo [bootstrap] Canonical local: %CANONICAL% >> "%LOGF%"
+    echo [bootstrap] Falling back to canonical local if it exists... >> "%LOGF%"
+    if exist "%CANONICAL%" (
+        set "XLSM=%CANONICAL%"
+        echo [bootstrap] Using canonical: %CANONICAL% >> "%LOGF%"
+    ) else (
+        echo [bootstrap] Canonical missing — abort code 10 >> "%LOGF%"
+        exit /b 10
+    )
+)
 
 echo ================================================================ > "%LOGF%"
 echo [bootstrap] %date% %time% >> "%LOGF%"

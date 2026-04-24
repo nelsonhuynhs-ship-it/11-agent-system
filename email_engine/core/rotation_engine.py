@@ -261,20 +261,34 @@ def queue_to_outlook_worker(
     batch_id  = f"ROT_{int(time.time())}"
     plan_date = plan.get("date", date.today().isoformat())
 
+    # Load 10-lane defaults once per batch for cross-sell merge.
+    try:
+        from email_engine.web_server import DEFAULT_DESTINATIONS as _DEFAULTS
+    except Exception:
+        _DEFAULTS = ["USLAX", "USSAV", "USNYC"]
+
     batch_emails: list[dict[str, Any]] = []
     for meta in email_meta:
         try:
-            destinations_list = [
+            known = [
                 d.strip().upper()
                 for d in meta["destinations"].split(",")
                 if d.strip()
             ]
+            # Merge: known POD(s) first, then 10 default lanes → cross-sell breadth
+            # + subject selector picks default_cross_sell ("Asia to USA/Canada").
+            destinations_list: list[str] = []
+            for d in known + list(_DEFAULTS or []):
+                du = (d or "").upper()
+                if du and du not in destinations_list:
+                    destinations_list.append(du)
             result = build_email(
                 cnee_email=meta["email"],
                 pol=meta["pol"],
                 destinations=destinations_list,
                 markup=float(meta["markup"]),
                 profile={"first_name": meta["pic"], "company": meta["company"]},
+                arb_origin=meta.get("arb_origin"),
             )
             html_body = result.get("html_body", "")
             if not html_body or "No rates available" in html_body:

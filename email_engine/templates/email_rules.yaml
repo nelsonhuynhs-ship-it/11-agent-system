@@ -19,12 +19,30 @@ defaults:
 
 templates:
 
+  # ─── 0. Cross-sell (10-lane default) ───────────────────────────────────
+  # Matches bulk-send defaults from config/default_routes.yaml:fast_bulk_default.
+  # Placed FIRST so it wins scoring when the full 10-lane menu is in play
+  # (West + East + Gulf + Inland + Canada corridors).
+  - id: default_cross_sell
+    match:
+      destinations: [USLAX, USOAK, USTIW, USSAV, USNYC, USMIA, USHOU, USCHI, USDAL, CAVAN]
+      states: [any]
+    subject: "Ocean Freight Update — Asia to USA/Canada | Week {{week}} | {{suffix}}"
+    intro: |
+      Dear {{first_name}},
+
+      Please find our latest ocean freight rates covering our main
+      US and Canada corridors. Rates valid through end of the month.
+    cta: |
+      Please confirm booking 7 days before ETD.
+      Reply with your specific lane for a detailed quote.
+
   # ─── 1. West Coast (USLAX/USLGB/USOAK) ─────────────────────────────────
   - id: west_coast
     match:
       destinations: [USLAX, USLGB, USOAK, USSEA]
       states: [any]
-    subject: "Ocean Freight Update — HPH to West Coast | Week {{week}} | {{suffix}}"
+    subject: "Ocean Freight Update — {{pol}} to West Coast | Week {{week}} | {{suffix}}"
     intro: |
       Dear {{first_name}},
 
@@ -39,7 +57,7 @@ templates:
     match:
       destinations: [USNYC, USSAV, USCHS, USMIA, USHOU, USBAL, USJAX, USORF, USTPA]
       states: [any]
-    subject: "Ocean Freight Update — HPH to East Coast | Week {{week}} | {{suffix}}"
+    subject: "Ocean Freight Update — {{pol}} to East Coast | Week {{week}} | {{suffix}}"
     intro: |
       Dear {{first_name}},
 

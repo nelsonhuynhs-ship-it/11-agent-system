@@ -58,6 +58,8 @@ bounce:
     - "too many connections"
 
 auto_reply:
+  # 2026-04-24: added carrier tracking subscriptions — YML/MSC/Maersk/etc send
+  # daily tracking reports to addresses Nelson subscribed to. Not real replies.
   subject_patterns:
     - "out of office"
     - "automatic reply"
@@ -69,6 +71,28 @@ auto_reply:
     - "ooo"
     - "đang nghỉ phép"
     - "vắng mặt"
+    - "tracking report subscription"
+    - "[tracking report"
+    - "shipment tracking"
+    - "container tracking update"
+    - "vessel schedule"
+    - "eta update"
+  # Sender domains that ALWAYS classify as AUTO_REPLY (carrier systems, tracking bots).
+  sender_domains:
+    - "yangming.com"
+    - "one-line.com"
+    - "maersk.com"
+    - "msc.com"
+    - "cma-cgm.com"
+    - "evergreen-marine.com"
+    - "hapag-lloyd.com"
+    - "coscoshipping.com"
+    - "oocl.com"
+    - "hmm21.com"
+    - "zim.com"
+    - "pilship.com"
+    - "tslines.com"
+    - "wanhai.com"
 
 unsubscribe:
   patterns:

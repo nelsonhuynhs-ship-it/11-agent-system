@@ -75,14 +75,73 @@ def _normalize_country(country: str | None) -> str:
     return c
 
 
+_DEST_TEXT_TO_CODE = {
+    "LOS ANGELES": "USLAX", "LONG BEACH": "USLGB", "OAKLAND": "USOAK",
+    "TACOMA": "USTIW", "SEATTLE": "USSEA", "PORTLAND": "USPDX",
+    "NEW YORK": "USNYC", "NEWARK": "USEWR", "BALTIMORE": "USBAL",
+    "PHILADELPHIA": "USPHL", "BOSTON": "USBOS", "WILMINGTON": "USILG",
+    "SAVANNAH": "USSAV", "CHARLESTON": "USCHS", "JACKSONVILLE": "USJAX",
+    "MIAMI": "USMIA", "HOUSTON": "USHOU", "NEW ORLEANS": "USMSY",
+    "NORFOLK": "USORF", "CHICAGO": "USCHI", "DALLAS": "USDAL",
+    "MEMPHIS": "USMEM", "ATLANTA": "USATL", "NASHVILLE": "USNSH",
+    "CHARLOTTE": "USCLT", "ST LOUIS": "USSTL", "KANSAS CITY": "USKC",
+    "DENVER": "USDEN", "MINNEAPOLIS": "USMSP", "DETROIT": "USDTW",
+    "CLEVELAND": "USCLE", "COLUMBUS": "USCOL", "CINCINNATI": "USCVG",
+    "VANCOUVER": "CAVAN", "PRINCE RUPERT": "CAPRR",
+    "MONTREAL": "CAMTR", "HALIFAX": "CAHAL", "TORONTO": "CATOR",
+}
+
+
+def _normalize_dest_token(token: str) -> str | None:
+    """Map a single destination token to a US/CA port code.
+
+    Accepts: "USLAX", "Los Angeles", "The Port of Long Beach", "CA",
+             "Long Beach, California", etc. Returns port code or None if
+             unmappable (caller should drop None tokens).
+    """
+    t = (token or "").strip().upper()
+    if not t or t in ("NAN", "NONE"):
+        return None
+    # Already a port code
+    if len(t) == 5 and (t.startswith("US") or t.startswith("CA")):
+        return t
+    # Strip noise: "THE PORT OF LOS ANGELES" → "LOS ANGELES"
+    for prefix in ("THE PORT OF ", "PORT OF ", "PORT "):
+        if t.startswith(prefix):
+            t = t[len(prefix):].strip()
+            break
+    # Drop trailing US state codes: "LOS ANGELES CA" → "LOS ANGELES"
+    parts = t.split()
+    if parts and len(parts[-1]) == 2 and parts[-1].isalpha():
+        t = " ".join(parts[:-1]).strip()
+    # Direct lookup
+    if t in _DEST_TEXT_TO_CODE:
+        return _DEST_TEXT_TO_CODE[t]
+    return None
+
+
 def _resolve_destination(dest_raw: str | None) -> str:
-    """Return cleaned destination string; default to USLAX,USLGB if blank."""
+    """Return comma-joined port codes; default to USLAX,USLGB if blank/unmappable.
+
+    Handles raw master text like "The Port of Los Angeles, Los Angeles, California"
+    by mapping each comma-part to a port code and deduping.
+    """
     if not dest_raw:
         return "USLAX,USLGB"
-    dest = str(dest_raw).strip()
-    if dest.lower() in ("nan", "none", ""):
+    raw = str(dest_raw).strip()
+    if raw.lower() in ("nan", "none", ""):
         return "USLAX,USLGB"
-    return dest
+    # If already all port codes, keep as-is
+    parts = [p.strip() for p in raw.split(",") if p.strip()]
+    codes: list[str] = []
+    for p in parts:
+        code = _normalize_dest_token(p)
+        if code and code not in codes:
+            codes.append(code)
+    if codes:
+        return ",".join(codes)
+    # Fallback: nothing mapped — return original (may still hit if parquet loose-matches)
+    return raw
 
 
 def _resolve_pol(row_pol: str | None, country: str) -> str:

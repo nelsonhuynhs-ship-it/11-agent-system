@@ -27,6 +27,39 @@ from .template_renderer import render_email, render_text
 
 log = logging.getLogger("intelligence_builder")
 
+# Default destinations + max cap loaded from default_routes.yaml (SOT).
+# Keeping the loader here so build_email() never drifts from web_server.py.
+_SAFE_FALLBACK_DESTS = ["USLAX", "USSAV", "USNYC"]
+_SAFE_FALLBACK_MAX = 10
+
+
+def _load_routing_config() -> tuple[list[str], int]:
+    """Return (default_destinations, max_destinations_per_email) from YAML."""
+    try:
+        from shared.paths import DEFAULT_ROUTES_CFG
+        _onedrive = Path(DEFAULT_ROUTES_CFG)
+    except Exception:
+        _onedrive = None
+    _local = Path(__file__).resolve().parent.parent / "config" / "default_routes.yaml"
+    yaml_path = _onedrive if (_onedrive and _onedrive.exists()) else _local
+    try:
+        import yaml  # type: ignore
+        with open(yaml_path, "r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh) or {}
+        dests = data.get("fast_bulk_default") or data.get("global_default") or []
+        cleaned = [str(d).strip().upper() for d in dests if str(d).strip()]
+        cap_raw = data.get("max_destinations_per_email", _SAFE_FALLBACK_MAX)
+        cap = int(cap_raw) if cap_raw else _SAFE_FALLBACK_MAX
+        if cleaned:
+            log.info("[builder] routing config loaded: %d lanes, cap=%d", len(cleaned), cap)
+            return cleaned, cap
+    except Exception as e:
+        log.warning("[builder] default_routes.yaml load failed (%s) — using safe fallback", e)
+    return list(_SAFE_FALLBACK_DESTS), _SAFE_FALLBACK_MAX
+
+
+_DEFAULT_DESTINATIONS, _MAX_DESTINATIONS = _load_routing_config()
+
 # Rate-table partial (simple Jinja-lite template)
 _RATE_TABLE_PATH = (
     Path(__file__).resolve().parent.parent / "templates" / "rate_table.html"
@@ -573,6 +606,7 @@ def _build_tokens(
         "sample_size": headline.get("sample_size", 0),
         "confidence": headline.get("confidence", 0),
         "typical_pol": pol.upper(),
+        "pol": pol.upper(),
         "typical_dest": destinations[0].upper() if destinations else "",
 
         # meta
@@ -701,12 +735,16 @@ def _load_signature_html_from_config() -> str:
         return ""
 
 
+_VN_POLS = frozenset({"HPH", "HCM", "SGN", "HAN", "DAD", "VUT", "CMT", "UIH", "DONG NAI"})
+
+
 def build_email(
     cnee_email: str,
     pol: str,
     destinations: list[str],
     markup: float = 20.0,
     profile: dict | None = None,
+    arb_origin: str | None = None,
 ) -> dict:
     """
     Build a complete smart email for one CNEE.
@@ -738,7 +776,11 @@ def build_email(
         if d and d.strip() and d.strip().lower() not in ("nan", "none")
     ]
     if not destinations:
-        destinations = ["USLAX", "USLGB", "USSAV", "USNYC", "USORF", "USCHS", "USTIW", "USCHI", "USDAL"]
+        destinations = list(_DEFAULT_DESTINATIONS)
+
+    if len(destinations) > _MAX_DESTINATIONS:
+        log.info("[builder] truncating destinations %d→%d", len(destinations), _MAX_DESTINATIONS)
+        destinations = destinations[:_MAX_DESTINATIONS]
 
     # 1. Get REAL rates from auto_rate_builder (proven correct).
     # auto_rate_builder uses proper Place/POD mapping + Exp>=today filter.
@@ -752,10 +794,19 @@ def build_email(
         if str(Path(__file__).resolve().parent.parent / "core") not in sys.path:
             sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core"))
         from auto_rate_builder import build_rate_table_for_customer
+        # Non-VN POLs (PKG/BKK/SHA/etc) aren't in parquet — lookup via HCM + ARB surcharge layer
+        lookup_pol = pol if pol in _VN_POLS else "HCM"
         arb_result = build_rate_table_for_customer(
-            pol=pol, destinations=",".join(destinations), markup=float(markup or 0)
+            pol=lookup_pol, destinations=",".join(destinations), markup=float(markup or 0),
+            top_per_route=3, arb_origin=arb_origin,
         )
         rate_html_from_builder = arb_result.get("html", "")
+        if rate_html_from_builder:
+            idx = rate_html_from_builder.find("<style")
+            if idx == -1:
+                idx = rate_html_from_builder.find("<table")
+            if idx > 0:
+                rate_html_from_builder = rate_html_from_builder[idx:]
         for rr in arb_result.get("rates", []):
             pod = str(rr.get("pod_code", "")).upper()
             r40 = rr.get("rate_40")
@@ -815,6 +866,12 @@ def build_email(
 
     # 4. Build tokens
     tokens = _build_tokens(profile, lane_intels, pol, destinations)
+
+    # Prefer auto_rate_builder HTML (Pudong Prime green-header quote style with
+    # BEST pill, SVC column, POL column) — matches Nelson's approved template.
+    # Falls back to _render_rate_table() only if ARB HTML missing.
+    if rate_html_from_builder:
+        tokens["rate_table_html"] = rate_html_from_builder
 
     # 5. Render intro + rate table + cta + signature (standard structure).
     # The rate table itself IS the Pudong Prime visual upgrade — no shell wrap.
