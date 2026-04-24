@@ -446,6 +446,11 @@ async def import_panjiva(file: UploadFile = File(...)):
         suffix = Path(file.filename or "upload.xlsx").suffix or ".xlsx"
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             content = await file.read()
+            # 2026-04-24 HIGH-2: bound upload to 50MB — Panjiva exports ~5-20MB.
+            if len(content) > 50 * 1024 * 1024:
+                tmp.close()
+                Path(tmp.name).unlink(missing_ok=True)
+                raise HTTPException(413, "File too large (max 50MB)")
             tmp.write(content)
             tmp_path = Path(tmp.name)
 

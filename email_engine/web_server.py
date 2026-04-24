@@ -192,13 +192,13 @@ def err(code: int, msg: str):
     raise HTTPException(status_code=code, detail={"error": msg})
 
 app = FastAPI(title="Email Dashboard v2")
-# Dashboard opens via file:// (Desktop shortcut → start "" "...html"). Some
-# browsers don't send an Origin header for file:// → a restrictive CORS
-# allow-list blocks the request → dashboard falls back to demo mode.
-# Local single-user tool → accept any origin.
+# Dashboard opens via file:// → browser sends Origin: "null". Also accept
+# localhost/127.0.0.1 for direct curl/dev. Defense-in-depth on top of
+# host=127.0.0.1 bind: even if attacker reaches the port, CSRF from a
+# malicious page won't pass CORS preflight. 2026-04-24.
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=".*",
+    allow_origin_regex=r"^(null|file://.*|http://localhost(:\d+)?|http://127\.0\.0\.1(:\d+)?)$",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -516,15 +516,19 @@ def get_campaigns():
     # instead of legacy CMD_NAME (48 messy mixed labels). Fallback to CMD_NAME
     # if COMMODITY_CATEGORY column missing (pre-v3 master file).
     #
-    # 2026-04-20: Counts now exclude suppressed emails (HARD_BOUNCE / UNSUBSCRIBED)
-    # so Quick Send sidebar + dropdown reflect ACTIVE recipients only.
-    SUPPRESSED_STATUSES = {'HARD_BOUNCE', 'UNSUBSCRIBED'}
+    # 2026-04-24: Unified with /api/send-stats to use global _DEAD_STATUSES
+    # (7 statuses). Previously this used 2-status subset → sidebar count
+    # (22,477) mismatched Pool Total (22,472) by 5 rows. Single SOT now.
     total_all = int(len(df_contacts))
+    mask_active = pd.Series([True] * total_all, index=df_contacts.index)
     if 'EMAIL_STATUS' in df_contacts.columns:
-        mask_active = ~df_contacts['EMAIL_STATUS'].astype(str).isin(SUPPRESSED_STATUSES)
-        df_active = df_contacts[mask_active]
-    else:
-        df_active = df_contacts
+        status_upper = df_contacts['EMAIL_STATUS'].astype(str).str.upper().str.strip()
+        mask_active &= ~status_upper.isin(_DEAD_STATUSES)
+    # 2026-04-24: also exclude manually-blacklisted emails — match /api/send-stats
+    if EXCLUDED_EMAILS and 'EMAIL' in df_contacts.columns:
+        email_lower = df_contacts['EMAIL'].astype(str).str.lower().str.strip()
+        mask_active &= ~email_lower.isin(EXCLUDED_EMAILS)
+    df_active = df_contacts[mask_active]
     suppressed_count = total_all - len(df_active)
 
     group_col = "COMMODITY_CATEGORY" if "COMMODITY_CATEGORY" in df_active.columns else "CMD_NAME"
@@ -903,6 +907,13 @@ def _empty_send_stats() -> dict:
     }
 
 
+# 2026-04-24 PERF-003: cache pd.to_numeric + pd.to_datetime 15s.
+# Endpoint polled every 10s from dashboard → recompute on 22k rows wasteful.
+_SEND_STATS_CACHE: dict | None = None
+_SEND_STATS_CACHE_TS: datetime | None = None
+_SEND_STATS_TTL_SECONDS = 15
+
+
 @app.get("/api/send-stats")
 def send_stats():
     """Active pool stats — excludes rows with EMAIL_STATUS in _DEAD_STATUSES.
@@ -910,17 +921,31 @@ def send_stats():
     `total` = active (pool "vơi dần" when bounces accumulate).
     `total_raw` = raw file count. `retired` = dead count. `retired_breakdown` = per-status counts.
     """
+    global _SEND_STATS_CACHE, _SEND_STATS_CACHE_TS
+    now = datetime.now()
+    if (
+        _SEND_STATS_CACHE is not None
+        and _SEND_STATS_CACHE_TS is not None
+        and (now - _SEND_STATS_CACHE_TS).total_seconds() < _SEND_STATS_TTL_SECONDS
+    ):
+        return _SEND_STATS_CACHE
+
     try:
         df = _get_cnee_df()
         if df is None:
             return _empty_send_stats()
-        now = datetime.now()
         cutoff_14d = now - timedelta(days=14)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         total_raw = int(len(df))
 
         status = df.get("EMAIL_STATUS", pd.Series(dtype=str)).astype(str).str.upper().str.strip()
         dead_mask = status.isin(_DEAD_STATUSES)
+        # 2026-04-24: also exclude manually-blacklisted emails (ITL, competitors, etc)
+        # so Pool Total reflects ACTUALLY sendable count, not raw - dead_statuses.
+        if EXCLUDED_EMAILS and "EMAIL" in df.columns:
+            email_lower = df["EMAIL"].astype(str).str.lower().str.strip()
+            excluded_mask = email_lower.isin(EXCLUDED_EMAILS)
+            dead_mask = dead_mask | excluded_mask
         retired_breakdown = {
             k: int(v) for k, v in status[dead_mask].value_counts().to_dict().items()
         }
@@ -928,7 +953,7 @@ def send_stats():
 
         sc = pd.to_numeric(active.get("SEND_COUNT", pd.Series(dtype=float)), errors="coerce").fillna(0)
         last_sent = pd.to_datetime(active.get("LAST_SENT_DATE", pd.Series(dtype=str)), errors="coerce")
-        return {
+        result = {
             "total": int(len(active)),
             "unsent": int((sc == 0).sum()),
             "sent_once_plus": int((sc >= 1).sum()),
@@ -938,6 +963,9 @@ def send_stats():
             "retired": int(dead_mask.sum()),
             "retired_breakdown": retired_breakdown,
         }
+        _SEND_STATS_CACHE = result
+        _SEND_STATS_CACHE_TS = now
+        return result
     except Exception as exc:
         log.warning(f"send_stats error: {exc}")
         return _empty_send_stats()
@@ -3799,4 +3827,7 @@ if __name__ == "__main__":
     print("\n" + "=" * 50)
     print("  EMAIL DASHBOARD v5 — http://localhost:8100")
     print("=" * 50 + "\n")
-    uvicorn.run(app, host="0.0.0.0", port=8100, log_level="info")
+    # Security 2026-04-24: bind localhost only. Dashboard opens via file:// and
+    # calls http://localhost:8100 — no reason to expose the email-send API to
+    # the LAN. See plans/reports/security-audit-email-dashboard-v7-20260424.md.
+    uvicorn.run(app, host="127.0.0.1", port=8100, log_level="info")

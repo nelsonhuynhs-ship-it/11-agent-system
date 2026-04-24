@@ -118,6 +118,10 @@ def run_scan(
         raise HTTPException(503, f"scan-sent-outlook.py not found at {_SCRIPT}")
 
     job_id = f"scan_{datetime.now():%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:6]}"
+    # 2026-04-24 HIGH-3: bound _JOBS to 100 — drop oldest FIFO to avoid OOM
+    # if something spams POST /run. Nelson only needs recent history.
+    while len(_JOBS) >= 100:
+        _JOBS.pop(next(iter(_JOBS)))
     _JOBS[job_id] = {
         "job_id":      job_id,
         "status":      "queued",
