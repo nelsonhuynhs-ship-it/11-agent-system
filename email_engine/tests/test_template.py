@@ -289,4 +289,4 @@ def test_prod_yaml_loads():
     assert len(templates) >= 6, f"Expected ≥6 templates, got {len(templates)}"
     ids = [t.get("id") for t in templates]
     assert "default" in ids
-    assert "west_coast_urgent" in ids
+    assert "default_cross_sell" in ids  # v2: 10-lane cross-sell replaces west_coast_urgent

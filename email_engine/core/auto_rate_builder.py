@@ -21,7 +21,10 @@ from datetime import datetime
 
 import pandas as pd
 
-if sys.stdout and hasattr(sys.stdout, 'buffer'):
+# Only wrap stdout in direct-run (not under pytest) to avoid capture teardown crash.
+if (sys.stdout and hasattr(sys.stdout, 'buffer')
+        and "pytest" not in sys.modules
+        and __name__ == "__main__"):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
 log = logging.getLogger("auto_rate_builder")
@@ -39,6 +42,325 @@ except ImportError:
     PORT_MAP_FILE = PROJECT_ROOT / "data" / "Port_Code_Mapping_Final.xlsx"
 
 MARKUP_MIN      = 20   # minimum markup per container per route
+
+# ── Inland Gateway Configuration ─────────────────────────────────────────────
+# Maps inland POD codes → gateway routing config.
+# "gateway_city" matches Parquet POD column (city name, not port code).
+# USATL: RIPI primary via EC (SAV/CHS/NOR cheaper than WC IPI).
+# USCHI/USDAL/USDEN: IPI via WC (LAX/OAK default).
+INLAND_GATEWAY_CONFIG: dict[str, dict] = {
+    "USATL": {
+        "primary": {
+            "type": "RIPI",
+            "gateways": [
+                {"city": "SAVANNAH, GA", "label": "via SAV"},
+                {"city": "CHARLESTON, SC", "label": "via CHS"},
+                {"city": "NORFOLK, VA",   "label": "via NOR"},
+            ],
+        },
+        "fallback": {
+            "type": "IPI",
+            "gateways": [{"city": "LAX-LGB", "label": "via LAX (IPI)"}],
+        },
+    },
+    "USCHI": {
+        "primary": {
+            "type": "IPI",
+            "gateways": [
+                {"city": "LAX-LGB",     "label": ""},
+                {"city": "TACOMA, WA",  "label": ""},
+            ],
+        },
+        "fallback": None,
+    },
+    "USDAL": {
+        "primary": {
+            "type": "IPI",
+            "gateways": [
+                {"city": "LAX-LGB", "label": ""},
+            ],
+        },
+        "fallback": None,
+    },
+    "USDEN": {
+        "primary": {
+            "type": "IPI",
+            "gateways": [
+                {"city": "LAX-LGB",     "label": ""},
+                {"city": "OAKLAND, CA", "label": ""},
+            ],
+        },
+        "fallback": None,
+    },
+}
+
+# Inland destination city → search keyword used in parquet Place column
+_INLAND_DEST_CITY: dict[str, str] = {
+    "USATL": "ATLANTA",
+    "USCHI": "CHICAGO",
+    "USDAL": "DALLAS",
+    "USDEN": "DENVER",
+}
+
+# Session-level cache: (pol, gateway_city, carrier, dest_city) → rate dict | None
+_gateway_rate_cache: dict[tuple, dict | None] = {}
+
+
+def _query_carrier_rate(
+    pol: str,
+    gateway_city: str,
+    carrier: str,
+    dest_city: str,
+    df: pd.DataFrame,
+) -> dict | None:
+    """
+    Single (POL, gateway_city, carrier, dest_city) lookup in cached parquet DataFrame.
+
+    Finds cheapest 40HQ rate where:
+      - POL matches pol
+      - POD matches gateway_city (e.g. "SAVANNAH, GA")
+      - Place matches dest_city keyword (e.g. "ATLANTA")
+      - Carrier matches carrier
+
+    Returns dict with rate fields, or None if no rate found.
+    Results cached per session to avoid repeated scans.
+    """
+    cache_key = (pol.upper(), gateway_city.upper(), carrier.upper(), dest_city.upper())
+    if cache_key in _gateway_rate_cache:
+        return _gateway_rate_cache[cache_key]
+
+    if df is None or df.empty:
+        _gateway_rate_cache[cache_key] = None
+        return None
+
+    TODAY = pd.Timestamp(datetime.now().date())
+
+    pol_mask = df["POL"].astype(str).str.upper().str.contains(pol.upper(), na=False)
+    pod_mask = df["POD"].astype(str).str.upper().str.contains(gateway_city.upper(), na=False)
+    carrier_mask = df["Carrier"].astype(str).str.upper() == carrier.upper()
+    place_mask = df["Place"].astype(str).str.upper().str.contains(dest_city.upper(), na=False)
+
+    filtered = df[pol_mask & pod_mask & carrier_mask & place_mask].copy()
+    if filtered.empty:
+        _gateway_rate_cache[cache_key] = None
+        return None
+
+    ct_col = "Container_Type"
+    rows_40 = filtered[filtered[ct_col].astype(str).str.upper().isin(["40HQ", "40HC", "40HG"])]
+    rows_20 = filtered[filtered[ct_col].astype(str).str.upper().isin(["20GP", "20DC", "20"])]
+
+    # Filter non-expired
+    def _cheapest_amount(subset: pd.DataFrame) -> float | None:
+        if subset.empty:
+            return None
+        subset = subset.copy()
+        subset["_exp_ts"] = pd.to_datetime(subset["Exp"], errors="coerce")
+        valid = subset[subset["_exp_ts"] >= TODAY]
+        if valid.empty:
+            return None
+        return float(valid["Amount"].min())
+
+    amount_40 = _cheapest_amount(rows_40)
+    if amount_40 is None:
+        _gateway_rate_cache[cache_key] = None
+        return None
+
+    amount_20 = _cheapest_amount(rows_20)
+
+    # Get best 40HQ row for metadata
+    rows_40_copy = rows_40.copy()
+    rows_40_copy["_exp_ts"] = pd.to_datetime(rows_40_copy["Exp"], errors="coerce")
+    valid_40 = rows_40_copy[rows_40_copy["_exp_ts"] >= TODAY]
+    best_row = valid_40.loc[valid_40["Amount"].idxmin()]
+
+    def _get_col(row, *candidates, default=""):
+        for name in candidates:
+            if name in row.index and not pd.isnull(row[name]):
+                return row[name]
+        return default
+
+    result = {
+        "rate_40":   amount_40,
+        "rate_20":   amount_20,
+        "exp":       pd.to_datetime(_get_col(best_row, "Exp", "exp"), errors="coerce"),
+        "eff":       pd.to_datetime(_get_col(best_row, "Eff", "eff"), errors="coerce"),
+        "rate_type": str(_get_col(best_row, "Rate_Type", "rate_type", default="")).upper().strip(),
+        "carrier":   carrier.upper(),
+        "contract":  str(_get_col(best_row, "Contract", "contract", default="")).strip(),
+        "note":      str(_get_col(best_row, "Note", "note", "Remark", default="")),
+        "place":     str(_get_col(best_row, "Place", "place", default="")).strip(),
+        "pod":       str(_get_col(best_row, "POD", "pod", default="")).strip(),
+    }
+
+    _gateway_rate_cache[cache_key] = result
+    return result
+
+
+def resolve_inland_gateway(
+    pol: str,
+    pod: str,
+    carrier: str,
+    df: pd.DataFrame,
+) -> dict | None:
+    """
+    For an inland POD, find the cheapest gateway port for a given carrier.
+
+    USATL: tries RIPI via SAV/CHS/NOR first; falls back to IPI via LAX.
+    USCHI/USDAL/USDEN: IPI via LAX/OAK (no label suffix).
+
+    Returns:
+        {gateway_port, routing_label, rate_type_routing, rate_40, rate_20,
+         exp, eff, rate_type, carrier, ...}
+        OR None if no rate found → caller should skip this POD.
+    """
+    config = INLAND_GATEWAY_CONFIG.get(pod.upper())
+    if not config:
+        return None
+
+    dest_city = _INLAND_DEST_CITY.get(pod.upper(), "")
+    if not dest_city:
+        return None
+
+    def _try_gateways(routing_cfg: dict) -> dict | None:
+        for gw in routing_cfg["gateways"]:
+            rate = _query_carrier_rate(
+                pol=pol,
+                gateway_city=gw["city"],
+                carrier=carrier,
+                dest_city=dest_city,
+                df=df,
+            )
+            if rate is not None:
+                return {
+                    **rate,
+                    "gateway_port":      gw["city"],
+                    "routing_label":     gw["label"],
+                    "rate_type_routing": routing_cfg["type"],
+                }
+        return None
+
+    # Try primary routing
+    result = _try_gateways(config["primary"])
+    if result:
+        return result
+
+    # Try fallback (USATL only)
+    if config["fallback"]:
+        return _try_gateways(config["fallback"])
+
+    return None  # No rate found → caller skips POD
+
+
+def clear_gateway_cache() -> None:
+    """Clear session-level gateway rate cache (useful between test runs)."""
+    global _gateway_rate_cache
+    _gateway_rate_cache = {}
+
+
+# ── Rate Type × Carrier Validation Matrix ────────────────────────────────────
+# Maps normalized rate_type → set of valid carriers.
+# Parquet stores "FIX" for what Phase 2 calls "Special". Alias mapped below.
+RATE_TYPE_CARRIER_MATRIX: dict[str, set[str]] = {
+    "SCFI":       {"HPL"},
+    "SPECIAL":    {"CMA", "ONE", "HMM", "YML", "ZIM", "HPL"},
+    "SPECIAL SOC":{"HPL", "YML"},
+    "FAK COC":    {"CMA", "ONE", "HMM", "YML", "ZIM", "HPL", "WHL"},
+    "FAK SOC":    {"HPL", "YML"},
+    # Parquet legacy names — FAK maps to FAK COC (broad), FIX maps to SPECIAL
+    "FAK":        {"CMA", "ONE", "HMM", "YML", "ZIM", "HPL", "WHL"},
+    "FIX":        {"CMA", "ONE", "HMM", "YML", "ZIM", "HPL"},
+}
+
+# Normalized alias: parquet raw value → canonical name used for tie-break logic
+_RATE_TYPE_ALIASES: dict[str, str] = {
+    "FIX": "SPECIAL",
+    "FAK": "FAK COC",
+}
+
+
+def _normalize_rate_type(rt: str) -> str:
+    """Uppercase+strip a rate_type, then apply alias mapping."""
+    normed = str(rt).upper().strip()
+    return _RATE_TYPE_ALIASES.get(normed, normed)
+
+
+def _validate_rate_type_matrix(rates: pd.DataFrame) -> pd.DataFrame:
+    """
+    Drop rows where (Rate_Type, Carrier) combo is not in RATE_TYPE_CARRIER_MATRIX.
+    Logs a warning for each dropped row.
+    Uses 'rate_type' column (normalized lowercase from _query_best_rates output).
+    """
+    if rates.empty:
+        return rates
+
+    keep_mask = []
+    for _, row in rates.iterrows():
+        rt_raw   = str(row.get("rate_type", "")).upper().strip()
+        carrier  = str(row.get("carrier", "")).upper().strip()
+        allowed  = RATE_TYPE_CARRIER_MATRIX.get(rt_raw)
+        if allowed is None:
+            # Unknown rate type — keep it (don't over-filter unknowns)
+            keep_mask.append(True)
+        elif carrier in allowed:
+            keep_mask.append(True)
+        else:
+            log.warning(
+                "[select_top3] INVALID combo — rate_type=%s carrier=%s not in matrix → dropped",
+                rt_raw, carrier,
+            )
+            keep_mask.append(False)
+
+    return rates[keep_mask].reset_index(drop=True)
+
+
+def select_top3_distinct_carriers(rates: pd.DataFrame) -> pd.DataFrame:
+    """
+    Select top 3 distinct carriers by 40HQ price from a multi-row DataFrame.
+
+    Algorithm:
+      1. Validate rate_type × carrier matrix — drop incompatible rows.
+      2. Per (Carrier, Rate_Type): keep cheapest by rate_40 (defensive — Phase 1 already does this).
+      3. Per Carrier: keep 1 row cheapest; SCFI wins tie at same price over non-SCFI.
+      4. Sort carriers by price ASC, take top 3.
+
+    Args:
+        rates: DataFrame with columns [carrier, rate_type, rate_40, ...] (Phase 1 output shape).
+
+    Returns:
+        DataFrame with ≤3 rows, 1 per distinct carrier.
+    """
+    if rates.empty:
+        return rates
+
+    # Step 1: validate matrix
+    valid = _validate_rate_type_matrix(rates)
+    if valid.empty:
+        return valid
+
+    # Normalize rate_type for SCFI tie-break (FIX → SPECIAL alias applied)
+    valid = valid.copy()
+    valid["_rt_norm"] = valid["rate_type"].apply(_normalize_rate_type)
+
+    # Step 2: per (Carrier, rate_type_norm) → keep cheapest row (defensive)
+    per_combo = valid.loc[
+        valid.groupby(["carrier", "_rt_norm"])["rate_40"].idxmin()
+    ].copy()
+
+    # Step 3: per Carrier → keep 1 row, SCFI wins tie
+    per_combo["_scfi_prio"] = (per_combo["_rt_norm"] == "SCFI").astype(int)
+    per_combo = per_combo.sort_values(
+        ["carrier", "rate_40", "_scfi_prio"],
+        ascending=[True, True, False],   # SCFI first at tie (descending priority)
+    )
+    per_carrier = (
+        per_combo.groupby("carrier", sort=False)
+        .head(1)
+        .drop(columns=["_scfi_prio", "_rt_norm"])
+    )
+
+    # Step 4: sort by price ASC, take top 3
+    top3 = per_carrier.sort_values("rate_40").head(3).reset_index(drop=True)
+    return top3
 
 # ── Market Context (AI) ──────────────────────────────────────────────────────
 
@@ -188,7 +510,13 @@ def _load_parquet() -> pd.DataFrame:
 def _query_best_rates(pol: str, place: str, df: pd.DataFrame, top_n: int = 5) -> pd.DataFrame:
     """
     Query Parquet for best rates to a specific place.
-    Returns top_n carriers sorted by price for 40HQ.
+    Returns top_n rows sorted by 40HQ price, 1 row per (Carrier, Rate_Type) combo.
+
+    Output shape (v2 — 2026-04-24):
+      Each unique (Carrier, Rate_Type) pair produces exactly 1 row — the cheapest
+      non-expired rate for that combo.  A single carrier may appear multiple times
+      (e.g., HPL FAK + HPL SCFI) so Phase 2 can compare them before picking top 3.
+
     Includes rate_type, contract, note for downstream SVC column derivation.
     """
     if df is None or df.empty:
@@ -238,19 +566,25 @@ def _query_best_rates(pol: str, place: str, df: pd.DataFrame, top_n: int = 5) ->
         except Exception:
             return pd.NaT
 
-    # Get best rates by carrier for 40HQ (include Eff/Exp dates)
-    # Strategy: pick the LATEST Exp first, then cheapest among latest
+    # Get best rates by (Carrier, Rate_Type) for 40HQ — each combo keeps cheapest
+    # non-expired row.  "Latest Exp first" filter removed: it caused SCFI (earlier
+    # Exp) to be silently killed by FAK (later Exp) within the same carrier.
+    TODAY = pd.Timestamp(datetime.now().date())
     best_40 = {}
     if not results_40.empty:
-        for carrier, grp in results_40.groupby("Carrier"):
+        # Normalize Rate_Type to prevent "SCFI" vs "scfi" duplicates
+        results_40 = results_40.copy()
+        results_40["_rate_type_norm"] = (
+            results_40["Rate_Type"].astype(str).str.upper().str.strip()
+        )
+        for (carrier, rate_type_norm), grp in results_40.groupby(["Carrier", "_rate_type_norm"]):
             grp = grp.copy()
             grp["_exp_ts"] = pd.to_datetime(grp["Exp"], errors="coerce")
-            max_exp = grp["_exp_ts"].max()
-            # Keep only rates with the latest expiry (within 1 day tolerance)
-            latest = grp[grp["_exp_ts"] >= max_exp - pd.Timedelta(days=1)]
-            if latest.empty:
-                latest = grp
-            best_row = latest.loc[latest["Amount"].idxmin()]
+            # Reject expired rows; keep any non-expired rate
+            valid = grp[grp["_exp_ts"] >= TODAY]
+            if valid.empty:
+                continue
+            best_row = valid.loc[valid["Amount"].idxmin()]
             # Exp: try multiple column name variants
             exp_val = _get_col(best_row,
                 "Exp", "exp", "Expiry", "ExpDate", "Exp_Date",
@@ -261,34 +595,37 @@ def _query_best_rates(pol: str, place: str, df: pd.DataFrame, top_n: int = 5) ->
                 "Eff", "eff", "Effective", "EffDate", "Eff_Date",
                 "ValidFrom", "Valid_From", "valid_from", "EffectiveDate",
             )
-            best_40[str(carrier)] = {
+            best_40[(str(carrier), rate_type_norm)] = {
                 "rate_40": float(best_row["Amount"]),
                 "exp":     _parse_date(exp_val),   # pd.Timestamp or NaT
                 "eff":     _parse_date(eff_val),   # pd.Timestamp or NaT
                 "note":    str(_get_col(best_row, "Note", "note", "Remark")),
-                "rate_type": str(_get_col(best_row, "Rate_Type", "rate_type")).strip().upper(),
+                "rate_type": rate_type_norm,
                 "contract":  str(_get_col(best_row, "Contract", "contract")).strip(),
                 "place":     str(_get_col(best_row, "Place", "place")).strip(),
                 "pod":       str(_get_col(best_row, "POD", "pod")).strip(),
             }
 
-    # Get best rates by carrier for 20GP (same logic: latest Exp first)
+    # Get best rates by (Carrier, Rate_Type) for 20GP — cheapest non-expired only
     best_20 = {}
     if not results_20.empty:
-        for carrier, grp in results_20.groupby("Carrier"):
+        results_20 = results_20.copy()
+        results_20["_rate_type_norm"] = (
+            results_20["Rate_Type"].astype(str).str.upper().str.strip()
+        )
+        for (carrier, rate_type_norm), grp in results_20.groupby(["Carrier", "_rate_type_norm"]):
             grp = grp.copy()
             grp["_exp_ts"] = pd.to_datetime(grp["Exp"], errors="coerce")
-            max_exp = grp["_exp_ts"].max()
-            latest = grp[grp["_exp_ts"] >= max_exp - pd.Timedelta(days=1)]
-            if latest.empty:
-                latest = grp
-            best_row = latest.loc[latest["Amount"].idxmin()]
-            best_20[str(carrier)] = float(best_row["Amount"])
+            valid = grp[grp["_exp_ts"] >= TODAY]
+            if valid.empty:
+                continue
+            best_row = valid.loc[valid["Amount"].idxmin()]
+            best_20[(str(carrier), rate_type_norm)] = float(best_row["Amount"])
 
     # Combined: sort by 40HQ rate ascending, take top_n
     rows = []
-    for carrier, data40 in sorted(best_40.items(), key=lambda x: x[1]["rate_40"]):
-        rate_20 = best_20.get(carrier, None)
+    for (carrier, rate_type_norm), data40 in sorted(best_40.items(), key=lambda x: x[1]["rate_40"]):
+        rate_20 = best_20.get((carrier, rate_type_norm), None)
         rows.append({
             "carrier":   carrier,
             "rate_20":   rate_20,
@@ -302,7 +639,9 @@ def _query_best_rates(pol: str, place: str, df: pd.DataFrame, top_n: int = 5) ->
             "pod":       data40.get("pod", ""),
         })
 
-    return pd.DataFrame(rows[:top_n])
+    raw = pd.DataFrame(rows[:top_n])
+    # Phase 2: filter down to ≤3 distinct carriers using the matrix + SCFI tie-break
+    return select_top3_distinct_carriers(raw)
 
 
 # ── HTML Rate Table Builder ──────────────────────────────────────────────────
@@ -637,11 +976,71 @@ def build_rate_table_for_customer(
 
     all_rows = []
     routes_detail = []
+    # Clear gateway cache at start of each build (new session)
+    clear_gateway_cache()
 
     for pod_code in dest_codes:
-        # Map port code to city name for Parquet query
         city_name = port_map.get(pod_code, "")
 
+        # ── Inland POD path: gateway resolver (Phase 3) ──────────────────────
+        if pod_code in INLAND_GATEWAY_CONFIG:
+            # Query each carrier via gateway resolver, collect results
+            _carriers_to_try = list(RATE_TYPE_CARRIER_MATRIX.get("FAK COC", set()))
+            gateway_results = []
+            for _carrier in _carriers_to_try:
+                gw_rate = resolve_inland_gateway(pol=pol, pod=pod_code, carrier=_carrier, df=df)
+                if gw_rate:
+                    gateway_results.append(gw_rate)
+
+            if not gateway_results:
+                log.debug("[AutoRate] Gateway: no rate for inland %s, skipping", pod_code)
+                continue
+
+            # Sort by 40HQ ascending, take top 3 distinct carriers
+            gateway_results.sort(key=lambda r: r.get("rate_40", 9999999))
+            seen_carriers: set[str] = set()
+            top_gw: list[dict] = []
+            for _r in gateway_results:
+                c = _r.get("carrier", "").upper()
+                if c not in seen_carriers:
+                    seen_carriers.add(c)
+                    top_gw.append(_r)
+                if len(top_gw) >= 3:
+                    break
+
+            detail_carriers = []
+            for gw_rate in top_gw:
+                r20 = gw_rate.get("rate_20")
+                r40 = gw_rate.get("rate_40")
+                sell_20 = int(r20 + markup) if r20 and pd.notna(r20) else None
+                sell_40 = int(r40 + markup) if r40 and pd.notna(r40) else None
+                all_rows.append({
+                    "pol":             pol.upper(),
+                    "pod_code":        pod_code,
+                    "place_name":      city_name,
+                    "carrier":         gw_rate.get("carrier", "").upper(),
+                    "rate_20":         sell_20,
+                    "rate_40":         sell_40,
+                    "eff":             gw_rate.get("eff"),
+                    "exp":             gw_rate.get("exp"),
+                    "rate_type":       str(gw_rate.get("rate_type", "")).upper(),
+                    "contract":        str(gw_rate.get("contract", "")),
+                    "parquet_place":   str(gw_rate.get("place", "")),
+                    "parquet_pod":     str(gw_rate.get("gateway_port", "")),
+                    "routing_label":   gw_rate.get("routing_label", ""),
+                    "rate_type_routing": gw_rate.get("rate_type_routing", ""),
+                })
+                detail_carriers.append(gw_rate.get("carrier", "").upper())
+
+            routes_detail.append({"port": pod_code, "place": city_name, "carriers": detail_carriers})
+            log.debug(
+                "[AutoRate] Inland %s → %d carriers (gateway routing, %s)",
+                pod_code, len(top_gw),
+                top_gw[0].get("routing_label") if top_gw else "none",
+            )
+            continue
+
+        # ── Main port path: direct parquet query (existing path) ─────────────
         # Extract just the city part (before comma) for Parquet search
         search_term = city_name.split(",")[0].strip() if city_name else ""
 

@@ -33,6 +33,33 @@ _SAFE_FALLBACK_DESTS = ["USLAX", "USSAV", "USNYC"]
 _SAFE_FALLBACK_MAX = 10
 
 
+def _extract_pod_codes(fast_bulk_value) -> list[str]:
+    """
+    Parse fast_bulk_default from YAML — supports two formats:
+      Legacy (list of strings): [USLAX, USSAV, ...]
+      New (dict with pod_list):  {pod_list: [{code: USLAX, ...}, ...], ...}
+    Returns list of port code strings (upper-stripped).
+    """
+    if fast_bulk_value is None:
+        return []
+    if isinstance(fast_bulk_value, list):
+        # Legacy format: plain list of strings
+        return [str(d).strip().upper() for d in fast_bulk_value if str(d).strip()]
+    if isinstance(fast_bulk_value, dict):
+        pod_list = fast_bulk_value.get("pod_list") or []
+        codes = []
+        for entry in pod_list:
+            if isinstance(entry, str):
+                # String fallback inside dict format
+                codes.append(entry.strip().upper())
+            elif isinstance(entry, dict):
+                code = str(entry.get("code", "")).strip().upper()
+                if code:
+                    codes.append(code)
+        return codes
+    return []
+
+
 def _load_routing_config() -> tuple[list[str], int]:
     """Return (default_destinations, max_destinations_per_email) from YAML."""
     try:
@@ -46,10 +73,22 @@ def _load_routing_config() -> tuple[list[str], int]:
         import yaml  # type: ignore
         with open(yaml_path, "r", encoding="utf-8") as fh:
             data = yaml.safe_load(fh) or {}
-        dests = data.get("fast_bulk_default") or data.get("global_default") or []
-        cleaned = [str(d).strip().upper() for d in dests if str(d).strip()]
-        cap_raw = data.get("max_destinations_per_email", _SAFE_FALLBACK_MAX)
+        fast_bulk = data.get("fast_bulk_default")
+        cleaned = _extract_pod_codes(fast_bulk)
+        if not cleaned:
+            cleaned = _extract_pod_codes(data.get("global_default"))
+        # max cap: prefer nested dict value, then top-level key
+        cap_raw = _SAFE_FALLBACK_MAX
+        if isinstance(fast_bulk, dict):
+            cap_raw = fast_bulk.get("max_destinations_per_email", cap_raw)
+        cap_raw = data.get("max_destinations_per_email", cap_raw)
         cap = int(cap_raw) if cap_raw else _SAFE_FALLBACK_MAX
+        # Enforce cap — truncate with warning if list exceeds limit
+        if len(cleaned) > cap:
+            log.warning(
+                "[builder] pod_list has %d entries > max %d — truncating", len(cleaned), cap
+            )
+            cleaned = cleaned[:cap]
         if cleaned:
             log.info("[builder] routing config loaded: %d lanes, cap=%d", len(cleaned), cap)
             return cleaned, cap
@@ -867,16 +906,114 @@ def build_email(
     # 4. Build tokens
     tokens = _build_tokens(profile, lane_intels, pol, destinations)
 
-    # Prefer auto_rate_builder HTML (Pudong Prime green-header quote style with
-    # BEST pill, SVC column, POL column) — matches Nelson's approved template.
-    # Falls back to _render_rate_table() only if ARB HTML missing.
-    if rate_html_from_builder:
+    # Rate Table v2 renderer: side-by-side HPH/HCM layout with inland styling.
+    # Used when fast_bulk_default pod_list is available (dual-POL workflow).
+    # Falls back to legacy auto_rate_builder HTML for single-POL or legacy paths.
+    rate_table_v2_html = ""
+    try:
+        import sys as _sys
+        _tpl_dir = str(Path(__file__).resolve().parent.parent / "templates")
+        if _tpl_dir not in _sys.path:
+            _sys.path.insert(0, _tpl_dir)
+        from rate_table_renderer import render_dual_rate_table
+
+        # Load pod_list from YAML (includes type/gateway metadata)
+        from shared.paths import DEFAULT_ROUTES_CFG
+        import yaml  # type: ignore
+        _pod_list_full: list[dict] = []
+        try:
+            _yml_path = Path(DEFAULT_ROUTES_CFG) if Path(DEFAULT_ROUTES_CFG).exists() else (
+                Path(__file__).resolve().parent.parent / "config" / "default_routes.yaml"
+            )
+            with open(_yml_path, "r", encoding="utf-8") as _fh:
+                _yd = yaml.safe_load(_fh) or {}
+            _fb = _yd.get("fast_bulk_default", {})
+            if isinstance(_fb, dict):
+                _pod_list_full = [
+                    p for p in (_fb.get("pod_list") or []) if isinstance(p, dict)
+                ]
+        except Exception as _e:
+            log.debug("[builder] pod_list load for renderer: %s", _e)
+
+        # Only use v2 renderer when pol_list has dual POLs AND pod_list is available
+        _dual_pol = isinstance(_yd.get("fast_bulk_default"), dict) and (
+            len(_yd["fast_bulk_default"].get("pol_list") or []) >= 2
+        ) if '_yd' in dir() else False
+
+        if _pod_list_full and _dual_pol:
+            # WHY: CNEE-specific destinations + 10 YAML defaults can merge to >10 POD,
+            # then truncation drops the tail (typically inland IPI PODs: USCHI/USDAL/USDEN).
+            # v2 always renders exactly the 10 YAML pod_list → query rates against THAT list
+            # directly so every row has data, independent of per-CNEE destinations.
+            _full_codes = ",".join(
+                str(p.get("code") or "").upper()
+                for p in _pod_list_full if p.get("code")
+            )
+            _hph_rates: list[dict] = []
+            _hcm_rates: list[dict] = []
+            try:
+                from auto_rate_builder import build_rate_table_for_customer as _brtc
+                _hph_result = _brtc(
+                    pol="HPH",
+                    destinations=_full_codes,
+                    markup=float(markup or 0),
+                    top_per_route=3,
+                    arb_origin=arb_origin if pol.upper() == "HPH" else None,
+                )
+                _hph_rates = _hph_result.get("rates", []) or []
+                _hcm_result = _brtc(
+                    pol="HCM",
+                    destinations=_full_codes,
+                    markup=float(markup or 0),
+                    top_per_route=3,
+                    arb_origin=arb_origin if pol.upper() == "HCM" else None,
+                )
+                _hcm_rates = _hcm_result.get("rates", []) or []
+            except Exception as _e2:
+                log.warning("[builder] v2 dual-POL full rate query failed: %s", _e2)
+                # Fallback: use arb_result (may be incomplete if destinations truncated)
+                _hph_rates = arb_result.get("rates", []) if pol.upper() == "HPH" else []
+                _hcm_rates = arb_result.get("rates", []) if pol.upper() == "HCM" else []
+
+            from datetime import date as _date
+            _week = _date.today().isocalendar()[1]
+            rate_table_v2_html = render_dual_rate_table(
+                hph_rates=_hph_rates,
+                hcm_rates=_hcm_rates,
+                pod_list=_pod_list_full,
+                week=_week,
+            )
+            log.info(
+                "[builder] rate_table_v2: dual HPH+HCM rendered, %d pods, %d+%d rates",
+                len(_pod_list_full), len(_hph_rates), len(_hcm_rates),
+            )
+        elif _pod_list_full:
+            # Single POL mode with v2 styling
+            _rates = arb_result.get("rates", []) if 'arb_result' in dir() else []
+            _hph = _rates if pol.upper() == "HPH" else []
+            _hcm = _rates if pol.upper() != "HPH" else []
+            from datetime import date as _date
+            _week = _date.today().isocalendar()[1]
+            rate_table_v2_html = render_dual_rate_table(
+                hph_rates=_hph,
+                hcm_rates=_hcm,
+                pod_list=_pod_list_full,
+                week=_week,
+            )
+    except Exception as _rv2_err:
+        log.warning("[builder] rate_table_v2 renderer failed (%s) — using legacy", _rv2_err)
+
+    # Priority: v2 side-by-side renderer > auto_rate_builder HTML > _render_rate_table()
+    if rate_table_v2_html:
+        tokens["rate_table_html"] = rate_table_v2_html
+    elif rate_html_from_builder:
         tokens["rate_table_html"] = rate_html_from_builder
 
     # 5. Render intro + rate table + cta + signature (standard structure).
     # The rate table itself IS the Pudong Prime visual upgrade — no shell wrap.
     rendered = render_email(tmpl, tokens)
 
+    _rate_table_ver = "v2_dual" if rate_table_v2_html else ("v1_arb" if rate_html_from_builder else "legacy")
     return {
         "to": cnee_email,
         "subject": rendered["subject"],
@@ -890,6 +1027,6 @@ def build_email(
             "pol": pol,
             "destinations": destinations,
             "lane_states": [ln.get("state") for ln in lane_intels],
-            "rate_table": "pudong_prime_v1",
+            "rate_table": _rate_table_ver,
         },
     }

@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Rate Table v2.1 — Side-by-Side + Inland Port Styling</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Arial, sans-serif; margin: 20px; background: #f5f7fa; color: #111; }
+  h1 { color: #0a4d3c; margin-bottom: 4px; font-size: 20px; }
+  .sub { color: #666; font-size: 13px; margin-bottom: 16px; }
+  .note { background: #fff9e6; border-left: 3px solid #f0b429; padding: 8px 12px; margin: 12px 0; font-size: 13px; border-radius: 4px; }
+
+  /* Distinct headers — HPH = green (North), HCM = blue (South) */
+  .section-title { font-size: 13px; font-weight: 700; padding: 10px 12px; border-radius: 4px 4px 0 0; border: 1px solid; border-bottom: none; text-transform: uppercase; letter-spacing: 0.5px; }
+  .section-title-hph { background: #d4f0dd; color: #0a4d3c; border-color: #8bc9a3; }
+  .section-title-hcm { background: #d9ebf8; color: #0a3d5c; border-color: #7fb3dd; }
+  .pol-flag { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .flag-hph { background: #0a4d3c; }
+  .flag-hcm { background: #0a6cb0; }
+
+  /* Side-by-side wrapper (Outlook-compatible) */
+  .dual-wrap { width: 100%; border-collapse: collapse; }
+  .dual-wrap > tbody > tr > td { vertical-align: top; padding: 0; }
+  .dual-wrap > tbody > tr > td.left  { padding-right: 8px; width: 50%; }
+  .dual-wrap > tbody > tr > td.right { padding-left: 8px;  width: 50%; }
+
+  table.rate { width: 100%; border-collapse: collapse; background: #fff; font-size: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); table-layout: fixed; }
+  table.rate th { padding: 7px 5px; text-align: left; font-weight: 700; border: 1px solid; font-size: 11px; }
+  /* Header tint follows POL color */
+  .rate-hph th { background: #c8e8d4; color: #0a4d3c; border-color: #8bc9a3; }
+  .rate-hcm th { background: #c6dfef; color: #0a3d5c; border-color: #7fb3dd; }
+
+  table.rate td { padding: 6px 5px; border: 1px solid #dce5e0; vertical-align: top; }
+  table.rate tr:nth-child(even) td { background: #fafcfb; }
+
+  /* Column widths — fixed & tight */
+  col.col-pod     { width: 68px; }
+  col.col-carrier { width: calc((100% - 68px) / 3); }
+
+  /* Main port POD cell */
+  .pod-cell { font-weight: 700; color: #0a4d3c; font-size: 12px; }
+
+  /* INLAND port POD cell — tinted blue, stands out from main ports */
+  .pod-inland { background: #eef5ff !important; border-left: 3px solid #0366d6 !important; }
+  .pod-code-inland { color: #0366d6; font-weight: 700; font-size: 12px; }
+  .pod-sub { font-size: 9px; color: #4a6b8a; font-weight: 500; display: block; margin-top: 2px; letter-spacing: 0.2px; }
+  .tacoma-note { font-size: 9px; color: #888; font-weight: 400; display: block; margin-top: 2px; }
+
+  .carrier-cell { overflow: hidden; }
+  .carrier-name { font-weight: 700; font-size: 12px; }
+  .rate-price { font-weight: 600; color: #0a4d3c; white-space: nowrap; font-size: 11.5px; margin-top: 2px; }
+  .rate-meta { color: #666; font-size: 9.5px; margin-top: 1px; line-height: 1.3; }
+
+  .badge-best  { display: inline-block; background: #0a4d3c; color: #fff; font-size: 8px; padding: 1px 4px; border-radius: 2px; margin-left: 3px; vertical-align: middle; letter-spacing: 0.3px; }
+  .badge-short { display: inline-block; background: #e8a617; color: #fff; font-size: 8px; padding: 1px 4px; border-radius: 2px; margin-left: 3px; vertical-align: middle; }
+  .badge-ripi  { display: inline-block; background: #0366d6; color: #fff; font-size: 8px; padding: 1px 4px; border-radius: 2px; margin-left: 3px; vertical-align: middle; font-weight: 700; }
+  .badge-ipi   { display: inline-block; background: #6b46c1; color: #fff; font-size: 8px; padding: 1px 4px; border-radius: 2px; margin-left: 3px; vertical-align: middle; font-weight: 700; }
+
+  .footer { background: #f7f7f7; padding: 12px; margin-top: 16px; font-size: 12px; color: #555; border-radius: 4px; border: 1px solid #e0e0e0; }
+  .count-badge { background: #0a4d3c; color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+  .legend-inline { display: inline-flex; align-items: center; gap: 4px; margin-right: 12px; }
+</style>
+</head>
+<body>
+
+<h1>📊 Rate Table v2.1 — Inland Port Styling + Distinct Headers</h1>
+<div class="sub">4 fixes: all inland POD blue-tinted · city subtitles · tighter columns · HPH vs HCM color-distinct</div>
+
+<div class="note">
+  <strong>📌 4 fixes so với v2:</strong><br>
+  🔵 <strong>Inland ports (USATL/USCHI/USDAL/USDEN)</strong> giờ có cell blue-tint + border-left blue — tách biệt rõ với main ports<br>
+  🏷️ <strong>City subtitle</strong> cho mọi inland POD: Atlanta / Chicago / Dallas / Denver (không chỉ Tacoma nữa)<br>
+  📐 Column widths FIXED (68px POD + 3 cols bằng nhau) · padding giảm 6px/5px — gọn hơn nhưng không che chữ<br>
+  🎨 <strong>HPH = green theme</strong> (North) · <strong>HCM = blue theme</strong> (South) — phân biệt nhanh khi scan
+</div>
+
+<!-- SIDE-BY-SIDE WRAPPER -->
+<table class="dual-wrap" cellpadding="0" cellspacing="0" border="0">
+<tbody>
+<tr>
+
+<!-- ========== LEFT: HPH (GREEN THEME) ========== -->
+<td class="left">
+  <div class="section-title section-title-hph"><span class="pol-flag flag-hph"></span>FROM HAIPHONG (HPH) · Week 17 · Valid to 03 May</div>
+  <table class="rate rate-hph">
+    <colgroup>
+      <col class="col-pod">
+      <col class="col-carrier">
+      <col class="col-carrier">
+      <col class="col-carrier">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>POD</th>
+        <th>⭐ Best Rate</th>
+        <th>2nd Carrier</th>
+        <th>3rd Carrier</th>
+      </tr>
+    </thead>
+    <tbody>
+
+      <tr>
+        <td class="pod-cell">USLAX</td>
+        <td class="carrier-cell">
+          <span class="carrier-name">ONE</span><span class="badge-best">BEST</span>
+          <div class="rate-price">$1,681 / $2,175</div>
+          <div class="rate-meta">Special rate · 9–30 Apr</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">CMA</span>
+          <div class="rate-price">$1,774 / $2,199</div>
+          <div class="rate-meta">Special rate · 8–30 Apr</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">HPL</span>
+          <div class="rate-price">$1,860 / $2,320</div>
+          <div class="rate-meta">FAK COC · 21–30 Apr</div>
+        </td>
+      </tr>
+
+      <tr>
+        <td class="pod-cell">USSAV</td>
+        <td class="carrier-cell">
+          <span class="carrier-name">HPL</span><span class="badge-best">BEST</span><span class="badge-short">SCFI 7d</span>
+          <div class="rate-price">$2,988 / $3,016</div>
+          <div class="rate-meta">SCFI · to 3 May</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">ONE</span>
+          <div class="rate-price">$3,142 / $3,312</div>
+          <div class="rate-meta">Special rate · to 30 Apr</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">CMA</span>
+          <div class="rate-price">$3,200 / $3,450</div>
+          <div class="rate-meta">Special rate · to 15 May</div>
+        </td>
+      </tr>
+
+      <tr>
+        <td class="pod-cell">USNYC</td>
+        <td class="carrier-cell">
+          <span class="carrier-name">HPL</span><span class="badge-best">BEST</span><span class="badge-short">SCFI 7d</span>
+          <div class="rate-price">$3,016 / $3,016</div>
+          <div class="rate-meta">SCFI · to 3 May</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">CMA</span>
+          <div class="rate-price">$3,280 / $3,420</div>
+          <div class="rate-meta">Special rate · to 15 May</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">YML</span>
+          <div class="rate-price">$3,350 / $3,550</div>
+          <div class="rate-meta">Special rate · to 30 Apr</div>
+        </td>
+      </tr>
+
+      <tr>
+        <td class="pod-cell">USHOU</td>
+        <td class="carrier-cell">
+          <span class="carrier-name">CMA</span><span class="badge-best">BEST</span>
+          <div class="rate-price">$2,980 / $3,620</div>
+          <div class="rate-meta">Special rate · to 15 May</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">ONE</span>
+          <div class="rate-price">$3,050 / $3,700</div>
+          <div class="rate-meta">Special rate · to 30 Apr</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">HPL</span>
+          <div class="rate-price">$3,180 / $3,820</div>
+          <div class="rate-meta">FAK COC · to 14 May</div>
+        </td>
+      </tr>
+
+      <tr>
+        <td class="pod-cell">USMIA</td>
+        <td class="carrier-cell">
+          <span class="carrier-name">HPL</span><span class="badge-best">BEST</span><span class="badge-short">SCFI 7d</span>
+          <div class="rate-price">$3,050 / $3,450</div>
+          <div class="rate-meta">SCFI · to 3 May</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">CMA</span>
+          <div class="rate-price">$3,280 / $3,680</div>
+          <div class="rate-meta">Special rate · to 15 May</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">ZIM</span>
+          <div class="rate-price">$3,400 / $3,820</div>
+          <div class="rate-meta">FAK COC · to 30 Apr</div>
+        </td>
+      </tr>
+
+      <tr>
+        <td class="pod-cell">USTIW<span class="tacoma-note">Tacoma</span></td>
+        <td class="carrier-cell">
+          <span class="carrier-name">YML</span><span class="badge-best">BEST</span>
+          <div class="rate-price">$1,570 / $2,580</div>
+          <div class="rate-meta">Special SOC · to 30 Apr</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">ONE</span>
+          <div class="rate-price">$1,681 / $2,175</div>
+          <div class="rate-meta">Special rate · to 30 Apr</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">CMA</span>
+          <div class="rate-price">$1,820 / $2,250</div>
+          <div class="rate-meta">Special rate · to 15 May</div>
+        </td>
+      </tr>
+
+      <!-- INLAND: USATL via RIPI -->
+      <tr>
+        <td class="pod-cell pod-inland">
+          <span class="pod-code-inland">USATL</span><span class="badge-ripi">RIPI</span>
+          <span class="pod-sub">Atlanta</span>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">HPL</span><span class="badge-best">BEST</span><span class="badge-short">SCFI 7d</span>
+          <div class="rate-price">$3,580 / $4,120</div>
+          <div class="rate-meta">SCFI · via CHS · to 3 May</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">ONE</span>
+          <div class="rate-price">$3,780 / $4,350</div>
+          <div class="rate-meta">Special rate · via NOR</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">CMA</span>
+          <div class="rate-price">$3,850 / $4,420</div>
+          <div class="rate-meta">Special rate · via SAV</div>
+        </td>
+      </tr>
+
+      <!-- INLAND: USCHI IPI -->
+      <tr>
+        <td class="pod-cell pod-inland">
+          <span class="pod-code-inland">USCHI</span><span class="badge-ipi">IPI</span>
+          <span class="pod-sub">Chicago</span>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">ONE</span><span class="badge-best">BEST</span>
+          <div class="rate-price">$3,450 / $4,020</div>
+          <div class="rate-meta">Special rate · to 30 Apr</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">HPL</span><span class="badge-short">SCFI 7d</span>
+          <div class="rate-price">$3,520 / $4,080</div>
+          <div class="rate-meta">SCFI · to 3 May</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">CMA</span>
+          <div class="rate-price">$3,620 / $4,180</div>
+          <div class="rate-meta">Special rate · to 15 May</div>
+        </td>
+      </tr>
+
+      <!-- INLAND: USDAL IPI -->
+      <tr>
+        <td class="pod-cell pod-inland">
+          <span class="pod-code-inland">USDAL</span><span class="badge-ipi">IPI</span>
+          <span class="pod-sub">Dallas</span>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">CMA</span><span class="badge-best">BEST</span>
+          <div class="rate-price">$3,280 / $3,850</div>
+          <div class="rate-meta">Special rate · to 15 May</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">ONE</span>
+          <div class="rate-price">$3,380 / $3,980</div>
+          <div class="rate-meta">Special rate · to 30 Apr</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">HPL</span>
+          <div class="rate-price">$3,480 / $4,050</div>
+          <div class="rate-meta">FAK COC · to 14 May</div>
+        </td>
+      </tr>
+
+      <!-- INLAND: USDEN IPI -->
+      <tr>
+        <td class="pod-cell pod-inland">
+          <span class="pod-code-inland">USDEN</span><span class="badge-ipi">IPI</span>
+          <span class="pod-sub">Denver</span>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">ONE</span><span class="badge-best">BEST</span>
+          <div class="rate-price">$3,850 / $4,420</div>
+          <div class="rate-meta">Special rate · to 30 Apr</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">HPL</span>
+          <div class="rate-price">$3,920 / $4,520</div>
+          <div class="rate-meta">FAK COC · to 14 May</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">CMA</span>
+          <div class="rate-price">$3,980 / $4,580</div>
+          <div class="rate-meta">Special rate · to 15 May</div>
+        </td>
+      </tr>
+
+    </tbody>
+  </table>
+</td>
+
+<!-- ========== RIGHT: HCM (BLUE THEME) ========== -->
+<td class="right">
+  <div class="section-title section-title-hcm"><span class="pol-flag flag-hcm"></span>FROM HO CHI MINH (HCM) · Week 17 · Valid to 03 May</div>
+  <table class="rate rate-hcm">
+    <colgroup>
+      <col class="col-pod">
+      <col class="col-carrier">
+      <col class="col-carrier">
+      <col class="col-carrier">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>POD</th>
+        <th>⭐ Best Rate</th>
+        <th>2nd Carrier</th>
+        <th>3rd Carrier</th>
+      </tr>
+    </thead>
+    <tbody>
+
+      <tr>
+        <td class="pod-cell">USLAX</td>
+        <td class="carrier-cell">
+          <span class="carrier-name">ONE</span><span class="badge-best">BEST</span>
+          <div class="rate-price">$1,681 / $2,175</div>
+          <div class="rate-meta">Special rate · 9–30 Apr</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">CMA</span>
+          <div class="rate-price">$1,774 / $2,199</div>
+          <div class="rate-meta">Special rate · 8–30 Apr</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">WHL</span>
+          <div class="rate-price">$1,860 / $2,320</div>
+          <div class="rate-meta">FAK COC · 21–30 Apr</div>
+        </td>
+      </tr>
+
+      <tr>
+        <td class="pod-cell">USSAV</td>
+        <td class="carrier-cell">
+          <span class="carrier-name">HPL</span><span class="badge-best">BEST</span><span class="badge-short">SCFI 7d</span>
+          <div class="rate-price">$2,988 / $3,016</div>
+          <div class="rate-meta">SCFI · to 3 May</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">ONE</span>
+          <div class="rate-price">$3,142 / $3,312</div>
+          <div class="rate-meta">Special rate · to 30 Apr</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">CMA</span>
+          <div class="rate-price">$3,200 / $3,450</div>
+          <div class="rate-meta">Special rate · to 15 May</div>
+        </td>
+      </tr>
+
+      <tr>
+        <td class="pod-cell">USNYC</td>
+        <td class="carrier-cell">
+          <span class="carrier-name">HPL</span><span class="badge-best">BEST</span><span class="badge-short">SCFI 7d</span>
+          <div class="rate-price">$2,417 / $3,016</div>
+          <div class="rate-meta">SCFI · to 3 May</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">ONE</span>
+          <div class="rate-price">$2,593 / $3,312</div>
+          <div class="rate-meta">Special rate · to 30 Apr</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">CMA</span>
+          <div class="rate-price">$2,680 / $3,420</div>
+          <div class="rate-meta">Special rate · to 15 May</div>
+        </td>
+      </tr>
+
+      <tr>
+        <td class="pod-cell">USHOU</td>
+        <td class="carrier-cell">
+          <span class="carrier-name">CMA</span><span class="badge-best">BEST</span>
+          <div class="rate-price">$2,880 / $3,520</div>
+          <div class="rate-meta">Special rate · to 15 May</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">ONE</span>
+          <div class="rate-price">$2,950 / $3,600</div>
+          <div class="rate-meta">Special rate · to 30 Apr</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">HPL</span>
+          <div class="rate-price">$3,080 / $3,720</div>
+          <div class="rate-meta">FAK COC · to 14 May</div>
+        </td>
+      </tr>
+
+      <tr>
+        <td class="pod-cell">USMIA</td>
+        <td class="carrier-cell">
+          <span class="carrier-name">HPL</span><span class="badge-best">BEST</span><span class="badge-short">SCFI 7d</span>
+          <div class="rate-price">$2,950 / $3,350</div>
+          <div class="rate-meta">SCFI · to 3 May</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">CMA</span>
+          <div class="rate-price">$3,180 / $3,580</div>
+          <div class="rate-meta">Special rate · to 15 May</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">ZIM</span>
+          <div class="rate-price">$3,300 / $3,720</div>
+          <div class="rate-meta">FAK COC · to 30 Apr</div>
+        </td>
+      </tr>
+
+      <tr>
+        <td class="pod-cell">USTIW<span class="tacoma-note">Tacoma</span></td>
+        <td class="carrier-cell">
+          <span class="carrier-name">YML</span><span class="badge-best">BEST</span>
+          <div class="rate-price">$1,570 / $2,580</div>
+          <div class="rate-meta">Special SOC · to 30 Apr</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">ONE</span>
+          <div class="rate-price">$1,681 / $2,175</div>
+          <div class="rate-meta">Special rate · to 30 Apr</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">CMA</span>
+          <div class="rate-price">$1,820 / $2,250</div>
+          <div class="rate-meta">Special rate · to 15 May</div>
+        </td>
+      </tr>
+
+      <!-- INLAND: USATL via RIPI -->
+      <tr>
+        <td class="pod-cell pod-inland">
+          <span class="pod-code-inland">USATL</span><span class="badge-ripi">RIPI</span>
+          <span class="pod-sub">Atlanta</span>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">HPL</span><span class="badge-best">BEST</span><span class="badge-short">SCFI 7d</span>
+          <div class="rate-price">$3,480 / $4,020</div>
+          <div class="rate-meta">SCFI · via CHS · to 3 May</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">ONE</span>
+          <div class="rate-price">$3,680 / $4,250</div>
+          <div class="rate-meta">Special rate · via NOR</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">CMA</span>
+          <div class="rate-price">$3,750 / $4,320</div>
+          <div class="rate-meta">Special rate · via SAV</div>
+        </td>
+      </tr>
+
+      <!-- INLAND: USCHI IPI -->
+      <tr>
+        <td class="pod-cell pod-inland">
+          <span class="pod-code-inland">USCHI</span><span class="badge-ipi">IPI</span>
+          <span class="pod-sub">Chicago</span>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">ONE</span><span class="badge-best">BEST</span>
+          <div class="rate-price">$3,350 / $3,920</div>
+          <div class="rate-meta">Special rate · to 30 Apr</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">HPL</span><span class="badge-short">SCFI 7d</span>
+          <div class="rate-price">$3,420 / $3,980</div>
+          <div class="rate-meta">SCFI · to 3 May</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">CMA</span>
+          <div class="rate-price">$3,520 / $4,080</div>
+          <div class="rate-meta">Special rate · to 15 May</div>
+        </td>
+      </tr>
+
+      <!-- INLAND: USDAL IPI -->
+      <tr>
+        <td class="pod-cell pod-inland">
+          <span class="pod-code-inland">USDAL</span><span class="badge-ipi">IPI</span>
+          <span class="pod-sub">Dallas</span>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">CMA</span><span class="badge-best">BEST</span>
+          <div class="rate-price">$3,180 / $3,750</div>
+          <div class="rate-meta">Special rate · to 15 May</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">ONE</span>
+          <div class="rate-price">$3,280 / $3,880</div>
+          <div class="rate-meta">Special rate · to 30 Apr</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">HPL</span>
+          <div class="rate-price">$3,380 / $3,950</div>
+          <div class="rate-meta">FAK COC · to 14 May</div>
+        </td>
+      </tr>
+
+      <!-- INLAND: USDEN IPI -->
+      <tr>
+        <td class="pod-cell pod-inland">
+          <span class="pod-code-inland">USDEN</span><span class="badge-ipi">IPI</span>
+          <span class="pod-sub">Denver</span>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">ONE</span><span class="badge-best">BEST</span>
+          <div class="rate-price">$3,750 / $4,320</div>
+          <div class="rate-meta">Special rate · to 30 Apr</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">HPL</span>
+          <div class="rate-price">$3,820 / $4,420</div>
+          <div class="rate-meta">FAK COC · to 14 May</div>
+        </td>
+        <td class="carrier-cell">
+          <span class="carrier-name">CMA</span>
+          <div class="rate-price">$3,880 / $4,480</div>
+          <div class="rate-meta">Special rate · to 15 May</div>
+        </td>
+      </tr>
+
+    </tbody>
+  </table>
+</td>
+
+</tr>
+</tbody>
+</table>
+<!-- END SIDE-BY-SIDE -->
+
+<div class="footer">
+  <strong>📋 Badge key:</strong><br>
+  <span class="legend-inline"><span class="badge-best">BEST</span> = top pick per POD</span>
+  <span class="legend-inline"><span class="badge-short">SCFI 7d</span> = HPL index, re-confirm weekly</span>
+  <span class="legend-inline"><span class="badge-ripi">RIPI</span> = Rail via East Coast (CHS/NOR/SAV) — cheaper</span>
+  <span class="legend-inline"><span class="badge-ipi">IPI</span> = Rail via West Coast to inland hub</span>
+  <br><br>
+  <strong>📋 Rate types (inline meta under carrier):</strong><br>
+  • <strong style="color:#c2410c">SCFI</strong> — HPL only · ~7-day validity<br>
+  • <strong style="color:#0a4d3c">Special rate</strong> — fixed contract · CMA/ONE/HMM/YML/ZIM/HPL<br>
+  • <strong style="color:#0a4d3c">Special SOC</strong> — fixed + Shipper-Owned Container<br>
+  • <strong style="color:#555">FAK COC</strong> — Freight All Kinds + Carrier-Owned Container<br>
+  <br>
+  <strong>📐 Layout:</strong> <span class="count-badge">10 rows × 2 cols</span> · inland POD blue-bordered · HPH green / HCM blue headers<br>
+  <strong>📧 Email width:</strong> ~1100px desktop Outlook · mobile stack via media query
+</div>
+
+</body>
+</html>

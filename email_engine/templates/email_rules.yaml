@@ -21,18 +21,18 @@ templates:
 
   # ─── 0. Cross-sell (10-lane default) ───────────────────────────────────
   # Matches bulk-send defaults from config/default_routes.yaml:fast_bulk_default.
-  # Placed FIRST so it wins scoring when the full 10-lane menu is in play
-  # (West + East + Gulf + Inland + Canada corridors).
+  # Placed FIRST so it wins scoring when the full 10-lane menu is in play.
+  # 10 lanes: USLAX + USSAV + USNYC + USHOU + USMIA + USTIW + 4 inland
   - id: default_cross_sell
     match:
-      destinations: [USLAX, USOAK, USTIW, USSAV, USNYC, USMIA, USHOU, USCHI, USDAL, CAVAN]
+      destinations: [USLAX, USSAV, USNYC, USHOU, USMIA, USTIW, USATL, USCHI, USDAL, USDEN]
       states: [any]
-    subject: "Ocean Freight Update — Asia to USA/Canada | Week {{week}} | {{suffix}}"
+    subject: "Ocean Freight Update — Asia to USA | Week {{week}} | {{suffix}}"
     intro: |
       Dear {{first_name}},
 
-      Please find our latest ocean freight rates covering our main
-      US and Canada corridors. Rates valid through end of the month.
+      Please find our latest ocean freight rates for our main US corridors.
+      Rates valid through {{earliest_exp}}.
     cta: |
       Please confirm booking 7 days before ETD.
       Reply with your specific lane for a detailed quote.

@@ -23,11 +23,24 @@ pol:
 global_default: [USLAX, USLGB, USNYC, USSAV, USHOU]
 
 # Bulk blast default (Rate & Send / Quick Send) — used when CNEE row has no
-# DESTINATION column. 10 main lanes covering HPH/HCM → US main ports + Canada.
+# DESTINATION column. 10 main lanes covering HPH/HCM → US main ports + inland.
 # Edit this list to change bulk-send defaults without touching code.
-# Cross-sell strategy (2026-04-23): always show 10 lanes so single-POD CNEE
-# discovers alternative corridors. CAVAN included for Canada coverage.
-fast_bulk_default: [USLAX, USOAK, USTIW, USSAV, USNYC, USMIA, USHOU, USCHI, USDAL, CAVAN]
+# Phase 2 (2026-04-24): expanded to structured dict format with gateway metadata.
+# Backward-compat: loaders accept both string list (legacy) and dict list (new).
+fast_bulk_default:
+  pod_list:
+    - {code: USLAX, city: "Los Angeles", type: main}
+    - {code: USSAV, city: "Savannah",    type: main}
+    - {code: USNYC, city: "New York",    type: main}
+    - {code: USHOU, city: "Houston",     type: main}
+    - {code: USMIA, city: "Miami",       type: main}
+    - {code: USTIW, city: "Tacoma",      type: main}
+    - {code: USATL, city: "Atlanta",     type: inland, gateway: RIPI, via: [CHS, NOR, SAV]}
+    - {code: USCHI, city: "Chicago",     type: inland, gateway: IPI,  via: [LAX, OAK]}
+    - {code: USDAL, city: "Dallas",      type: inland, gateway: IPI,  via: [LAX, OAK]}
+    - {code: USDEN, city: "Denver",      type: inland, gateway: IPI,  via: [LAX, OAK]}
+  pol_list: [HPH, HCM]
+  max_destinations_per_email: 10
 
 # Maximum destinations per single email (enforced in builder.build_email)
 max_destinations_per_email: 10

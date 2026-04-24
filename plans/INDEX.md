@@ -1,6 +1,6 @@
 # Plans Index — Active + Pending
 
-**Last updated:** 2026-04-24 (archived v6 — fully superseded by v7 SHIPPED)
+**Last updated:** 2026-04-24 (SHIPPED `260424-rate-table-v2-redesign` Phase 1-4 auto-checks — HPL SCFI surface HCM→USSAV/USNYC; USATL RIPI via SAV; 10 POD default live)
 **Purpose:** Single source of truth for "what plans are still open?" — so AI and Nelson don't have to re-scan every session.
 
 > Maintenance rule: khi một plan SHIP hoàn toàn → `git mv` vào `plans/archive/completed-YYYY-MM/` và xoá row khỏi bảng này.
@@ -33,6 +33,7 @@
 
 | Plan | Moved to | Why |
 |------|----------|-----|
+| 260424-rate-table-v2-redesign | `archive/completed-2026-04/` | SHIPPED 2026-04-24. Phase 1-4 auto-checks pass. HCM→USSAV: HPL SCFI $3008 (BEST). HCM→USNYC: HPL SCFI $3036. USATL via SAV (RIPI). 10 POD default live. HTML renderer 18.6KB. Pending Nelson manual Outlook send test + git commit. |
 | 260422-1800-email-dashboard-v6-master | `archive/completed-2026-04/260422-email-dashboard-v6-superseded-by-v7` | v7 SHIPPED (commit `e7375e9` + 2026-04-24 stability hardening). Remaining v6 phases (WhatsApp/LinkedIn) are speculative — spawn new plan if pursued. |
 | 260422-2100-daily-rotation-engine | `archive/completed-2026-04/` | Status=completed, batch ROT_1776868843 verified 700/700 SENT. Memory confirms SHIPPED. |
 

@@ -2004,6 +2004,30 @@ CNEE_MASTER_V2_PATH = _resolve_cnee_master_v2()
 # edit without code change. Minimal safe fallback if YAML missing/corrupt.
 _FALLBACK_DESTINATIONS = ["USLAX", "USSAV", "USNYC"]
 
+def _extract_pod_codes_ws(fast_bulk_value) -> list[str]:
+    """
+    Parse fast_bulk_default from YAML — backward-compat for both formats:
+      Legacy: [USLAX, USSAV, ...]
+      New:    {pod_list: [{code: USLAX, ...}, ...], pol_list: [...], max_destinations_per_email: 10}
+    """
+    if fast_bulk_value is None:
+        return []
+    if isinstance(fast_bulk_value, list):
+        return [str(d).strip().upper() for d in fast_bulk_value if str(d).strip()]
+    if isinstance(fast_bulk_value, dict):
+        pod_list = fast_bulk_value.get("pod_list") or []
+        codes = []
+        for entry in pod_list:
+            if isinstance(entry, str):
+                codes.append(entry.strip().upper())
+            elif isinstance(entry, dict):
+                code = str(entry.get("code", "")).strip().upper()
+                if code:
+                    codes.append(code)
+        return codes
+    return []
+
+
 def _load_default_destinations() -> list[str]:
     from shared.paths import DEFAULT_ROUTES_CFG
     _local = BASE_DIR / "config" / "default_routes.yaml"
@@ -2012,8 +2036,18 @@ def _load_default_destinations() -> list[str]:
         import yaml as _yaml
         with open(path, "r", encoding="utf-8") as fh:
             data = _yaml.safe_load(fh) or {}
-        dests = data.get("fast_bulk_default") or data.get("global_default") or []
-        cleaned = [str(d).strip().upper() for d in dests if str(d).strip()]
+        fast_bulk = data.get("fast_bulk_default")
+        cleaned = _extract_pod_codes_ws(fast_bulk)
+        if not cleaned:
+            cleaned = _extract_pod_codes_ws(data.get("global_default"))
+        # Enforce max_destinations_per_email cap
+        cap = 10
+        if isinstance(fast_bulk, dict):
+            cap = fast_bulk.get("max_destinations_per_email", cap)
+        cap = data.get("max_destinations_per_email", cap)
+        if len(cleaned) > cap:
+            log.warning(f"DEFAULT_DESTINATIONS: pod_list {len(cleaned)} > max {cap} — truncating")
+            cleaned = cleaned[:cap]
         if cleaned:
             log.info(f"DEFAULT_DESTINATIONS loaded from YAML: {len(cleaned)} lanes")
             return cleaned
@@ -2109,6 +2143,10 @@ class BatchEnqueueRequest(BaseModel):
     # skip_cooldown: if True, bypass cooldown check (still blocks HARD_BOUNCE/UNSUB)
     cooldown_days: int = 14
     skip_cooldown: bool = False
+    # Smart Draft (2026-04-24): when Nelson intentionally picks a VIP/PERSONALIZED
+    # contact and reviews the draft, bypass priority_filter guard. Flag ONLY used
+    # by Smart Draft UI (single CNEE) — Quick Send/rotation never sets this.
+    skip_priority: bool = False
 
 
 def _row_to_profile(row: dict) -> dict:
@@ -2234,7 +2272,8 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
                 skipped.append({"email": em, "reason": f"competitor blocked ({comp_reason})"})
                 continue
         # Priority isolation — personal-outreach/replied contacts never blasted (unless test_mode).
-        if not req.test_mode:
+        # skip_priority flag (Smart Draft): Nelson đã intentionally chọn CNEE + reviewed draft.
+        if not req.test_mode and not req.skip_priority:
             from email_engine.core.priority_filter import is_priority_row, priority_reason
             if is_priority_row(row):
                 skipped.append({"email": em, "reason": f"priority ({priority_reason(row)}) — use /api/prospects/priority"})

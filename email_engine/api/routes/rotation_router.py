@@ -364,11 +364,12 @@ def run_today(
                 detail="Preview required. POST /api/rotation/preview-in-outlook first, then pass the returned preview_token here.",
             )
 
-    background_tasks.add_task(_run_rotation_background, today, markup, campaign)
+    background_tasks.add_task(_run_rotation_background, today, markup, campaign, force)
     return {
         "status": "queued",
         "date": today.isoformat(),
         "user_markup": markup,
+        "force": force,
         "message": "Rotation triggered in background. Check /api/rotation/today in ~10s.",
     }
 
@@ -494,11 +495,14 @@ def _consume_preview_token(token: str) -> bool:
 @router.post("/preview-in-outlook")
 def preview_in_outlook(
     markup: int = Query(default=20, ge=0, le=500),
+    force: bool = Query(default=False, description="Override weekend/holiday skip"),
 ) -> dict[str, Any]:
     """Open top-priority CNEE's FULL email (rate table + intro + signature + logo)
     in Outlook via COM .Display() so Nelson can review before confirming batch send.
 
     Returns a `preview_token` that must be passed to POST /run-today within 10 min.
+
+    When force=true, override weekend/holiday skip and build plan anyway.
     """
     try:
         from email_engine.core.rotation_engine import build_daily_plan
@@ -507,16 +511,20 @@ def preview_in_outlook(
         raise HTTPException(status_code=503, detail=f"Engine unavailable: {exc}")
 
     plan = _load_plan(date.today())
-    if plan is None or plan.get("skipped_reason"):
+    if plan is None or plan.get("skipped_reason") or force:
         try:
-            plan = build_daily_plan()
+            plan = build_daily_plan(force_build=force)
         except Exception as exc:
             raise HTTPException(status_code=503, detail=f"Plan build failed: {exc}")
 
     # Pick first commodity's first email (rotation_engine already sorts by priority)
     by_commodity = plan.get("by_commodity", {})
     if not by_commodity:
-        raise HTTPException(status_code=404, detail="No commodities in today's plan")
+        skip_reason = plan.get("skipped_reason") or "no eligible commodities"
+        raise HTTPException(
+            status_code=404,
+            detail=f"Rotation skipped: {skip_reason}. Use ?force=true to override.",
+        )
 
     first_commodity = None
     sample_email = None
@@ -715,10 +723,11 @@ def _run_rotation_background(
     target_date: date,
     user_markup: int = 20,
     campaign_override: Optional[str] = None,
+    force_build: bool = False,
 ) -> None:
     try:
         from email_engine.core.rotation_engine import build_daily_plan, queue_to_outlook_worker
-        plan = build_daily_plan(target_date=target_date)
+        plan = build_daily_plan(target_date=target_date, force_build=force_build)
         queued = queue_to_outlook_worker(
             plan,
             user_markup=user_markup,
