@@ -218,6 +218,20 @@ progress::-moz-progress-bar{background:var(--accent);border-radius:5px}
 .rp-stats{font-size:11.5px;color:var(--muted);min-width:150px;text-align:right;font-family:'JetBrains Mono',monospace;white-space:nowrap}
 .rp-grand-total{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);text-align:center;font-size:13px;font-weight:500;color:var(--ink-2)}
 
+/* Session Progress Panel — live batch in-flight. Accent border to pop. */
+.session-panel{background:#fff8f0;border:2px solid #d97706;border-radius:6px;padding:14px 18px;margin-bottom:18px;box-shadow:0 2px 8px rgba(217,119,6,.15);animation:sessPulse 2s ease-in-out infinite}
+@keyframes sessPulse{0%,100%{box-shadow:0 2px 8px rgba(217,119,6,.15)}50%{box-shadow:0 2px 14px rgba(217,119,6,.35)}}
+.session-panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px dashed #e5b073}
+.session-panel-title{font-weight:700;color:#92400e;font-size:13.5px}
+.session-panel-meta{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#78350f}
+.session-panel-body{display:flex;flex-direction:column;gap:6px}
+.sess-row{display:grid;grid-template-columns:140px 1fr auto;gap:10px;align-items:center;font-size:12.5px}
+.sess-label{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#78350f;letter-spacing:.04em}
+.sess-bar-bg{height:10px;background:#fde4c0;border-radius:5px;overflow:hidden}
+.sess-bar-fill{height:100%;background:linear-gradient(90deg,#f59e0b,#d97706);transition:width .6s cubic-bezier(.4,0,.2,1);border-radius:5px;box-shadow:inset 0 1px 2px rgba(0,0,0,.1)}
+.sess-count{font-family:'JetBrains Mono',monospace;font-size:11px;color:#78350f;min-width:110px;text-align:right}
+.session-panel-error{margin-top:10px;padding:8px 10px;background:#fee2e2;border:1px solid #fca5a5;border-radius:4px;font-size:11.5px;color:#b91c1c;font-family:'JetBrains Mono',monospace}
+
 /* Quota modal */
 .quota-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;align-items:center;justify-content:center}
 .quota-modal-overlay.open{display:flex}
@@ -409,7 +423,7 @@ details.manual-override[open] > summary {
   <!-- Phase 2.5: Send Stats Counter Widget -->
   <div class="stat-widget" id="sendStatsWidget" style="display:flex;gap:16px;padding:14px 20px;margin-bottom:20px;background:var(--paper-2);border-radius:4px;border:1px solid var(--line);flex-wrap:wrap;align-items:center">
     <span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-right:4px">Pool</span>
-    <div style="font-size:13px">Total: <b id="statTotal" style="font-family:'JetBrains Mono',monospace">—</b></div>
+    <div style="font-size:13px">Total: <b id="statTotal" style="font-family:'JetBrains Mono',monospace">—</b><span id="statRetired" title="" style="display:none;margin-left:6px;font-size:11px;padding:1px 6px;border-radius:10px;background:rgba(239,68,68,.12);color:#ef4444;font-family:'JetBrains Mono',monospace;cursor:help">—</span></div>
     <div style="font-size:13px;color:var(--accent)">Chua gui: <b id="statUnsent" style="font-family:'JetBrains Mono',monospace">—</b></div>
     <div style="font-size:13px">Da gui 1+: <b id="statSent" style="font-family:'JetBrains Mono',monospace">—</b></div>
     <div style="font-size:13px;color:var(--warn)">Cooldown 14d: <b id="statCooldown" style="font-family:'JetBrains Mono',monospace">—</b></div>
@@ -449,7 +463,7 @@ details.manual-override[open] > summary {
       <span class="rt-today-label">HÔM NAY: <b id="rtTodaySent">—</b> / <b id="rtTodayTarget">—</b></span>
       <progress id="rtTodayProgress" max="700" value="0"></progress>
       <span id="rtTodayPct">0%</span>
-      <button class="btn btn-primary btn-sm" id="rtStartBatch" onclick="startTodayBatch()">&#9654; Start batch</button>
+      <button class="btn btn-primary btn-sm" id="rtStartBatch" onclick="smartSendFlow()">&#9654; Smart Send</button>
     </div>
     <div class="rt-yesterday" id="rtYesterday">HÔM QUA: — sent</div>
   </div>
@@ -467,11 +481,19 @@ details.manual-override[open] > summary {
       <span style="color:var(--muted);font-size:12px;white-space:nowrap">Subject</span>
       <span style="color:var(--muted);font-size:12px">Random 5 templates / email (anti-spam)</span>
 
-      <span></span>
-      <button class="btn btn-sm" onclick="openPreviewModal()" style="width:fit-content;border-color:var(--accent);color:var(--accent);background:var(--paper)">
-        &#128065; Preview 3 samples
-      </button>
+      <span style="color:var(--muted);font-size:12px;white-space:nowrap">Flow</span>
+      <span style="color:var(--muted);font-size:12px">Bấm <b>Smart Send</b> &rarr; Outlook mở email VIP đầu tiên (content thật + signature + logo) &rarr; check OK &rarr; bấm <b>Confirm &amp; Send All</b></span>
     </div>
+  </div>
+
+  <!-- Widget B0: Session Progress — live batch in-flight, poll 2s -->
+  <div id="sessionProgressPanel" class="session-panel" style="display:none">
+    <div class="session-panel-head">
+      <span class="session-panel-title">🚀 Batch đang chạy</span>
+      <span id="sessionHead" class="session-panel-meta">—</span>
+    </div>
+    <div id="sessionBody" class="session-panel-body"></div>
+    <div id="sessionError" class="session-panel-error" style="display:none"></div>
   </div>
 
   <!-- Widget B: Commodity Progress -->
@@ -2117,20 +2139,56 @@ function bindControls(){
 }
 
 /* ═══════════════ SEND STATS WIDGET (Phase 2.5) ═══════════════ */
+const _tweenState = {};
+function _tweenCount(id, newVal) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const from = _tweenState[id] ?? (parseInt((el.textContent || '0').replace(/[^0-9-]/g, '')) || 0);
+  const to = typeof newVal === 'number' ? newVal : 0;
+  if (from === to) { el.textContent = to.toLocaleString(); _tweenState[id] = to; return; }
+  const start = performance.now();
+  const dur = 400;
+  const step = (t) => {
+    const p = Math.min(1, (t - start) / dur);
+    const eased = 1 - Math.pow(1 - p, 3);
+    const v = Math.round(from + (to - from) * eased);
+    el.textContent = v.toLocaleString();
+    if (p < 1) requestAnimationFrame(step);
+    else _tweenState[id] = to;
+  };
+  requestAnimationFrame(step);
+}
+
 async function loadSendStats() {
   try {
     const d = await fetch('http://localhost:8100/api/send-stats').then(r => r.json());
-    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val != null ? val.toLocaleString() : '—'; };
-    set('statTotal', d.total);
-    set('statUnsent', d.unsent);
-    set('statSent', d.sent_once_plus);
-    set('statCooldown', d.in_cooldown);
-    set('statToday', d.sent_today);
+    _tweenCount('statTotal', d.total);
+    _tweenCount('statUnsent', d.unsent);
+    _tweenCount('statSent', d.sent_once_plus);
+    _tweenCount('statCooldown', d.in_cooldown);
+    _tweenCount('statToday', d.sent_today);
+    const badge = document.getElementById('statRetired');
+    if (badge) {
+      const retired = d.retired || 0;
+      if (retired > 0) {
+        const bk = d.retired_breakdown || {};
+        const tip = Object.entries(bk).map(([k, v]) => `${k}: ${v.toLocaleString()}`).join(' · ') || `${retired} retired`;
+        badge.textContent = `🗑 −${retired.toLocaleString()}`;
+        badge.title = `Ẩn khỏi pool (raw ${d.total_raw?.toLocaleString?.() || '?'}):\n${tip}`;
+        badge.style.display = 'inline-block';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
   } catch(e) {
     ['statTotal','statUnsent','statSent','statCooldown','statToday'].forEach(id => {
       const el = document.getElementById(id); if (el) el.textContent = 'err';
     });
   }
+}
+
+if (typeof window !== 'undefined' && !window._sendStatsPoll) {
+  window._sendStatsPoll = setInterval(loadSendStats, 10000);
 }
 
 /* ═══════════════ PROSPECTS ═══════════════ */
@@ -4526,31 +4584,87 @@ if (document.readyState === 'loading') {
     } catch(e) { /* silent */ }
   }
 
-  // ── start batch ───────────────────────────────────
-  window.startTodayBatch = async function() {
+  // ── Smart Send flow (2-step: preview in Outlook → confirm → batch send) ──
+  var _previewToken = null;
+  var _previewPlanTotal = 0;
+
+  window.smartSendFlow = async function() {
     var btn = _el('rtStartBatch');
     var markup = parseInt((_el('rtMarkup') || {}).value || '20', 10) || 20;
     btn.disabled = true;
-    btn.textContent = 'Starting...';
+    btn.textContent = 'Opening Outlook...';
+    try {
+      var r = await fetch(API + '/api/rotation/preview-in-outlook?markup=' + markup, {
+        method: 'POST'
+      });
+      if (!r.ok) {
+        var msg = 'Preview failed: HTTP ' + r.status;
+        try { var e = await r.json(); if (e.detail) msg = e.detail; } catch(_) {}
+        if (typeof toast === 'function') toast(msg, 'err');
+        btn.disabled = false;
+        btn.textContent = '\u25B6 Smart Send';
+        return;
+      }
+      var d = await r.json();
+      _previewToken = d.preview_token;
+      _previewPlanTotal = d.plan_total || 0;
+      if (typeof toast === 'function') toast('Outlook opened: ' + (d.previewed_to || '') + ' — check rồi confirm', 'ok');
+      btn.disabled = false;
+      btn.textContent = '\u2713 Confirm & Send All (' + _previewPlanTotal + ')';
+      btn.setAttribute('onclick', 'confirmSendBatch()');
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-accent');
+    } catch(e) {
+      if (typeof toast === 'function') toast('API offline', 'err');
+      btn.disabled = false;
+      btn.textContent = '\u25B6 Smart Send';
+    }
+  };
+
+  window.confirmSendBatch = async function() {
+    var btn = _el('rtStartBatch');
+    var markup = parseInt((_el('rtMarkup') || {}).value || '20', 10) || 20;
+    if (!_previewToken) {
+      if (typeof toast === 'function') toast('Preview token expired — bấm Smart Send lại', 'err');
+      _resetSmartSendBtn();
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
     try {
       var r = await fetch(API + '/api/rotation/run-today', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_markup: markup })
+        body: JSON.stringify({ user_markup: markup, preview_token: _previewToken })
       });
       if (r.ok) {
-        if (typeof toast === 'function') toast('Batch started — markup $' + markup, 'ok');
+        if (typeof toast === 'function') toast('Batch sending — markup $' + markup, 'ok');
         setTimeout(loadRotationToday, 2000);
       } else {
-        if (typeof toast === 'function') toast('Start batch failed: ' + r.status, 'err');
+        var msg = 'Send failed: HTTP ' + r.status;
+        try { var e = await r.json(); if (e.detail) msg = e.detail; } catch(_) {}
+        if (typeof toast === 'function') toast(msg, 'err');
       }
     } catch(e) {
       if (typeof toast === 'function') toast('API offline', 'err');
     } finally {
-      btn.disabled = false;
-      btn.textContent = '\u25B6 Start batch';
+      _previewToken = null;
+      _resetSmartSendBtn();
     }
   };
+
+  function _resetSmartSendBtn() {
+    var btn = _el('rtStartBatch');
+    if (!btn) return;
+    btn.disabled = false;
+    btn.textContent = '\u25B6 Smart Send';
+    btn.setAttribute('onclick', 'smartSendFlow()');
+    btn.classList.remove('btn-accent');
+    btn.classList.add('btn-primary');
+  }
+
+  // Back-compat alias (other callers / debugger)
+  window.startTodayBatch = window.smartSendFlow;
 
   // ── preview modal ─────────────────────────────────
   window.openPreviewModal = async function() {
@@ -4614,43 +4728,127 @@ if (document.readyState === 'loading') {
 
   // ── quota modal ───────────────────────────────────
   var _quotaFields = [
-    { id: 'qFlooring',  label: 'FLOORING',   val: 150 },
-    { id: 'qFurniture', label: 'FURNITURE',  val: 150 },
-    { id: 'qCandle',    label: 'CANDLE',     val: 100 },
-    { id: 'qRubber',    label: 'RUBBER',     val: 100 },
-    { id: 'qPlastic',   label: 'PLASTIC',    val: 100 },
-    { id: 'qOthers',    label: 'OTHERS',     val: 100 }
+    { id: 'qFlooring',   label: 'FLOORING',         val: 150 },
+    { id: 'qFurniture',  label: 'FURNITURE_INDOOR', val: 150 },
+    { id: 'qCandle',     label: 'CANDLE',           val: 100 },
+    { id: 'qRubber',     label: 'RUBBER',           val: 100 },
+    { id: 'qPlastic',    label: 'PLASTIC',          val: 100 },
+    { id: 'qPlywood',    label: 'PLYWOOD',          val: 50  },
+    { id: 'qFood',       label: 'FOOD_AMBIENT',     val: 30  },
+    { id: 'qOthers',     label: 'OTHERS',           val: 20  }
   ];
 
   window._el = _el; // expose for inline oninput handlers in quota modal
 
   window._syncQuotaSum = _syncQuotaSum;
   function _syncQuotaSum() {
-    var total = parseInt(_el('qDailyTotal').value) || 700;
     var sum = _quotaFields.reduce(function(acc, f) {
       var v = parseInt(_el(f.id) ? _el(f.id).value : f.val) || 0;
-      _el(f.id + 'Val').textContent = v;
+      var valEl = _el(f.id + 'Val');
+      if (valEl) valEl.textContent = v;
       return acc + v;
     }, 0);
+    var dt = _el('qDailyTotal');
+    if (dt && parseInt(dt.value) !== sum) {
+      dt.value = sum;
+      _el('qDailyTotalVal').textContent = sum;
+    }
     var sumEl = _el('quotaSumVal');
-    sumEl.textContent = sum + ' / ' + total;
-    sumEl.className   = 'quota-sum-val ' + (sum === total ? 'ok' : 'err');
-    _el('quotaSaveBtn').disabled = (sum !== total);
+    if (sumEl) {
+      sumEl.textContent = 'Tong: ' + sum + ' email/ngay';
+      sumEl.className   = 'quota-sum-val ok';
+    }
+    var btn = _el('quotaSaveBtn');
+    if (btn) btn.disabled = false;
   }
+
+  // Master "Daily Total" driver — scales commodities proportionally to match target.
+  window._scaleFromMaster = function() {
+    var target = parseInt(_el('qDailyTotal').value) || 0;
+    _el('qDailyTotalVal').textContent = target;
+    var current = _quotaFields.reduce(function(acc, f) {
+      return acc + (parseInt(_el(f.id) ? _el(f.id).value : 0) || 0);
+    }, 0);
+    if (current <= 0) {
+      // All zero — distribute evenly, step 10.
+      var each = Math.floor(target / _quotaFields.length / 10) * 10;
+      _quotaFields.forEach(function(f) {
+        var el = _el(f.id); if (el) el.value = each;
+        var v = _el(f.id + 'Val'); if (v) v.textContent = each;
+      });
+    } else {
+      var assigned = 0;
+      _quotaFields.forEach(function(f, i) {
+        var el = _el(f.id); if (!el) return;
+        var cur = parseInt(el.value) || 0;
+        var scaled;
+        if (i === _quotaFields.length - 1) {
+          scaled = Math.max(0, target - assigned);
+        } else {
+          scaled = Math.round(cur * target / current / 10) * 10;
+          scaled = Math.max(0, scaled);
+          assigned += scaled;
+        }
+        el.value = scaled;
+        var v = _el(f.id + 'Val'); if (v) v.textContent = scaled;
+      });
+    }
+    var sumEl = _el('quotaSumVal');
+    if (sumEl) {
+      sumEl.textContent = 'Tong: ' + target + ' email/ngay';
+      sumEl.className = 'quota-sum-val ok';
+    }
+    var btn = _el('quotaSaveBtn');
+    if (btn) btn.disabled = false;
+  };
+
+  // Populate sliders from saved quota on /api/rotation/quota (F5 persistence).
+  async function loadQuotaFromServer() {
+    try {
+      var r = await fetch(API + '/api/rotation/quota');
+      if (!r.ok) return;
+      var cfg = await r.json();
+      var bc = cfg.by_commodity || {};
+      _quotaFields.forEach(function(f) {
+        var v = bc[f.label];
+        if (typeof v === 'number') {
+          var el = _el(f.id);
+          if (el) {
+            // Stretch max if stored value exceeds current max.
+            if (v > parseInt(el.max || '500')) el.max = String(v + 100);
+            el.value = v;
+          }
+          var lbl = _el(f.id + 'Val'); if (lbl) lbl.textContent = v;
+        }
+      });
+      var dt = _el('qDailyTotal');
+      if (dt && typeof cfg.daily_total === 'number') {
+        if (cfg.daily_total > parseInt(dt.max || '2000')) dt.max = String(cfg.daily_total + 200);
+        dt.value = cfg.daily_total;
+        _el('qDailyTotalVal').textContent = cfg.daily_total;
+      }
+      _syncQuotaSum();
+    } catch(_e) { /* silent */ }
+  }
+  window.loadQuotaFromServer = loadQuotaFromServer;
 
   window.openQuotaModal = function() {
     _el('quotaModal').classList.add('open');
-    _syncQuotaSum();
+    loadQuotaFromServer();
   };
   window.closeQuotaModal = function() {
     _el('quotaModal').classList.remove('open');
   };
 
   window.saveQuota = async function() {
-    var payload = { daily_total: parseInt(_el('qDailyTotal').value) || 700 };
+    var by_commodity = {};
     _quotaFields.forEach(function(f) {
-      payload[f.label.toLowerCase()] = parseInt(_el(f.id) ? _el(f.id).value : f.val) || 0;
+      by_commodity[f.label.toUpperCase()] = parseInt(_el(f.id) ? _el(f.id).value : f.val) || 0;
     });
+    var payload = {
+      daily_total: parseInt(_el('qDailyTotal').value) || 700,
+      by_commodity: by_commodity
+    };
     try {
       var r = await fetch(API + '/api/rotation/quota', {
         method: 'POST',
@@ -4677,19 +4875,89 @@ if (document.readyState === 'loading') {
 
   // ── init + poll ───────────────────────────────────
   function initRotationWidgets() {
+    loadQuotaFromServer();
     loadRotationToday();
     loadRotationProgress();
     loadYesterday();
+    loadSessionProgress();
   }
 
-  // Poll every 30s when viewSend is active
+  // Cumulative Vòng 1 bars — 10s cadence.
   setInterval(function() {
     var active = document.querySelector('.nav-item.active');
     if (active && active.dataset.view === 'viewSend') {
       loadRotationToday();
       loadRotationProgress();
     }
-  }, 30000);
+  }, 10000);
+
+  // Session Progress panel — 2s cadence, animates active batch.
+  async function loadSessionProgress() {
+    try {
+      var r = await fetch(API + '/api/rotation/batch-status');
+      if (!r.ok) return;
+      var p = await r.json();
+      renderSessionPanel(p);
+    } catch(_e) { /* silent */ }
+  }
+  window.loadSessionProgress = loadSessionProgress;
+
+  function renderSessionPanel(p) {
+    var panel = _el('sessionProgressPanel');
+    if (!panel) return;
+    if (!p || !p.active) {
+      panel.style.display = 'none';
+      return;
+    }
+    panel.style.display = 'block';
+    var t = p.total || {};
+    var totalQuota = t.quota || 0;
+    var totalSent = t.sent || 0;
+    var totalFailed = t.failed || 0;
+    var rate = t.rate_per_min || 0;
+    var eta = t.eta_sec;
+    var etaStr = eta == null ? 'N/A' : (eta < 60 ? eta + 's' : Math.round(eta/60) + ' phut');
+    var pct = totalQuota ? Math.round(totalSent * 100 / totalQuota) : 0;
+
+    var head = _el('sessionHead');
+    if (head) {
+      head.innerHTML =
+        '<b>Batch ' + (p.batch_id || '') + '</b> · ' +
+        totalSent + '/' + totalQuota + ' (' + pct + '%) · ' +
+        (totalFailed ? '<span style="color:#b91c1c">' + totalFailed + ' failed</span> · ' : '') +
+        '~' + rate + '/min · ETA ' + etaStr;
+    }
+    var body = _el('sessionBody');
+    if (body) {
+      var rows = '';
+      var comms = p.by_commodity || {};
+      Object.keys(comms).sort().forEach(function(k) {
+        var c = comms[k];
+        var cQuota = c.quota || 0;
+        var cSent = c.sent || 0;
+        var cPct = cQuota ? Math.round(cSent * 100 / cQuota) : 0;
+        rows +=
+          '<div class="sess-row">' +
+            '<span class="sess-label">' + k + '</span>' +
+            '<div class="sess-bar-bg"><div class="sess-bar-fill" style="width:' + cPct + '%"></div></div>' +
+            '<span class="sess-count">' + cSent + '/' + cQuota + ' (' + cPct + '%)</span>' +
+          '</div>';
+      });
+      body.innerHTML = rows;
+    }
+    if (p.last_error) {
+      var err = _el('sessionError');
+      if (err) {
+        err.style.display = 'block';
+        err.textContent = 'Loi gan day: ' + p.last_error;
+      }
+    } else {
+      var err2 = _el('sessionError');
+      if (err2) err2.style.display = 'none';
+    }
+  }
+
+  setInterval(loadSessionProgress, 2000);
 
   document.addEventListener('DOMContentLoaded', initRotationWidgets);
   // Also fire immediately if DOM already ready
@@ -4705,12 +4973,11 @@ if (document.readyState === 'loading') {
       <button class="btn btn-xs btn-ghost" onclick="closeQuotaModal()">&#10005; Đóng</button>
     </div>
     <div class="quota-modal-body">
-      <!-- Daily total slider -->
-      <div class="quota-row" style="border-bottom:1px solid var(--line-2);padding-bottom:14px;margin-bottom:16px;grid-template-columns:110px 1fr 60px">
-        <label style="font-weight:500;color:var(--ink)">Daily Total</label>
-        <input type="range" id="qDailyTotal" min="100" max="2000" step="50" value="700"
-          oninput="_el('qDailyTotalVal').textContent=this.value;_syncQuotaSum()">
-        <span class="quota-val" id="qDailyTotalVal">700</span>
+      <!-- Daily Total = MASTER driver — drag to scale commodities proportionally. -->
+      <div class="quota-row" style="border-bottom:1px solid var(--line-2);padding-bottom:14px;margin-bottom:16px">
+        <label style="font-weight:700;color:var(--ink)">Daily Total</label>
+        <input type="range" id="qDailyTotal" min="0" max="2000" step="10" value="700" oninput="_scaleFromMaster()">
+        <span class="quota-val" id="qDailyTotalVal" style="font-weight:700;color:var(--ink)">700</span>
       </div>
       <!-- Per-commodity sliders -->
       <div class="quota-row">
@@ -4719,7 +4986,7 @@ if (document.readyState === 'loading') {
         <span class="quota-val" id="qFlooringVal">150</span>
       </div>
       <div class="quota-row">
-        <label>FURNITURE</label>
+        <label>FURNITURE_INDOOR</label>
         <input type="range" id="qFurniture" min="0" max="500" step="10" value="150" oninput="_syncQuotaSum()">
         <span class="quota-val" id="qFurnitureVal">150</span>
       </div>
@@ -4739,17 +5006,24 @@ if (document.readyState === 'loading') {
         <span class="quota-val" id="qPlasticVal">100</span>
       </div>
       <div class="quota-row">
+        <label>PLYWOOD</label>
+        <input type="range" id="qPlywood" min="0" max="500" step="10" value="50" oninput="_syncQuotaSum()">
+        <span class="quota-val" id="qPlywoodVal">50</span>
+      </div>
+      <div class="quota-row">
+        <label>FOOD_AMBIENT</label>
+        <input type="range" id="qFood" min="0" max="500" step="10" value="30" oninput="_syncQuotaSum()">
+        <span class="quota-val" id="qFoodVal">30</span>
+      </div>
+      <div class="quota-row">
         <label>OTHERS</label>
-        <input type="range" id="qOthers" min="0" max="500" step="10" value="100" oninput="_syncQuotaSum()">
-        <span class="quota-val" id="qOthersVal">100</span>
+        <input type="range" id="qOthers" min="0" max="500" step="10" value="20" oninput="_syncQuotaSum()">
+        <span class="quota-val" id="qOthersVal">20</span>
       </div>
-      <!-- Sum validation -->
+      <!-- Live sum display -->
       <div class="quota-sum-row">
-        <span style="font-size:12.5px;color:var(--muted)">Sum / Daily Total</span>
-        <span class="quota-sum-val ok" id="quotaSumVal">700 / 700</span>
-      </div>
-      <div id="quotaSumHint" style="font-size:11.5px;color:var(--err);margin-top:6px;display:none">
-        Sum commodity phai bang Daily Total moi luu duoc.
+        <span style="font-size:12.5px;color:var(--muted)">Tong sau khi luu</span>
+        <span class="quota-sum-val ok" id="quotaSumVal">Tong: 700 email/ngay</span>
       </div>
     </div>
     <div class="quota-modal-foot">
@@ -4793,12 +5067,30 @@ if (document.readyState === 'loading') {
     document.title = 'Nelson Email · file:// mode';
     return;
   }
-  fetch('/api/version').then(r => r.json()).then(v => {
-    const tag = `${v.version} · ${v.released}`;
-    const el = document.getElementById('brand-version');
-    if (el) el.textContent = `Email · ${tag}`;
-    document.title = `Nelson Email ${v.version}`;
-  }).catch(() => { /* silent */ });
+  function checkVersion() {
+    fetch('/api/version').then(r => r.json()).then(v => {
+      const tag = `${v.version} · ${v.released}`;
+      const el = document.getElementById('brand-version');
+      if (el) el.textContent = `Email · ${tag}`;
+      document.title = `Nelson Email ${v.version}`;
+      // Stale-code banner — server running older code than source on disk.
+      var banner = document.getElementById('stale-code-banner');
+      if (v.needs_restart) {
+        if (!banner) {
+          banner = document.createElement('div');
+          banner.id = 'stale-code-banner';
+          banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#b91c1c;color:#fff;padding:10px 16px;font:600 13px system-ui;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
+          document.body.insertBefore(banner, document.body.firstChild);
+        }
+        var files = (v.stale_files || []).map(function(f){ return f.file; }).join(', ');
+        banner.innerHTML = '⚠ Server dang chay code CU — can restart. File moi hon server: <b>' + files + '</b>. Chay <code>scripts/restart-web-server.bat</code> roi F5.';
+      } else if (banner) {
+        banner.remove();
+      }
+    }).catch(() => { /* silent */ });
+  }
+  checkVersion();
+  setInterval(checkVersion, 30000);
 })();
 </script>
 </body>
