@@ -4957,7 +4957,14 @@ if (document.readyState === 'loading') {
     }
   }
 
-  setInterval(loadSessionProgress, 2000);
+  // 2026-04-24 PERF-002: only poll batch-status when Quick Send tab is active
+  // (Session Progress panel only lives there). Otherwise 30 calls/min wasted
+  // while Nelson on Contacts/Inbox/Insights.
+  setInterval(function() {
+    var active = document.querySelector('.nav-item.active');
+    var view = active && active.dataset ? active.dataset.view : '';
+    if (view === 'viewSend') loadSessionProgress();
+  }, 2000);
 
   document.addEventListener('DOMContentLoaded', initRotationWidgets);
   // Also fire immediately if DOM already ready

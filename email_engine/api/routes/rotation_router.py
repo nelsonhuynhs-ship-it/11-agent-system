@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import secrets
 import time
 from datetime import date, datetime, timedelta
 from functools import lru_cache
@@ -24,7 +26,7 @@ from typing import Any, Optional
 
 import pandas as pd
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 log = logging.getLogger("rotation_router")
 
@@ -44,10 +46,10 @@ _TODAY_TTL       = 30
 _progress_cache: dict = {"data": None, "expires_at": 0.0}
 _PROGRESS_TTL    = 60
 
-# cycle — 300s TTL (5 min; rarely changes)
+# cycle — 600s TTL (10 min; rarely changes across a rotation session)
 _cycle_cache: dict = {}
 _cycle_cache_ts: Optional[datetime] = None
-_CACHE_TTL_SECONDS = 300  # reduced from 900 → 5 min; still safe
+_CACHE_TTL_SECONDS = 600  # 2026-04-24 PERF-104: bumped 300→600 — load_master_df heavy
 
 
 def _invalidate_caches() -> None:
@@ -110,13 +112,26 @@ class QuotaUpdateBody(BaseModel):
 
     @field_validator("by_commodity")
     @classmethod
-    def validate_sum(cls, v: dict, info) -> dict:
-        total = info.data.get("daily_total", 0)
-        if sum(v.values()) != total:
-            raise ValueError(
-                f"Sum of by_commodity ({sum(v.values())}) must equal daily_total ({total})"
-            )
+    def non_negative(cls, v: dict) -> dict:
+        for k, n in v.items():
+            if n < 0:
+                raise ValueError(f"{k} cannot be negative ({n})")
         return v
+
+    @model_validator(mode="after")
+    def reconcile_sum(self):
+        # 2026-04-24: dashboard scale can round commodities down to 0 when
+        # target is small (e.g. Daily Total=30 → all 8 bars → 0). Instead of
+        # failing with 422, treat sum(by_commodity) as the ground truth and
+        # log the adjustment. Solo user → no reason to block save.
+        s = sum(self.by_commodity.values())
+        if s != self.daily_total:
+            log.warning(
+                "quota reconcile: daily_total=%d vs sum(by_commodity)=%d → using sum",
+                self.daily_total, s,
+            )
+            self.daily_total = s
+        return self
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -292,6 +307,17 @@ def get_history(days: int = Query(default=7, ge=1, le=90)) -> dict[str, Any]:
     }
 
 
+@router.get("/quota")
+def get_quota() -> dict[str, Any]:
+    """Return current rotation quota config so dashboard restores state on F5."""
+    try:
+        from email_engine.core.rotation_helpers import load_quota_config
+        return load_quota_config()
+    except Exception as exc:
+        log.error("get_quota: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @router.post("/quota")
 def update_quota(body: QuotaUpdateBody) -> dict[str, Any]:
     """Update rotation quota config. Validates sum == daily_total."""
@@ -311,6 +337,8 @@ def update_quota(body: QuotaUpdateBody) -> dict[str, Any]:
 class RunTodayRequest(BaseModel):
     user_markup: Optional[int] = 20
     campaign_override: Optional[str] = None
+    preview_token: Optional[str] = None
+    force: bool = False
 
 
 @router.post("/run-today")
@@ -320,15 +348,22 @@ def run_today(
 ) -> dict[str, Any]:
     """Manually trigger today's rotation batch (queues in background).
 
-    Accepts optional JSON body::
-
-        { "user_markup": 30, "campaign_override": "FLOORING" }
-
-    Both fields are optional — defaults: markup=20, no campaign override.
+    Requires a `preview_token` obtained via POST /api/rotation/preview-in-outlook
+    unless `force=true` is passed (scheduler / CLI escape hatch).
     """
     today = date.today()
     markup = (req.user_markup if req and req.user_markup is not None else 20)
     campaign = (req.campaign_override if req else None)
+    token = (req.preview_token if req else None)
+    force = bool(req.force) if req else False
+
+    if not force:
+        if not token or not _consume_preview_token(token):
+            raise HTTPException(
+                status_code=400,
+                detail="Preview required. POST /api/rotation/preview-in-outlook first, then pass the returned preview_token here.",
+            )
+
     background_tasks.add_task(_run_rotation_background, today, markup, campaign)
     return {
         "status": "queued",
@@ -338,10 +373,256 @@ def run_today(
     }
 
 
+@router.get("/batch-status")
+def get_batch_status() -> dict[str, Any]:
+    """Live batch progress — queue stats + worker state + ETA.
+
+    Dashboard polls this every 2s for Session Progress panel.
+    """
+    # 2026-04-24 PERF-103: use queue_store._connect (WAL + busy_timeout=30s)
+    # instead of bare sqlite3.connect. Prevents reader blocking writer during
+    # worker enqueue/mark_sent bursts.
+    from email_engine.queue_store import _connect as _queue_connect
+    db_path = _BASE / "data" / "outlook_queue.db"
+    if not db_path.exists():
+        return {"active": False, "message": "queue db missing"}
+
+    try:
+        conn = _queue_connect(str(db_path))
+        cur = conn.cursor()
+
+        cur.execute(
+            "SELECT batch_id FROM email_queue "
+            "WHERE batch_id LIKE 'ROT_%' "
+            "ORDER BY enqueued_at DESC LIMIT 1"
+        )
+        row = cur.fetchone()
+        if not row:
+            conn.close()
+            return {"active": False, "message": "no ROT batch found"}
+        batch_id = row["batch_id"]
+
+        cur.execute(
+            "SELECT status, COUNT(*) AS c, meta_json FROM email_queue "
+            "WHERE batch_id = ? GROUP BY status, meta_json",
+            (batch_id,),
+        )
+        by_commodity: dict[str, dict[str, int]] = {}
+        total = {"sent": 0, "failed": 0, "pending": 0, "picked": 0, "quota": 0}
+        for r in cur.fetchall():
+            status = r["status"] or "pending"
+            count = int(r["c"])
+            try:
+                meta = json.loads(r["meta_json"] or "{}")
+                commodity = (meta.get("commodity") or "UNKNOWN").upper()
+            except Exception:
+                commodity = "UNKNOWN"
+            slot = by_commodity.setdefault(
+                commodity, {"sent": 0, "failed": 0, "pending": 0, "picked": 0, "quota": 0}
+            )
+            key = "failed" if status == "error" else status
+            slot[key] = slot.get(key, 0) + count
+            slot["quota"] = slot["quota"] + count
+            total[key] = total.get(key, 0) + count
+            total["quota"] += count
+
+        cur.execute(
+            "SELECT COUNT(*) FROM email_queue "
+            "WHERE batch_id = ? AND status = 'sent' "
+            "AND sent_at >= datetime('now', '-60 seconds')",
+            (batch_id,),
+        )
+        sent_last_60s = int(cur.fetchone()[0] or 0)
+
+        cur.execute(
+            "SELECT MIN(enqueued_at), MAX(sent_at), MAX(error_message) "
+            "FROM email_queue WHERE batch_id = ?",
+            (batch_id,),
+        )
+        started_at, last_sent_at, last_error = cur.fetchone()
+        conn.close()
+    except Exception as exc:
+        log.error("get_progress: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    rate_per_min = sent_last_60s
+    remaining = total["pending"] + total["picked"]
+    eta_sec = int(remaining * 60 / rate_per_min) if rate_per_min > 0 else None
+    active = remaining > 0
+
+    return {
+        "active": active,
+        "batch_id": batch_id,
+        "started_at": started_at,
+        "last_sent_at": last_sent_at,
+        "by_commodity": by_commodity,
+        "total": {**total, "rate_per_min": rate_per_min, "eta_sec": eta_sec},
+        "last_error": last_error,
+    }
+
+
 @router.get("/cycle")
 def get_cycle() -> dict[str, Any]:
     """Cycle metadata for UI global progress indicator."""
     return _get_cycle_info_cached()
+
+
+# ── Preview-in-Outlook token cache ─────────────────────────────────────────────
+# Module-level dict: {token: expires_at_epoch}
+_PREVIEW_TOKENS: dict[str, float] = {}
+_PREVIEW_TTL = 600  # 10 minutes — Nelson reviews then confirms send
+
+
+def _issue_preview_token() -> str:
+    token = secrets.token_urlsafe(16)
+    _PREVIEW_TOKENS[token] = time.time() + _PREVIEW_TTL
+    # Opportunistic cleanup of expired tokens
+    now = time.time()
+    for k in [k for k, exp in _PREVIEW_TOKENS.items() if exp < now]:
+        _PREVIEW_TOKENS.pop(k, None)
+    return token
+
+
+def _consume_preview_token(token: str) -> bool:
+    """Return True if token valid; removes it (one-shot use)."""
+    exp = _PREVIEW_TOKENS.pop(token, None)
+    if exp is None:
+        return False
+    return exp >= time.time()
+
+
+@router.post("/preview-in-outlook")
+def preview_in_outlook(
+    markup: int = Query(default=20, ge=0, le=500),
+) -> dict[str, Any]:
+    """Open top-priority CNEE's FULL email (rate table + intro + signature + logo)
+    in Outlook via COM .Display() so Nelson can review before confirming batch send.
+
+    Returns a `preview_token` that must be passed to POST /run-today within 10 min.
+    """
+    try:
+        from email_engine.core.rotation_engine import build_daily_plan
+        from email_engine.intelligence import builder as _builder
+    except ImportError as exc:
+        raise HTTPException(status_code=503, detail=f"Engine unavailable: {exc}")
+
+    plan = _load_plan(date.today())
+    if plan is None or plan.get("skipped_reason"):
+        try:
+            plan = build_daily_plan()
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail=f"Plan build failed: {exc}")
+
+    # Pick first commodity's first email (rotation_engine already sorts by priority)
+    by_commodity = plan.get("by_commodity", {})
+    if not by_commodity:
+        raise HTTPException(status_code=404, detail="No commodities in today's plan")
+
+    first_commodity = None
+    sample_email = None
+    for comm, info in by_commodity.items():
+        emails = info.get("emails", [])
+        if emails:
+            first_commodity = comm
+            sample_email = emails[0].strip()
+            break
+
+    if not sample_email:
+        raise HTTPException(status_code=404, detail="No emails in today's plan")
+
+    # Resolve config for this CNEE (POL + destinations from rule engine)
+    df = _load_master_df_safe()
+    if df is None:
+        raise HTTPException(status_code=503, detail="Master contact file unavailable")
+
+    try:
+        from email_engine.core.rule_engine import resolve_config
+    except ImportError as exc:
+        raise HTTPException(status_code=503, detail=f"Rule engine unavailable: {exc}")
+
+    email_col = "EMAIL" if "EMAIL" in df.columns else "CNEE_EMAIL"
+    df_indexed = df.set_index(df[email_col].str.lower().str.strip())
+    key = sample_email.lower()
+    row_raw = df_indexed.loc[key] if key in df_indexed.index else {}
+    if isinstance(row_raw, pd.DataFrame):
+        row_raw = row_raw.iloc[0]
+    row_dict = row_raw.to_dict() if hasattr(row_raw, "to_dict") else {}
+
+    try:
+        config = resolve_config(row_dict, user_markup=markup, campaign_override=first_commodity)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"resolve_config failed: {exc}")
+
+    # Build full email (subject + html_body with signature)
+    try:
+        known = config.get("destination") or []
+        if isinstance(known, str):
+            known = [d.strip().upper() for d in known.split(",") if d.strip()]
+        # Merge with 10 default lanes → known first, then rest deduped.
+        # Matches Path B bulk-send behaviour so subject/template selector
+        # resolves to default_cross_sell (Asia to USA/Canada).
+        from email_engine.web_server import DEFAULT_DESTINATIONS as _DEFAULTS
+        destinations: list[str] = []
+        for d in list(known) + list(_DEFAULTS or []):
+            du = (d or "").upper()
+            if du and du not in destinations:
+                destinations.append(du)
+        email_dict = _builder.build_email(
+            cnee_email=config["email"] or sample_email,
+            pol=config["pol"],
+            destinations=destinations,
+            markup=float(config.get("markup") or markup),
+            profile=row_dict if row_dict else None,
+            arb_origin=config.get("arb_origin"),
+        )
+    except Exception as exc:
+        log.error("preview_in_outlook: build_email failed: %s", exc)
+        raise HTTPException(status_code=500, detail=f"build_email failed: {exc}")
+
+    # Open in Outlook (Display, NOT Send)
+    try:
+        import pythoncom
+        import win32com.client
+        pythoncom.CoInitialize()
+        outlook = win32com.client.Dispatch("Outlook.Application")
+        mail = outlook.CreateItem(0)  # olMailItem
+        mail.To = email_dict["to"]
+        mail.Subject = email_dict["subject"]
+        mail.HTMLBody = email_dict["html_body"] or ""
+
+        # Inline CID logo (matches outlook_queue_worker pattern)
+        logo_path = os.path.join(
+            os.path.dirname(os.path.abspath(_builder.__file__)),
+            "..", "assets", "logo.png",
+        )
+        logo_path = os.path.abspath(logo_path)
+        if "cid:pudonglogo" in (email_dict["html_body"] or "").lower() and os.path.exists(logo_path):
+            try:
+                att = mail.Attachments.Add(logo_path)
+                pa = att.PropertyAccessor
+                pa.SetProperty("http://schemas.microsoft.com/mapi/proptag/0x3712001F", "pudonglogo")
+                pa.SetProperty("http://schemas.microsoft.com/mapi/proptag/0x7FFE000B", True)
+            except Exception as exc:
+                log.warning("preview_in_outlook: logo attach failed: %s", exc)
+
+        mail.Display()
+    except Exception as exc:
+        log.error("preview_in_outlook: Outlook COM failed: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Outlook preview failed: {exc}")
+
+    token = _issue_preview_token()
+    plan_total = int(plan.get("actual_total", 0))
+
+    return {
+        "status": "previewed",
+        "preview_token": token,
+        "ttl_seconds": _PREVIEW_TTL,
+        "previewed_to": email_dict["to"],
+        "subject": email_dict["subject"],
+        "first_commodity": first_commodity,
+        "plan_total": plan_total,
+        "message": f"Outlook opened. Review and confirm to send {plan_total} emails.",
+    }
 
 
 @router.get("/preview-sample")

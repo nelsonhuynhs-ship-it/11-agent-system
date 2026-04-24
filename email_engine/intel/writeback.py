@@ -43,9 +43,10 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_MASTER_PATH = os.environ.get(
     "INTEL_MASTER_V2_PATH",
-    r"D:/OneDrive/NelsonData/email/cnee_master_v2_final.xlsx",  # canonical 22K-row file
+    r"D:/OneDrive/NelsonData/email/contact_unified_v7.xlsx",
 )
 EMAIL_COLUMN = "EMAIL"
+CNEE_SHEET = "CNEE"
 
 FLUSH_INTERVAL_SECONDS = 300        # 5 minutes
 FLUSH_BUFFER_SIZE = 50              # >= 50 dirty CNEEs triggers immediate flush
@@ -204,15 +205,24 @@ def _is_locked(path: Path) -> bool:
 
 
 def _apply_updates(path: Path, updates: dict[str, dict[str, Any]]) -> int:
-    """Read xlsx, patch matching rows, atomic write. Returns rows updated."""
-    # Lazy import — pandas/openpyxl only needed at flush time
+    """Read xlsx, patch matching rows, atomic write. Returns rows updated.
+
+    Multi-sheet safe: preserves non-target sheets (e.g. SHIPPER) when writing back.
+    """
     import pandas as pd
 
-    df = pd.read_excel(path, sheet_name=0, engine="openpyxl")
-    if EMAIL_COLUMN not in df.columns:
-        raise RuntimeError(f"missing {EMAIL_COLUMN} column in {path.name}")
+    xl = pd.ExcelFile(path, engine="openpyxl")
+    sheet_names = list(xl.sheet_names)
+    target_sheet = CNEE_SHEET if CNEE_SHEET in sheet_names else sheet_names[0]
+    sheets: dict[str, Any] = {name: xl.parse(name) for name in sheet_names}
+    xl.close()
 
-    # Build lower-case email index once
+    df = sheets[target_sheet]
+    if EMAIL_COLUMN not in df.columns:
+        raise RuntimeError(
+            f"missing {EMAIL_COLUMN} column in {path.name}[{target_sheet}]"
+        )
+
     email_series = df[EMAIL_COLUMN].astype(str).str.strip().str.lower()
     email_to_idx: dict[str, int] = {}
     for idx, em in enumerate(email_series):
@@ -223,15 +233,17 @@ def _apply_updates(path: Path, updates: dict[str, dict[str, Any]]) -> int:
     for cnee, fields in updates.items():
         idx = email_to_idx.get(cnee)
         if idx is None:
-            logger.debug("writeback: %s not found in master v2", cnee)
+            logger.debug("writeback: %s not found in %s", cnee, target_sheet)
             continue
         for col, val in fields.items():
             if col == "EMAIL_QUALITY_SCORE_DELTA":
                 _apply_delta(df, idx, "EMAIL_QUALITY_SCORE", val)
                 continue
             if col not in df.columns:
-                logger.warning("writeback: column %s not in master v2 — skipping",
-                               col)
+                logger.warning(
+                    "writeback: column %s not in %s — skipping",
+                    col, target_sheet,
+                )
                 continue
             df.at[idx, col] = val
         touched += 1
@@ -239,11 +251,45 @@ def _apply_updates(path: Path, updates: dict[str, dict[str, Any]]) -> int:
     if not touched:
         return 0
 
+    sheets[target_sheet] = df
     tmp = path.with_suffix(path.suffix + ".tmp")
-    df.to_excel(tmp, index=False, engine="openpyxl")
+    with pd.ExcelWriter(tmp, engine="openpyxl") as writer:
+        for name in sheet_names:
+            sheets[name].to_excel(writer, sheet_name=name, index=False)
     os.replace(tmp, path)
-    logger.info("writeback flushed %d CNEEs to %s", touched, path.name)
+    logger.info(
+        "writeback flushed %d rows to %s[%s]",
+        touched, path.name, target_sheet,
+    )
+
+    # 2026-04-24: xlsx mtime change invalidates 3 caches (_CNEE_CACHE,
+    # _MASTER_CACHE, DuckDB) → next dashboard poll hits 17s cold-load.
+    # Fire-and-forget rewarm so Nelson never sees the lag.
+    _rewarm_caches_async()
+
     return touched
+
+
+def _rewarm_caches_async() -> None:
+    """Spawn a daemon thread to re-warm slow endpoints after flush."""
+    import threading
+    import urllib.request
+
+    def _rewarm() -> None:
+        for ep in (
+            "/api/send-stats",
+            "/api/rotation/progress",
+            "/api/analytics/overview",
+        ):
+            try:
+                urllib.request.urlopen(
+                    f"http://127.0.0.1:8100{ep}", timeout=60
+                ).read()
+            except Exception:
+                # server may be down during restart — silent ok
+                pass
+
+    threading.Thread(target=_rewarm, daemon=True, name="writeback-rewarm").start()
 
 
 def _apply_delta(df, idx: int, col: str, delta: float) -> None:
