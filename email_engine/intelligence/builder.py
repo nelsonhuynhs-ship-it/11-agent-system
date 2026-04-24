@@ -99,11 +99,6 @@ def _load_routing_config() -> tuple[list[str], int]:
 
 _DEFAULT_DESTINATIONS, _MAX_DESTINATIONS = _load_routing_config()
 
-# Rate-table partial (simple Jinja-lite template)
-_RATE_TABLE_PATH = (
-    Path(__file__).resolve().parent.parent / "templates" / "rate_table.html"
-)
-
 # State → row background color + badge + icon
 _STATE_COLOR = {
     "URGENT":      {"bg": "#fef2f2", "badge": "#b91c1c", "icon": "🚨",
@@ -154,16 +149,6 @@ _POD_NAMES = {
     "MXZLO": "Manzanillo",
     "MXVER": "Veracruz",
 }
-
-
-def _load_rate_table_tpl() -> str:
-    """Load the rate_table.html partial (returns '' if missing)."""
-    try:
-        if _RATE_TABLE_PATH.exists():
-            return _RATE_TABLE_PATH.read_text(encoding="utf-8")
-    except Exception as e:
-        log.warning("[builder] could not load rate_table.html: %s", e)
-    return ""
 
 
 def _pol_name(code: str) -> str:

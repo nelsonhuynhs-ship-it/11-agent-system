@@ -167,7 +167,6 @@ DATA_LOC_DIR  = DATA_DIR / "Data Loc"
 ASSETS_DIR = DATA_DIR / "assets"
 COMPANY_PDF = ASSETS_DIR / "PUDONG PRIME PROFILE.pdf"
 LOGO_FILE = ASSETS_DIR / "logo.png"
-EMAIL_TEMPLATE = ASSETS_DIR / "email_template.html"
 
 
 # ── Bot Data (OneDrive) ──────────────────────────────────────────────────────
