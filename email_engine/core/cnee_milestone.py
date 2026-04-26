@@ -561,8 +561,10 @@ def flush_telegram_summary() -> None:
 
 
 def _send_telegram(message: str) -> bool:
-    """Send a Telegram message using TELEGRAM_TOKEN + TELEGRAM_CHAT_ID env vars."""
-    token = os.environ.get("TELEGRAM_TOKEN", "")
+    """Send a Telegram message. DISABLED 2026-04-26 — no-op."""
+    log.debug("cnee_milestone._send_telegram disabled — message dropped (%d chars)", len(message))
+    return True
+    token = os.environ.get("TELEGRAM_TOKEN", "")  # noqa: unreachable
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
     if not token or not chat_id:
         log.debug("cnee_milestone: Telegram not configured, skip alert")

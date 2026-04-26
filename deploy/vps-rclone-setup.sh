@@ -129,27 +129,15 @@ cat > /opt/nelson/sync/rclone-data.sh << 'SYNCSCRIPT'
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════
 # rclone-data.sh — Sync OneDrive/NelsonData → /opt/nelson/data
-# Runs every 15 min via cron. Alerts on 3 consecutive failures.
+# Runs every 15 min via cron. Telegram alerts disabled 2026-04-26.
 # ═══════════════════════════════════════════════════════════
 
 LOG="/opt/nelson/sync/rclone.log"
 FAIL_COUNT_FILE="/opt/nelson/sync/fail_count"
 LAST_SUCCESS_FILE="/opt/nelson/sync/last_success"
 
-# Load Telegram env
-source /opt/nelson/sync/.env 2>/dev/null || true
-
 log_msg() {
   echo "$(date '+%Y-%m-%d %H:%M:%S') $1" >> "$LOG"
-}
-
-send_telegram() {
-  local MSG="$1"
-  if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
-    curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-      -d chat_id="${TELEGRAM_CHAT_ID}" \
-      -d text="$MSG" >/dev/null 2>&1
-  fi
 }
 
 log_msg "START sync"
@@ -171,49 +159,19 @@ if rclone sync onedrive:NelsonData /opt/nelson/data \
   --retries-sleep 10s \
   --low-level-retries 5; then
 
-  # ── Success ──────────────────────────────────────────────
-  PREV_FAILS=$(cat "$FAIL_COUNT_FILE" 2>/dev/null || echo 0)
   echo "0" > "$FAIL_COUNT_FILE"
   date '+%Y-%m-%d %H:%M' > "$LAST_SUCCESS_FILE"
   log_msg "OK sync complete"
 
-  # Notify recovery after failures
-  if [ "$PREV_FAILS" -ge 3 ]; then
-    send_telegram "rclone RECOVERED after ${PREV_FAILS} failures. Sync OK now."
-  fi
-
-  # ── Validate critical files ──────────────────────────────
-  # 2026-04-23: migrated cnee_master.xlsx → contact_unified_v7.xlsx (v7 schema, 22,854 rows)
   PARQUET="/opt/nelson/data/pricing/Cleaned_Master_History.parquet"
   CNEE="/opt/nelson/data/email/contact_unified_v7.xlsx"
-
-  if [ ! -f "$PARQUET" ]; then
-    log_msg "WARN: parquet missing after sync: $PARQUET"
-    send_telegram "rclone sync OK but parquet MISSING! Check OneDrive/NelsonData/pricing/"
-  fi
-
-  if [ ! -f "$CNEE" ]; then
-    log_msg "WARN: cnee master v7 missing after sync: $CNEE"
-    send_telegram "rclone sync OK but contact_unified_v7.xlsx MISSING! Check OneDrive/NelsonData/email/"
-  fi
-
+  [ ! -f "$PARQUET" ] && log_msg "WARN: parquet missing after sync"
+  [ ! -f "$CNEE" ] && log_msg "WARN: contact_unified_v7 missing after sync"
 else
-  # ── Failure ──────────────────────────────────────────────
   COUNT=$(cat "$FAIL_COUNT_FILE" 2>/dev/null || echo 0)
   COUNT=$((COUNT + 1))
   echo "$COUNT" > "$FAIL_COUNT_FILE"
   log_msg "FAIL #$COUNT"
-
-  # Alert after 3 consecutive failures
-  if [ "$COUNT" -eq 3 ]; then
-    LAST_OK=$(cat "$LAST_SUCCESS_FILE" 2>/dev/null || echo "unknown")
-    send_telegram "rclone sync FAIL ${COUNT}x! Last OK: ${LAST_OK}. Check: tail -50 /opt/nelson/sync/rclone.log"
-  fi
-
-  # Alert every 12 failures (= 3 hours of continuous failure)
-  if [ "$COUNT" -gt 3 ] && [ $((COUNT % 12)) -eq 0 ]; then
-    send_telegram "rclone STILL failing: ${COUNT}x ($(( COUNT * 15 / 60 ))h). VPS data may be stale!"
-  fi
 fi
 
 # ── Log rotation (keep under 1MB) ─────────────────────────

@@ -329,17 +329,8 @@ def queue_to_outlook_worker(
 
 
 def _notify_telegram(plan: dict[str, Any], queued: int) -> None:
-    """Send Telegram notification after batch queued. Fails silently."""
-    try:
-        from email_engine.core.notify import send_telegram  # type: ignore
-        msg = (
-            f"Daily rotation ready: {queued} emails queued "
-            f"({plan.get('date', 'today')}) · "
-            f"cycle {plan.get('cycle_info', {}).get('cycle_number', '?')}"
-        )
-        send_telegram(msg)
-    except Exception as exc:
-        log.debug("Telegram notify skipped: %s", exc)
+    """Send Telegram notification after batch queued. DISABLED 2026-04-26 — no-op."""
+    log.debug("rotation_engine._notify_telegram disabled — %d queued, alert dropped", queued)
 
 
 def _empty_plan(today: date, reason: str) -> dict[str, Any]:

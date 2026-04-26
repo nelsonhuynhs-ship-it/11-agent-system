@@ -26,15 +26,7 @@ AGE_HOURS=$((AGE_SECONDS / 3600))
 
 echo "[$(date)] Parquet age: ${AGE_HOURS}h"
 
-# Alert if stale (> 72 hours)
+# Alert if stale (> 72 hours) — DISABLED 2026-04-26, log only
 if [ "$AGE_HOURS" -gt 72 ]; then
-  if [ -n "$BOT_TOKEN" ] && [ -n "$NELSON_CHAT_ID" ]; then
-    curl -s "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
-      -d "chat_id=${NELSON_CHAT_ID}" \
-      -d "text=⚠️ Rate data STALE: ${AGE_HOURS}h since last update. Please upload new rates." \
-      > /dev/null 2>&1
-    echo "[$(date)] ALERT sent: data stale ${AGE_HOURS}h"
-  else
-    echo "[$(date)] WARNING: BOT_TOKEN or NELSON_CHAT_ID not set, cannot send alert"
-  fi
+  echo "[$(date)] STALE: data ${AGE_HOURS}h old (telegram alert disabled)"
 fi

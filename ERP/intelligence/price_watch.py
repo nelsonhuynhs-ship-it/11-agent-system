@@ -42,18 +42,8 @@ from active_jobs_cols import COL as AJ_COL  # noqa: E402
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from carrier_alias import normalize_carrier, CARRIER_ALIAS  # noqa: E402
 
-# Telegram notify (optional — fails gracefully if env not set)
-try:
-    import importlib.util as _ilu
-    _tg_spec = _ilu.spec_from_file_location(
-        "notify_telegram",
-        os.path.join(os.path.abspath(_SCRIPTS_DIR), "notify-telegram.py"),
-    )
-    _tg_mod = _ilu.module_from_spec(_tg_spec)  # type: ignore[arg-type]
-    _tg_spec.loader.exec_module(_tg_mod)  # type: ignore[union-attr]
-    _telegram_send = _tg_mod.send  # type: ignore[attr-defined]
-except Exception:
-    _telegram_send = None
+# Telegram notify DISABLED 2026-04-26 — alerts off, generic notify-telegram.py kept for other use cases
+_telegram_send = None
 
 sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 

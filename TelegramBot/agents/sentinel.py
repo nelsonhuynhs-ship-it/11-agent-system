@@ -57,8 +57,10 @@ class Sentinel:
         return self._oracle
 
     def _send(self, message: str) -> bool:
-        """Send message to Nelson via Telegram."""
-        import requests
+        """Send message to Nelson via Telegram. DISABLED 2026-04-26 — no-op."""
+        log.debug("[SENTINEL] _send disabled — briefing dropped (%d chars)", len(message))
+        return True
+        import requests  # noqa: unreachable
         if not self.bot_token or not self.chat_id:
             log.error("[SENTINEL] Missing BOT_TOKEN or ADMIN_CHAT_ID")
             return False

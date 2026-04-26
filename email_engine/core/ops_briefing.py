@@ -137,7 +137,10 @@ def build_message(groups: dict) -> str:
 
 
 def send_telegram(message: str) -> bool:
-    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT:
+    """DISABLED 2026-04-26 — no-op."""
+    log.debug("ops_briefing.send_telegram disabled — message dropped (%d chars)", len(message))
+    return True
+    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT:  # noqa: unreachable
         log.warning("Telegram not configured. Message:\n%s", message)
         return False
     try:

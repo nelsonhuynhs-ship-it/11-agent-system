@@ -1101,12 +1101,10 @@ def _trigger_erp_refresh() -> bool:
 
 
 def _notify_telegram(import_result: dict, erp_refreshed: bool = False) -> bool:
-    """
-    Send import summary to Nelson via Telegram.
-    Reads BOT_TOKEN and ADMIN_CHAT_ID from TelegramBot/config.py.
-    Non-blocking — returns False on failure.
-    """
-    try:
+    """Send import summary to Nelson via Telegram. DISABLED 2026-04-26 — no-op."""
+    log.debug("rate_importer._notify_telegram disabled — alert dropped")
+    return True
+    try:  # noqa: unreachable
         # Read Telegram config (same source as bot_v5.py)
         import importlib.util
         spec = importlib.util.spec_from_file_location("tg_config", str(TELEGRAM_CONFIG))

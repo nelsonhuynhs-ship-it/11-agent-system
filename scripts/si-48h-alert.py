@@ -53,8 +53,9 @@ CHAT_ID = os.environ.get("ADMIN_CHAT_ID", "").strip()
 
 
 def send_telegram(text: str) -> bool:
-    """Send message to Nelson's Telegram. Returns True on success."""
-    if not BOT_TOKEN or not CHAT_ID:
+    """Send message to Nelson's Telegram. DISABLED 2026-04-26 — no-op."""
+    return True
+    if not BOT_TOKEN or not CHAT_ID:  # noqa: unreachable
         print(f"[no-telegram — BOT_TOKEN/ADMIN_CHAT_ID not set] {text}")
         return False
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"

@@ -61,8 +61,10 @@ SCAN_ROUTES = [
 
 
 def send_telegram(message: str) -> bool:
-    """Send message via Telegram Bot API."""
-    import requests
+    """Send message via Telegram Bot API. DISABLED 2026-04-26 — no-op."""
+    log.debug("alert_dispatcher.send_telegram disabled — message dropped (%d chars)", len(message))
+    return True
+    import requests  # noqa: unreachable
     if not BOT_TOKEN or not CHAT_ID:
         log.error("BOT_TOKEN or ADMIN_CHAT_ID not set")
         return False

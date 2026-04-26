@@ -649,8 +649,10 @@ def format_daily_summary(rate_alerts: list[RateAlert],
 
 
 def send_telegram(message: str, dry_run: bool = False) -> bool:
-    """Send alert to Telegram. Returns True if sent."""
-    if dry_run:
+    """Send alert to Telegram. DISABLED 2026-04-26 — no-op."""
+    log.debug("rate_monitor.send_telegram disabled — message dropped (%d chars)", len(message))
+    return True
+    if dry_run:  # noqa: unreachable
         print("\n" + "=" * 60)
         print("[DRY RUN] Would send to Telegram:")
         print("=" * 60)
