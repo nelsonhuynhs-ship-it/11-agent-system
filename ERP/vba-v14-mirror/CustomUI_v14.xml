@@ -191,7 +191,7 @@
           <separator id="sepQuoteTools"/>
           <button id="btnQuoteImage" label="Quote Img" size="normal"
                   imageMso="Camera" onAction="OnAction_QuoteImage"
-                  screentip="Create quote image to clipboard"/>
+                  screentip="Smart auto-render: lay nhom quote moi nhat hom nay (cung khach + ngay). Hoac chon dong cu the truoc khi bam de render dung dong do."/>
           <button id="btnQuoteImageBulk" label="Bulk Img" size="normal"
                   imageMso="FormulaEvaluate" onAction="OnAction_QuoteImageBulk"
                   screentip="Select quote rows -> sinh N HTML ca nhan hoa cho N khach (tick 'X' tren sheet BulkRecipients)"/>

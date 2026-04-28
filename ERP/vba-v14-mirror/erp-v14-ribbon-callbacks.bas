@@ -92,6 +92,18 @@ Private m_SocFilter As Boolean      ' True = Note contains SOC only
 
 ' Exp preset filter constants (Fix 1 — 2026-04-20)
 Private Const EXP_PRESET_ACTIVE As String = "Active only"
+
+' === Filter cache for sheet switch restore (Phase 2 - 260428) ===
+Private m_CachedSheetName As String
+Private m_CachedSearchCarrier As String
+Private m_CachedSearchPOL As String
+Private m_CachedSearchPOD As String
+Private m_CachedSearchPlace As String
+Private m_CachedSearchExp As String
+Private m_CachedSourceFilter As String
+Private m_CachedSocFilter As Boolean
+Private m_HasCachedState As Boolean
+
 Private Const EXP_PRESET_WEEK As String = "This week"
 Private Const EXP_PRESET_MONTH As String = "This month"
 Private Const EXP_PRESET_ALL As String = "All (incl. expired)"
@@ -144,6 +156,53 @@ Private m_CustomerCount As Long
 ' Sub/Function appears in a module, you cannot add more variable
 ' declarations after it.
 
+' ============================================================
+'  PUBLIC SETTERS — for E2E test seeding (Phase 3 - 260428)
+'  Required by TestE2E_FilterRestore (case-10) to pre-populate
+'  module-level state before exercising CacheSearchState round-trip.
+'  Module vars stay Private; tests go through these accessors.
+' ============================================================
+Public Sub SetSearchCarrier(text As String): m_SearchCarrier = text: End Sub
+Public Sub SetSearchPOL(text As String): m_SearchPOL = text: End Sub
+Public Sub SetSearchPOD(text As String): m_SearchPOD = text: End Sub
+Public Sub SetSearchPlace(text As String): m_SearchPlace = text: End Sub
+
+' ============================================================
+'  PUBLIC HELPERS — filter cache (Phase 2 - 260428)
+' ============================================================
+Public Sub CacheSearchState(sheetName As String)
+    On Error Resume Next
+    m_CachedSheetName = sheetName
+    m_CachedSearchCarrier = m_SearchCarrier
+    m_CachedSearchPOL = m_SearchPOL
+    m_CachedSearchPOD = m_SearchPOD
+    m_CachedSearchPlace = m_SearchPlace
+    m_CachedSearchExp = m_SearchExp
+    m_CachedSourceFilter = m_SourceFilter
+    m_CachedSocFilter = m_SocFilter
+    m_HasCachedState = True
+End Sub
+
+Public Function TryRestoreSearchState(sheetName As String) As Boolean
+    On Error Resume Next
+    TryRestoreSearchState = False
+    If Not m_HasCachedState Then Exit Function
+    If m_CachedSheetName <> sheetName Then Exit Function
+
+    m_SearchCarrier = m_CachedSearchCarrier
+    m_SearchPOL = m_CachedSearchPOL
+    m_SearchPOD = m_CachedSearchPOD
+    m_SearchPlace = m_CachedSearchPlace
+    m_SearchExp = m_CachedSearchExp
+    m_SourceFilter = m_CachedSourceFilter
+    m_SocFilter = m_CachedSocFilter
+    TryRestoreSearchState = True
+End Function
+
+Public Sub ClearCachedState()
+    m_HasCachedState = False
+End Sub
+
 Public Sub SetTestMode(enabled As Boolean)
     g_TestMode = enabled
 End Sub
@@ -179,6 +238,67 @@ Public Function TestRunQuoteImage() As String
     Exit Function
 TestErr:
     TestRunQuoteImage = "WRAPPER_ERR:" & Err.Number & ":" & Err.Description
+End Function
+
+' ── E2E Mix Quote test wrapper (added 2026-04-26 Phase 3b) ───
+' Bypasses IRibbonControl callback path. Sets m_* vars + MixState dict
+' programmatically, runs ComputeMix, returns blended sell label or error.
+' Caller responsible for finding valid SourceRow in Pricing Dry sheet first.
+Public Function TestE2E_RunMix(carrier As String, pol As String, pod As String, _
+                                src As String, srcRow As Long, customer As String, _
+                                fixQty As Long, fakQty As Long) As String
+    On Error GoTo TestErr
+    Call SetTestMode(True)
+
+    ' Set ribbon proxy state directly (these are Private to this module)
+    m_Carrier = carrier
+    m_POL = pol
+    m_POD = pod
+    m_Source = src
+    m_SourceRow = srcRow
+    m_Customer = customer
+
+    ' Set Mix state dict
+    Dim st As Object: Set st = MixState()
+    st("FixQty") = fixQty
+    st("FakQty") = fakQty
+    st("Ready") = False    ' will be set True by ComputeMix if peer found
+
+    ' Run blend
+    Call ComputeMix
+
+    ' Check Ready flag
+    If Not CBool(st("Ready")) Then
+        TestE2E_RunMix = "FAIL:NotReady - peer FIX/FAK not found for " & carrier & " " & pol & "->" & pod
+        Exit Function
+    End If
+
+    ' Return blended sell label (e.g. "Sell ($100 mk): 40HC $2,500 | 20GP $1,800")
+    TestE2E_RunMix = "OK:" & BuildMixSellLabel()
+    Exit Function
+TestErr:
+    TestE2E_RunMix = "ERR:" & Err.Number & ":" & Err.Description
+End Function
+
+' Helper: find first row in Pricing Dry matching Carrier+POL+POD+Source.
+' Returns row number or 0 if not found.
+Public Function TestE2E_FindSourceRow(carrier As String, pol As String, pod As String, _
+                                       src As String) As Long
+    On Error GoTo NoMatch
+    Dim ws As Worksheet: Set ws = ThisWorkbook.Sheets("Pricing Dry")
+    Dim lastRow As Long: lastRow = ws.Cells(ws.Rows.Count, COL_POL).End(xlUp).Row
+    Dim r As Long
+    For r = 2 To lastRow
+        If UCase(Trim(ws.Cells(r, COL_CARRIER).Value)) = UCase(carrier) _
+           And UCase(Trim(ws.Cells(r, COL_POL).Value)) = UCase(pol) _
+           And UCase(Trim(ws.Cells(r, COL_POD).Value)) = UCase(pod) _
+           And UCase(Trim(ws.Cells(r, COL_SOURCE).Value)) = UCase(src) Then
+            TestE2E_FindSourceRow = r
+            Exit Function
+        End If
+    Next r
+NoMatch:
+    TestE2E_FindSourceRow = 0
 End Function
 
 ' Wrapper: replaces MsgBox for success/info prompts when in test mode.
@@ -2917,6 +3037,9 @@ Public Sub OnAction_ClearSearch(control As IRibbonControl)
     ' Invalidate ribbon to clear comboBox text + toggle states
     If Not ribbonUI Is Nothing Then ribbonUI.Invalidate
     On Error GoTo 0
+
+    ' Phase 2 (260428): invalidate restore cache so user's "fresh start" sticks
+    ClearCachedState
 End Sub
 
 ' ============================================================
@@ -3159,8 +3282,155 @@ End Function
 '  QUOTE IMAGE — Generate HTML quote → open in browser
 '  Select rows on Quotes sheet → click Quote Image → browser opens
 '  P5 2026-04-13 — Rewritten: Excel table → premium HTML (Option F)
+'  260428 Phase 1 — Smart dispatcher: auto-detect latest group when no row selected
 ' ============================================================
+
+' ---------------------------------------------------------------
+'  Smart dispatcher — decides row set, then delegates to renderer
+' ---------------------------------------------------------------
 Public Sub OnAction_QuoteImage(Optional control As IRibbonControl = Nothing)
+    On Error GoTo ErrHandler
+
+    Dim wsQ As Worksheet
+    Set wsQ = ERPv14Core.FindSheet("Quotes")
+    If wsQ Is Nothing Then
+        Call MsgBoxOrSilent("Quotes sheet not found!", vbExclamation, "Quote Image")
+        Exit Sub
+    End If
+
+    Dim rowNums() As Long
+    Dim rowCount As Long: rowCount = 0
+
+    ' Decide mode: smart-auto vs explicit-selection
+    Dim useSmartMode As Boolean: useSmartMode = True
+
+    If ActiveSheet.Name = wsQ.Name Then
+        ' On Quotes sheet — check if user has meaningful selection
+        Dim hasRealSelection As Boolean: hasRealSelection = False
+        Dim selArea As Range, ri As Long, sr As Long
+        For Each selArea In Selection.Areas
+            For ri = 1 To selArea.Rows.Count
+                sr = selArea.Rows(ri).Row
+                If sr >= 2 And Trim(wsQ.Cells(sr, 1).Value) <> "" Then
+                    hasRealSelection = True
+                    Exit For
+                End If
+            Next ri
+            If hasRealSelection Then Exit For
+        Next selArea
+
+        If hasRealSelection Then
+            useSmartMode = False
+            Call QuoteImage_CollectFromSelection(wsQ, rowNums, rowCount)
+        End If
+    End If
+
+    If useSmartMode Then
+        Call QuoteImage_CollectLatestGroup(wsQ, rowNums, rowCount)
+    End If
+
+    If rowCount = 0 Then
+        Call MsgBoxOrSilent("Chua co quote nao trong nhom moi nhat hom nay." & vbCrLf & _
+                            "Hay tao quote truoc, hoac sang sheet Quotes va chon dong cu the.", _
+                            vbInformation, "Quote Image")
+        Exit Sub
+    End If
+
+    ' Auto-jump to Quotes sheet if not already there
+    If ActiveSheet.Name <> wsQ.Name Then wsQ.Activate
+
+    ' Delegate to renderer (existing logic now in helper)
+    Call QuoteImage_RenderRows(wsQ, rowNums, rowCount)
+    Exit Sub
+
+ErrHandler:
+    g_LastError = "QuoteImage ERR " & Err.Number & ": " & Err.Description
+    Call MsgBoxOrSilent("Error: " & Err.Description, vbCritical, "Quote Image")
+End Sub
+
+' ---------------------------------------------------------------
+'  Collect rows from explicit selection (legacy behavior)
+' ---------------------------------------------------------------
+Private Sub QuoteImage_CollectFromSelection(wsQ As Worksheet, _
+                                            ByRef rowNums() As Long, _
+                                            ByRef rowCount As Long)
+    rowCount = 0
+    Dim selArea As Range
+    Dim sr As Long, isDup As Boolean, chk As Long, ri As Long
+    For Each selArea In Selection.Areas
+        For ri = 1 To selArea.Rows.Count
+            sr = selArea.Rows(ri).Row
+            If sr >= 2 And Trim(wsQ.Cells(sr, 1).Value) <> "" Then
+                isDup = False
+                If rowCount > 0 Then
+                    For chk = 1 To rowCount
+                        If rowNums(chk) = sr Then isDup = True: Exit For
+                    Next chk
+                End If
+                If Not isDup Then
+                    rowCount = rowCount + 1
+                    ReDim Preserve rowNums(1 To rowCount)
+                    rowNums(rowCount) = sr
+                End If
+            End If
+        Next ri
+    Next selArea
+End Sub
+
+' ---------------------------------------------------------------
+'  Smart auto-detect: walk down from row 5, collect rows in the
+'  CURRENT BURST SESSION (same customer + time gap <= 5 minutes
+'  between consecutive rows). 260429 fix: separates a fresh quote
+'  from earlier same-customer bursts so Quote Img doesn't keep
+'  re-rendering yesterday's batch.
+' ---------------------------------------------------------------
+Private Sub QuoteImage_CollectLatestGroup(wsQ As Worksheet, _
+                                          ByRef rowNums() As Long, _
+                                          ByRef rowCount As Long)
+    Const SESSION_GAP_SEC As Long = 300  ' 5 minutes — tunable
+    rowCount = 0
+    ' QUOTES_DATA_START = 5 (per DOMAIN-ERP Rule 1)
+    Dim startRow As Long: startRow = QUOTES_DATA_START
+    If Trim(CStr(wsQ.Cells(startRow, 1).Value)) = "" Then
+        Exit Sub  ' No quotes today
+    End If
+
+    Dim refCust As String: refCust = UCase(Trim(CStr(wsQ.Cells(startRow, 3).Value)))
+    Dim prevTime As Date: prevTime = wsQ.Cells(startRow, 2).Value
+
+    Dim r As Long: r = startRow
+    Dim lastRow As Long: lastRow = wsQ.Cells(wsQ.Rows.Count, 1).End(xlUp).Row
+
+    Do While r <= lastRow
+        Dim qid As String: qid = Trim(CStr(wsQ.Cells(r, 1).Value))
+        If qid = "" Then Exit Do
+
+        Dim cust As String: cust = UCase(Trim(CStr(wsQ.Cells(r, 3).Value)))
+        Dim curTime As Date: curTime = wsQ.Cells(r, 2).Value
+
+        Dim match As Boolean: match = True
+        If r > startRow Then
+            ' Stop if customer changes
+            If cust <> refCust Then match = False
+            ' Stop if time gap > SESSION_GAP_SEC (current session ended)
+            If match And DateDiff("s", curTime, prevTime) > SESSION_GAP_SEC Then match = False
+        End If
+
+        If Not match Then Exit Do
+
+        rowCount = rowCount + 1
+        ReDim Preserve rowNums(1 To rowCount)
+        rowNums(rowCount) = r
+        prevTime = curTime  ' next iteration compares against THIS row, not row 5
+        r = r + 1
+    Loop
+End Sub
+
+' ---------------------------------------------------------------
+'  Render rows into HTML — body of original OnAction_QuoteImage
+'  (260428 Phase 1 — extracted as helper, takes rowNums+rowCount)
+' ---------------------------------------------------------------
+Private Sub QuoteImage_RenderRows(wsQ As Worksheet, rowNums() As Long, rowCount As Long)
     On Error GoTo ErrHandler
 
     ' Quotes col map: 1=QuoteID 2=Date 3=Customer 4=Carrier
@@ -3186,46 +3456,6 @@ Public Sub OnAction_QuoteImage(Optional control As IRibbonControl = Nothing)
     Const Q_SELL_20RF As Integer = 34
     Const Q_SELL_40RF As Integer = 35
     Const QUOTE_DIR As String = "D:\OneDrive\NelsonData\erp\quote-mockups\"
-
-    Dim wsQ As Worksheet
-    Set wsQ = ERPv14Core.FindSheet("Quotes")
-    If wsQ Is Nothing Then
-        Call MsgBoxOrSilent("Quotes sheet not found!", vbExclamation, "Quote Image")
-        Exit Sub
-    End If
-    If Not ActiveSheet.Name = wsQ.Name Then
-        Call MsgBoxOrSilent("Navigate to Quotes sheet first!", vbExclamation, "Quote Image")
-        Exit Sub
-    End If
-
-    ' ── Collect selected rows (multi-area Ctrl+click) ──
-    Dim rowNums() As Long
-    Dim rowCount As Long: rowCount = 0
-    Dim selArea As Range
-    Dim sr As Long, isDup As Boolean, chk As Long, ri As Long
-    For Each selArea In Selection.Areas
-        For ri = 1 To selArea.Rows.Count
-            sr = selArea.Rows(ri).Row
-            If sr >= 2 And Trim(wsQ.Cells(sr, 1).Value) <> "" Then
-                isDup = False
-                If rowCount > 0 Then
-                    For chk = 1 To rowCount
-                        If rowNums(chk) = sr Then isDup = True: Exit For
-                    Next chk
-                End If
-                If Not isDup Then
-                    rowCount = rowCount + 1
-                    ReDim Preserve rowNums(1 To rowCount)
-                    rowNums(rowCount) = sr
-                End If
-            End If
-        Next ri
-    Next selArea
-
-    If rowCount = 0 Then
-        Call MsgBoxOrSilent("Select quote rows (row 2+) first!", vbExclamation, "Quote Image")
-        Exit Sub
-    End If
 
     ' ── Read customer + date ──
     ' Bulk mode: caller set m_BulkCustomerName -> use that instead of row 1

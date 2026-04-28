@@ -16,20 +16,48 @@ End Sub
 '  P1 — Sheet activate event (auto-refresh ribbon on tab switch)
 '  Added 2026-04-11 via scripts/reimport-erp-vba.py
 '  Plan: 260411-2121-erp-workflow-upgrade phase-01
+'  Modified 260428 Phase 2: try restore cached filter state first
 ' ============================================================
 Private Sub Workbook_SheetActivate(ByVal Sh As Object)
     On Error Resume Next
     ' Only react when entering a pricing sheet
     If InStr(1, Sh.Name, "Pricing", vbTextCompare) = 0 Then Exit Sub
 
-    ' Clear stale row 1 search placeholders from the PREVIOUS sheet
-    ERPv14Core.ClearAllSearchPlaceholders Sh
+    ' Try restore cached state for SAME sheet (e.g. Dry→Quotes→Dry)
+    Dim restored As Boolean
+    restored = ERPv14Ribbon.TryRestoreSearchState(Sh.Name)
 
-    ' Refresh ribbon state from the active cell on the new sheet
-    ERPv14Ribbon.RefreshRibbonFromSheet Sh
+    If restored Then
+        ' Restored — re-apply filter, do NOT reset toggles
+        Application.EnableEvents = False
+        ERPv14Core.ApplyQuickSearch
+        Application.EnableEvents = True
+        ' Refresh ribbon to show comboBox text + toggle state
+        If Not ERPv14Ribbon.ribbonUI Is Nothing Then
+            ERPv14Ribbon.ribbonUI.Invalidate
+        End If
+    Else
+        ' Different sheet (Dry↔Reefer) or no cache — original 2026-04-22 behavior
+        ERPv14Core.ClearAllSearchPlaceholders Sh
+        ERPv14Ribbon.RefreshRibbonFromSheet Sh
+        ERPv14Ribbon.ResetToggleFilters
+    End If
 
-    ' 2026-04-22: Reset toggle filters per Nelson decision (fresh start on sheet switch)
-    ERPv14Ribbon.ResetToggleFilters
+    ' Clear cache after restore attempt (one-shot)
+    ERPv14Ribbon.ClearCachedState
+    On Error GoTo 0
+End Sub
+
+' ============================================================
+'  P2 — Sheet deactivate event (cache filter state on leave)
+'  Added 260428 Phase 2: preserve search state when switching sheets
+' ============================================================
+Private Sub Workbook_SheetDeactivate(ByVal Sh As Object)
+    On Error Resume Next
+    ' Cache state when leaving a Pricing sheet
+    If InStr(1, Sh.Name, "Pricing", vbTextCompare) > 0 Then
+        ERPv14Ribbon.CacheSearchState Sh.Name
+    End If
     On Error GoTo 0
 End Sub
 
