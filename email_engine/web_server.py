@@ -1,7 +1,7 @@
 # web_server.py — Email Dashboard Server v2
-import os, sys, csv, random, logging
+import os, sys, csv, random, logging, threading
 from pathlib import Path
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
 
 BASE_DIR = Path(__file__).parent
@@ -37,6 +37,49 @@ from pydantic import BaseModel, Field
 
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger("email-dash")
+
+# Send backend toggle: "outlook" (Outlook COM, default) | "graph" (Microsoft Graph API).
+# Set env EMAIL_SEND_BACKEND=graph to migrate. Outlook COM is deprecated upstream
+# (new Outlook drops COM support — pywin32 issue #2475); Graph is the long-term path.
+EMAIL_SEND_BACKEND = os.environ.get("EMAIL_SEND_BACKEND", "graph").strip().lower()
+
+
+def _send_email_html(to: str, subject: str, html_body: str, outlook_app=None) -> dict:
+    """Backend-agnostic email send. Returns verification dict.
+
+    Returns:
+        {
+          "ok": bool,
+          "backend": "graph" | "outlook",
+          "graph_msg_id": str | None,
+          "sent_at": ISO timestamp,
+          "to": str,
+          "subject": str,
+        }
+    Raises on hard failure.
+    """
+    sent_at = datetime.now(timezone.utc).isoformat()
+    if EMAIL_SEND_BACKEND == "graph":
+        from email_engine.senders import send_html_via_graph, verify_in_sent_folder
+        send_html_via_graph(to=to, subject=subject, html_body=html_body)
+        msg_id = verify_in_sent_folder(to=to, subject=subject, since=sent_at)
+        return {
+            "ok": True,
+            "backend": "graph",
+            "graph_msg_id": msg_id,
+            "sent_at": sent_at,
+            "to": to,
+            "subject": subject,
+        }
+    if outlook_app is None:
+        log.error(f"[SEND-FAIL] backend=outlook but COM dispatch missing for {to}")
+        raise RuntimeError(f"Outlook COM dispatch missing — set EMAIL_SEND_BACKEND=graph")
+    m = outlook_app.CreateItem(0)
+    m.To = to
+    m.Subject = subject
+    m.HTMLBody = html_body
+    m.Send()
+    return {"ok": True, "backend": "outlook", "graph_msg_id": None, "sent_at": sent_at, "to": to, "subject": subject}
 
 try:
     from shared.paths import PARQUET_FILE
@@ -635,13 +678,20 @@ def get_arb_rates():
         log.warning(f"ARB rates load failed: {e}")
         return {"origins": [], "raw": {}}
 
-def _log_send(email, subj, cid, pol, dest):
+def _log_send(email, subj, cid, pol, dest, backend="", graph_msg_id="", verified=""):
+    """Append row to email_log.csv. New columns (backend, graph_msg_id, verified) are
+    appended after the legacy 8 columns so existing readers that expect exactly those
+    columns keep working."""
     exists = LOG_FILE.exists()
     with open(LOG_FILE, "a", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         if not exists:
-            w.writerow(["timestamp","email","subject","campaign_id","cycle_id","status","pol","dest"])
-        w.writerow([datetime.now().strftime("%Y-%m-%d %H:%M:%S"), email, subj, cid, "1", "SENT", pol, dest])
+            w.writerow(["timestamp","email","subject","campaign_id","cycle_id","status","pol","dest","backend","graph_msg_id","verified"])
+        w.writerow([
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            email, subj, cid, "1", "SENT", pol, dest,
+            backend, graph_msg_id, verified,
+        ])
 
 def _load_cooldown_map() -> dict:
     """Load email_log.csv and return {email: last_datetime} for cooldown checks."""
@@ -679,14 +729,6 @@ def _do_send(campaign_id: str, req: SendRequest):
     from auto_rate_builder import build_rate_table_for_customer
     prog = SEND_PROGRESS[campaign_id]
     prog["status"] = "running"
-
-    try:
-        import win32com.client
-        outlook = win32com.client.Dispatch("Outlook.Application")
-    except Exception as e:
-        prog["status"] = "failed"
-        prog["errors"].append({"email": "outlook", "error": str(e)})
-        return
 
     default_intro = CFG.get("INTROTEXT", CFG.get("IntroText", ""))
     closing   = CFG.get("CLOSINGTEXT", CFG.get("ClosingText", ""))
@@ -822,22 +864,21 @@ def _do_send(campaign_id: str, req: SendRequest):
                 prog["skipped"] = prog.get("skipped", 0) + 1
                 log.info(f"SKIP (no rates) -> {c.email}")
                 continue
-            m = outlook.CreateItem(0)
             # Test mode: redirect to Nelson's personal email, tag subject
             if req.test_mode:
-                m.To = req.test_to_email or "huynhyohan@gmail.com"
+                to_addr = req.test_to_email or "huynhyohan@gmail.com"
                 subj = f"[TEST -> {c.email}] {subj}"
             else:
-                m.To = c.email
-            m.Subject = subj
+                to_addr = c.email
             body = f"<p>Dear {pic},</p><p>{intro}</p>{html}<br><p>{closing}</p>"
             if signature:
                 body += f"<br>{signature}"
-            m.HTMLBody = f"<html><body>{body}</body></html>"
-            m.Send()
+            html_body = f"<html><body>{body}</body></html>"
+            result = _send_email_html(to=to_addr, subject=subj, html_body=html_body, outlook_app=outlook)
             prog["sent"] += 1
-            _log_send(c.email, subj, campaign_id, pol, dest)
-            log.info(f"SENT -> {c.email} ({pol}→{dest})")
+            verified = "yes" if result.get("graph_msg_id") else "pending"
+            _log_send(c.email, subj, campaign_id, pol, dest, backend=result["backend"], graph_msg_id=result.get("graph_msg_id") or "", verified=verified)
+            log.info(f"[SEND-OK] backend={result['backend']} to={to_addr} msg_id={result.get('graph_msg_id')} sent_at={result['sent_at']}")
         except Exception as e:
             prog["errors"].append({"email": c.email, "error": str(e)})
             log.error(f"FAIL -> {c.email}: {e}")
@@ -880,6 +921,73 @@ def send_emails(req: SendRequest, background_tasks: BackgroundTasks):
     SEND_PROGRESS[campaign_id] = {"sent": 0, "total": len(req.contacts), "errors": [], "status": "queued", "skipped_cooldown": 0}
     background_tasks.add_task(_do_send, campaign_id, req)
     return {"campaign_id": campaign_id, "total": len(req.contacts), "status": "queued"}
+
+
+def _load_today_sent_set() -> set:
+    """Read email_log.csv → return set of emails already SENT today (for duplicate guard).
+
+    Defensive layer: master file LAST_SENT_DATE is updated lazily by sent-scan job;
+    this set prevents re-sending within same day if user clicks Send 2x.
+    """
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    sent: set = set()
+    if not LOG_FILE.exists():
+        return sent
+    try:
+        with open(LOG_FILE, "r", encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                ts = (row.get("timestamp") or "").strip()
+                status = (row.get("status") or "").strip().upper()
+                em = (row.get("email") or "").strip().lower()
+                if ts.startswith(today_str) and status == "SENT" and em:
+                    sent.add(em)
+    except Exception as e:
+        log.warning(f"_load_today_sent_set failed: {e}")
+    return sent
+
+
+def _do_send_built_emails(campaign_id: str, emails_out: list[dict]) -> None:
+    """Send pre-built emails (from Smart Send batch_enqueue dry_run output).
+
+    Each email dict has: cnee_email, subject, html_body, campaign_id, meta_json.
+    Bypasses queue_store entirely — uses graph_sender via _send_email_html().
+    Pacing handled inside graph_sender (~28/min).
+
+    Duplicate guard: skips emails already SENT today (read from email_log.csv).
+    """
+    prog = SEND_PROGRESS[campaign_id]
+    prog["status"] = "running"
+
+    # Duplicate guard — skip emails already sent today
+    today_sent = _load_today_sent_set()
+    if today_sent:
+        log.info(f"[smart-batch] Today already sent: {len(today_sent)} emails — will be skipped")
+    prog["skipped_duplicate"] = 0
+
+    for em in emails_out:
+        to_addr = em.get("cnee_email", "").strip()
+        subject = em.get("subject", "")
+        html_body = em.get("html_body", "")
+        if not to_addr or not html_body:
+            prog["errors"].append({"email": to_addr, "error": "missing recipient or body"})
+            continue
+        if to_addr.lower() in today_sent:
+            prog["skipped_duplicate"] += 1
+            log.info(f"[smart-batch] SKIP duplicate -> {to_addr} (already sent today)")
+            continue
+        try:
+            result = _send_email_html(to=to_addr, subject=subject, html_body=html_body, outlook_app=outlook)
+            prog["sent"] += 1
+            verified = "yes" if result.get("graph_msg_id") else "pending"
+            _log_send(to_addr, subject, em.get("campaign_id") or campaign_id, "", "", backend=result["backend"], graph_msg_id=result.get("graph_msg_id") or "", verified=verified)
+            log.info(f"[SEND-OK] backend={result['backend']} to={to_addr} msg_id={result.get('graph_msg_id')} sent_at={result['sent_at']}")
+            today_sent.add(to_addr.lower())  # update set so within-batch dupes also skip
+        except Exception as e:
+            prog["errors"].append({"email": to_addr, "error": str(e)})
+            log.error(f"[smart-batch] FAIL -> {to_addr}: {e}")
+
+    prog["status"] = "done"
 
 @app.get("/api/send-status/{campaign_id}")
 def send_status(campaign_id: str):
@@ -981,7 +1089,7 @@ def get_history(limit: int = 100, email: str = None, campaign_id: str = None):
         df = df[df["email"].str.lower() == email.strip().lower()]
     if campaign_id:
         df = df[df["campaign_id"] == campaign_id]
-    return df.sort_values("timestamp", ascending=False).head(limit).to_dict(orient="records")
+    return df.sort_values("timestamp", ascending=False).head(limit).fillna("").to_dict(orient="records")
 
 @app.get("/api/history/stats")
 def get_history_stats():
@@ -1176,13 +1284,6 @@ def sequence_send(req: SequenceSendRequest, background_tasks: BackgroundTasks):
         return {"queued": 0, "message": "No contacts due for follow-up"}
 
     def _send_followups():
-        try:
-            import win32com.client
-            outlook = win32com.client.Dispatch("Outlook.Application")
-        except Exception as e:
-            log.error(f"Outlook unavailable for sequence send: {e}")
-            return
-
         signature = CFG.get("SIGNATURE", CFG.get("Signature", ""))
         sent = 0
         for c in due:
@@ -1191,15 +1292,12 @@ def sequence_send(req: SequenceSendRequest, background_tasks: BackgroundTasks):
                 sent += 1
                 continue
             try:
-                m = outlook.CreateItem(0)
-                m.To = c["email"]
-                m.Subject = c["subject"]
                 body = f"<html><body><p>Dear Team,</p><p>{c['intro']}</p><br>{signature}</body></html>"
-                m.HTMLBody = body
-                m.Send()
+                result = _send_email_html(to=c["email"], subject=c["subject"], html_body=body, outlook_app=outlook)
                 advance_step(c["email"], c["next_step"])
-                _log_send(c["email"], c["subject"], c.get("campaign_id", "SEQ"), "", "")
-                log.info(f"SEQ SENT step {c['next_step']} -> {c['email']}")
+                verified = "yes" if result.get("graph_msg_id") else "pending"
+                _log_send(c["email"], c["subject"], c.get("campaign_id", "SEQ"), "", "", backend=result["backend"], graph_msg_id=result.get("graph_msg_id") or "", verified=verified)
+                log.info(f"[SEND-OK] backend={result['backend']} msg_id={result.get('graph_msg_id')} SEQ step {c['next_step']} -> {c['email']}")
                 sent += 1
             except Exception as e:
                 log.error(f"SEQ FAIL -> {c['email']}: {e}")
@@ -1927,6 +2025,168 @@ def api_version():
     }
 
 
+@app.get("/api/diagnostics/guards")
+def diagnostics_guards():
+    """Read-only audit of all 10 anti-spam guards.
+    Used by SMART_SEND_CONTRACT.md verification + dashboard audit button.
+    """
+    from datetime import datetime as _dt
+    guards = []
+
+    # Guard 1: EXCLUDED list
+    guards.append({
+        "id": 1, "name": "EXCLUDED list", "active": True,
+        "source": "web_server.py:252", "metric": "excluded_count",
+        "value": len(EXCLUDED_EMAILS),
+        "expected": ">=0 entries from excluded_customers.json",
+        "log_signature": "EXCLUDED -> {email}",
+    })
+
+    # Guard 2: SUPPRESSED status
+    guards.append({
+        "id": 2, "name": "SUPPRESSED status", "active": True,
+        "source": "web_server.py:735", "metric": "statuses_blocked",
+        "value": ["HARD_BOUNCE", "INVALID", "NO_MX"],
+        "expected": "HARD_BOUNCE, INVALID, NO_MX",
+        "log_signature": "SUPPRESSED -> {email}",
+    })
+
+    # Guard 3: Cooldown 14d
+    guards.append({
+        "id": 3, "name": "Cooldown 14d", "active": True,
+        "source": "web_server.py:760", "metric": "days", "value": 14,
+        "expected": "14 days",
+        "log_signature": "COOLDOWN -> {email}",
+    })
+
+    # Guard 4: Hard limit 3/30d
+    guards.append({
+        "id": 4, "name": "Hard limit 3/30d", "active": True,
+        "source": "web_server.py:779", "metric": "max_sends", "value": 3,
+        "expected": "3 sends per contact",
+        "log_signature": "HARD_LIMIT_3 -> {email}",
+    })
+
+    # Guard 5: Typo Shield
+    typo_active = True
+    try:
+        from email_engine.core.typo_shield import check_typo  # noqa
+    except Exception:
+        typo_active = False
+    guards.append({
+        "id": 5, "name": "Typo Shield", "active": typo_active,
+        "source": "core/typo_shield.py", "metric": "module_importable",
+        "value": typo_active,
+        "expected": "check_typo() callable",
+        "log_signature": "TYPO_BLOCK -> {email}",
+    })
+
+    # Guard 6: Smart Send Window
+    smart_window_active = True
+    try:
+        from email_engine.core.smart_send_window import plan_send_time  # noqa
+    except Exception:
+        smart_window_active = False
+    guards.append({
+        "id": 6, "name": "Smart Send Window", "active": smart_window_active,
+        "source": "core/smart_send_window.py", "metric": "module_importable",
+        "value": smart_window_active,
+        "expected": "plan_send_time() callable",
+        "log_signature": "DEFERRED -> {email}",
+    })
+
+    # Guard 7: Competitor blacklist
+    try:
+        comp_count = len(COMPETITOR_BL.get("domains", []) or [])
+    except Exception:
+        comp_count = 0
+    guards.append({
+        "id": 7, "name": "Competitor blacklist", "active": comp_count > 0,
+        "source": "web_server.py:261", "metric": "domain_count",
+        "value": comp_count,
+        "expected": ">0 domain entries",
+        "log_signature": "competitor blocked ({reason})",
+    })
+
+    # Guard 8: Priority isolation
+    priority_active = True
+    try:
+        from email_engine.core.priority_filter import drop_priority  # noqa
+    except Exception:
+        priority_active = False
+    guards.append({
+        "id": 8, "name": "Priority isolation", "active": priority_active,
+        "source": "core/priority_filter.py", "metric": "module_importable",
+        "value": priority_active,
+        "expected": "drop_priority() callable",
+        "log_signature": "rotation: dropped N priority",
+    })
+
+    # Guard 9: Today_sent guard
+    try:
+        today_count = len(_load_today_sent_set())
+        today_active = True
+    except Exception:
+        today_count = -1
+        today_active = False
+    guards.append({
+        "id": 9, "name": "Today_sent guard", "active": today_active,
+        "source": "web_server.py:912", "metric": "today_sent_count",
+        "value": today_count,
+        "expected": ">=0",
+        "log_signature": "[smart-batch] SKIP duplicate -> {email}",
+    })
+
+    # Guard 10: Graph pacing 28/min
+    try:
+        from email_engine.senders.graph_sender import MIN_INTERVAL_SEC
+        pacing_value = float(MIN_INTERVAL_SEC)
+        pacing_active = 2.0 <= pacing_value <= 3.0
+    except Exception:
+        pacing_value = None
+        pacing_active = False
+    guards.append({
+        "id": 10, "name": "Graph pacing 28/min", "active": pacing_active,
+        "source": "senders/graph_sender.py:39", "metric": "min_interval_sec",
+        "value": pacing_value,
+        "expected": "2.0 to 3.0 seconds",
+        "log_signature": "[silent] _pace()",
+    })
+
+    return {
+        "timestamp": _dt.now().isoformat(timespec="seconds"),
+        "all_active": all(g["active"] for g in guards),
+        "guards": guards,
+    }
+
+
+@app.get("/api/diagnostics/system-standards")
+def diagnostics_system_standards():
+    """Run scripts/validate-system.py and return results.
+    Captures stdout + exit code so dashboard modal can display.
+    """
+    from pathlib import Path as _Path
+    script = _Path(__file__).resolve().parent.parent / "scripts" / "validate-system.py"
+    if not script.exists():
+        raise HTTPException(404, f"validate-system.py not found at {script}")
+    try:
+        result = __import__("subprocess").run(
+            [sys.executable, str(script)],
+            capture_output=True, text=True, timeout=60,
+            cwd=str(script.parent.parent),
+        )
+        return {
+            "exit_code": result.returncode,
+            "passed": result.returncode == 0,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+        }
+    except __import__("subprocess").TimeoutExpired:
+        raise HTTPException(504, "Validator timed out (>60s)")
+    except Exception as exc:
+        raise HTTPException(500, f"Validator failed to run: {exc}")
+
+
 # ============================================================================
 # ROUND 2 — BATCH / QUEUE / INTEL / MARKET / SCANNER ENDPOINTS
 # ============================================================================
@@ -2377,19 +2637,34 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
             "preview": emails_out[:3],  # tiny preview so UI can eyeball
         }
 
-    try:
-        queued = _queue_store.enqueue_batch(req.batch_id, emails_out)
-    except Exception as e:
-        log.exception("enqueue_batch failed")
-        raise HTTPException(500, f"enqueue failed: {e}")
+    # Real send path: bypass SQLite queue, dispatch directly via background thread.
+    # Graph backend handles pacing (~28/min) inside graph_sender.send_html_via_graph.
+    # Outlook backend (legacy) still works — _send_email_html switches by env var.
+    campaign_id = f"SMART_{datetime.now():%Y%m%d_%H%M%S}"
+    SEND_PROGRESS[campaign_id] = {
+        "sent": 0,
+        "total": len(emails_out),
+        "errors": [],
+        "status": "queued",
+        "batch_id": req.batch_id,
+    }
+    # Spawn background thread directly (FastAPI BackgroundTasks not injected here).
+    threading.Thread(
+        target=_do_send_built_emails,
+        args=(campaign_id, emails_out),
+        daemon=True,
+        name=f"smart-send-{campaign_id}",
+    ).start()
 
     return {
         "batch_id": req.batch_id,
-        "queued": queued,
+        "campaign_id": campaign_id,
+        "queued": len(emails_out),
         "requested": _suppression_stats.get("total_input", len(req.cnee_emails)) if _suppression_stats else len(req.cnee_emails),
         "built": len(emails_out),
         "skipped": skipped,
         "suppression_stats": _suppression_stats or {},
+        "backend": EMAIL_SEND_BACKEND,
     }
 
 

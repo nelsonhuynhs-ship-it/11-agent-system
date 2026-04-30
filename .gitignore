@@ -19,12 +19,16 @@
 *.msg
 *.pst
 
+# ── Archived COM-era queue (preserve for audit, do NOT commit) ─
+email_engine/data/*.archive.*.gz
+
 # ── Data directories ─────────────────────────────
 email_engine/data/
 email_engine/data_panjiva/
 email_engine/logs/
 email_engine/backup/
 email_engine/assets/
+email_engine/.cache/
 Pricing_Engine/data/
 Pricing_Engine/Backup_parquet/
 Pricing_Engine/OCR_Input/

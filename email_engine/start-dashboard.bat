@@ -15,8 +15,8 @@ for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":8100.*LISTENING" 2^>nul') d
     taskkill /PID %%a /F >nul 2>&1
 )
 
-:: Kill any existing outlook_queue_worker.py processes (prevents stacking)
-powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='pythonw.exe'\" | Where-Object { $_.CommandLine -like '*outlook_queue_worker*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
+:: REM Kill any existing outlook_queue_worker.py processes (prevents stacking) — DISABLED 2026-04-30 (graph-only migration)
+:: powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter "Name='pythonw.exe'" | Where-Object { $_.CommandLine -like '*outlook_queue_worker*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
 
 :: Start web_server.py on port 8100 (hidden via pythonw)
 powershell -NoProfile -Command "Start-Process -WindowStyle Hidden -FilePath 'pythonw' -ArgumentList 'web_server.py' -WorkingDirectory '%~dp0' -RedirectStandardError '%~dp0pythonw_err.log'"
@@ -38,9 +38,12 @@ goto skip_worker
 :api_ready
 echo [OK] API ready on :8100
 
-:: Start worker - 3 threads, looping, real send mode
-powershell -NoProfile -Command "Start-Process -WindowStyle Hidden -FilePath 'pythonw' -ArgumentList 'outlook_queue_worker.py','--workers','3','--loop' -WorkingDirectory '%~dp0' -RedirectStandardError '%~dp0worker_err.log'"
-echo [OK] FAST worker started (3 threads, loop)
+:: Outlook COM queue worker disabled 2026-04-27 — Smart Send now uses Graph API
+:: directly via background thread (see web_server.py _do_send_built_emails).
+:: To re-enable for Outlook COM rollback: set EMAIL_SEND_BACKEND=outlook in .env
+:: AND uncomment the line below.
+::powershell -NoProfile -Command "Start-Process -WindowStyle Hidden -FilePath 'pythonw' -ArgumentList 'outlook_queue_worker.py','--workers','3','--loop' -WorkingDirectory '%~dp0' -RedirectStandardError '%~dp0worker_err.log'"
+echo [INFO] Outlook queue worker SKIPPED (Graph API backend, see .env)
 
 :skip_worker
 :: Open dashboard via URL (NEVER file:// - API calls need http://)

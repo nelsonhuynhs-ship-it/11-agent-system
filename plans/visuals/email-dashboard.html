@@ -15,6 +15,13 @@
   --line:#E5E2DC;--line-2:#EFECE6;
   --accent:#B8572F;--accent-soft:#F5E7DC;
   --good:#4A7C5A;--warn:#A87A2E;--err:#B8443E;
+  --good-soft:rgba(74,124,90,.12);--warn-soft:rgba(168,122,46,.14);--err-soft:rgba(184,68,62,.12);
+/* Verified badge (Sprint 1) */
+.badge-verify{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:12px;font-size:11.5px;font-weight:500;cursor:help;position:relative;font-family:'Inter',sans-serif}
+.badge-verify.verified{background:var(--good-soft);color:var(--good)}
+.badge-verify.pending{background:var(--warn-soft);color:var(--warn)}
+.badge-verify.failed{background:var(--err-soft);color:var(--err)}
+.badge-verify[data-tooltip]:hover::after{content:attr(data-tooltip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:8px 12px;border-radius:4px;font-size:11px;white-space:pre;font-family:'JetBrains Mono',monospace;z-index:10;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.12)}
   --radius:2px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -464,6 +471,8 @@ details.manual-override[open] > summary {
       <progress id="rtTodayProgress" max="700" value="0"></progress>
       <span id="rtTodayPct">0%</span>
       <button class="btn btn-primary btn-sm" id="rtStartBatch" onclick="smartSendFlow()">&#9654; Smart Send</button>
+      <button class="btn btn-sm" id="auditGuardsBtn" onclick="openGuardsAudit()" style="margin-left:8px">🛡 Audit Guards</button>
+      <button class="btn btn-sm" id="validateSystemBtn" onclick="openValidateSystem()" style="margin-left:6px">🔧 Validate System</button>
     </div>
     <div class="rt-yesterday" id="rtYesterday">HÔM QUA: — sent</div>
   </div>
@@ -508,6 +517,26 @@ details.manual-override[open] > summary {
     </div>
     <div class="rp-grand-total" id="rpGrandTotal">—</div>
   </div>
+
+  <!-- Sprint 1 — Recent Sent with Verified badge -->
+  <section class="section" id="recentSentSection" style="margin-top:32px">
+    <div class="section-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="section-title">Recent Sent — Last 10 (Verified status)</div>
+      <button class="btn btn-sm" onclick="loadRecentSent()" style="font-size:11px">Refresh</button>
+    </div>
+    <table id="recentSentTable" style="width:100%;border-collapse:collapse;font-size:12.5px;background:var(--paper);border:1px solid var(--line);border-radius:4px;overflow:hidden">
+      <thead>
+        <tr style="background:var(--paper-2);font-size:10.5px;color:var(--muted);letter-spacing:.15em;text-transform:uppercase">
+          <th style="padding:10px 14px;text-align:left;border-bottom:1px solid var(--line)">Time</th>
+          <th style="padding:10px 14px;text-align:left;border-bottom:1px solid var(--line)">To</th>
+          <th style="padding:10px 14px;text-align:left;border-bottom:1px solid var(--line)">Subject</th>
+          <th style="padding:10px 14px;text-align:left;border-bottom:1px solid var(--line);width:120px">Backend</th>
+          <th style="padding:10px 14px;text-align:left;border-bottom:1px solid var(--line);width:130px">Verified</th>
+        </tr>
+      </thead>
+      <tbody id="recentSentTbody"><tr><td colspan="5" style="padding:14px;color:var(--muted)">Loading...</td></tr></tbody>
+    </table>
+  </section>
 
   <!-- Phase 2: Manual Override accordion — collapsed by default -->
   <details class="manual-override" style="margin-top:20px">
@@ -907,7 +936,6 @@ details.manual-override[open] > summary {
 <!-- Keep old view shells as hidden stubs (JS backward-compat — don't delete these IDs) -->
 <section class="view" id="viewAnalytics" style="display:none!important"></section>
 <section class="view" id="viewAI" style="display:none!important"></section>
-<section class="view" id="viewAlerts" style="display:none!important"></section>
 <section class="view" id="viewOpenTracker" style="display:none!important"></section>
 <section class="view" id="viewQueue" style="display:none!important"></section>
 
@@ -2674,7 +2702,7 @@ function wireSmartDraftModal(){
     if (!subj || !bodyTxt){ toast('Cần subject + body', 'err'); return; }
     if (!confirm(`Send smart draft to ${SD.cnee}?`)) return;
     try {
-      await api('/api/email-rate/batch/enqueue', {
+      const r = await api('/api/email-rate/batch/enqueue', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
           batch_id: 'SD_'+Date.now(),
@@ -2684,11 +2712,20 @@ function wireSmartDraftModal(){
           subject_policy: 'fixed',
           subject_override: subj,
           body_override: bodyTxt,
-          dry_run: false, test_mode: (typeof Store !== 'undefined' ? Store.testMode : false),
+          dry_run: false,
+          skip_priority: true,   // Smart Draft: user đã chọn CNEE có chủ đích
+          skip_cooldown: true,   // Smart Draft: user đã review draft, biết rõ mình gửi
+          test_mode: (typeof Store !== 'undefined' ? Store.testMode : false),
         }),
       });
-      toast(`Queued smart draft for ${SD.cnee}`, 'success');
-      document.getElementById('smartDraftModal').style.display = 'none';
+      const queued = (r && r.queued) || 0;
+      if (queued === 0) {
+        const why = ((r && r.skipped) || [])[0]?.reason || 'unknown (queued=0)';
+        toast(`Send failed: ${why}`, 'err');
+      } else {
+        toast(`Queued smart draft for ${SD.cnee}`, 'success');
+        document.getElementById('smartDraftModal').style.display = 'none';
+      }
     } catch(e){ toast('Queue failed: '+e.message, 'err'); }
   };
 }
@@ -4592,9 +4629,9 @@ if (document.readyState === 'loading') {
     var btn = _el('rtStartBatch');
     var markup = parseInt((_el('rtMarkup') || {}).value || '20', 10) || 20;
     btn.disabled = true;
-    btn.textContent = 'Opening Outlook...';
+    btn.textContent = 'Building preview...';
     try {
-      var r = await fetch(API + '/api/rotation/preview-in-outlook?markup=' + markup, {
+      var r = await fetch(API + '/api/rotation/preview-html?markup=' + markup + '&force=true', {
         method: 'POST'
       });
       if (!r.ok) {
@@ -4608,12 +4645,9 @@ if (document.readyState === 'loading') {
       var d = await r.json();
       _previewToken = d.preview_token;
       _previewPlanTotal = d.plan_total || 0;
-      if (typeof toast === 'function') toast('Outlook opened: ' + (d.previewed_to || '') + ' — check rồi confirm', 'ok');
+      window.openSmartSendPreviewModal(d);
       btn.disabled = false;
-      btn.textContent = '\u2713 Confirm & Send All (' + _previewPlanTotal + ')';
-      btn.setAttribute('onclick', 'confirmSendBatch()');
-      btn.classList.remove('btn-primary');
-      btn.classList.add('btn-accent');
+      btn.textContent = '▶ Smart Send';
     } catch(e) {
       if (typeof toast === 'function') toast('API offline', 'err');
       btn.disabled = false;
@@ -4635,7 +4669,7 @@ if (document.readyState === 'loading') {
       var r = await fetch(API + '/api/rotation/run-today', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_markup: markup, preview_token: _previewToken })
+        body: JSON.stringify({ user_markup: markup, preview_token: _previewToken, force: true })
       });
       if (r.ok) {
         if (typeof toast === 'function') toast('Batch sending — markup $' + markup, 'ok');
@@ -4702,6 +4736,86 @@ if (document.readyState === 'loading') {
       _el('previewSamples').innerHTML =
         '<div style="padding:20px;color:var(--err)">Error loading samples: ' + _esc(e.message) + '</div>';
     }
+  };
+
+  window.closeSmartSendPreview = function() {
+    var m = document.getElementById('smartSendPreviewModal');
+    if (m) m.style.display = 'none';
+  };
+
+  window.openSmartSendPreviewModal = function(data) {
+    var m = document.getElementById('smartSendPreviewModal');
+    if (!m) return;
+    document.getElementById('ssPreviewTitle').textContent = 'Preview — ' + (data.previewed_to || 'VIP');
+    document.getElementById('ssPreviewSubject').textContent = 'Subject: ' + (data.subject || '');
+    var iframe = document.getElementById('ssPreviewFrame');
+    iframe.srcdoc = data.html_body || '<p>No preview available</p>';
+    document.getElementById('ssConfirmBtn').textContent = '✓ Confirm & Send All (' + (data.plan_total || 0) + ')';
+    m.style.display = 'flex';
+  };
+
+  window.openGuardsAudit = async function() {
+    var m = document.getElementById('guardsAuditModal');
+    if (!m) return;
+    document.getElementById('guardsTableBody').innerHTML = '<tr><td colspan="5" style="padding:24px;text-align:center;color:#888">Loading guards...</td></tr>';
+    document.getElementById('guardsAuditSummary').textContent = 'Loading...';
+    m.style.display = 'flex';
+    try {
+      var r = await fetch(API + '/api/diagnostics/guards');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      var d = await r.json();
+      var allOk = d.all_active;
+      document.getElementById('guardsAuditSummary').textContent =
+        (allOk ? '✅ All ' + d.guards.length + ' guards active' : '⚠ Some guards inactive') +
+        ' · ' + d.timestamp;
+      var rows = d.guards.map(function(g) {
+        var statusDot = g.active
+          ? '<span style="color:#10b981;font-size:18px">●</span>'
+          : '<span style="color:#ef4444;font-size:18px">●</span>';
+        var metricStr = (typeof g.value === 'object') ? JSON.stringify(g.value) : String(g.value);
+        return '<tr style="border-top:1px solid #eee">' +
+          '<td style="padding:8px">' + g.id + '</td>' +
+          '<td style="padding:8px"><strong>' + g.name + '</strong><br><span style="font-size:11px;color:#888">' + (g.log_signature || '') + '</span></td>' +
+          '<td style="padding:8px;text-align:center">' + statusDot + '</td>' +
+          '<td style="padding:8px"><code style="font-size:11px;background:#f5f5f5;padding:2px 6px;border-radius:3px">' + g.metric + '=' + metricStr + '</code></td>' +
+          '<td style="padding:8px;font-family:monospace;font-size:11px;color:#666">' + g.source + '</td>' +
+          '</tr>';
+      }).join('');
+      document.getElementById('guardsTableBody').innerHTML = rows;
+    } catch (e) {
+      document.getElementById('guardsAuditSummary').textContent = '❌ Audit failed: ' + e.message;
+      document.getElementById('guardsTableBody').innerHTML = '<tr><td colspan="5" style="padding:24px;color:#ef4444">' + e.message + '</td></tr>';
+    }
+  };
+
+  window.closeGuardsAudit = function() {
+    var m = document.getElementById('guardsAuditModal');
+    if (m) m.style.display = 'none';
+  };
+
+  window.openValidateSystem = async function() {
+    var m = document.getElementById('validateSystemModal');
+    if (!m) return;
+    document.getElementById('validateSystemOutput').textContent = 'Running validator (may take 10-30s)...';
+    document.getElementById('validateSystemSummary').textContent = 'Running...';
+    m.style.display = 'flex';
+    try {
+      var r = await fetch(API + '/api/diagnostics/system-standards');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      var d = await r.json();
+      document.getElementById('validateSystemSummary').textContent =
+        d.passed ? '✅ All rules pass (exit 0)' : '⚠ Violations detected (exit ' + d.exit_code + ')';
+      document.getElementById('validateSystemOutput').textContent =
+        (d.stdout || '') + (d.stderr ? '\n\n--- STDERR ---\n' + d.stderr : '');
+    } catch (e) {
+      document.getElementById('validateSystemSummary').textContent = '❌ Validator failed';
+      document.getElementById('validateSystemOutput').textContent = e.message;
+    }
+  };
+
+  window.closeValidateSystem = function() {
+    var m = document.getElementById('validateSystemModal');
+    if (m) m.style.display = 'none';
   };
 
   window.closePreviewModal = function() {
@@ -5066,6 +5180,73 @@ if (document.readyState === 'loading') {
     </div>
   </div>
 </div>
+
+<!-- ═══ SMART SEND PREVIEW MODAL ═══ -->
+<div id="smartSendPreviewModal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;width:90%;max-width:900px;max-height:90vh;border-radius:12px;display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:16px 20px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-weight:600;font-size:16px" id="ssPreviewTitle">Preview — VIP customer</div>
+        <div style="font-size:12px;color:#888" id="ssPreviewSubject">Subject: ...</div>
+      </div>
+      <button onclick="closeSmartSendPreview()" style="background:transparent;border:0;font-size:24px;cursor:pointer">x</button>
+    </div>
+    <div style="flex:1;overflow:auto;background:#f9f9f9;padding:16px">
+      <iframe id="ssPreviewFrame" style="width:100%;min-height:500px;border:1px solid #ddd;background:#fff;border-radius:6px" sandbox="allow-same-origin"></iframe>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid #eee;display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closeSmartSendPreview()" class="btn btn-sm" style="background:#eee">Cancel</button>
+      <button id="ssConfirmBtn" onclick="confirmSendBatch();closeSmartSendPreview()" class="btn btn-sm btn-accent">&radic; Confirm &amp; Send All</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ANTI-SPAM GUARDS AUDIT MODAL ═══ -->
+<div id="guardsAuditModal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;width:90%;max-width:800px;max-height:90vh;border-radius:12px;display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:16px 20px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-weight:600;font-size:16px">🛡 Anti-Spam Guards Status</div>
+        <div style="font-size:12px;color:#888" id="guardsAuditSummary">Loading...</div>
+      </div>
+      <button onclick="closeGuardsAudit()" style="background:transparent;border:0;font-size:24px;cursor:pointer">×</button>
+    </div>
+    <div style="flex:1;overflow:auto;padding:16px">
+      <table id="guardsTable" style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="background:#f5f5f5">
+          <th style="padding:8px;text-align:left">#</th>
+          <th style="padding:8px;text-align:left">Guard</th>
+          <th style="padding:8px;text-align:center">Status</th>
+          <th style="padding:8px;text-align:left">Metric</th>
+          <th style="padding:8px;text-align:left">Source</th>
+        </tr></thead>
+        <tbody id="guardsTableBody"></tbody>
+      </table>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid #eee;display:flex;justify-content:flex-end">
+      <button onclick="closeGuardsAudit()" class="btn btn-sm" style="background:#eee">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SYSTEM STANDARDS VALIDATOR MODAL ═══ -->
+<div id="validateSystemModal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;width:90%;max-width:900px;max-height:90vh;border-radius:12px;display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:16px 20px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-weight:600;font-size:16px">🔧 SYSTEM_STANDARDS Validation</div>
+        <div style="font-size:12px;color:#888" id="validateSystemSummary">Running validator...</div>
+      </div>
+      <button onclick="closeValidateSystem()" style="background:transparent;border:0;font-size:24px;cursor:pointer">×</button>
+    </div>
+    <div style="flex:1;overflow:auto;padding:16px">
+      <pre id="validateSystemOutput" style="font-family:'JetBrains Mono',monospace;font-size:12px;background:#1a1a1a;color:#d4d4d4;padding:14px;border-radius:6px;white-space:pre-wrap;margin:0">Loading...</pre>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid #eee;display:flex;justify-content:flex-end">
+      <button onclick="closeValidateSystem()" class="btn btn-sm" style="background:#eee">Close</button>
+    </div>
+  </div>
+</div>
 <script>
 // Version + file:// detection — single source of truth via /api/version
 (function(){
@@ -5099,6 +5280,8 @@ if (document.readyState === 'loading') {
   checkVersion();
   setInterval(checkVersion, 30000);
 })();
+async function loadRecentSent(){try{const r=await fetch('/api/data/email-log?limit=10');if(!r.ok)throw new Error('HTTP '+r.status);const data=await r.json();const rows=(Array.isArray(data)?data:(data.rows||[])).slice(-10).reverse();const tbody=document.getElementById('recentSentTbody');if(!rows.length){tbody.innerHTML='<tr><td colspan="5" style="padding:14px;color:var(--muted)">No recent sends.</td></tr>';return}tbody.innerHTML=rows.map(r=>{const ts=((r.timestamp)||'').slice(11,19);const backend=((r.backend)||'').toLowerCase();const msgId=r.graph_msg_id||'';const verified=((r.verified)||'').toLowerCase();let badgeClass='failed',badgeIcon='✕',badgeText='failed',tooltip='backend='+(backend||'unknown');if(backend==='graph'&&msgId){badgeClass='verified';badgeIcon='✓';badgeText='verified';tooltip='msg_id: '+msgId+'\nsent_at: '+ts+'\nbackend: graph'}else if(backend==='graph'&&(verified==='pending'||!msgId)){badgeClass='pending';badgeIcon='⚠';badgeText='pending';tooltip='Sent folder lag\nsent_at: '+ts+'\ncron 5min recheck'}else if(backend==='outlook'){badgeClass='failed';badgeIcon='✕';badgeText='outlook';tooltip='backend=outlook (legacy)\nset EMAIL_SEND_BACKEND=graph'}const subj=((r.subject)||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));const to=((r.email)||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));const colColor=badgeClass==='verified'?'good':badgeClass==='pending'?'warn':'err';return'<tr style="border-bottom:1px solid var(--line-2)"><td style="padding:12px 14px;font-family:\'JetBrains Mono\',monospace;font-size:11.5px;color:var(--muted)">'+ts+'</td><td style="padding:12px 14px;color:var(--ink);font-weight:500">'+to+'</td><td style="padding:12px 14px;color:var(--ink-2);max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+subj+'</td><td style="padding:12px 14px;font-family:\'JetBrains Mono\',monospace;font-size:11.5px;color:var('+colColor+')">'+backend+'</td><td style="padding:12px 14px"><span class="badge-verify '+badgeClass+'" data-tooltip="'+tooltip+'"><span>'+badgeIcon+'</span>'+badgeText+'</span></td></tr>'}).join('')}catch(e){document.getElementById('recentSentTbody').innerHTML='<tr><td colspan="5" style="padding:14px;color:var(--err)">Load failed: '+e.message+'</td></tr>'}}
+document.addEventListener('DOMContentLoaded',()=>{setTimeout(loadRecentSent,500);});
 </script>
 </body>
 </html>
