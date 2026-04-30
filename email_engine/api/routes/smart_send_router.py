@@ -143,9 +143,11 @@ def smart_send_preview(
         row = row.iloc[0]
 
     # Build email
-    config = resolve_config(sample_email, row.to_dict())
+    config = resolve_config(row.to_dict(), int(markup))
     pol = config.get("pol", "HPH")
-    destinations = config.get("destinations", ["USLGB", "USLAX"])
+    destination = config.get("destination", "USLAX,USLGB")
+    # destination is comma-separated string, build_email expects list
+    destinations = [d.strip() for d in destination.split(",")]
 
     try:
         email_dict = _builder.build_email(
