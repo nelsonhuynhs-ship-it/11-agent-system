@@ -1,8 +1,6 @@
 """
 cnee_milestone.py — Auto CNEE notification (ATD + ETA-7)
 
-MVP v2 (post red-team). Single-file design.
-
 Exported:
     on_atd_detected(mail_item, stages, identifiers, sender_smtp) -> bool
     run_eta_reminder() -> int   # CLI entry for Task Scheduler
@@ -598,69 +596,107 @@ class _SafeDict(dict):
 
 
 def _create_outlook_draft_polite(to_list: list[str], template_type: str,
-                                  ctx: dict) -> bool:
+                                  ctx: dict,
+                                  attachments: list[dict] | None = None) -> bool:
     """
-    Create an Outlook Draft using win32com.
-    Checks ActiveInspector() first — if Nelson is composing, defers and returns False.
+    Create an email draft via Microsoft Graph API (POST /me/messages isDraft=true).
+    Replaces win32com Outlook COM draft creation.
+
+    Args:
+        to_list: list of recipient email addresses
+        template_type: "atd" or "eta7"
+        ctx: template context dict
+        attachments: optional list of {"filename": str, "data": bytes} dicts
+
     template_type: "atd" or "eta7"
+    Returns True if draft created successfully.
     """
+    # Load token from graph_sender cache
     try:
-        import win32com.client
-        import pythoncom
-        pythoncom.CoInitialize()
+        from email_engine.senders.graph_sender import get_token
     except ImportError:
-        log.error("cnee_milestone: pywin32 not installed — cannot create Outlook draft")
+        log.error("cnee_milestone: graph_sender not in PYTHONPATH — cannot create Graph draft")
         return False
 
     try:
-        ol = win32com.client.Dispatch("Outlook.Application")
+        token = get_token()
+    except RuntimeError as e:
+        log.error("cnee_milestone: Graph token unavailable: %s", e)
+        return False
 
-        # Polite check: don't steal Nelson's active composition session
-        inspector = ol.ActiveInspector()
-        if inspector is not None:
-            _queue_telegram(
-                "INFO: Outlook busy (user composing), deferring draft for "
-                + ctx.get("bkg", "unknown")
-            )
-            log.info("cnee_milestone: Outlook ActiveInspector active, deferring %s",
-                     ctx.get("bkg"))
+    # Load template
+    tmpl_path = (Path(__file__).parent.parent
+                 / "templates" / f"milestone_{template_type.lower()}.txt")
+    if not tmpl_path.exists():
+        log.error("cnee_milestone: Template not found: %s", tmpl_path)
+        return False
+
+    tmpl = tmpl_path.read_text(encoding="utf-8")
+    filled = tmpl.format_map(_SafeDict(ctx))
+
+    # Extract subject from first line "Subject: ..."
+    lines = filled.split("\n", 2)
+    if lines[0].upper().startswith("SUBJECT:"):
+        subject = lines[0].split(":", 1)[1].strip()
+        body = "\n".join(lines[2:]).strip() if len(lines) > 2 else ""
+    else:
+        subject = f"Shipment Update — {ctx.get('bkg', 'N/A')}"
+        body = filled
+
+    # Always prefix [AUTO] for visibility
+    subject = f"[AUTO] {subject}"
+
+    # Build recipients payload
+    to_recipients = [{"emailAddress": {"address": addr}} for addr in to_list]
+
+    # Graph create-draft payload
+    payload = {
+        "subject": subject,
+        "body": {
+            "contentType": "text",
+            "content": body,
+        },
+        "toRecipients": to_recipients,
+        "isDraft": True,
+    }
+
+    # Add attachments if provided
+    if attachments:
+        import base64
+        payload["attachments"] = [
+            {
+                "@odata.type": "#microsoft.graph.fileAttachment",
+                "name": a["filename"],
+                "contentBytes": base64.b64encode(a["data"]).decode("utf-8"),
+            }
+            for a in attachments
+        ]
+
+    import requests as _req
+    try:
+        resp = _req.post(
+            "https://graph.microsoft.com/v1.0/me/messages",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=20,
+        )
+        if resp.status_code not in (200, 201):
+            err = resp.text[:300]
+            log.error("cnee_milestone: Graph create draft failed HTTP %d: %s",
+                      resp.status_code, err)
             return False
 
-        # Load template
-        tmpl_path = (Path(__file__).parent.parent
-                     / "templates" / f"milestone_{template_type.lower()}.txt")
-        if not tmpl_path.exists():
-            log.error("cnee_milestone: Template not found: %s", tmpl_path)
-            return False
-
-        tmpl = tmpl_path.read_text(encoding="utf-8")
-        filled = tmpl.format_map(_SafeDict(ctx))
-
-        # Extract subject from first line "Subject: ..."
-        lines = filled.split("\n", 2)
-        if lines[0].upper().startswith("SUBJECT:"):
-            subject = lines[0].split(":", 1)[1].strip()
-            body = "\n".join(lines[2:]).strip() if len(lines) > 2 else ""
-        else:
-            subject = f"Shipment Update — {ctx.get('bkg', 'N/A')}"
-            body = filled
-
-        # Always prefix [AUTO] for visibility
-        subject = f"[AUTO] {subject}"
-
-        # Create draft
-        mail = ol.CreateItem(0)  # olMailItem
-        mail.To = "; ".join(to_list)
-        mail.Subject = subject
-        mail.Body = body
-        mail.Save()
-
-        log.info("cnee_milestone: Draft created for %s / %s",
-                 ctx.get("customer"), ctx.get("bkg"))
+        msg_data = resp.json()
+        draft_id = msg_data.get("id", "unknown")
+        log.info("cnee_milestone: Graph draft created id=%s for %s / %s",
+                 draft_id, ctx.get("customer"), ctx.get("bkg"))
         return True
 
     except Exception as e:
-        log.error("cnee_milestone: Draft creation failed: %s", e)
+        log.error("cnee_milestone: Graph create draft exception: %s", e)
         return False
 
 

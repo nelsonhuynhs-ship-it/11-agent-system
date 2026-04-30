@@ -256,23 +256,6 @@ def build_step3_email(row: dict, source: str, cfg: dict) -> tuple[str, str]:
 # =========================================================
 # OUTLOOK SEND
 # =========================================================
-def send_via_outlook(to_email: str, subject: str, html_body: str,
-                     attach_pdf: bool = True) -> bool:
-    """Send one email via Outlook COM. Returns True if sent."""
-    try:
-        import win32com.client
-        outlook = win32com.client.Dispatch("Outlook.Application")
-        mail = outlook.CreateItem(0)
-        mail.To = to_email
-        mail.Subject = subject
-        mail.HTMLBody = html_body
-        if attach_pdf and PROFILE_PDF.exists():
-            mail.Attachments.Add(str(PROFILE_PDF))
-        mail.Send()
-        return True
-    except Exception as exc:
-        log.error("Failed to send to %s: %s", to_email, exc)
-        return False
 
 
 # =========================================================
@@ -450,7 +433,8 @@ def run_source_mode(source: str, dry_run: bool = False,
             log.info("  [DRY] Step 1 -> %s (%s)", email,
                      row.get("COMPANY", ""))
         else:
-            ok = send_via_outlook(email, subject, body)
+            from email_engine.senders import send_html_via_graph
+            ok, _ = send_html_via_graph(to=email, subject=subject, html_body=body)
             if ok:
                 log_email_send(email, subject,
                                row.get("CAMPAIGN_ID", "SEQUENCE"))
@@ -507,8 +491,8 @@ def run_sequence_mode(sources: list[str] | None = None,
                     log.info("    [DRY] Step 3 -> %s (%dd since last)",
                              email, row.get("_DAYS_SINCE", "?"))
                 else:
-                    ok = send_via_outlook(email, subject, body,
-                                         attach_pdf=False)
+                    from email_engine.senders import send_html_via_graph
+                    ok, _ = send_html_via_graph(to=email, subject=subject, html_body=body)
                     if ok:
                         log_email_send(email, subject,
                                        row.get("CAMPAIGN_ID", "SEQ-3"))
@@ -531,7 +515,8 @@ def run_sequence_mode(sources: list[str] | None = None,
                     log.info("    [DRY] Step 2 -> %s (%dd since last)",
                              email, row.get("_DAYS_SINCE", "?"))
                 else:
-                    ok = send_via_outlook(email, subject, body)
+                    from email_engine.senders import send_html_via_graph
+                    ok, _ = send_html_via_graph(to=email, subject=subject, html_body=body)
                     if ok:
                         log_email_send(email, subject,
                                        row.get("CAMPAIGN_ID", "SEQ-2"))
@@ -570,7 +555,8 @@ def run_sequence_mode(sources: list[str] | None = None,
                     log.info("    [DRY] Step 1 -> %s%s (%s)",
                              email, pri_tag, row.get("COMPANY", ""))
                 else:
-                    ok = send_via_outlook(email, subject, body)
+                    from email_engine.senders import send_html_via_graph
+                    ok, _ = send_html_via_graph(to=email, subject=subject, html_body=body)
                     if ok:
                         log_email_send(email, subject,
                                        row.get("CAMPAIGN_ID", "SEQ-1"))

@@ -60,11 +60,10 @@ def _send_email_html(to: str, subject: str, html_body: str, outlook_app=None) ->
     """
     sent_at = datetime.now(timezone.utc).isoformat()
     if EMAIL_SEND_BACKEND == "graph":
-        from email_engine.senders import send_html_via_graph, verify_in_sent_folder
-        send_html_via_graph(to=to, subject=subject, html_body=html_body)
-        msg_id = verify_in_sent_folder(to=to, subject=subject, since=sent_at)
+        from email_engine.senders import send_html_via_graph
+        ok, msg_id = send_html_via_graph(to=to, subject=subject, html_body=html_body)
         return {
-            "ok": True,
+            "ok": ok,
             "backend": "graph",
             "graph_msg_id": msg_id,
             "sent_at": sent_at,
@@ -874,7 +873,7 @@ def _do_send(campaign_id: str, req: SendRequest):
             if signature:
                 body += f"<br>{signature}"
             html_body = f"<html><body>{body}</body></html>"
-            result = _send_email_html(to=to_addr, subject=subj, html_body=html_body, outlook_app=outlook)
+            result = _send_email_html(to=to_addr, subject=subj, html_body=html_body)
             prog["sent"] += 1
             verified = "yes" if result.get("graph_msg_id") else "pending"
             _log_send(c.email, subj, campaign_id, pol, dest, backend=result["backend"], graph_msg_id=result.get("graph_msg_id") or "", verified=verified)
@@ -977,7 +976,7 @@ def _do_send_built_emails(campaign_id: str, emails_out: list[dict]) -> None:
             log.info(f"[smart-batch] SKIP duplicate -> {to_addr} (already sent today)")
             continue
         try:
-            result = _send_email_html(to=to_addr, subject=subject, html_body=html_body, outlook_app=outlook)
+            result = _send_email_html(to=to_addr, subject=subject, html_body=html_body)
             prog["sent"] += 1
             verified = "yes" if result.get("graph_msg_id") else "pending"
             _log_send(to_addr, subject, em.get("campaign_id") or campaign_id, "", "", backend=result["backend"], graph_msg_id=result.get("graph_msg_id") or "", verified=verified)
@@ -1293,7 +1292,7 @@ def sequence_send(req: SequenceSendRequest, background_tasks: BackgroundTasks):
                 continue
             try:
                 body = f"<html><body><p>Dear Team,</p><p>{c['intro']}</p><br>{signature}</body></html>"
-                result = _send_email_html(to=c["email"], subject=c["subject"], html_body=body, outlook_app=outlook)
+                result = _send_email_html(to=c["email"], subject=c["subject"], html_body=body)
                 advance_step(c["email"], c["next_step"])
                 verified = "yes" if result.get("graph_msg_id") else "pending"
                 _log_send(c["email"], c["subject"], c.get("campaign_id", "SEQ"), "", "", backend=result["backend"], graph_msg_id=result.get("graph_msg_id") or "", verified=verified)
@@ -2352,6 +2351,17 @@ def _r2_startup():
     else:
         app.state.scheduler = None
 
+    # Phase 1 Graph Webhook — ensure subscription active on startup
+    try:
+        from email_engine.core.graph_subscription_manager import ensure_active
+        sub = ensure_active()
+        if sub:
+            log.info("[R2] graph subscription active: id=%s exp=%s", sub["id"], sub["expiration"])
+        else:
+            log.warning("[R2] graph subscription creation returned None (may be env/token issue)")
+    except Exception as e:
+        log.warning(f"[R2] graph subscription init failed: {e}")
+
     log.info(f"[R2] modules ready: {_R1}")
 
     # Pre-warm slow endpoints so the first dashboard F5 doesn't hit 10-17s
@@ -3172,6 +3182,22 @@ try:
     log.info("[Rotation] rotation_router mounted (/api/rotation/*)")
 except ImportError as _e:
     log.warning(f"[Rotation] rotation_router unavailable: {_e}")
+
+# Graph Webhook Router — /api/graph/webhook (Phase 1 Graph Migration v8)
+try:
+    from email_engine.api.routes.webhook_router import router as _webhook_router
+    app.include_router(_webhook_router)
+    log.info("[GraphWebhook] webhook_router mounted (/api/graph/webhook)")
+except ImportError as _e:
+    log.warning(f"[GraphWebhook] webhook_router unavailable: {_e}")
+
+# Smart Send Router — Phase 2 Graph Migration v8 (/api/smart-send/*)
+try:
+    from email_engine.api.routes.smart_send_router import router as _smart_send_router
+    app.include_router(_smart_send_router)
+    log.info("[SmartSend] smart_send_router mounted (/api/smart-send/*)")
+except ImportError as _e:
+    log.warning(f"[SmartSend] smart_send_router unavailable: {_e}")
 
 
 # === A2 BEGIN ===

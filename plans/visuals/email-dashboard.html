@@ -491,7 +491,7 @@ details.manual-override[open] > summary {
       <span style="color:var(--muted);font-size:12px">Random 5 templates / email (anti-spam)</span>
 
       <span style="color:var(--muted);font-size:12px;white-space:nowrap">Flow</span>
-      <span style="color:var(--muted);font-size:12px">Bấm <b>Smart Send</b> &rarr; Outlook mở email VIP đầu tiên (content thật + signature + logo) &rarr; check OK &rarr; bấm <b>Confirm &amp; Send All</b></span>
+      <span style="color:var(--muted);font-size:12px">Bấm <b>Smart Send</b> &rarr; Dashboard hiện preview VIP (content thật + signature + logo) &rarr; check OK &rarr; bấm <b>Confirm &amp; Send All</b></span>
     </div>
   </div>
 
@@ -4631,8 +4631,10 @@ if (document.readyState === 'loading') {
     btn.disabled = true;
     btn.textContent = 'Building preview...';
     try {
-      var r = await fetch(API + '/api/rotation/preview-html?markup=' + markup + '&force=true', {
-        method: 'POST'
+      var r = await fetch(API + '/api/smart-send/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ markup: markup, force: true })
       });
       if (!r.ok) {
         var msg = 'Preview failed: HTTP ' + r.status;
@@ -4664,15 +4666,16 @@ if (document.readyState === 'loading') {
       return;
     }
     btn.disabled = true;
-    btn.textContent = 'Sending...';
+    btn.textContent = 'Sending VIP...';
     try {
-      var r = await fetch(API + '/api/rotation/run-today', {
+      var r = await fetch(API + '/api/smart-send/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_markup: markup, preview_token: _previewToken, force: true })
+        body: JSON.stringify({ preview_token: _previewToken, markup: markup, force: true })
       });
       if (r.ok) {
-        if (typeof toast === 'function') toast('Batch sending — markup $' + markup, 'ok');
+        var d = await r.json();
+        if (typeof toast === 'function') toast('VIP sent — ' + (d.enqueued || 0) + ' queued for batch send', 'ok');
         setTimeout(loadRotationToday, 2000);
       } else {
         var msg = 'Send failed: HTTP ' + r.status;

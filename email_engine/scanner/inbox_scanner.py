@@ -1,15 +1,13 @@
 """
 email_engine.scanner.inbox_scanner
 ==================================
-Main loop + APScheduler wiring.
+Graph API fallback scanner (Phase 1 Graph Migration v8).
 
-Every 30 minutes:
-    * Walk Outlook Inbox (last `scan.window_minutes` of mail, capped at max_items)
-    * Skip items already tagged with `scan.processed_category`
-    * classify -> dispatch handler -> tag -> save
+Replaces win32com-based Outlook COM scan with Microsoft Graph API polling.
+Used as fallback when webhook push notifications are delayed (>5 min).
 
-At 21:00 local:
-    * daily_report.send_daily_report()
+Interval: 1 hour (configurable via GRAPH_POLL_INTERVAL_MINUTES env var).
+Webhook is primary — this poll is backup only.
 
 Entry points:
     run_scan()          -> dict of counters (scanned / bounces / ...)
@@ -24,119 +22,163 @@ import logging
 import signal
 import sys
 import time
-from datetime import datetime, timedelta
-from typing import Any
+from datetime import datetime, timedelta, timezone
+from typing import Any, Optional
+
+import requests
 
 from . import handlers
 from .classifier import _load_cnee_emails, classify, load_patterns
 
 log = logging.getLogger(__name__)
 
-_OUTLOOK_INBOX_ID = 6   # olFolderInbox
-_OUTLOOK_JUNK_ID = 23   # olFolderJunk (Outlook auto-moves many NDRs here)
+# Graph API config
+GRAPH_POLL_INTERVAL_MINUTES = int(
+    __import__("os").environ.get("GRAPH_POLL_INTERVAL_MINUTES", "60")
+)
+_BASE_URL = "https://graph.microsoft.com/v1.0"
 
 
 # -------------------------------------------------------------------
-# Outlook access (win32com is win-only; stub for tests)
+# Graph API access
 # -------------------------------------------------------------------
-def _get_inbox():
-    """Return (namespace, inbox). Raises RuntimeError on failure.
+def _get_graph_token() -> str:
+    """Acquire Graph access token."""
+    from email_engine.senders.graph_sender import get_token as _gt
+    return _gt()
 
-    Kept for backward compatibility. Prefer _get_folders() for bounce scanning.
-    """
+
+def _graph_get(endpoint: str, params: dict | None = None) -> Optional[dict]:
+    """GET Graph API endpoint. Returns parsed JSON or None on error."""
     try:
-        import win32com.client
-    except ImportError as exc:
-        raise RuntimeError(f"pywin32 not available: {exc}")
+        token = _get_graph_token()
+        headers = {"Authorization": f"Bearer {token}"}
+        url = f"{_BASE_URL}{endpoint}"
+        resp = requests.get(url, headers=headers, params=params, timeout=30)
+        if resp.status_code not in (200, 201):
+            log.warning("_graph_get %s failed %s: %s", endpoint, resp.status_code, resp.text[:200])
+            return None
+        return resp.json()
+    except Exception as e:
+        log.error("_graph_get %s exception: %s", endpoint, e)
+        return None
 
-    outlook = win32com.client.Dispatch("Outlook.Application")
-    ns = outlook.GetNamespace("MAPI")
-    inbox = ns.GetDefaultFolder(_OUTLOOK_INBOX_ID)
-    return ns, inbox
+
+def _fetch_inbox_messages(hours_back: int = 60) -> list[dict]:
+    """Fetch messages from inbox within the last N hours via Graph API."""
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours_back)
+    # Graph OData filter on receivedDateTime
+    filter_str = f"receivedDateTime ge {cutoff.isoformat().replace('+00:00', 'Z')}"
+    params = {
+        "$filter": filter_str,
+        "$orderby": "receivedDateTime desc",
+        "$top": "100",
+        "$select": "id,subject,from,toRecipients,receivedDateTime,"
+                  "internetMessageHeaders,conversationId,body",
+    }
+    data = _graph_get("/me/mailFolders/inbox/messages", params)
+    if not data:
+        return []
+    return data.get("value", [])
 
 
-def _get_folders(folder_ids: list[int] | None = None):
-    """Return (namespace, [folders]) for given Outlook default folder IDs.
+# -------------------------------------------------------------------
+# Message normalization — bridge Graph message format to scanner pattern
+# -------------------------------------------------------------------
+class _GraphMessage:
+    """Wrapper that makes a Graph API message dict look like an Outlook item.
 
-    Defaults to [Inbox, Junk] so bounce scanner catches NDRs that Outlook
-    auto-filtered to spam. Raises RuntimeError on failure.
+    Used so classifier.classify() and handler functions receive a uniform interface
+    without needing to change their signatures.
     """
-    try:
-        import win32com.client
-    except ImportError as exc:
-        raise RuntimeError(f"pywin32 not available: {exc}")
+    def __init__(self, msg: dict):
+        self._msg = msg
 
-    if not folder_ids:
-        folder_ids = [_OUTLOOK_INBOX_ID, _OUTLOOK_JUNK_ID]
+    @property
+    def Subject(self) -> str:
+        return self._msg.get("subject", "") or ""
 
-    outlook = win32com.client.Dispatch("Outlook.Application")
-    ns = outlook.GetNamespace("MAPI")
-    folders = []
-    for fid in folder_ids:
+    @property
+    def SenderEmailAddress(self) -> str:
+        from_list = self._msg.get("from", {}).get("emailAddress", {}) or {}
+        return from_list.get("address", "") or ""
+
+    @property
+    def Body(self) -> str:
+        body = self._msg.get("body", {}) or {}
+        return body.get("content", "") or ""
+
+    @property
+    def ReceivedTime(self):
+        raw = self._msg.get("receivedDateTime", "")
+        if not raw:
+            return datetime.now(timezone.utc)
         try:
-            f = ns.GetDefaultFolder(fid)
-            folders.append(f)
-        except Exception as exc:
-            log.warning("_get_folders: cannot open folder id=%s: %s", fid, exc)
-    return ns, folders
+            return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except Exception:
+            return datetime.now(timezone.utc)
+
+    @property
+    def Class(self) -> int:
+        # Class 43 = olMail. We treat Graph messages as mail.
+        return 43
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._msg.get(key, default)
 
 
-def _already_processed(item: Any, tag: str) -> bool:
+def _already_processed_graph(message_id: str, cutoff: datetime) -> bool:
+    """Check if message was already processed using a local tracking file.
+
+    Stores processed message IDs in data/graph_poll_tracking.json to avoid
+    re-processing on polling cycles.
+    """
+    import json
+    from pathlib import Path
+    tracking_file = Path(__file__).parent.parent / "data" / "graph_poll_tracking.json"
     try:
-        cats = getattr(item, "Categories", "") or ""
-        return tag in cats
+        if tracking_file.exists():
+            entries = json.loads(tracking_file.read_text(encoding="utf-8"))
+            # Keep only entries within 7 days
+            cutoff_days = datetime.now(timezone.utc) - timedelta(days=7)
+            entries = [
+                e for e in entries
+                if datetime.fromisoformat(e["processed_at"].replace("Z", "+00:00")) > cutoff_days
+            ]
+        else:
+            entries = []
     except Exception:
-        return False
+        entries = []
 
+    for e in entries:
+        if e["id"] == message_id:
+            return True
 
-def _mark_processed(item: Any, tag: str) -> None:
+    # Record this message
+    entries.append({
+        "id": message_id,
+        "processed_at": datetime.now(timezone.utc).isoformat(),
+    })
     try:
-        cats = getattr(item, "Categories", "") or ""
-        if tag not in cats:
-            new_cats = f"{cats};{tag}" if cats else tag
-            item.Categories = new_cats
-            item.Save()
+        tracking_file.parent.mkdir(parents=True, exist_ok=True)
+        tracking_file.write_text(json.dumps(entries, ensure_ascii=False), encoding="utf-8")
     except Exception as exc:
-        log.debug("Could not tag item: %s", exc)
-
-
-def _cnee_lookup(email: str) -> dict:
-    """Return minimal CNEE row dict for handlers. Prefers intel.memory.get_cnee_summary
-    if available; else falls back to {EMAIL: ...}."""
-    try:
-        from email_engine.intel.memory import get_cnee_summary  # type: ignore
-        row = get_cnee_summary(email) or {}
-        row.setdefault("EMAIL", email)
-        return row
-    except Exception:
-        return {"EMAIL": email}
+        log.warning("Could not update poll tracking file: %s", exc)
+    return False
 
 
 # -------------------------------------------------------------------
 # Main scan
 # -------------------------------------------------------------------
 def run_scan(hours: int | None = None, force: bool = False) -> dict:
-    """One cycle. Returns a counter dict.
+    """One polling cycle. Returns a counter dict.
 
     Args:
-        hours: Override scan window. Default uses scan.window_minutes from config
-               (35 min for scheduled scan). Manual UI trigger passes 24/168/720.
-        force: If True, re-process items already tagged with processed_category.
-               Use when classifier patterns changed and need to re-classify history.
+        hours: Override poll window (default: 60 min = 1h fallback).
+        force: If True, re-process messages even if already tagged.
 
     Counters: scanned, bounces, auto_replies, real_replies, unsubs, irrelevant, errors.
     """
-    # IMPORTANT: When called from FastAPI worker thread, COM is NOT initialized.
-    # Each thread using Outlook COM must call CoInitialize() first (STA).
-    # Safe to call multiple times — pythoncom tracks reference count.
-    _com_initialized = False
-    try:
-        import pythoncom  # type: ignore
-        pythoncom.CoInitialize()
-        _com_initialized = True
-    except Exception as exc:
-        log.warning("CoInitialize failed (may be OK if already initialized): %s", exc)
-
     counters = {
         "scanned": 0,
         "bounces": 0,
@@ -148,147 +190,106 @@ def run_scan(hours: int | None = None, force: bool = False) -> dict:
     }
     try:
         return _run_scan_inner(hours, force, counters)
-    finally:
-        if _com_initialized:
-            try:
-                import pythoncom  # type: ignore
-                pythoncom.CoUninitialize()
-            except Exception:
-                pass
+    except Exception as exc:
+        log.error("run_scan fatal error: %s", exc)
+        counters["errors"] += 1
+        return counters
 
 
 def _run_scan_inner(hours: int | None, force: bool, counters: dict) -> dict:
-    """Actual scan logic — called from run_scan() with COM already initialized."""
+    """Actual scan logic using Graph API."""
     patterns = load_patterns()
     cnee_set = _load_cnee_emails()
 
-    scan_cfg = patterns.get("scan", {})
-    if hours is not None and hours > 0:
-        window_min = hours * 60
-    else:
-        window_min = int(scan_cfg.get("window_minutes", 35))
-    max_items = int(scan_cfg.get("max_items", 500))
-    tag = str(scan_cfg.get("processed_category", "Nelson-Scanned"))
-    folder_ids = scan_cfg.get("folders", [6, 23])  # default Inbox + Junk
+    window_hours = hours if hours is not None and hours > 0 else 1
+    max_items = 200
 
-    cutoff = datetime.now().astimezone() - timedelta(minutes=window_min)
+    log.info("run_scan (Graph): window=%dh, force=%s", window_hours, force)
 
-    try:
-        _ns, folders = _get_folders(folder_ids)
-    except Exception as exc:
-        log.error("run_scan: Outlook unavailable: %s", exc)
-        counters["errors"] += 1
+    messages = _fetch_inbox_messages(hours_back=window_hours)
+    if not messages:
+        log.info("run_scan: no messages in inbox for last %dh", window_hours)
         return counters
 
-    if not folders:
-        log.error("run_scan: no folders available")
-        counters["errors"] += 1
-        return counters
+    log.info("run_scan: fetched %d messages from Graph", len(messages))
 
-    log.info("run_scan: window=%dmin, force=%s, folders=%s",
-             window_min, force, [f.Name for f in folders])
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=window_hours)
 
-    for folder in folders:
+    for msg_dict in messages:
         if counters["scanned"] >= max_items:
             break
+
+        msg_id = msg_dict.get("id", "")
+        if not msg_id:
+            continue
+
+        if not force and _already_processed_graph(msg_id, cutoff):
+            log.debug("run_scan: already processed %s, skipping", msg_id)
+            continue
+
+        counters["scanned"] += 1
+
+        # Wrap in Outlook-like interface
+        msg = _GraphMessage(msg_dict)
+
         try:
-            messages = folder.Items
-            messages.Sort("[ReceivedTime]", True)
+            label = classify(msg, patterns=patterns, cnee_emails=cnee_set)
         except Exception as exc:
-            log.error("run_scan: cannot read folder %s: %s", folder.Name, exc)
+            log.warning("run_scan: classify error for %s: %s", msg_id, exc)
             counters["errors"] += 1
             continue
 
-        _scan_folder_items(messages, folder.Name, cutoff, max_items,
-                           tag, force, patterns, cnee_set, counters)
+        sender = msg.SenderEmailAddress.lower().strip()
+
+        if label == "BOUNCE":
+            body = msg.Body
+            target = handlers.extract_bounced_email(body) or ""
+            handlers.handle_bounce(msg, target)
+            counters["bounces"] += 1
+
+        elif label == "AUTO_REPLY":
+            handlers.handle_auto_reply(msg, sender)
+            counters["auto_replies"] += 1
+
+        elif label == "UNSUBSCRIBE":
+            handlers.handle_unsubscribe(msg, sender)
+            counters["unsubs"] += 1
+
+        elif label == "REAL_REPLY":
+            from email_engine.scanner.inbox_scanner import _cnee_lookup
+            row = _cnee_lookup(sender)
+            handlers.handle_real_reply(msg, row)
+            counters["real_replies"] += 1
+
+        else:
+            counters["irrelevant"] += 1
 
     log.info(
-        "run_scan done: %s",
+        "run_scan done (Graph): %s",
         ", ".join(f"{k}={v}" for k, v in counters.items()),
     )
     return counters
 
 
-def _scan_folder_items(messages, folder_name, cutoff, max_items,
-                        tag, force, patterns, cnee_set, counters):
-    """Scan items in one folder. Mutates counters dict."""
-    for msg in messages:
-        if counters["scanned"] >= max_items:
-            log.info("run_scan: hit max_items cap (%d)", max_items)
-            break
-
-        try:
-            # Accept olMail (43) and olReport (46) — ReportItem = Microsoft NDR/DSN.
-            # Skip other types (appointments, tasks, meeting requests).
-            msg_class = getattr(msg, "Class", None)
-            if msg_class not in (43, 46):
-                continue
-            # ReportItem has no ReceivedTime — use LastModificationTime / SentOn fallback
-            if msg_class == 46:
-                received = (getattr(msg, "LastModificationTime", None)
-                            or getattr(msg, "SentOn", None)
-                            or datetime.now().astimezone())
-            else:
-                received = msg.ReceivedTime
-            # Normalise naive<->aware comparisons both ways.
-            try:
-                if received < cutoff:
-                    break
-            except TypeError:
-                # Fallback: try comparing as naive local times.
-                try:
-                    rec_naive = received.replace(tzinfo=None)
-                    cut_naive = cutoff.replace(tzinfo=None)
-                    if rec_naive < cut_naive:
-                        break
-                except Exception:
-                    pass  # keep processing
-
-            if _already_processed(msg, tag) and not force:
-                continue
-
-            counters["scanned"] += 1
-            label = classify(msg, patterns=patterns, cnee_emails=cnee_set)
-
-            if label == "BOUNCE":
-                body = str(getattr(msg, "Body", "") or "")
-                target = handlers.extract_bounced_email(body) or ""
-                handlers.handle_bounce(msg, target)
-                counters["bounces"] += 1
-
-            elif label == "AUTO_REPLY":
-                sender = str(getattr(msg, "SenderEmailAddress", "") or "").lower().strip()
-                handlers.handle_auto_reply(msg, sender)
-                counters["auto_replies"] += 1
-
-            elif label == "UNSUBSCRIBE":
-                sender = str(getattr(msg, "SenderEmailAddress", "") or "").lower().strip()
-                handlers.handle_unsubscribe(msg, sender)
-                counters["unsubs"] += 1
-
-            elif label == "REAL_REPLY":
-                sender = str(getattr(msg, "SenderEmailAddress", "") or "").lower().strip()
-                row = _cnee_lookup(sender)
-                handlers.handle_real_reply(msg, row)
-                counters["real_replies"] += 1
-
-            else:  # IRRELEVANT
-                counters["irrelevant"] += 1
-
-            _mark_processed(msg, tag)
-
-        except Exception as exc:
-            counters["errors"] += 1
-            log.warning("run_scan: error processing item in %s: %s", folder_name, exc)
+def _cnee_lookup(email: str) -> dict:
+    """Return minimal CNEE row dict for handlers."""
+    try:
+        from email_engine.intel.memory import get_cnee_summary  # type: ignore
+        row = get_cnee_summary(email) or {}
+        row.setdefault("EMAIL", email)
+        return row
+    except Exception:
+        return {"EMAIL": email}
 
 
 # -------------------------------------------------------------------
-# Scheduler wiring
+# Scheduler wiring (fallback only — webhook is primary)
 # -------------------------------------------------------------------
 def start_scheduler():
-    """Create BackgroundScheduler with 30-min scan + 21:00 daily report.
+    """Create BackgroundScheduler with GRAPH_POLL_INTERVAL_MINUTES scan.
 
     Returns the scheduler; caller is responsible for keeping a reference.
+    Note: webhook is primary. This poll fires only when webhook is delayed.
     """
     try:
         from apscheduler.schedulers.background import BackgroundScheduler
@@ -303,8 +304,8 @@ def start_scheduler():
     scheduler.add_job(
         run_scan,
         trigger="interval",
-        minutes=30,
-        id="inbox_scan",
+        minutes=GRAPH_POLL_INTERVAL_MINUTES,
+        id="inbox_scan_graph",
         replace_existing=True,
         max_instances=1,
         coalesce=True,
@@ -318,7 +319,10 @@ def start_scheduler():
         replace_existing=True,
     )
     scheduler.start()
-    log.info("APScheduler started — run_scan@30min, daily_report@21:00 Asia/Ho_Chi_Minh")
+    log.info(
+        "APScheduler (Graph fallback) started — run_scan@%dmin, daily_report@21:00 Asia/Ho_Chi_Minh",
+        GRAPH_POLL_INTERVAL_MINUTES,
+    )
     return scheduler
 
 
@@ -344,7 +348,7 @@ def _main() -> None:  # pragma: no cover
     if hasattr(signal, "SIGTERM"):
         signal.signal(signal.SIGTERM, _shutdown)
 
-    # Run once immediately so Nelson sees activity on startup.
+    # Run once immediately so activity is visible on startup.
     try:
         run_scan()
     except Exception as exc:

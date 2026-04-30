@@ -633,6 +633,112 @@ def preview_in_outlook(
     }
 
 
+@router.post("/preview-html")
+def preview_html(
+    markup: int = Query(default=20, ge=0, le=500),
+    force: bool = Query(default=False, description="Override weekend/holiday skip"),
+) -> dict[str, Any]:
+    """Build VIP email preview as HTML — no Outlook desktop required.
+
+    Returns html_body for in-dashboard modal rendering.
+    Returns preview_token compatible with existing /run-today endpoint.
+    """
+    try:
+        from email_engine.core.rotation_engine import build_daily_plan
+        from email_engine.intelligence import builder as _builder
+    except ImportError as exc:
+        raise HTTPException(status_code=503, detail=f"Engine unavailable: {exc}")
+
+    plan = _load_plan(date.today())
+    if plan is None or plan.get("skipped_reason") or force:
+        try:
+            plan = build_daily_plan(force_build=force)
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail=f"Plan build failed: {exc}")
+
+    # Pick first commodity's first email (rotation_engine already sorts by priority)
+    by_commodity = plan.get("by_commodity", {})
+    if not by_commodity:
+        skip_reason = plan.get("skipped_reason") or "no eligible commodities"
+        raise HTTPException(
+            status_code=404,
+            detail=f"Rotation skipped: {skip_reason}. Use ?force=true to override.",
+        )
+
+    first_commodity = None
+    sample_email = None
+    for comm, info in by_commodity.items():
+        emails = info.get("emails", [])
+        if emails:
+            first_commodity = comm
+            sample_email = emails[0].strip()
+            break
+
+    if not sample_email:
+        raise HTTPException(status_code=404, detail="No emails in today's plan")
+
+    # Resolve config for this CNEE (POL + destinations from rule engine)
+    df = _load_master_df_safe()
+    if df is None:
+        raise HTTPException(status_code=503, detail="Master contact file unavailable")
+
+    try:
+        from email_engine.core.rule_engine import resolve_config
+    except ImportError as exc:
+        raise HTTPException(status_code=503, detail=f"Rule engine unavailable: {exc}")
+
+    email_col = "EMAIL" if "EMAIL" in df.columns else "CNEE_EMAIL"
+    df_indexed = df.set_index(df[email_col].str.lower().str.strip())
+    key = sample_email.lower()
+    row_raw = df_indexed.loc[key] if key in df_indexed.index else {}
+    if isinstance(row_raw, pd.DataFrame):
+        row_raw = row_raw.iloc[0]
+    row_dict = row_raw.to_dict() if hasattr(row_raw, "to_dict") else {}
+
+    try:
+        config = resolve_config(row_dict, user_markup=markup, campaign_override=first_commodity)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"resolve_config failed: {exc}")
+
+    # Build full email (subject + html_body with signature)
+    try:
+        known = config.get("destination") or []
+        if isinstance(known, str):
+            known = [d.strip().upper() for d in known.split(",") if d.strip()]
+        from email_engine.web_server import DEFAULT_DESTINATIONS as _DEFAULTS
+        destinations: list[str] = []
+        for d in list(known) + list(_DEFAULTS or []):
+            du = (d or "").upper()
+            if du and du not in destinations:
+                destinations.append(du)
+        email_dict = _builder.build_email(
+            cnee_email=config["email"] or sample_email,
+            pol=config["pol"],
+            destinations=destinations,
+            markup=float(config.get("markup") or markup),
+            profile=row_dict if row_dict else None,
+            arb_origin=config.get("arb_origin"),
+        )
+    except Exception as exc:
+        log.error("preview_html: build_email failed: %s", exc)
+        raise HTTPException(status_code=500, detail=f"build_email failed: {exc}")
+
+    token = _issue_preview_token()
+    plan_total = int(plan.get("actual_total", 0))
+
+    return {
+        "status": "previewed",
+        "preview_token": token,
+        "ttl_seconds": _PREVIEW_TTL,
+        "previewed_to": email_dict["to"],
+        "subject": email_dict["subject"],
+        "html_body": email_dict.get("html_body", ""),
+        "first_commodity": first_commodity,
+        "plan_total": plan_total,
+        "message": f"Preview ready. Confirm to send {plan_total} emails.",
+    }
+
+
 @router.get("/preview-sample")
 def preview_sample(
     count: int = Query(default=3, ge=1, le=10),
@@ -732,6 +838,7 @@ def _run_rotation_background(
             plan,
             user_markup=user_markup,
             campaign_override=campaign_override,
+            backend=os.environ.get("EMAIL_SEND_BACKEND", "graph"),  # default Graph khớp web_server.py:42
         )
         log.info(
             "ROTATION_BG: date=%s queued=%d markup=%d campaign=%s",
