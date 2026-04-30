@@ -1,0 +1,64 @@
+# Nelson Freight — Email Intelligence Platform
+
+> NVOCC freight forwarding Vietnam→USA/Canada. Email intelligence pipeline with Microsoft Graph API (no Outlook COM). FastAPI backend, local-only data.
+
+## Architecture
+
+- [SYSTEM_STANDARDS.md](docs/SYSTEM_STANDARDS.md): Single source of truth for system standards, canonical paths, and rules
+- [Nelson Architecture](docs/DATA_FLOW.md): 3-tier architecture — CODE (Engine_test), DATA (OneDrive/NelsonData), LOCAL
+
+## Email Pipeline
+
+- [EMAIL PIPELINE SOURCE OF TRUTH](docs/EMAIL_PIPELINE_SOURCE_OF_TRUTH.md): Complete email flow — send, scan, bounce, reply, suppression
+- [EMAIL DASHBOARD V7](docs/EMAIL_DASHBOARD_V7.md): Dashboard 9 tabs, local web server port 8100
+- [EMAIL DASHBOARD V7 WORKFLOW](docs/EMAIL_DASHBOARD_V7_WORKFLOW.md): Daily rotation workflow, Smart Send 700/day
+- [Email Dashboard Versioning](docs/email-dashboard-versioning.md): Version contract — filename fixed, version in code only
+
+## Smart Send
+
+- [SMART SEND CONTRACT](docs/contracts/SMART_SEND_CONTRACT.md): Smart Send flow contract — preview, confirm, batch send
+- [Rate Pipeline Contract](docs/rate-pipeline-contract.md): Rate builder return keys and schema
+
+## Daily Rotation
+
+- [DAILY ROTATION ENGINE](docs/DAILY_ROTATION_ENGINE.md): Rotation engine 700/day, cooldown rules, campaign tracking
+- [ARB Origin Mapping](docs/ARB_ORIGIN_MAPPING.md): ARB port codes and origin mapping
+
+## Data
+
+- [MASTER V7 SCHEMA](docs/MASTER_V7_SCHEMA.md): Master file schema (contact_unified_v7.xlsx)
+- [Panjiva Export Guide](docs/PANJIVA_EXPORT_GUIDE.md): Panjiva data extraction pipeline
+
+## ERP
+
+- [ERP v14 Source of Truth](docs/erp-v14-source-of-truth.md): ERP v14 live on OneDrive, refresh scripts
+- [ERP VBA Standards](docs/ERP_V14_VBA_STANDARDS.md): VBA coding standards for ERP v14
+- [VBA Gotchas](docs/vba-gotchas.md): Known VBA pitfalls (Declarations before Subs, etc.)
+
+## Development
+
+- [Setup PC Home](docs/SETUP_PC_HOME.md): Development environment setup
+- [ERP Automation Test Stack](docs/erp-automation-test-stack.md): Testing framework for ERP automation
+- [Feature Checklist](docs/feature-checklist.md): Development checklist for new features
+- [Known Legacy Failures](docs/known-legacy-failures.md): Known issues in legacy code
+
+## API
+
+- [Webapp Upgrade Roadmap](docs/webapp-upgrade-roadmap.md): Next.js dashboard roadmap
+
+## Integrations
+
+- [MiniMax Cheatsheet](docs/minimax-cheatsheet.md): MiniMax M2.7 sidecar commands and quota
+
+## Contracts
+
+- [Domain Email](docs/contracts/DOMAIN-EMAIL.md): Email domain rules
+- [Domain Data](docs/contracts/DOMAIN-DATA.md): Data domain rules
+- [Domain ERP](docs/contracts/DOMAIN-ERP.md): ERP domain rules
+- [Domain Code](docs/contracts/DOMAIN-CODE.md): Code domain rules
+
+## Optional
+
+- [Charge Name Source of Truth](docs/CHARGE_NAME_SOURCE_OF_TRUTH.md): Charge name mappings
+- [Market Report 4C System](docs/market-report-4c-system.md): Market analysis framework
+- [S1V2 Target Watch Schema](docs/s1v2-target-watch-schema.md): S1V2 rate watch schema
