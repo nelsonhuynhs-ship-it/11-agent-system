@@ -282,18 +282,60 @@ def smart_send_confirm(
 
     # Enqueue remaining batch via background thread
     if remaining_emails:
+        from email_engine.core.rule_engine import resolve_config
+        from email_engine.api.routes.rotation_router import _load_master_df_safe
+
         def _send_remaining():
             from email_engine.web_server import _do_send_built_emails
+
+            df = _load_master_df_safe()
+            email_col = "EMAIL" if "EMAIL" in df.columns else "CNEE_EMAIL"
+            df_indexed = df.set_index(df[email_col].str.lower().str.strip())
+
             emails_out = []
             for em in remaining_emails:
+                key = em.lower().strip()
+                if key not in df_indexed.index:
+                    log.warning("[smart-send] skip %s — not in master", em)
+                    continue
+                row = df_indexed.loc[key]
+                if hasattr(row, "to_dict"):
+                    row_dict = row.to_dict() if hasattr(row, "iloc") else dict(row)
+                else:
+                    row_dict = dict(row)
+
+                config = resolve_config(
+                    row.to_dict() if hasattr(row, "to_dict") else dict(row),
+                    user_markup=int(markup),
+                    campaign_override=first_commodity,
+                )
+                try:
+                    result = _builder.build_email(
+                        cnee_email=em,
+                        pol=config.get("pol", "HPH"),
+                        destinations=[d.strip() for d in config.get("destination", "USLAX,USLGB").split(",")],
+                        markup=float(markup),
+                    )
+                    html_body = result.get("html_body", "")
+                    if not html_body or "No rates available" in html_body:
+                        log.info("[smart-send] skip %s — no rates", em)
+                        continue
+                except Exception as exc:
+                    log.warning("[smart-send] build error for %s: %s", em, exc)
+                    continue
+
                 emails_out.append({
                     "cnee_email": em,
-                    "subject": "(queued)",
-                    "html_body": "",
+                    "subject": result.get("subject", ""),
+                    "html_body": html_body,
                     "campaign_id": campaign_id,
                     "meta_json": json.dumps({"source": "smart-send", "commodity": first_commodity}),
                 })
-            _do_send_built_emails(campaign_id, emails_out)
+            if emails_out:
+                _do_send_built_emails(campaign_id, emails_out)
+                log.info("[smart-send] batch sent %s emails", len(emails_out))
+            else:
+                log.warning("[smart-send] no valid emails to send in batch")
 
         threading.Thread(
             target=_send_remaining,
