@@ -37,8 +37,11 @@ def _issue_preview_token() -> str:
     token = secrets.token_urlsafe(16)
     _PREVIEW_TOKENS[token] = time.time() + _PREVIEW_TTL
     now = time.time()
-    for k in [k for k, exp in _PREVIEW_TOKENS.items() if exp < now]:
-        _PREVIEW_TOKENS.pop(k, None)
+    for k, exp in list(_PREVIEW_TOKENS.items()):
+        if isinstance(exp, dict):
+            continue
+        if exp < now:
+            _PREVIEW_TOKENS.pop(k, None)
     return token
 
 
