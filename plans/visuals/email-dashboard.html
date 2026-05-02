@@ -22,6 +22,9 @@
 .badge-verify.pending{background:var(--warn-soft);color:var(--warn)}
 .badge-verify.failed{background:var(--err-soft);color:var(--err)}
 .badge-verify[data-tooltip]:hover::after{content:attr(data-tooltip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:8px 12px;border-radius:4px;font-size:11px;white-space:pre;font-family:'JetBrains Mono',monospace;z-index:10;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.12)}
+/* Reply badge for Priority view */
+.badge-replied{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:500;background:var(--good-soft);color:var(--good)}
+.badge-auto{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:500;background:var(--warn-soft);color:var(--warn)}
   --radius:2px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -68,6 +71,12 @@ input,select{font-family:inherit}
 .kpi{padding:24px 28px;border-right:1px solid var(--line-2)}
 .kpi:last-child{border-right:none}
 .kpi-label{font-size:10px;color:var(--muted);letter-spacing:.2em;text-transform:uppercase;margin-bottom:10px}
+
+/* Filter bar (Priority view) */
+.filter-bar{display:flex;gap:8px;margin:16px 0;align-items:center;flex-wrap:wrap}
+.filter-btn{background:transparent;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:5px 12px;font-size:12px;cursor:pointer;transition:all .15s ease}
+.filter-btn:hover{color:var(--accent);border-color:var(--accent)}
+.filter-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 .kpi-value{font-family:'JetBrains Mono',monospace;font-size:30px;font-weight:400;color:var(--ink);letter-spacing:-.02em;line-height:1}
 .kpi-unit{font-size:12px;color:var(--muted);margin-left:4px;font-family:'Inter',sans-serif}
 .kpi-foot{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:11.5px;color:var(--muted)}
@@ -717,32 +726,42 @@ details.manual-override[open] > summary {
     </div>
   </header>
 
-  <div class="kpi-row">
+  <div class="kpi-row" id="priorityKpiRow">
     <div class="kpi">
       <div class="kpi-label">VIP</div>
-      <div class="kpi-value" id="priVip">—</div>
-      <div class="kpi-foot"><span>Top tier · personal</span></div>
+      <div class="kpi-value" id="priVipCount">—</div>
     </div>
     <div class="kpi">
       <div class="kpi-label">HOT</div>
-      <div class="kpi-value" id="priHot">—</div>
-      <div class="kpi-foot"><span>Follow-up in progress</span></div>
+      <div class="kpi-value" id="priHotCount">—</div>
     </div>
     <div class="kpi">
-      <div class="kpi-label">Needs attention</div>
-      <div class="kpi-value" id="priOverdue">—<span class="kpi-unit">overdue</span></div>
-      <div class="kpi-foot"><span>≥7 days silent</span></div>
+      <div class="kpi-label">Replied</div>
+      <div class="kpi-value" id="priRepliedCount" style="color:var(--good)">—</div>
     </div>
+    <div class="kpi">
+      <div class="kpi-label">Needs Follow-up</div>
+      <div class="kpi-value" id="priFollowupCount" style="color:var(--warn)">—</div>
+    </div>
+  </div>
+
+  <div class="filter-bar" style="display:flex;gap:8px;margin:16px 0;align-items:center">
+    <span style="font-size:11px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase">Filter:</span>
+    <button class="btn btn-sm filter-btn active" data-filter="all">All</button>
+    <button class="btn btn-sm filter-btn" data-filter="replied">🟢 Replied</button>
+    <button class="btn btn-sm filter-btn" data-filter="followup">Needs Follow-up</button>
+    <button class="btn btn-sm filter-btn" data-filter="overdue">Overdue</button>
+    <input type="text" id="priSearch" placeholder="Search company or email..." style="margin-left:auto;padding:6px 10px;border:1px solid var(--line);border-radius:4px;font-size:12px;width:200px;background:var(--surface)">
   </div>
 
   <section class="section">
     <div class="section-head">
       <div class="section-title">☆ VIP</div>
-      <div class="section-sub">Click name to preview · Draft to edit · Follow up to queue</div>
+      <div class="section-sub">Preview · Draft · Price · Follow up</div>
     </div>
     <table class="tbl">
-      <thead><tr><th>Customer</th><th>Tier</th><th>Reply</th><th>Last sent</th><th>Campaign</th><th style="width:180px">Actions</th></tr></thead>
-      <tbody id="vipBody"><tr><td colspan="6" class="empty-state">Loading VIP list...</td></tr></tbody>
+      <thead><tr><th>Customer</th><th>Tier</th><th>Route</th><th>SEQ</th><th>Reply</th><th>Last sent</th><th>Campaign</th><th style="width:180px">Actions</th></tr></thead>
+      <tbody id="vipBody"><tr><td colspan="8" class="empty-state">Loading VIP list...</td></tr></tbody>
     </table>
   </section>
 
@@ -752,8 +771,8 @@ details.manual-override[open] > summary {
       <div class="section-sub">Hot leads — responded to campaign, need follow-up</div>
     </div>
     <table class="tbl">
-      <thead><tr><th>Customer</th><th>Action</th><th>Reply status</th><th>Last sent</th><th>Campaign</th><th style="width:180px"></th></tr></thead>
-      <tbody id="hotBody"><tr><td colspan="6" class="empty-state">Loading HOT list...</td></tr></tbody>
+      <thead><tr><th>Customer</th><th>Tier</th><th>Route</th><th>SEQ</th><th>Reply</th><th>Last sent</th><th>Campaign</th><th style="width:180px">Actions</th></tr></thead>
+      <tbody id="hotBody"><tr><td colspan="8" class="empty-state">Loading HOT list...</td></tr></tbody>
     </table>
   </section>
 
@@ -2533,6 +2552,48 @@ function startBatchProgress(batch_id, batchIdx, total) {
 }
 
 /* ═══════════════ PRIORITY ═══════════════ */
+let priorityData = { vip: [], hot: [], overdue: [] };
+let priorityFilter = 'all';
+let prioritySearch = '';
+
+function renderPriorityTables(){
+  const filter = priorityFilter;
+  const q = prioritySearch.toLowerCase();
+  const { vip, hot } = priorityData;
+
+  function applyFilter(list){
+    let result = list;
+    if (filter === 'replied')    result = result.filter(p => p.reply_status === 'HUMAN_REPLY');
+    else if (filter === 'followup') result = result.filter(p => p.action === 'FOLLOW_UP');
+    else if (filter === 'overdue')  result = result.filter(p => {
+      const d = p.last_sent_date; if (!d || d==='nan') return false;
+      try { return (Date.now() - new Date(d).getTime()) / 864e5 >= 7; } catch { return false; }
+    });
+    if (q) result = result.filter(p =>
+      (p.company||'').toLowerCase().includes(q) || (p.email||'').toLowerCase().includes(q)
+    );
+    return result;
+  }
+
+  const dispVip = applyFilter(vip);
+  const dispHot = applyFilter(hot);
+  document.getElementById('vipBody').innerHTML = dispVip.length
+    ? dispVip.map(renderPriRow).join('')
+    : '<tr><td colspan="8" class="empty-state">No VIP prospects</td></tr>';
+  document.getElementById('hotBody').innerHTML = dispHot.length
+    ? dispHot.map(renderPriRow).join('')
+    : '<tr><td colspan="8" class="empty-state">No HOT prospects</td></tr>';
+  wirePriorityActions();
+}
+
+function applyPriorityFilter(filter){
+  priorityFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.filter === filter);
+  });
+  renderPriorityTables();
+}
+
 async function loadPriority(){
   try {
     const r = await api('/api/prospects/priority');
@@ -2543,25 +2604,58 @@ async function loadPriority(){
       const d = p.last_sent_date; if (!d || d==='nan') return true;
       try { return (Date.now() - new Date(d).getTime()) / 864e5 >= 7; } catch { return false; }
     });
-    document.getElementById('priVip').innerHTML = vip.length;
-    document.getElementById('priHot').innerHTML = hot.length;
-    document.getElementById('priOverdue').innerHTML = overdue.length + '<span class="kpi-unit">overdue</span>';
+    const replied = list.filter(p => p.reply_status === 'HUMAN_REPLY');
+    const needsFollowup = list.filter(p => p.action === 'FOLLOW_UP');
+    // Store all prospects globally for Send Price pre-fill
+    window.allProspects = list;
+    document.getElementById('priVipCount').innerHTML = vip.length;
+    document.getElementById('priHotCount').innerHTML = hot.length;
+    document.getElementById('priRepliedCount').innerHTML = replied.length;
+    document.getElementById('priFollowupCount').innerHTML = needsFollowup.length;
     document.getElementById('navBadgePriority').textContent = list.length;
-    document.getElementById('vipBody').innerHTML = vip.length ? vip.map(renderPriRow).join('') : '<tr><td colspan="6" class="empty-state">No VIP prospects</td></tr>';
-    document.getElementById('hotBody').innerHTML = hot.length ? hot.map(renderPriRow).join('') : '<tr><td colspan="6" class="empty-state">No HOT prospects</td></tr>';
-    wirePriorityActions();
+    priorityData = { vip, hot, overdue };
+
+    // Wire filter buttons once
+    document.querySelectorAll('.filter-btn').forEach(b => {
+      b.onclick = () => applyPriorityFilter(b.dataset.filter);
+    });
+    // Wire search
+    const searchEl = document.getElementById('priSearch');
+    if (searchEl) searchEl.oninput = e => {
+      prioritySearch = e.target.value;
+      renderPriorityTables();
+    };
+
+    renderPriorityTables();
   } catch(e){
-    document.getElementById('vipBody').innerHTML = '<tr><td colspan="6" class="empty-state">Failed: '+e.message+'</td></tr>';
+    document.getElementById('vipBody').innerHTML = '<tr><td colspan="8" class="empty-state">Failed: '+e.message+'</td></tr>';
+    document.getElementById('hotBody').innerHTML = '<tr><td colspan="8" class="empty-state">Failed: '+e.message+'</td></tr>';
   }
 }
 function renderPriRow(p){
+  const seqDots = (step, total) => {
+    let dots = '';
+    for (let i = 0; i < total; i++) {
+      dots += i < step ? '●' : '○';
+      if (i < total - 1) dots += '─';
+    }
+    return dots;
+  };
+  const replyBadge = p.reply_status === 'HUMAN_REPLY'
+    ? '<span class="badge badge-replied">Replied</span>'
+    : p.reply_status === 'AUTO_REPLY'
+    ? '<span class="badge badge-auto">Auto</span>'
+    : esc(p.reply_status||'—');
   return `<tr data-email="${p.email}">
     <td><div class="company">${esc(p.pic||p.company||'—')}</div><div class="email-cell">${esc(p.email)} · ${esc(p.company||'')}</div></td>
     <td><span class="tag tag-${p.tier.toLowerCase()}">${p.tier}</span></td>
-    <td>${esc(p.reply_status||'—')}</td>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:11px">${esc(p.route_display||'—')}</td>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted-2)">${seqDots(p.seq_step||0, p.seq_total||3)}</td>
+    <td>${replyBadge}</td>
     <td class="mono">${esc(p.last_sent_date||'never')}</td>
     <td>${esc(p.campaign||'—')}</td>
     <td style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-xs btn-accent" data-pri-send-price="${p.email}" title="Send targeted price email">💰 Price</button>
       <button class="btn btn-xs" data-pri-preview="${p.email}">Preview</button>
       <button class="btn btn-xs" data-pri-smart-draft="${p.email}" title="Soạn email cá nhân hoá bằng AI memory">💭 Draft</button>
       <button class="btn btn-xs btn-accent" data-pri-followup="${p.email}">Follow up</button>
@@ -2600,6 +2694,25 @@ function wirePriorityActions(){
   // A3 — Smart Draft: open modal, fetch LLM draft with memory
   document.querySelectorAll('[data-pri-smart-draft]').forEach(b => b.onclick = () => {
     openSmartDraft(b.dataset.priSmartDraft);
+  });
+  // Phase 3 — Send Price: pre-fill route in sessionStorage and jump to Quick Send
+  document.querySelectorAll('[data-pri-send-price]').forEach(b => {
+    b.onclick = () => {
+      const email = b.dataset.priSendPrice;
+      const row = allProspects.find(p => p.email === email);
+      if (!row) { toast('Prospect not found', 'err'); return; }
+      sessionStorage.setItem('priorityPrefill', JSON.stringify({
+        email: email,
+        route_display: row.route_display,
+        company: row.company,
+        campaign: row.campaign
+      }));
+      document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
+      document.querySelector('[data-view="viewSend"]').classList.add('active');
+      document.getElementById('viewSend').classList.add('active');
+      toast(`Pre-filled: ${row.company} (${row.route_display || 'no route'})`, 'success');
+    };
   });
 }
 

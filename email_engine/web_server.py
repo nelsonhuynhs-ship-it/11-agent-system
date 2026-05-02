@@ -71,8 +71,17 @@ def _send_email_html(to: str, subject: str, html_body: str, outlook_app=None) ->
             "subject": subject,
         }
     if outlook_app is None:
-        log.error(f"[SEND-FAIL] backend=outlook but COM dispatch missing for {to}")
-        raise RuntimeError(f"Outlook COM dispatch missing — set EMAIL_SEND_BACKEND=graph")
+        try:
+            import pythoncom
+            pythoncom.CoInitialize()
+        except Exception:
+            pass
+        try:
+            import win32com.client
+            outlook_app = win32com.client.Dispatch("Outlook.Application")
+        except Exception as exc:
+            log.error(f"[SEND-FAIL] Outlook COM unavailable: {exc}")
+            raise RuntimeError(f"Outlook COM unavailable: {exc}")
     m = outlook_app.CreateItem(0)
     m.To = to
     m.Subject = subject
@@ -476,16 +485,24 @@ def priority_prospects(tier: str = "VIP,HOT", limit: int = 500):
         em = str(row.get("EMAIL", row.get("CNEE_EMAIL", ""))).strip()
         if not em or em.lower() == "nan" or em.lower() in EXCLUDED_EMAILS:
             continue
+        tier_val = str(row.get("TIER", "")).strip().upper()
         results.append({
             "email": em,
             "company": str(row.get("COMPANY", row.get("CNEE_NAME", ""))).strip(),
             "pic": str(row.get("PIC", row.get("CNEE_PIC", ""))).strip(),
-            "tier": str(row.get("TIER", "")).strip().upper(),
+            "tier": tier_val,
             "action": str(row.get("ACTION", "")).strip().upper(),
             "reply_status": str(row.get("REPLY_STATUS", "")).strip(),
             "last_sent_date": str(row.get("LAST_SENT_DATE", "")).strip(),
             "send_count": int(row.get("SEND_COUNT", 0) or 0) if str(row.get("SEND_COUNT", "")).replace(".","").isdigit() else 0,
             "campaign": str(row.get("CAMPAIGN_ID", row.get("CMD_NAME", ""))).strip(),
+            "priority_score": int(row.get("PRIORITY_SCORE", 0)),
+            "origin_country": str(row.get("ORIGIN_COUNTRY", "")),
+            "destination_region": str(row.get("DESTINATION_REGION", "")),
+            "route_display": f"{row.get('ORIGIN_COUNTRY','')} → {row.get('DESTINATION_REGION','')}",
+            "campaign_routes": ["USLAX", "USLGB", "USNYC"],
+            "seq_step": 0,
+            "seq_total": 3 if tier_val in ["VIP", "HOT"] else 4,
         })
     return {"prospects": results, "total": len(results), "by_tier": {t: sum(1 for p in results if p["tier"]==t) for t in tiers}}
 
