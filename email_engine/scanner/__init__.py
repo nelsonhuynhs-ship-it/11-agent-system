@@ -25,7 +25,7 @@ from .handlers import (
     handle_real_reply,
     handle_unsubscribe,
 )
-from .inbox_scanner import run_scan, start_scheduler
+
 from .telegram import send_alert, send_batch_alert
 from .daily_report import generate_summary, send_daily_report
 

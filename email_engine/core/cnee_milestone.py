@@ -598,31 +598,17 @@ class _SafeDict(dict):
 def _create_outlook_draft_polite(to_list: list[str], template_type: str,
                                   ctx: dict,
                                   attachments: list[dict] | None = None) -> bool:
-    """
-    Create an email draft via Microsoft Graph API (POST /me/messages isDraft=true).
-    Replaces win32com Outlook COM draft creation.
-
-    Args:
-        to_list: list of recipient email addresses
-        template_type: "atd" or "eta7"
-        ctx: template context dict
-        attachments: optional list of {"filename": str, "data": bytes} dicts
-
-    template_type: "atd" or "eta7"
-    Returns True if draft created successfully.
-    """
-    # Load token from graph_sender cache
-    try:
-        from email_engine.senders.graph_sender import get_token
-    except ImportError:
-        log.error("cnee_milestone: graph_sender not in PYTHONPATH — cannot create Graph draft")
-        return False
+    """Create email draft in Outlook via COM (save, don't send)."""
+    import pythoncom, win32com.client
+    pythoncom.CoInitialize()
 
     try:
-        token = get_token()
-    except RuntimeError as e:
-        log.error("cnee_milestone: Graph token unavailable: %s", e)
+        outlook = win32com.client.Dispatch("Outlook.Application")
+    except Exception as e:
+        log.error("cnee_milestone: COM Outlook unavailable: %s", e)
         return False
+
+    m = outlook.CreateItem(0)  # olMailItem = 0
 
     # Load template
     tmpl_path = (Path(__file__).parent.parent
@@ -638,66 +624,23 @@ def _create_outlook_draft_polite(to_list: list[str], template_type: str,
     lines = filled.split("\n", 2)
     if lines[0].upper().startswith("SUBJECT:"):
         subject = lines[0].split(":", 1)[1].strip()
-        body = "\n".join(lines[2:]).strip() if len(lines) > 2 else ""
+        body = "\n".join(lines[2:]).strip() if len(lines) > 2 else filled
     else:
         subject = f"Shipment Update — {ctx.get('bkg', 'N/A')}"
         body = filled
 
-    # Always prefix [AUTO] for visibility
-    subject = f"[AUTO] {subject}"
+    m.Subject = f"[AUTO] {subject}"
+    m.HTMLBody = f"<html><body><pre>{body}</pre></body></html>"
+    m.To = "; ".join(to_list)
 
-    # Build recipients payload
-    to_recipients = [{"emailAddress": {"address": addr}} for addr in to_list]
-
-    # Graph create-draft payload
-    payload = {
-        "subject": subject,
-        "body": {
-            "contentType": "text",
-            "content": body,
-        },
-        "toRecipients": to_recipients,
-        "isDraft": True,
-    }
-
-    # Add attachments if provided
     if attachments:
-        import base64
-        payload["attachments"] = [
-            {
-                "@odata.type": "#microsoft.graph.fileAttachment",
-                "name": a["filename"],
-                "contentBytes": base64.b64encode(a["data"]).decode("utf-8"),
-            }
-            for a in attachments
-        ]
+        for a in attachments:
+            m.Attachments.Add(a["data"], 1, 0, a["filename"])
 
-    import requests as _req
-    try:
-        resp = _req.post(
-            "https://graph.microsoft.com/v1.0/me/messages",
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-            timeout=20,
-        )
-        if resp.status_code not in (200, 201):
-            err = resp.text[:300]
-            log.error("cnee_milestone: Graph create draft failed HTTP %d: %s",
-                      resp.status_code, err)
-            return False
-
-        msg_data = resp.json()
-        draft_id = msg_data.get("id", "unknown")
-        log.info("cnee_milestone: Graph draft created id=%s for %s / %s",
-                 draft_id, ctx.get("customer"), ctx.get("bkg"))
-        return True
-
-    except Exception as e:
-        log.error("cnee_milestone: Graph create draft exception: %s", e)
-        return False
+    m.Save()  # Draft only — NOT Send()
+    log.info("cnee_milestone: COM draft saved for %s / %s",
+             ctx.get("customer"), ctx.get("bkg"))
+    return True
 
 
 # ── Per-Bkg processing ────────────────────────────────────────────────────────

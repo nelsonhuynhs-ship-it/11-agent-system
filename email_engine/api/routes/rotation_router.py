@@ -838,7 +838,7 @@ def _run_rotation_background(
             plan,
             user_markup=user_markup,
             campaign_override=campaign_override,
-            backend=os.environ.get("EMAIL_SEND_BACKEND", "graph"),  # default Graph khớp web_server.py:42
+            backend=os.environ.get("EMAIL_SEND_BACKEND", "outlook"),
         )
         log.info(
             "ROTATION_BG: date=%s queued=%d markup=%d campaign=%s",

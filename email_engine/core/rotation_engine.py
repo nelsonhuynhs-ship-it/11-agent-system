@@ -41,27 +41,33 @@ def build_daily_plan(
     quota_override: Optional[dict[str, int]] = None,
     cooldown_days: Optional[int] = None,
     hard_limit: Optional[int] = None,
+    force_build: bool = False,
 ) -> dict[str, Any]:
     """Build today's rotation plan.
 
     Returns a dict with keys: date, target_total, actual_total, by_commodity,
     redistributed, cycle_info, skipped_reason (if weekend/holiday).
 
+    When force_build=True, override weekend/holiday skip (manual Nelson override).
+
     Raises FileNotFoundError if master contact file is missing.
     """
     today = target_date or date.today()
 
-    # Weekend / holiday skip
-    if today.weekday() >= 5:
-        day_name = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][today.weekday()]
-        log.info("ROTATION_SKIP_WEEKEND: %s is %s", today, day_name)
-        return _empty_plan(today, reason=f"Weekend ({day_name})")
+    # Weekend / holiday skip (skippable via force_build)
+    if not force_build:
+        if today.weekday() >= 5:
+            day_name = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][today.weekday()]
+            log.info("ROTATION_SKIP_WEEKEND: %s is %s", today, day_name)
+            return _empty_plan(today, reason=f"Weekend ({day_name})")
 
-    if is_vn_holiday(today):
-        from email_engine.core.vn_holidays import holiday_name
-        name = holiday_name(today) or "VN Holiday"
-        log.info("ROTATION_SKIP_HOLIDAY: %s — %s", today, name)
-        return _empty_plan(today, reason=name)
+        if is_vn_holiday(today):
+            from email_engine.core.vn_holidays import holiday_name
+            name = holiday_name(today) or "VN Holiday"
+            log.info("ROTATION_SKIP_HOLIDAY: %s — %s", today, name)
+            return _empty_plan(today, reason=name)
+    else:
+        log.info("ROTATION_FORCE_BUILD: bypassing weekend/holiday skip for %s", today)
 
     # Load config
     cfg = load_quota_config()
@@ -188,6 +194,7 @@ def queue_to_outlook_worker(
     plan: dict[str, Any],
     user_markup: int = 20,
     campaign_override: str | None = None,
+    backend: str = "outlook",
 ) -> int:
     """Build email content per contact and INSERT into email_queue via enqueue_batch.
 
@@ -318,11 +325,16 @@ def queue_to_outlook_worker(
         log.warning("queue_to_outlook_worker: batch_emails empty after build")
         return 0
 
+    # Default: Outlook COM via SQLite queue + worker thread pool
     queued = enqueue_batch(batch_id, batch_emails)
     log.info(
         "ROTATION: Enqueued %d/%d emails · batch_id=%s",
         queued, len(batch_emails), batch_id,
     )
+
+    # Start queue worker (idempotent — safe to call every batch)
+    from email_engine.queue_worker_outlook import start_worker
+    start_worker()
 
     _notify_telegram(plan, queued)
     return queued

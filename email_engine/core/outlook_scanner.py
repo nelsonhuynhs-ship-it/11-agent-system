@@ -271,135 +271,7 @@ def run_job(job_name: str, config: dict, dry_run: bool = False) -> dict:
 
 
 # ==============================================================================
-# 4. TELEGRAM SUMMARY
-# ==============================================================================
-
-def send_telegram_summary(results: dict, rules: dict) -> bool:
-    """Send combined scan summary to Nelson via Telegram."""
-    if not rules.get("notifications", {}).get("telegram_enabled", False):
-        return False
-    if not rules.get("notifications", {}).get("summary_after_scan", False):
-        return False
-
-    # Read Telegram config from TelegramBot/.env
-    try:
-        env_file = PROJECT_ROOT.parent / "TelegramBot" / ".env"
-        token, chat_id = None, None
-        if env_file.exists():
-            for line in env_file.read_text(encoding="utf-8").splitlines():
-                if line.startswith("BOT_TOKEN="):
-                    token = line.split("=", 1)[1].strip()
-                elif line.startswith("ADMIN_CHAT_ID="):
-                    chat_id = line.split("=", 1)[1].strip()
-
-        if not token or not chat_id:
-            log.warning("[Telegram] BOT_TOKEN or ADMIN_CHAT_ID not found")
-            return False
-
-    except Exception as e:
-        log.warning("[Telegram] Config read error: %s", e)
-        return False
-
-    # Build summary message
-    now_str = datetime.now().strftime("%H:%M %d/%m")
-    lines = [f"📡 *Unified Scanner — {now_str}*", "━" * 28]
-
-    for job_name, result in results.items():
-        status = result.get("status", "?")
-        elapsed = result.get("elapsed_seconds", 0)
-
-        if status == "ok":
-            icon = "✅"
-        elif status == "dry_run":
-            icon = "🔵"
-        elif status == "skipped":
-            icon = "⏭️"
-        else:
-            icon = "❌"
-
-        # Job-specific details
-        label = job_name.replace("_", " ").title()
-        detail = ""
-
-        if job_name == "pricing_import" and status == "ok":
-            rates = result.get("rates_imported", 0)
-            net = result.get("net_new", 0)
-            knowledge = result.get("knowledge_items", 0)
-            if rates > 0:
-                detail = f" | +{rates} rates (net {net})"
-            elif knowledge > 0:
-                detail = f" | {knowledge} knowledge items"
-            else:
-                detail = " | No new rates"
-
-        elif job_name == "mentee_classification" and status == "ok":
-            detail = " | Email routing done"
-
-        elif job_name == "shipment_brain" and status == "ok":
-            detail = " | Shipment tracking done"
-
-        elif job_name == "knowledge_ingest" and status == "ok":
-            new_e = result.get("new_emails", 0)
-            total = result.get("total_emails", 0)
-            custs = len(result.get("customers_updated", []))
-            detail = f" | +{new_e} emails, {total} total, {custs} customers"
-
-        elif job_name == "nelson_customer_sort" and status == "ok":
-            direct = result.get("moved_direct", 0)
-            fw     = result.get("moved_fw", 0)
-            moved  = direct + fw
-            if moved > 0:
-                detail = f" | {moved} moved (DIRECT:{direct} FW:{fw})"
-            else:
-                detail = " | No emails to sort"
-
-        elif job_name == "reply_processing" and status == "ok":
-            scanned = result.get("scanned", 0)
-            bounces = result.get("bounces", 0)
-            replies = result.get("real_replies", 0)
-            if scanned > 0:
-                detail = f" | {scanned} scanned · {replies} replies · {bounces} bounces"
-            else:
-                detail = " | Inbox quiet"
-
-        if status == "error":
-            err = result.get("error", "unknown")[:60]
-            detail = f" | ⚠️ {err}"
-
-        lines.append(f"{icon} {label}{detail} ({elapsed:.0f}s)")
-
-    # Total elapsed
-    total = sum(r.get("elapsed_seconds", 0) for r in results.values())
-    lines.append(f"\n⏱️ Total: {total:.0f}s")
-
-    message = "\n".join(lines)
-
-    # Send via Telegram API
-    try:
-        import urllib.request
-        import urllib.parse
-
-        url = f"https://api.telegram.org/bot{token}/sendMessage"
-        data = urllib.parse.urlencode({
-            "chat_id": chat_id,
-            "text": message,
-            "parse_mode": "Markdown",
-        }).encode("utf-8")
-
-        req = urllib.request.Request(url, data=data, method="POST")
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            ok = resp.status == 200
-            if ok:
-                log.info("[Telegram] Summary sent ✅")
-            return ok
-
-    except Exception as e:
-        log.warning("[Telegram] Send failed: %s", e)
-        return False
-
-
-# ==============================================================================
-# 5. MAIN ORCHESTRATOR
+# 4. MAIN ORCHESTRATOR
 # ==============================================================================
 
 def main():
@@ -448,10 +320,6 @@ def main():
     log.info("DONE | OK: %d | Errors: %d | Total jobs: %d",
              ok_count, error_count, len(results))
     log.info("=" * 60)
-
-    # Send Telegram summary (not in dry-run)
-    if not args.dry_run:
-        send_telegram_summary(results, rules)
 
     # Return for programmatic use
     return results

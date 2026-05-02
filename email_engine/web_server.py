@@ -38,38 +38,25 @@ from pydantic import BaseModel, Field
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger("email-dash")
 
-# Send backend toggle: "outlook" (Outlook COM, default) | "graph" (Microsoft Graph API).
-# Set env EMAIL_SEND_BACKEND=graph to migrate. Outlook COM is deprecated upstream
-# (new Outlook drops COM support — pywin32 issue #2475); Graph is the long-term path.
-EMAIL_SEND_BACKEND = os.environ.get("EMAIL_SEND_BACKEND", "graph").strip().lower()
+# Email send backend — Nelson Freight uses Outlook COM exclusively (per SOT 2026-04-29).
+# REMOVED: graph_api / Microsoft Graph API path — not used.
+# REMOVED: EMAIL_SEND_BACKEND env var — hardcoded to outlook.
 
 
 def _send_email_html(to: str, subject: str, html_body: str, outlook_app=None) -> dict:
-    """Backend-agnostic email send. Returns verification dict.
+    """Send one HTML email via Outlook COM. Returns verification dict.
 
     Returns:
         {
           "ok": bool,
-          "backend": "graph" | "outlook",
-          "graph_msg_id": str | None,
+          "backend": "outlook",
           "sent_at": ISO timestamp,
           "to": str,
           "subject": str,
         }
-    Raises on hard failure.
+    Raises RuntimeError if Outlook COM is unavailable.
     """
     sent_at = datetime.now(timezone.utc).isoformat()
-    if EMAIL_SEND_BACKEND == "graph":
-        from email_engine.senders import send_html_via_graph
-        ok, msg_id = send_html_via_graph(to=to, subject=subject, html_body=html_body)
-        return {
-            "ok": ok,
-            "backend": "graph",
-            "graph_msg_id": msg_id,
-            "sent_at": sent_at,
-            "to": to,
-            "subject": subject,
-        }
     if outlook_app is None:
         try:
             import pythoncom
@@ -682,6 +669,76 @@ def rate_preview(pol: str, destinations: str = "", markup: float = 20.0, arb_ori
         return {"routes_found": 0, "total_rates": 0, "html": "", "routes_detail": []}
 
 
+@app.get("/api/email/preview")
+def email_preview(
+    cnee_email: str = "",
+    campaign: str = "",
+    pol: str = "HPH",
+    destinations: str = "",
+    markup: float = 20.0,
+):
+    """Return one built email HTML for live preview in the dashboard iframe.
+
+    Uses the first valid prospect from `campaign` if `cnee_email` is empty.
+    Falls back to nelson's own inbox in test mode.
+    """
+    global _builder
+    if _builder is None:
+        from email_engine.intelligence import builder as _builder
+
+    test_email = "huynhyohan@gmail.com"
+
+    # Resolve recipient
+    if not cnee_email or cnee_email.strip().lower() in ("", "nan", "none"):
+        if campaign:
+            try:
+                df = _get_cnee_df()
+                if df is not None and "EMAIL" in df.columns and "CAMPAIGN" in df.columns:
+                    candidates = df[df["CAMPAIGN"].astype(str).str.upper() == campaign.upper()]["EMAIL"].dropna().tolist()
+                    cnee_email = next((e for e in candidates if e and str(e).strip().lower() not in ("", "nan", "none")), test_email)
+            except Exception:
+                cnee_email = test_email
+        else:
+            cnee_email = test_email
+
+    # Resolve destinations
+    dests = [
+        d.strip().upper()
+        for d in (destinations or "").replace(";", ",").split(",")
+        if d.strip() and d.strip().lower() not in ("nan", "none")
+    ]
+    if not dests:
+        dests = list(DEFAULT_DESTINATIONS)
+
+    try:
+        built = _builder.build_email(
+            cnee_email=cnee_email.strip().lower(),
+            pol=(pol or "HPH").strip().upper(),
+            destinations=dests,
+            markup=float(markup),
+            profile={},
+        )
+        return {
+            "ok": True,
+            "to": built.get("to", ""),
+            "subject": built.get("subject", ""),
+            "html_body": built.get("html_body", ""),
+            "meta": built.get("meta", {}),
+        }
+    except Exception as e:
+        log.warning(f"Email preview failed: {e}")
+        return {"ok": False, "error": str(e), "html_body": "", "subject": "", "to": cnee_email}
+
+
+@app.get("/api/settings")
+def get_settings():
+    """Return current engine settings for dashboard display."""
+    return {
+        "email_backend": "outlook",
+        "backend_label": "✅ Outlook COM",
+    }
+
+
 @app.get("/api/arb-rates")
 def get_arb_rates():
     """Return all available ARB origins, carriers, and sample rates from YAML."""
@@ -967,8 +1024,8 @@ def _do_send_built_emails(campaign_id: str, emails_out: list[dict]) -> None:
     """Send pre-built emails (from Smart Send batch_enqueue dry_run output).
 
     Each email dict has: cnee_email, subject, html_body, campaign_id, meta_json.
-    Bypasses queue_store entirely — uses graph_sender via _send_email_html().
-    Pacing handled inside graph_sender (~28/min).
+    Dispatched via _send_email_html() — Outlook COM path only.
+    Pacing handled by Outlook (no artificial rate limit).
 
     Duplicate guard: skips emails already SENT today (read from email_log.csv).
     """
@@ -2153,22 +2210,6 @@ def diagnostics_guards():
         "log_signature": "[smart-batch] SKIP duplicate -> {email}",
     })
 
-    # Guard 10: Graph pacing 28/min
-    try:
-        from email_engine.senders.graph_sender import MIN_INTERVAL_SEC
-        pacing_value = float(MIN_INTERVAL_SEC)
-        pacing_active = 2.0 <= pacing_value <= 3.0
-    except Exception:
-        pacing_value = None
-        pacing_active = False
-    guards.append({
-        "id": 10, "name": "Graph pacing 28/min", "active": pacing_active,
-        "source": "senders/graph_sender.py:39", "metric": "min_interval_sec",
-        "value": pacing_value,
-        "expected": "2.0 to 3.0 seconds",
-        "log_signature": "[silent] _pace()",
-    })
-
     return {
         "timestamp": _dt.now().isoformat(timespec="seconds"),
         "all_active": all(g["active"] for g in guards),
@@ -2249,13 +2290,6 @@ try:
 except Exception as _e:
     log.warning(f"[R2] intel.writeback import failed: {_e}")
     _writeback = None  # type: ignore
-
-try:
-    from email_engine.scanner import inbox_scanner as _scanner  # type: ignore
-    _R1["scanner"] = True
-except Exception as _e:
-    log.warning(f"[R2] scanner import failed: {_e}")
-    _scanner = None  # type: ignore
 
 
 # Resolve CNEE master location — v7 primary, v6 → v5 fallback (OneDrive → local)
@@ -2358,26 +2392,6 @@ def _r2_startup():
             log.info("[R2] writeback flusher started")
         except Exception as e:
             log.warning(f"[R2] writeback flusher failed: {e}")
-
-    if _scanner is not None and os.environ.get("NELSON_DISABLE_SCANNER") != "1":
-        try:
-            app.state.scheduler = _scanner.start_scheduler()
-            log.info("[R2] scanner scheduler started")
-        except Exception as e:
-            log.warning(f"[R2] scanner scheduler skipped: {e}")
-    else:
-        app.state.scheduler = None
-
-    # Phase 1 Graph Webhook — ensure subscription active on startup
-    try:
-        from email_engine.core.graph_subscription_manager import ensure_active
-        sub = ensure_active()
-        if sub:
-            log.info("[R2] graph subscription active: id=%s exp=%s", sub["id"], sub["expiration"])
-        else:
-            log.warning("[R2] graph subscription creation returned None (may be env/token issue)")
-    except Exception as e:
-        log.warning(f"[R2] graph subscription init failed: {e}")
 
     log.info(f"[R2] modules ready: {_R1}")
 
@@ -2665,8 +2679,7 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
         }
 
     # Real send path: bypass SQLite queue, dispatch directly via background thread.
-    # Graph backend handles pacing (~28/min) inside graph_sender.send_html_via_graph.
-    # Outlook backend (legacy) still works — _send_email_html switches by env var.
+    # Uses Outlook COM exclusively. _send_email_html handles the actual dispatch.
     campaign_id = f"SMART_{datetime.now():%Y%m%d_%H%M%S}"
     SEND_PROGRESS[campaign_id] = {
         "sent": 0,
@@ -2691,7 +2704,7 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
         "built": len(emails_out),
         "skipped": skipped,
         "suppression_stats": _suppression_stats or {},
-        "backend": EMAIL_SEND_BACKEND,
+        "backend": "outlook",
     }
 
 
@@ -3125,43 +3138,6 @@ def intelligence_lane(pol: str, dest: str):
     return _market_engine.analyze_lane(pol, dest)
 
 
-# ============================================================================
-# SCANNER ENDPOINTS
-# ============================================================================
-
-@app.post("/api/scanner/run-now")
-def scanner_run_now():
-    if _scanner is None:
-        raise HTTPException(503, "scanner module unavailable")
-    try:
-        stats = _scanner.run_scan()
-        return {"ok": True, "stats": stats}
-    except Exception as e:
-        log.warning(f"scanner run_scan failed: {e}")
-        return {"ok": False, "error": str(e)}
-
-
-@app.get("/api/scanner/status")
-def scanner_status():
-    sched = getattr(app.state, "scheduler", None)
-    if sched is None:
-        return {"scheduler_running": False, "jobs": []}
-    try:
-        jobs = []
-        for job in sched.get_jobs():
-            jobs.append({
-                "id": job.id,
-                "next_run_at": str(job.next_run_time) if job.next_run_time else None,
-                "trigger": str(job.trigger),
-            })
-        return {
-            "scheduler_running": bool(sched.running),
-            "jobs": jobs,
-            "count": len(jobs),
-        }
-    except Exception as e:
-        return {"scheduler_running": False, "jobs": [], "error": str(e)}
-
 
 # ============================================================================
 # PHASE 03 — SHIPMENT BRAIN RETRIEVAL ROUTER (R3)
@@ -3184,14 +3160,6 @@ try:
 except ImportError as _e:
     log.warning(f"[R4] contacts_router unavailable: {_e}")
 
-# Sent Scan — Outlook Sent Items spam audit (/api/sent-scan/*)
-try:
-    from email_engine.api.routes.sent_scan_router import router as _sent_scan_router
-    app.include_router(_sent_scan_router)
-    log.info("[SentScan] sent_scan_router mounted (/api/sent-scan/*)")
-except ImportError as _e:
-    log.warning(f"[SentScan] sent_scan_router unavailable: {_e}")
-
 # Daily Rotation Engine — /api/rotation/*
 try:
     from email_engine.api.routes.rotation_router import router as _rotation_router
@@ -3199,23 +3167,6 @@ try:
     log.info("[Rotation] rotation_router mounted (/api/rotation/*)")
 except ImportError as _e:
     log.warning(f"[Rotation] rotation_router unavailable: {_e}")
-
-# Graph Webhook Router — /api/graph/webhook (Phase 1 Graph Migration v8)
-try:
-    from email_engine.api.routes.webhook_router import router as _webhook_router
-    app.include_router(_webhook_router)
-    log.info("[GraphWebhook] webhook_router mounted (/api/graph/webhook)")
-except ImportError as _e:
-    log.warning(f"[GraphWebhook] webhook_router unavailable: {_e}")
-
-# Smart Send Router — Phase 2 Graph Migration v8 (/api/smart-send/*)
-try:
-    from email_engine.api.routes.smart_send_router import router as _smart_send_router
-    app.include_router(_smart_send_router)
-    log.info("[SmartSend] smart_send_router mounted (/api/smart-send/*)")
-except ImportError as _e:
-    log.warning(f"[SmartSend] smart_send_router unavailable: {_e}")
-
 
 # === A2 BEGIN ===
 # Send-time State Rules — optimal VN hour per US/CA state based on local 9h arrival.
@@ -3731,69 +3682,6 @@ def suppression_unsuppress(email: str):
 
 
 # ── Bounce scan trigger ───────────────────────────────────────────────────────
-@app.post("/api/inbox/scan-bounce")
-def scan_bounce_now(
-    background_tasks: BackgroundTasks,
-    hours: int = 24,
-    force: bool = False,
-):
-    """Trigger an immediate inbox+junk scan for bounces and replies.
-
-    Query params:
-        hours: Window in hours (1-720). Default 24. UI passes 24/168/720 based on range.
-        force: If true, re-scan items already tagged Nelson-Scanned. Default false.
-
-    Calls inbox_scanner.run_scan(hours, force). Scans both Inbox + Junk folders.
-    Returns {status, scanned, bounces_new, replies_new, duration_sec}.
-    """
-    import time as _time
-
-    # Clamp hours to [1, 8760] = max 365 days (allow full-archive force rescan)
-    hours = max(1, min(int(hours or 24), 8760))
-
-    result_holder: dict = {}
-
-    def _run():
-        t0 = _time.time()
-        try:
-            import sys as _sys
-            _scan_path = BASE_DIR.parent
-            if str(_scan_path) not in _sys.path:
-                _sys.path.insert(0, str(_scan_path))
-            from email_engine.scanner.inbox_scanner import run_scan  # type: ignore
-            counters = run_scan(hours=hours, force=force)
-            elapsed = round(_time.time() - t0, 2)
-            result_holder.update({
-                "status": "ok",
-                "hours": hours,
-                "force": force,
-                "scanned": counters.get("scanned", 0),
-                "bounces_new": counters.get("bounces", 0),
-                "replies_new": counters.get("real_replies", 0),
-                "auto_replies": counters.get("auto_replies", 0),
-                "irrelevant": counters.get("irrelevant", 0),
-                "errors": counters.get("errors", 0),
-                "duration_sec": elapsed,
-            })
-        except Exception as exc:
-            elapsed = round(_time.time() - t0, 2)
-            result_holder.update({
-                "status": "error",
-                "error": str(exc),
-                "duration_sec": elapsed,
-            })
-
-    # Run synchronously with a 60s implied cap (FastAPI background_tasks
-    # fire-and-forget, but we return immediately and let the client poll).
-    # For a quick result, run inline (blocking but max ~10s for inbox scan).
-    try:
-        _run()
-    except Exception as exc:
-        return {"status": "error", "error": str(exc)}
-
-    return result_holder
-
-
 # ── CNEE Memory endpoint ──────────────────────────────────────────────────────
 @app.get("/api/cnee/memory/{email:path}")
 def get_cnee_memory(email: str):

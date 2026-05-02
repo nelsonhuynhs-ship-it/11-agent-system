@@ -1,15 +1,6 @@
 """
 bounce_handler.py — RFC 3464 DSN Parser + Bounce Knowledge Base
 ================================================================
-Phase 3 — Graph Migration v8
-
-Replaces COM-based Outlook bounce scanning with RFC 3464 multipart/report
-parsing fed from Graph webhook notifications.
-
-Usage:
-    from email_engine.core.bounce_handler import handle_bounce
-    handle_bounce(graph_message_dict)   # called by webhook_router
-
 Schema: bounce_kb.db
     bounces(id, email, status_code, action, reason, bounce_class,
             source, received_at, created_at)
@@ -40,7 +31,7 @@ NDR_SUBJECTS = [
     "returned mail", "failure notice", "delivery failure", "not found",
 ]
 
-# ── Hard/soft keyword heuristics (last-resort fallback) ───────────────────────
+# ── Hard/soft keyword heuristics (last-resort fallback) ───────────────────────────
 HARD_KEYWORDS = [
     "does not exist", "unknown user", "invalid address", "no such user",
     "rejected", "user unknown", "address rejected", "not found",
@@ -196,8 +187,6 @@ def _fallback_subject_parse(msg: dict) -> list[dict]:
     bounces = []
     subject = msg.get("subject", "") or ""
     body = msg.get("body", {}).get("content", "") or ""
-    sender = (msg.get("from", {}) or {}).get("emailAddress", {}) or {}
-    sender_addr = sender.get("address", "") or ""
 
     # Try to find failed email
     failed_email: Optional[str] = None
@@ -256,26 +245,24 @@ def _fallback_subject_parse(msg: dict) -> list[dict]:
     return bounces
 
 
-def parse_dsn_from_graph_msg(msg: dict) -> list[dict]:
-    """Parse Graph NDR message → list of bounce records.
-
-    Args:
-        msg: Graph message object (full JSON from /me/messages/{id})
-
-    Returns:
-        List of dicts with keys: email, status_code, action, reason, bounce_class
-    """
-    body = msg.get("body", {}).get("content", "") or ""
+def parse_dsn_from_outlook_item(item) -> list[dict]:
+    """Parse DSN/NDR from Outlook MailItem. Returns list of bounce records."""
+    body = getattr(item, 'Body', '') or getattr(item, 'htmlBody', '') or ''
+    subject = getattr(item, 'Subject', '') or ''
+    received_at = getattr(item, 'ReceivedTime', '') or ''
 
     if "message/delivery-status" in body:
         bounces = _parse_multipart_dsn(body)
         if bounces:
-            log.info("DSN parse: %d bounce(s) from multipart/report", len(bounces))
+            for b in bounces:
+                b["received_at"] = received_at
             return bounces
 
-    # Fallback: subject + body heuristics
-    log.debug("DSN parse: falling back to subject/body parse")
-    return _fallback_subject_parse(msg)
+    msg = {"subject": subject, "body": {"content": body}}
+    bounces = _fallback_subject_parse(msg)
+    for b in bounces:
+        b["received_at"] = received_at
+    return bounces
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -329,16 +316,14 @@ def _insert_bounce(b: dict, source: str = "dsn_auto") -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Public API (called by webhook_router)
+# Public API
 # ─────────────────────────────────────────────────────────────────────────────
 
-def handle_bounce(graph_msg: dict) -> dict:
-    """Process a Graph NDR message: parse DSN, save to KB, auto-suppress.
-
-    Called from webhook_router._handle_bounce().
+def handle_bounce(item) -> dict:
+    """Process an NDR message: parse DSN, save to KB, auto-suppress.
 
     Args:
-        graph_msg: Full Graph message JSON (as returned by _fetch_message)
+        item: Outlook MailItem object
 
     Returns:
         dict with keys: processed (int), bounced_emails (list),
@@ -347,10 +332,10 @@ def handle_bounce(graph_msg: dict) -> dict:
     # Ensure schema exists
     init_db()
 
-    bounces = parse_dsn_from_graph_msg(graph_msg)
+    bounces = parse_dsn_from_outlook_item(item)
     if not bounces:
-        log.debug("handle_bounce: no bounces parsed from msg %s",
-                  graph_msg.get("id", "?")[:30])
+        subject = getattr(item, 'Subject', '') or "?"
+        log.debug("handle_bounce: no bounces parsed from item %s", subject[:60])
         return {"processed": 0, "bounced_emails": [], "hard_bounces": 0, "soft_bounces": 0}
 
     hard_count = 0
@@ -361,8 +346,6 @@ def handle_bounce(graph_msg: dict) -> dict:
         email = b.get("email", "")
         if not email:
             continue
-
-        b["received_at"] = graph_msg.get("receivedDateTime", "") or ""
 
         # 1. Save to bounce_kb.db
         _insert_bounce(b)
@@ -404,17 +387,28 @@ def handle_bounce(graph_msg: dict) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Utilities (backwards-compatible with callers that used scan_bounces)
+# Outlook COM Scanner
 # ─────────────────────────────────────────────────────────────────────────────
 
 def scan_bounces() -> list[dict]:
-    """DEPRECATED — kept for backwards compatibility.
+    """Scan Outlook Inbox for NDR/bounce emails. Returns list of bounce records."""
+    import pythoncom
+    import win32com.client
 
-    Old scan_bounces() used Outlook COM. Now returns empty list.
-    Use handle_bounce(graph_msg) from the webhook flow instead.
-    """
-    log.warning("scan_bounces() is deprecated — use handle_bounce(graph_msg)")
-    return []
+    pythoncom.CoInitialize()
+    outlook = win32com.client.Dispatch("Outlook.Application")
+    ns = outlook.GetNamespace("MAPI")
+    inbox = ns.GetDefaultFolder(6)  # olFolderInbox = 6
+    items = inbox.Items
+    results = []
+    for item in items:
+        subject = getattr(item, 'Subject', '') or ''
+        if not any(kw in subject.lower() for kw in NDR_SUBJECTS):
+            continue
+        bounces = parse_dsn_from_outlook_item(item)
+        for b in bounces:
+            results.append(b)
+    return results
 
 
 def update_cnee_master(bounces: list[dict]) -> dict:
