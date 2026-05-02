@@ -20,7 +20,7 @@ from typing import Any
 from fastapi import APIRouter, Body, HTTPException
 import pandas as pd
 
-from email_engine.senders.graph_sender import send_html_via_graph
+from email_engine.senders.graph_sender import send_html_via_graph  # noqa: F401 — kept for reference, not used with EMAIL_SEND_BACKEND=outlook
 
 log = logging.getLogger("smart-send-router")
 
@@ -46,10 +46,16 @@ def _issue_preview_token() -> str:
 
 
 def _consume_preview_token(token: str) -> bool:
+    # Prune all expired tokens first (keeps dict small)
+    now = time.time()
+    for k in list(_PREVIEW_TOKENS.keys()):
+        v = _PREVIEW_TOKENS.get(k)
+        if isinstance(v, float) and v < now:
+            _PREVIEW_TOKENS.pop(k, None)
     exp = _PREVIEW_TOKENS.pop(token, None)
     if exp is None:
         return False
-    return exp >= time.time()
+    return exp >= now
 
 
 def _load_master_df_safe():
@@ -258,16 +264,39 @@ def smart_send_confirm(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"VIP email build failed: {exc}")
 
-    # Send VIP via Graph (no COM)
+    # Send VIP via Outlook COM (EMAIL_SEND_BACKEND=outlook in .env)
     try:
-        ok, msg_id = send_html_via_graph(
+        import pythoncom
+        pythoncom.CoInitialize()
+        import win32com.client
+        outlook_app = win32com.client.Dispatch("Outlook.Application")
+        from email_engine.web_server import _send_email_html
+        result = _send_email_html(
             to=email_dict["to"],
             subject=email_dict["subject"],
             html_body=email_dict["html_body"],
-            save_to_sent=True,
+            outlook_app=outlook_app,
         )
-        if not ok:
-            raise RuntimeError(f"Graph send returned ok=False: {msg_id}")
+        if not result.get("ok"):
+            raise RuntimeError(f"Outlook send returned ok=False: {result}")
+        msg_id = result.get("graph_msg_id")
+        # Log VIP send
+        try:
+            from email_engine.web_server import _log_send
+            _log_send(
+                email=email_dict["to"],
+                subj=email_dict["subject"],
+                cid=campaign_id,
+                pol=pol,
+                dest=",".join(destinations),
+                backend=result["backend"],
+                graph_msg_id=msg_id or "",
+                verified="yes" if msg_id else "pending",
+            )
+        except Exception as log_exc:
+            log.warning("[smart-send] VIP _log_send failed: %s", log_exc)
+    except HTTPException:
+        raise
     except Exception as exc:
         log.error("[smart-send] VIP send failed: %s", exc)
         raise HTTPException(status_code=500, detail=f"VIP send failed: {exc}")
@@ -287,6 +316,15 @@ def smart_send_confirm(
     if remaining_emails:
         from email_engine.core.rule_engine import resolve_config
         from email_engine.api.routes.rotation_router import _load_master_df_safe
+        from email_engine.web_server import SEND_PROGRESS
+
+        SEND_PROGRESS[campaign_id] = {
+            "sent": 0,
+            "total": len(remaining_emails),
+            "errors": [],
+            "status": "queued",
+            "source": "smart-send",
+        }
 
         def _send_remaining():
             from email_engine.web_server import _do_send_built_emails

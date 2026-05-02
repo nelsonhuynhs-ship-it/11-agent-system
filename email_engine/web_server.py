@@ -20,8 +20,8 @@ SERVER_START_TS = datetime.now().timestamp()
 # Load .env early so LLM keys + SMTP creds available to all downstream modules.
 try:
     from dotenv import load_dotenv as _load_dotenv
-    _load_dotenv(BASE_DIR / ".env", override=False)
-    _load_dotenv(ENGINE_TEST / "api" / ".env", override=False)
+    _load_dotenv(BASE_DIR / ".env", override=True)
+    _load_dotenv(ENGINE_TEST / "api" / ".env", override=True)
 except ImportError:
     pass
 # Order matters: core/ has a file 'email_engine.py' that shadows the package
@@ -496,7 +496,7 @@ def priority_prospects(tier: str = "VIP,HOT", limit: int = 500):
             "last_sent_date": str(row.get("LAST_SENT_DATE", "")).strip(),
             "send_count": int(row.get("SEND_COUNT", 0) or 0) if str(row.get("SEND_COUNT", "")).replace(".","").isdigit() else 0,
             "campaign": str(row.get("CAMPAIGN_ID", row.get("CMD_NAME", ""))).strip(),
-            "priority_score": int(row.get("PRIORITY_SCORE", 0)),
+            "priority_score": int(row["PRIORITY_SCORE"]) if pd.notna(row.get("PRIORITY_SCORE")) else 0,
             "origin_country": str(row.get("ORIGIN_COUNTRY", "")),
             "destination_region": str(row.get("DESTINATION_REGION", "")),
             "route_display": f"{row.get('ORIGIN_COUNTRY','')} → {row.get('DESTINATION_REGION','')}",
