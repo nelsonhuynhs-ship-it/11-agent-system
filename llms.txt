@@ -1,6 +1,6 @@
 # Nelson Freight — Email Intelligence Platform
 
-> NVOCC freight forwarding Vietnam→USA/Canada. Email intelligence pipeline with Microsoft Graph API (no Outlook COM). FastAPI backend, local-only data.
+> NVOCC freight forwarding Vietnam→USA/Canada. Email intelligence pipeline with Outlook COM only (Graph API removed 2026-05-02). FastAPI backend, local-only data.
 
 ## Architecture
 
