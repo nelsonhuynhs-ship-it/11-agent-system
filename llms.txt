@@ -1,0 +1,36 @@
+# 11-Agent System v2.0
+
+> Generated 2026-05-03
+
+## Overview
+11-agent Claude workflow with MiniMax M2.7 delegation.
+https://github.com/nelsonhuynhs-ship-it/11-agent-system
+
+## Architecture
+Phase 1: design-finder
+Phase 2: ux-reviewer, code-reviewer, security-auditor, perf-analyzer
+Phase 3: master-executor
+Phase 4: test-writer, doc-writer, tech-debt-tracker
+Phase 5: git-commit
+
+## Key Improvements v2.0
+- Two-stage review: spec compliance then code quality
+- Fresh context isolation anti-patterns enforced
+- Model routing: M2.7 for mechanical, Opus for judgment
+- Max 3 review iterations with escalation
+- Mandatory final whole-implementation review
+
+## Installation
+git clone https://github.com/nelsonhuynhs-ship-it/11-agent-system.git
+cd 11-agent-system
+./install.sh
+
+## Files
+skills/workflow/SKILL.md - main orchestrator
+skills/code-reviewer/SKILL.md - two-stage review
+skills/master-executor/SKILL.md - final review step
+rules/orchestration-protocol.md - escalation rules
+reports/11-agent-code-review-report.md
+reports/11-agent-execution-report.md
+llms.txt - this file
+
