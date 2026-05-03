@@ -21,6 +21,14 @@ repos:
         files: ^tests/test_.*\.py$
         description: "Ensure no sys.exit() remains in pytest test files"
 
+      - id: vba-convention-check
+        name: VBA convention check
+        entry: python scripts/check-vba-convention.py
+        language: system
+        pass_filenames: false
+        files: ^ERP/vba-v14-mirror/.*\.bas$
+        description: "Verify every bas<Feature>.bas has a TestModule_<Feature>.bas"
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:

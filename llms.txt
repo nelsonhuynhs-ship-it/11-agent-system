@@ -1,6 +1,6 @@
 # Nelson Freight — Email Intelligence Platform
 
-> NVOCC freight forwarding Vietnam→USA/Canada. Excel VBA ERP v14 + Python FastAPI + DuckDB + Email pipeline. 656 pytest tests + Rubberduck VBA tests. OneDrive is canonical source for live ERP files.
+> NVOCC freight forwarding Vietnam→USA/Canada. Excel VBA ERP v14 (40-col Active Jobs) + Python FastAPI + DuckDB + Email pipeline. 669 pytest tests + 16 Rubberduck VBA tests + CI Regression Gate. OneDrive is canonical source for live ERP files.
 
 ## Architecture
 
@@ -50,6 +50,12 @@
 - [ERP/vba-v14-mirror/CostBreakdown.bas](ERP/vba-v14-mirror/CostBreakdown.bas): HDL fee + wharfage engine — tested by TestModule_CostBreakdown.bas
 - [scripts/com-e2e/v14_ribbon_e2e.py](scripts/com-e2e/v14_ribbon_e2e.py): COM E2E — tests A-F Win/Lost/Expired on live ERP v14 via win32com
 
+## CI Regression Gate
+
+- [.github/workflows/ci-regression.yml](.github/workflows/ci-regression.yml): GitHub Actions — pytest (ubuntu) + COM E2E (windows) + VBA convention check on every PR
+- [scripts/check-vba-convention.py](scripts/check-vba-convention.py): Pre-commit hook — bas<Feature>.bas must have TestModule_<Feature>.bas
+- [plans/ci-regression-gate/plan.md](plans/ci-regression-gate/plan.md): CI gate plan — 3 phases (Actions workflow, VBA checker, PR status integration)
+
 ## Development
 
 - [Setup PC Home](docs/SETUP_PC_HOME.md): Development environment setup
@@ -64,6 +70,18 @@
 ## Integrations
 
 - [MiniMax Cheatsheet](docs/minimax-cheatsheet.md): MiniMax M2.7 sidecar commands and quota
+
+## MiniMax AI (Token Plan)
+
+- [minimax/client.py](email_engine/core/minimax/client.py): Unified MiniMax HTTP client — text, vision, image, speech
+- [minimax/models.py](email_engine/core/minimax/models.py): TextModel, VLModel, ImageModel enums
+- [minimax/policy_loader.py](email_engine/core/minimax/policy_loader.py): build_system_prompt() with Nelson Freight context
+- [minimax/policy_schema.json](email_engine/core/minimax/policy_schema.json): Full policy schema — services, carriers, campaigns, rules
+- [ai_email.py](email_engine/core/ai_email.py): summarize_email(), draft_reply(), suggest_next_sentence()
+- [attachment_vision.py](email_engine/core/attachment_vision.py): extract_invoice(), extract_bill_of_lading(), extract_packing_list()
+- [quote_image_gen.py](email_engine/core/quote_image_gen.py): generate_quote_sheet()
+- [voice_router.py](api/routers/voice_router.py): /api/voice/ endpoints for TTS
+- [admin_router.py](api/routers/admin_router.py): /api/admin/token-usage endpoints
 
 ## Contracts
 

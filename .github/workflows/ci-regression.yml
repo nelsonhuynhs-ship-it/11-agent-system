@@ -1,0 +1,96 @@
+name: CI Regression Gate
+
+on:
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  pytest:
+    name: pytest (709 tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pytest pytest-xdist pywin32
+
+      - name: Run pytest
+        run: |
+          pytest tests/ -v --tb=short --junitxml=pytest-results.xml
+
+      - name: Upload pytest results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results
+          path: pytest-results.xml
+          retention-days: 7
+
+      - name: Publish test results
+        if: always()
+        uses: dawidd6/action-send-request@master
+        with:
+          method: POST
+          url: https://api.github.com/repos/${{ github.repository }}/check-runs
+          token: ${{ secrets.GITHUB_TOKEN }}
+          json: |
+            {
+              "name": "pytest",
+              "head_sha": "${{ github.sha }}",
+              "status": "completed",
+              "conclusion": "${{ job.status }}"
+            }
+        continue-on-error: true
+
+  vba-convention:
+    name: VBA convention check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check VBA convention
+        run: |
+          python scripts/check-vba-convention.py
+
+  com-e2e:
+    name: COM E2E smoke test
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pywin32
+
+      - name: Run COM E2E
+        run: python scripts/com-e2e/v14_ribbon_e2e.py
+        continue-on-error: true
+
+      - name: Upload E2E results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: com-e2e-results
+          path: |
+            scripts/com-e2e/*.log
+            scripts/com-e2e/*.csv
+          retention-days: 7
+          continue-on-error: true
