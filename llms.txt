@@ -19,10 +19,13 @@
 - [SMART SEND CONTRACT](docs/contracts/SMART_SEND_CONTRACT.md): Smart Send flow contract — preview, confirm, batch send
 - [Rate Pipeline Contract](docs/rate-pipeline-contract.md): Rate builder return keys and schema
 
-## Daily Rotation
+## Email Routing
 
-- [DAILY ROTATION ENGINE](docs/DAILY_ROTATION_ENGINE.md): Rotation engine 700/day, cooldown rules, campaign tracking
-- [ARB Origin Mapping](docs/ARB_ORIGIN_MAPPING.md): ARB port codes and origin mapping
+- [commodity_groups.yaml](email_engine/config/commodity_groups.yaml): YAML config — 8 canonical commodity groups + POL patterns + ARB origins + VN domestic ports. Edit this file to add/change groups without code changes.
+- [normalize_commodity()](email_engine/core/rule_engine.py): Maps 17 raw COMMODITY_CATEGORY values → 8 canonical groups (FLOORING/FURNITURE/PLASTIC/RUBBER/PLYWOOD/FOOD/GARMENT/CANDLE/OTHERS)
+- [pol_from_campaign()](email_engine/core/rule_engine.py): Extracts POL/country/ARB from CAMPAIGN_ID (MY/TH/CN/KH patterns)
+- [/api/routing/preview](email_engine/web_server.py): Returns routing decision for a contact email — POL, country, ARB surcharge, POD lanes
+- [ARB Origin Mapping](docs/ARB_ORIGIN_MAPPING.md): ARB port codes and origin mapping (shanghai/ningbo/lat_krabang/port_klang/phnom_penh)
 
 ## Data
 
