@@ -1,6 +1,6 @@
 # Nelson Freight — Email Intelligence Platform
 
-> NVOCC freight forwarding Vietnam→USA/Canada. Email intelligence pipeline with Outlook COM only (Graph API removed 2026-05-02). FastAPI backend, local-only data.
+> NVOCC freight forwarding Vietnam→USA/Canada. Excel VBA ERP v14 + Python FastAPI + DuckDB + Email pipeline. 656 pytest tests + Rubberduck VBA tests. OneDrive is canonical source for live ERP files.
 
 ## Architecture
 
@@ -38,12 +38,24 @@
 - [ERP VBA Standards](docs/ERP_V14_VBA_STANDARDS.md): VBA coding standards for ERP v14
 - [VBA Gotchas](docs/vba-gotchas.md): Known VBA pitfalls (Declarations before Subs, etc.)
 
+## Test Infrastructure
+
+- [docs/test-infrastructure-audit.md](docs/test-infrastructure-audit.md): Audit findings — 5 custom runner files converted to pytest (53 new tests added → 709 total collectible), COM scripts moved to scripts/com-e2e/
+- [CONTRIBUTING.md](CONTRIBUTING.md): Test requirements — Python: pytest markers; VBA: Rubberduck TestModule_<Feature>.bas required for each bas<Feature>.bas
+- [.pre-commit-config.yaml](.pre-commit-config.yaml): pytest collection check hook + no-sys-exit enforcement
+- [docs/vba-rubberduck-guide.md](docs/vba-rubberduck-guide.md): Rubberduck install, write tests, Test Explorer, naming convention
+- [ERP/vba-v14-mirror/basShared.bas](ERP/vba-v14-mirror/basShared.bas): Shared VBA constants + test harness helpers (MsgBoxOrSilent, COL_* indices)
+- [ERP/vba-v14-mirror/TestModule_Template.bas](ERP/vba-v14-mirror/TestModule_Template.bas): Template for new VBA Rubberduck test modules
+- [ERP/vba-v14-mirror/TestModule_CostBreakdown.bas](ERP/vba-v14-mirror/TestModule_CostBreakdown.bas): Full Rubberduck tests — HDL rules (7), wharfage (5), cost breakdown (4) = 16 test cases total
+- [ERP/vba-v14-mirror/CostBreakdown.bas](ERP/vba-v14-mirror/CostBreakdown.bas): HDL fee + wharfage engine — tested by TestModule_CostBreakdown.bas
+- [scripts/com-e2e/v14_ribbon_e2e.py](scripts/com-e2e/v14_ribbon_e2e.py): COM E2E — tests A-F Win/Lost/Expired on live ERP v14 via win32com
+
 ## Development
 
 - [Setup PC Home](docs/SETUP_PC_HOME.md): Development environment setup
 - [ERP Automation Test Stack](docs/erp-automation-test-stack.md): Testing framework for ERP automation
 - [Feature Checklist](docs/feature-checklist.md): Development checklist for new features
-- [Known Legacy Failures](docs/known-legacy-failures.md): Known issues in legacy code
+- [Known Legacy Failures](docs/known-legacy-failures.md): Known issues in legacy code (QuoteImage VBA not ported to v4 COL layout)
 
 ## API
 

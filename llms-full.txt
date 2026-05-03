@@ -1,0 +1,445 @@
+# Nelson Freight ERP — Full Documentation
+> NVOCC freight forwarding Vietnam→USA/Canada. Excel VBA ERP v14 (40-col Active Jobs) + Python FastAPI + DuckDB + Email pipeline. 709 pytest tests + 16 Rubberduck VBA tests + COM E2E. OneDrive is canonical source for live ERP files.
+
+---
+
+# CLAUDE.md — Project Overview
+
+## Language
+**LUÔN trả lời bằng tiếng Việt** — mọi giải thích, phân tích, hướng dẫn đều dùng tiếng Việt. Code/command vẫn viết bằng tiếng Anh như bình thường.
+
+## Architecture
+- FastAPI port 8100 (VPS) — 15 routers, DAL pattern via data_access.py
+- Next.js port 3003 (VPS) — 9 pages + login, Cloudflare Tunnel HTTPS
+- TelegramBot v5 — runs on VPS (NOT local)
+- Parquet ~6.6M rows — ALWAYS filter last 30 days only (fallback 60d→90d nếu empty)
+- DuckDB engine — 28.6x faster than Pandas
+
+## ERP v14 Source of Truth
+See `docs/erp-v14-source-of-truth.md` — AI agents and new contributors MUST read this before auditing or modifying ERP v14. Live v14 lives on OneDrive (`D:/OneDrive/NelsonData/erp/`), not in the repo. ERP/vba/ and ERP/core/refresh.py were removed (2026-04-13) — they were legacy v13 dead code.
+
+## Key Paths
+| File | Purpose |
+|------|---------|
+| email_engine/data/cnee_master.xlsx | 5,316 CNEE prospects, 23 campaigns |
+| email_engine/logs/email_log.csv | 585 rows — send history |
+| api/routers/email_rate_router.py | Rate & Send API (Sprint 13+14) |
+| webapp/src/app/dashboard/rate-send/page.tsx | Rate & Send WebApp UI |
+| db/duckdb_engine.py | DuckDB query engine |
+| Pricing_Engine/data/Cleaned_Master_History.parquet | Rate data ~6.6M rows |
+
+## SMTP Config
+SMTP_HOST=smtp.office365.com | SMTP_PORT=587
+Files: email_engine/.env + api/.env
+
+## Email Campaigns (cnee_master.xlsx)
+| Campaign | Prospects | Notes |
+|----------|-----------|-------|
+| FLOORING | 1,057 | Largest |
+| FURNITURE | 745 | |
+| PLASTIC | 590 | |
+| MALAYSIA | 562 | |
+| CANDLE | 495 | Active campaign |
+| + 18 more | ~867 | See memory/context/campaigns.md |
+
+Total: 5,316 prospects | Sent: 4,198 | Not Sent: 1,118
+
+---
+
+# SYSTEM_STANDARDS.md — Single Source of Truth
+
+**Last updated:** 2026-04-22 23:00
+
+## Canonical File Paths
+
+| Resource | Path |
+|----------|------|
+| Parquet rate data | `D:/OneDrive/NelsonData/pricing/Cleaned_Master_History.parquet` |
+| ERP Master xlsm | `D:/OneDrive/NelsonData/erp/ERP_Master_v14.xlsm` |
+| ERP VBA exports (.bas canonical) | `D:/OneDrive/NelsonData/erp/*.bas` |
+| ERP refresh script | `D:/OneDrive/NelsonData/erp/refresh-v14.py` |
+| ERP VBA mirror (repo backup) | `ERP/vba-v14-mirror/` |
+| CNEE master data v7 (PRIMARY) | `D:/OneDrive/NelsonData/email/contact_unified_v7.xlsx` (2-sheet CNEE+SHIPPER, 62 cols, 22,854 rows) |
+| Email local server | `email_engine/web_server.py` |
+| Repo root (PC Home) | `D:/NELSON/2. Areas/Engine_test/` |
+
+**RULE 1.1** — Python code reads paths via `shared/paths.py` (resolve OneDrive). No hard-coded string paths except fallback.
+
+**RULE 1.2** — VBA code reads paths via `FindScript(relPath)` helper. No hard-code.
+
+## Charge Name Mapping (Parquet)
+
+**Giá báo khách all-in LUÔN ở `Charge_Name = 'Total Ocean Freight'`.**
+
+| Rate Type | Excel column → Parquet Charge_Name |
+|-----------|-------------------------------------|
+| FAK | `ALL IN COST` → `Total Ocean Freight` |
+| FAK | `BASIC O/F` → `BASIC O/F` (raw) |
+| SCFI (HPL) | `BASE O/F` → `Total Ocean Freight` |
+| FIX COC | `Base Ocean Freight` → `Total Ocean Freight` |
+
+**RULE 2.1** — Mapping via `Pricing_Engine/charge_normalizer.py` → reads `CARRIER_RATE_MAPPING.json`. No hard-coded dict.
+
+## Active Jobs Sheet Schema (row 7 headers)
+
+Columns A-AN (40-col v4 layout):
+```
+A=MONTH  B=FAST_ID  C=Job_ID  D=CUSTOMER  E=POL-POD  F=FINAL_DEST
+G=CARRIER  H=Bkg_No  I=HBL_NO  J=CONT  K=QTY  L=SERVICE  M=ETD
+N=STATUS  O=TRACKING  P=SELL  Q=COST  R=PROFIT  S=EMAIL
+T=Routing  U=ETA  V=ATA  W=Contract_Type  X=Profit_Margin
+```
+
+Added 2026-04-20 (milestone cols at END):
+```
+AO=ATD_DATE  AP=ETA_DATE  AQ=NOTIFIED_ATD  AR=NOTIFIED_ETA7
+```
+
+**RULE 3.4** — Milestone cols written by VBA "Sync Milestones" button from `milestone_state.jsonl` sidecar. Python scanner NEVER writes directly to xlsm.
+
+**RULE 3.1** — Col Q "COST" cell comment format:
+```
+S/C: {Carrier} {Contract#}
+Service: {Rate_Type} {Group_Rate} {Note}
+
+Cost Breakdown (USD):
+  O/F          ${basic}
+  ISPS         ${isps}
+  ARB          ${arb}
+  PUC          ${puc}         (chỉ SOC)
+  COMMISSION   ${comm}
+  ─────────────
+  TOTAL        ${cost}
+```
+
+## ERP Ribbon Launch Pattern (VBA → Python)
+
+**RULE 5.1** — Ribbon callback launch MUST use WMI Win32_Process.Create. NOT Shell/wsh.Run.
+
+```vb
+' CORRECT:
+Dim bootCmd As String
+bootCmd = "cmd /c """"" & batPath & """ """ & arg1 & """"""
+Dim wmi As Object
+Set wmi = GetObject("winmgmts:\\.\root\cimv2:Win32_Process")
+wmi.Create bootCmd, Null, Null, procId
+ThisWorkbook.Save
+ThisWorkbook.Close SaveChanges:=False
+```
+
+WHY: Excel 2013+ groups child processes in Job Object with JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE. Shell/wsh.Run children are killed on Excel exit. WMI Win32_Process.Create creates process outside job → survives.
+
+## Email Send Pipeline
+
+**RULE 6.1** — Email send ONLY via `email_engine/web_server.py` (local PC) → Outlook COM desktop. No VPS API, no webapp Next.js in send chain.
+
+**RULE 6.2** — SMTP not used. Office 365 SMTP credentials don't exist. Outlook COM local only.
+
+## Email Anti-Spam 10 Rules
+
+1. EXCLUDED list — active customers / opt-out emails (data/excluded_customers.json)
+2. SUPPRESSED status — hard bounces, invalid emails, no MX (web_server.py:735)
+3. Cooldown 14d — don't resend within 14 days
+4. Hard limit 3/30d — max 3 sends per contact per 30-day rolling window
+5. Typo Shield — RapidFuzz fuzzy match, threshold 85, blocks likely typos
+6. Smart Send Window — Tue/Wed/Thu 9-11h recipient local time only
+7. Competitor blacklist — ~52 domains, blocks CNEE/SHIPPER competitor contacts
+8. Priority isolation — VIP contacts excluded from blast rotation
+9. Today_sent guard — prevents duplicate sends within same day
+10. Graph pacing 28/min — MIN_INTERVAL_SEC = 2.1 to respect Microsoft Graph limit
+
+---
+
+# TEST INFRASTRUCTURE AUDIT.md — 2026-05-03
+
+**Baseline pytest**: 656 tests collected (1 pre-existing import error)
+
+## Problem Summary
+
+7 Python test files used custom runner pattern (`for test in tests: test(); sys.exit(1)`) making them invisible to pytest. 2 files were pure COM scripts with no pytest tests.
+
+## Files Fixed
+
+| File | Action | Result |
+|------|--------|--------|
+| `tests/test_v13_ribbon.py` | Wrapped module-level code in `if __name__ == "__main__"` | No longer crashes pytest; copy → `scripts/com-e2e/v13_ribbon_e2e.py` |
+| `tests/test_erp_e2e.py` | Removed `if __name__ == "__main__": sys.exit(main())` | 10 pytest tests now visible; copy → `scripts/com-e2e/erp_e2e_com.py` |
+
+## Remaining Custom Runner Files (Pending)
+
+| File | Pattern |
+|------|---------|
+| `tests/test_duckdb_engine.py` | `if __name__` block with `sys.exit(1)` |
+| `tests/test_anomaly_detector.py` | `for test in tests:` loop + `sys.exit(1)` |
+| `tests/test_normalization.py` | `for test in tests:` loop + `sys.exit(1)` |
+| `tests/test_parquet_upgrader.py` | `for test in tests:` loop + `sys.exit(1)` |
+| `tests/test_rate_router.py` | `for test in tests:` loop + `sys.exit(1)` |
+
+All 5 files converted 2026-05-03: custom runner blocks removed, 53 tests now properly collected.
+
+---
+
+# CONTRIBUTING.md — Test Requirements
+
+## Python Tests
+
+**Rule: Every new Python module in `ERP/jobs/` or `ERP/intelligence/` MUST have a corresponding test.**
+
+| Module type | Test location | Required marker |
+|------------|--------------|----------------|
+| Unit test | `tests/unit/test_<feature>.py` | `@pytest.mark.unit` |
+| Integration test | `tests/integration/test_<feature>.py` | `@pytest.mark.e2e` |
+
+**pytest collection check (pre-commit):**
+```bash
+pytest tests/ --collect-only -q
+# Must show "X tests collected" with 0 errors
+```
+
+## VBA Tests (Rubberduck)
+
+**Rule: Every new VBA feature module `bas<Feature>.bas` MUST have a companion `TestModule_<Feature>.bas` with ≥3 test cases.**
+
+Rubberduck: https://rubberduck-vba.com/ — free open-source VBA add-in for unit testing.
+
+**Running VBA tests:**
+1. Open `ERP_Master_v14.xlsm` in Excel
+2. VBE → Rubberduck menu → Test Explorer → Run All
+3. All tests pass → safe to commit VBA changes
+
+---
+
+# VBA RUBBERDUCK GUIDE.md — How to Write VBA Tests
+
+## Installation
+
+1. Download from https://rubberduck-vba.com/
+2. Run installer → enable in Excel VBE (Add-ins menu)
+3. If not visible: Tools → Add-ins → Browse → select Rubberduck add-in
+
+## Writing Tests
+
+```vba
+' TestModule_MyFeature.bas
+Attribute VB_Name = "TestModule_MyFeature"
+Option Explicit
+
+Private Sub Module_Setup()
+    ERPv14Ribbon.SetTestMode True
+End Sub
+
+Private Sub Module_Teardown()
+    ERPv14Ribbon.SetTestMode False
+End Sub
+
+Private Sub Test_fnMyFeature_HappyPath()
+    Dim result As Long: result = fnMyFeature("valid_input")
+    Assert.areEqual 100&, result
+End Sub
+
+Private Sub Test_fnMyFeature_EmptyInput()
+    Dim result As Long: result = fnMyFeature("")
+    Assert.areEqual 0&, result
+End Sub
+```
+
+## Rubberduck Assertions
+
+| Method | Usage |
+|--------|-------|
+| `Assert.areEqual expected, actual` | Check equality |
+| `Assert.isTrue value` | Check True |
+| `Assert.isFalse value` | Check False |
+| `Assert.fail "message"` | Force failure |
+
+## Running Tests
+
+1. Single test: click inside test method → Run (F5)
+2. All tests in module: right-click module → Run
+3. Test Explorer: Rubberduck menu → Test Explorer → Run All
+
+---
+
+# ERP v14 SOURCE OF TRUTH.md
+
+**Last updated:** 2026-04-11 | **Owner:** Nelson
+
+## Live v14 files (OneDrive)
+
+All under `D:/OneDrive/NelsonData/erp/`:
+
+| File | Role | Lines | Module name |
+|---|---|---|---|
+| `ERP_Master_v14.xlsm` | Main workbook — 11 sheets | — | — |
+| `erp-v14-quick-wins.bas` | Core helpers (cascade search, formatting, utilities) | 290 | `ERPv14Core` |
+| `erp-v14-ribbon-callbacks.bas` | Ribbon state + all button handlers | 4811 | `ERPv14Ribbon` |
+| `erp-v14-preset-dryreefer.bas` | Dry/Reefer column preset switcher | 120 | `ERPv14Preset` |
+| `CostBreakdown.bas` | HDL rules per carrier (shared charge logic) | 276 | `CostBreakdown` |
+| `CustomUI_v14.xml` | Ribbon XML — 2 tabs (Pricing + Operations) | 250 | — |
+| `refresh-v14.py` | Parquet → xlsm refresh (Eff+Exp filter, 15→30→90 fallback) | 430 | — |
+| `customui_utils.py` | CustomUI inject helper | 100 | — |
+
+## v14 sheets in `ERP_Master_v14.xlsm`
+
+| Sheet | Role | Writer |
+|---|---|---|
+| `Pricing Dry` | POL/POD/Carrier/20GP/40GP/40HC/45HC/40NOR buy prices | `refresh-v14.py` |
+| `Pricing Reefer` | POL/POD/Carrier/20RF/40RF buy prices | `refresh-v14.py` |
+| `Quotes` | Quote rows (QuoteID, customer, margin, status) | `OnAction_GenerateQuote` (VBA) |
+| `Active Jobs` | Jobs promoted from WIN quotes (40-col v4 layout) | `OnAction_MarkQuoteWin` (VBA) |
+| `CRM` | Customer list | Human + `ERP/crm/*.py` |
+| `Markup_Store` | Per-`(carrier, lane)` margin cache | `SaveMarkupForCarrier` (VBA) |
+| `PUC_Lookup` | PUC charges by Place | `refresh-v14.py` |
+| `InvoiceLog` | Billing log | Human + `ERP/jobs/*.py` |
+| `ChargeBreakdown` | Line-item charges per route | `refresh-v14.py` |
+| `RateVersions` | FAK/SCFI/PUC version labels | `refresh-v14.py` |
+
+---
+
+# VBA GOTCHAS.md — Known VBA Traps
+
+## 1. `Chr(n)` only works for 0-255 — use `ChrW(n)` for Unicode
+
+Bug: `Mark WIN silently failed` because tracking dots used `Chr(9679)` (●).
+
+```vba
+' BAD — raises runtime error
+wsJ.Cells(r, c).Value = Chr(8594) & "arrow"
+
+' GOOD
+wsJ.Cells(r, c).Value = ChrW(8594) & "arrow"
+```
+
+Unicode codes used: 8594 (→) 9675 (○) 9679 (●) 9680 (◐) 10003 (✓) 8987 (⌛) 128231 (📧)
+
+## 2. Line continuation `& _` + next line starts with `_X` → VBA parses as `__X`
+
+Bug: Syntax error on mailto assignment:
+
+```vba
+mailto = "http://..." & _
+         _UrlEncode(x)    ' parsed as __UrlEncode — not found!
+```
+
+Fix: never put a `_`-prefixed identifier at the start of a continuation line.
+
+## 3. `Application.Run "Module.Sub"` doesn't pass IRibbonControl
+
+Test wrappers need to call `control As IRibbonControl` subs with a real control.
+Workaround: write a `Public Sub TestXxx()` wrapper that calls the target sub with `Nothing`.
+
+## 4. VBE "Break on All Errors" setting ignores `On Error Resume Next`
+
+Registry: `HKCU\Software\Microsoft\VBA\<ver>\Common\DefaultErrorTrapping`
+- 0 = Break on All Errors (DANGER)
+- 1 = Break in Class Module
+- 2 = Break on Unhandled Errors (correct default)
+
+## 11. Declarations MUST come before first Sub/Function
+
+Bug: `Public g_TestMode As Boolean` declared AFTER `Sub SetTestMode()` → compile OK but runtime silent failure on `SetTestMode True` call. Live Excel compiles module-level declarations first, but runtime execution order can jump past declarations. Fix: move ALL declarations (Public/Private) to the very top of the module before any Sub/Function.
+
+---
+
+# KNOWN LEGACY FAILURES.md
+
+## test_erp_quote_image.py::test_quote_image_multi_route
+
+**Status:** `@pytest.mark.skip` (2026-04-15)
+
+Symptom: `_QuoteImg` sheet not created after `TestRunQuoteImage` — VBA returns `OK_NO_SHEET` instead of `OK:<lastRow>`.
+
+Root cause: QuoteImage was last touched 2026-04-13 before Active Jobs v4 migration (36 → 40 cols). The Quotes sheet schema has shifted.
+
+Re-enable when:
+1. `OnAction_QuoteImage` is ported to use `ERP/core/active_jobs_cols.py` COL names
+2. Quotes sheet column indices verified live
+3. Happy-path manual run produces `_QuoteImg` with ≥3 route headers
+
+Workaround: QuoteImage button still works in Excel for Nelson's daily flow.
+
+---
+
+# PRE-COMMIT CONFIG
+
+```yaml
+repos:
+  - repo: local
+    hooks:
+      - id: pytest-collect-only
+        name: pytest collection check
+        entry: python -m pytest tests/ --collect-only -q
+        language: system
+        pass_filenames: false
+        files: ^tests/
+
+      - id: no-sys-exit-in-tests
+        name: no sys.exit in test files
+        entry: grep -r "sys.exit" tests/test_*.py
+        language: system
+        pass_filenames: false
+        files: ^tests/test_.*\.py$
+```
+
+---
+
+# VBA MODULE REFERENCE
+
+## basShared.bas — Shared Constants and Test Helpers
+
+Extracted from erp-v14-ribbon-callbacks.bas declarations section. Use for cross-module constants and test helpers.
+
+```vba
+Public Const DATA_START_ROW As Integer = 2
+Public Const QUOTES_DATA_START As Long = 5
+Public Const QUOTES_HEADER_ROW As Long = 4
+
+' Active Jobs column indices
+Public Const COL_POL As Integer = 1
+Public Const COL_POD As Integer = 2
+Public Const COL_PLACE As Integer = 3
+Public Const COL_CARRIER As Integer = 4
+Public Const COL_COMMODITY As Integer = 5
+Public Const COL_EFF As Integer = 6
+Public Const COL_EXP As Integer = 7
+Public Const COL_NOTE As Integer = 8
+Public Const COL_SOURCE As Integer = 9
+Public Const COL_20GP As Integer = 10
+Public Const COL_40GP As Integer = 11
+Public Const COL_40HQ As Integer = 12
+Public Const COL_45HQ As Integer = 13
+Public Const COL_40NOR As Integer = 14
+Public Const COL_20RF As Integer = 15
+Public Const COL_40RF As Integer = 16
+```
+
+## CostBreakdown.bas — HDL Rules + Wharfage Engine
+
+```vba
+Public Type HdlRule
+    hdl20       As Double
+    hdl40       As Double
+    comType     As String    ' "CAR COM 35" or "CAR COM 10"
+    nelsonPct   As Double    ' 65 or 90
+    account     As String
+End Type
+
+Public Function GetHdlRule(carrier As String, pol As String, _
+                           contractType As String, cont As String) As HdlRule
+```
+
+Carriers covered: HPL, ONE, YML, MSC, CMA/CMA CGM, COSCO, EMC, HMM, MSK, OOCL, ZIM, PIL, SNL, WHL.
+
+## TestModule_CostBreakdown.bas — 11 Rubberduck Tests
+
+- `Test_GetHdlRule_HPL_FAK` — HPL FAK uses CAR COM 35, nelsonPct=65, hdl20=hdl40=20
+- `Test_GetHdlRule_HPL_FIX_40GP` — HPL FIX 40GP hdl40=30 (higher for FIX)
+- `Test_GetHdlRule_COSCO_SCF` — COSCO SCFI uses CAR COM 10, nelsonPct=90
+- `Test_GetHdlRule_ONE_HPH_vs_HCM` — ONE different accounts for HPH vs HCM
+- `Test_GetHdlRule_YML_FIX_HighFee` — YML FIX 20GP hdl20=300 (exceptionally high)
+- `Test_GetHdlRule_UnknownCarrier` — unknown carrier returns hdl20=0 or error 5
+- `Test_GetHdlRule_EmptyStrings` — empty carrier returns hdl20=0
+- `Test_CalcWharfage_40GP` — wharfage positive and under $500
+- `Test_CalcWharfage_SOC_Free` — SOC containers have 0 wharfage
+- `Test_CalcWharfage_HCM_vs_HPH` — HCM wharfage >= HPH
+- `Test_TotalCost_40GP_Full` — total cost > buy rate, < 150% of buy rate

@@ -1,0 +1,33 @@
+# CNEE Memory · chsieh@kendausa.com
+
+**First seen:** 2026-04-22 14:57 UTC  
+**Last updated:** 2026-04-22 15:07 UTC
+
+## Timeline
+
+
+<!-- cnee_event:0000000077901FAA4564914E9715E61FCBF8CCD707002B347C57E4843B43837707706049DB6500000000010C00002B347C57E4843B43837707706049DB650002CB02CE3D0000:BOUNCED -->
+### 2026-04-22 14:57 UTC · BOUNCED ⚠
+
+```json
+{
+  "severity": "HARD"
+}
+```
+
+> Email bounced (HARD). Subject: Undeliverable: Ocean Freight Update — NAN to West Coast | Week 17 | NELSON
+
+---
+
+<!-- cnee_event:0000000077901FAA4564914E9715E61FCBF8CCD707002B347C57E4843B43837707706049DB6500000000010C00002B347C57E4843B43837707706049DB650002CB02CF0F0000:BOUNCED -->
+### 2026-04-22 15:07 UTC · BOUNCED ⚠
+
+```json
+{
+  "severity": "HARD"
+}
+```
+
+> Email bounced (HARD). Subject: Undeliverable: Ocean Freight Update — NAN to West Coast | Week 17 | NELSON
+
+---

@@ -1,0 +1,37 @@
+# Validator: tech-debt-tracker phase
+phase: "tech-debt-tracker"
+timeout: 300
+
+criteria:
+  output_exists:
+    type: "file"
+    path: "plans/reports/tech-debt-report.md"
+    required: true
+  output_not_empty:
+    type: "size_min"
+    value: 100
+  has_debt_items:
+    type: "bool"
+    description: "Should list technical debt items found"
+
+pass_conditions:
+  - output_exists
+  - output_not_empty
+
+fail_actions:
+  - retry: 3
+  - notify: "tech-debt-tracker failed"
+  - fallback: "proceed to git-commit"
+
+report_template: |
+  ## Tech Debt Tracker Report
+
+  **Phase:** tech-debt-tracker
+  **Status:** {{status}}
+  **Duration:** {{duration}}s
+
+  ### Technical Debt Items
+  {{debt_items}}
+
+  ### Next Action
+  {{next_phase}}

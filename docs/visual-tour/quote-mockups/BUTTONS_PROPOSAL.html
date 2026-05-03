@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎯 6 Button Ideas — Anh chọn 4-5</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    background: linear-gradient(135deg, #1e3a5f 0%, #14532d 100%);
+    min-height: 100vh;
+    padding: 24px 16px;
+    color: #1a2332;
+  }
+  .container { max-width: 1280px; margin: 0 auto; }
+
+  header {
+    background: white;
+    border-radius: 18px;
+    padding: 32px;
+    margin-bottom: 24px;
+    text-align: center;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  }
+  header h1 { font-size: 28px; font-weight: 800; margin-bottom: 8px; color: #0f172a; }
+  header p { color: #64748b; font-size: 15px; }
+
+  .filter-bar {
+    background: white;
+    border-radius: 12px;
+    padding: 16px 24px;
+    margin-bottom: 24px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+  .filter-bar strong { color: #0f172a; }
+  .pill {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .pill.creative { background: #d1fae5; color: #065f46; }
+  .pill.skip { background: #fee2e2; color: #991b1b; text-decoration: line-through; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 20px;
+    margin-bottom: 28px;
+  }
+
+  .button-card {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    border-left: 5px solid;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    position: relative;
+  }
+  .button-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
+  .button-card.recommended { border-left-color: #22c55e; }
+  .button-card.optional { border-left-color: #eab308; }
+  .button-card .num {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    background: #1e3a5f;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+  }
+  .button-card .icon { font-size: 36px; margin-bottom: 8px; }
+  .button-card h2 {
+    font-size: 19px;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 4px;
+  }
+  .button-card .tagline {
+    font-size: 13px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 14px;
+  }
+  .button-card .what {
+    font-size: 14px;
+    color: #1e293b;
+    line-height: 1.6;
+    margin-bottom: 14px;
+  }
+  .button-card .demo {
+    background: #f8fafc;
+    border: 1px dashed #cbd5e0;
+    border-radius: 10px;
+    padding: 14px;
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #475569;
+    margin-bottom: 14px;
+    overflow-x: auto;
+  }
+  .button-card .demo strong { color: #1e293b; font-weight: 700; }
+  .button-card .demo .green { color: #16a34a; }
+  .button-card .demo .red { color: #dc2626; }
+  .button-card .demo .blue { color: #2563eb; }
+
+  .button-card .value {
+    background: #eff6ff;
+    color: #1e40af;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .combos {
+    background: white;
+    border-radius: 18px;
+    padding: 28px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  }
+  .combos h2 {
+    font-size: 22px;
+    font-weight: 800;
+    margin-bottom: 18px;
+    color: #0f172a;
+  }
+  .combo-option {
+    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 12px;
+    border-left: 4px solid #22c55e;
+  }
+  .combo-option.alt {
+    background: linear-gradient(135deg, #fefce8, #fef3c7);
+    border-color: #eab308;
+  }
+  .combo-option h3 { font-size: 17px; margin-bottom: 8px; color: #0f172a; }
+  .combo-option .buttons-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+  .combo-option .btn-pill {
+    background: white;
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+  }
+
+  footer {
+    background: rgba(255,255,255,0.1);
+    color: white;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>🎯 6 Button Ideas — Anh chọn 4-5 cái</h1>
+    <p>Buttons inline trong row Quote sheet — KHÁC ribbon (đã có rồi). Click card để hiểu rõ.</p>
+  </header>
+
+  <div class="filter-bar">
+    <strong>🚫 Em LOẠI 4 buttons cũ vì ribbon đã có:</strong>
+    <span class="pill skip">👁 View detail</span>
+    <span class="pill skip">✓ Mark WIN</span>
+    <span class="pill skip">✗ Mark LOST</span>
+    <span class="pill skip">📋 Re-quote (basic)</span>
+  </div>
+
+  <div class="grid">
+
+    <!-- Button 1 -->
+    <div class="button-card recommended">
+      <div class="num">1</div>
+      <div class="icon">⚡</div>
+      <h2>So giá (Time Machine)</h2>
+      <div class="tagline">Compare giá hôm nay vs quá khứ</div>
+      <div class="what">Click row → modal show giá CÙNG ROUTE 7/14/30 ngày trước. Thấy ngay rate đang lên/xuống → strategy báo giá khác.</div>
+      <div class="demo">
+HCM → LAX/LGB · ONE · 40HC<br><br>
+Hôm nay:        <strong>$2,300</strong><br>
+2 ngày trước:   $2,350  <span class="green">▼ 2%</span><br>
+7 ngày trước:   $2,400  <span class="green">▼ 4%</span><br>
+30 ngày trước:  $2,500  <span class="green">▼ 8%</span><br><br>
+<span class="blue">→ Rate đang giảm. Báo thấp hơn 5% để win deal.</span>
+      </div>
+      <div class="value">💎 Value: Strategy báo giá data-driven, không đoán</div>
+    </div>
+
+    <!-- Button 2 -->
+    <div class="button-card recommended">
+      <div class="num">2</div>
+      <div class="icon">🎯</div>
+      <h2>Customer Profile</h2>
+      <div class="tagline">1-click history khách hàng</div>
+      <div class="what">Click row → modal show win rate, avg margin, last 5 quotes, cooldown status. Trước báo giá → biết khách thường accept margin nào.</div>
+      <div class="demo">
+<strong>GOWIN INTERNATIONAL</strong><br>
+Win rate:    <span class="green">67% (10/15)</span><br>
+Avg margin:  $185<br>
+Cooldown:    Last email 5d ago ✓<br><br>
+Last 5 quotes:<br>
+• 22/04 ONE HCM→LAX $2,300 <span class="green">WIN</span><br>
+• 15/04 HPL HPH→NYC $2,800 <span class="green">WIN</span><br>
+• 08/04 CMA HCM→LAX $2,400 <span class="red">LOST</span><br>
+• ...
+      </div>
+      <div class="value">💎 Value: KHÔNG VLOOKUP thủ công, biết khách trước báo giá</div>
+    </div>
+
+    <!-- Button 3 -->
+    <div class="button-card optional">
+      <div class="num">3</div>
+      <div class="icon">🔄</div>
+      <h2>Smart Re-quote</h2>
+      <div class="tagline">Re-quote có "trí nhớ" (KHÁC ribbon)</div>
+      <div class="what">Click row → tự check rate hôm nay vs cũ → suggest 2 strategies: giảm giá win deal hoặc giữ giá lock margin.</div>
+      <div class="demo">
+<strong>⚠ Rate update detected</strong><br>
+CMA HCM → LAX/LGB<br><br>
+Anh quote 5d ago:    Sell <strong>$2,500</strong> (margin $200)<br>
+Hôm nay buy rate:    <strong>$2,000</strong> (▼$300)<br><br>
+🅰 Win deal:  Sell <strong>$2,200</strong>, margin $200<br>
+🅱 Lock-in:    Sell <strong>$2,500</strong>, margin $500<br><br>
+<span class="blue">[🅰 Apply] [🅱 Apply] [Cancel]</span>
+      </div>
+      <div class="value">💎 Khác Re-quote ribbon: thông minh, suggest scenarios</div>
+    </div>
+
+    <!-- Button 4 -->
+    <div class="button-card recommended">
+      <div class="num">4</div>
+      <div class="icon">🏆</div>
+      <h2>Best Carrier Now</h2>
+      <div class="tagline">TOP 3 carrier rẻ nhất route này</div>
+      <div class="what">Click row → modal TOP 3 carriers cheapest cùng route HÔM NAY. Help anh re-route deal nhanh nếu carrier khác rẻ hơn.</div>
+      <div class="demo">
+HCM → LAX/LGB · 40HC · <strong>Today</strong><br><br>
+🥇 <strong>HPL</strong>    $2,150  <span class="green">▼$150 vs ONE</span><br>
+🥈 ONE     $2,300  (anh đang quote)<br>
+🥉 CMA     $2,350<br><br>
+<span class="blue">→ Switch HPL save $150/cont cho khách</span>
+      </div>
+      <div class="value">💎 Value: Biết carrier nào đang rẻ nhất, không thua deal</div>
+    </div>
+
+    <!-- Button 5 -->
+    <div class="button-card recommended">
+      <div class="num">5</div>
+      <div class="icon">📈</div>
+      <h2>Trend Chart Modal</h2>
+      <div class="tagline">Chart LỚN, không phải sparkline tí hin</div>
+      <div class="what">Click row → modal show CHART LỚN 30-day rate history với annotation: anh quote points (WIN green, LOST red), forecast 7 days.</div>
+      <div class="demo">
+[Chart LỚN preview]<br><br>
+&nbsp;&nbsp;$2,500 ┤  ●<br>
+&nbsp;&nbsp;$2,400 ┤    ●─●  <span class="green">WIN</span><br>
+&nbsp;&nbsp;$2,300 ┤        ●──●<br>
+&nbsp;&nbsp;$2,200 ┤             ●─● <strong>YOU</strong><br>
+&nbsp;&nbsp;$2,100 ┤                 ┊── forecast<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;30d  20d  10d  Today  7d
+      </div>
+      <div class="value">💎 v1 sparkline VÔ DỤNG. Modal CHART LỚN useful</div>
+    </div>
+
+    <!-- Button 6 -->
+    <div class="button-card optional">
+      <div class="num">6</div>
+      <div class="icon">💬</div>
+      <h2>Quick FAST Input</h2>
+      <div class="tagline">Auto format → copy → paste FAST</div>
+      <div class="what">Click row → tự format quote thành FAST system input format → copy clipboard. Anh paste vào FAST 1 phát.</div>
+      <div class="demo">
+<strong>[FAST format]</strong><br>
+JOB-2026-0425-001<br>
+SHIPPER: GOWIN INTERNATIONAL<br>
+ROUTE: HCM/LAX/LGB<br>
+CARRIER: ONE<br>
+40HC: $2,300<br><br>
+<span class="green">[✓ Copied to clipboard]</span>
+      </div>
+      <div class="value">💎 Value: Workflow Excel ↔ FAST mượt mà</div>
+    </div>
+
+  </div>
+
+  <div class="combos">
+    <h2>🎯 Em đề xuất 2 combo</h2>
+
+    <div class="combo-option">
+      <h3>🟢 Combo A — 4 buttons (em recommend)</h3>
+      <p>Pure value-add, không trùng ribbon. Dễ học, không rối row.</p>
+      <div class="buttons-row">
+        <span class="btn-pill">⚡ So giá</span>
+        <span class="btn-pill">🎯 Customer</span>
+        <span class="btn-pill">🏆 Carrier</span>
+        <span class="btn-pill">📈 Trend</span>
+      </div>
+    </div>
+
+    <div class="combo-option alt">
+      <h3>🟡 Combo B — 5 buttons (full)</h3>
+      <p>Thêm Smart Re-quote khi anh hay re-quote do rate biến động.</p>
+      <div class="buttons-row">
+        <span class="btn-pill">⚡ So giá</span>
+        <span class="btn-pill">🎯 Customer</span>
+        <span class="btn-pill">🔄 Smart-Q</span>
+        <span class="btn-pill">🏆 Carrier</span>
+        <span class="btn-pill">📈 Trend</span>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    💬 Anh chọn xong → bảo em <strong>"Combo A"</strong> hoặc <strong>"Combo B"</strong> hoặc <strong>"Em pick 1,3,4,5"</strong><br>
+    🚀 Em delegate M2.7 build v4 với buttons creative + parquet integration thật
+  </footer>
+
+</div>
+</body>
+</html>

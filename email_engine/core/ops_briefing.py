@@ -27,8 +27,8 @@ from shared import paths as sp
 STATE_FILE = sp.SHIPMENT_STATE
 LOG_FILE   = sp.EMAIL_LOG_DIR / "ops_briefing.log"
 
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
-TELEGRAM_CHAT  = os.environ.get("TELEGRAM_CHAT_ID", "")
+TELEGRAM_TOKEN = ""   # DISABLED 2026-05-03
+TELEGRAM_CHAT  = ""   # os.environ.get("TELEGRAM_CHAT_ID", "")   # DISABLED
 
 logging.basicConfig(
     level=logging.INFO,

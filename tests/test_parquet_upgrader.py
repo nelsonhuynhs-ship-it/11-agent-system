@@ -139,36 +139,3 @@ def test_all_six_columns_in_upgraded():
         assert col in col_names, f"Missing: {col}"
 
     print(f"  ✓ All 6 columns present ({len(col_names)} total)")
-
-
-if __name__ == "__main__":
-    print("=" * 60)
-    print("  PARQUET UPGRADER TESTS — Task 1.2.2")
-    print("=" * 60)
-
-    tests = [
-        test_dry_run_produces_correct_sample,
-        test_unknown_carrier_handling,
-        test_soc_rate_basis_detection,
-        test_normalized_never_exceeds_raw,
-        test_row_count_preserved_in_upgrade,
-        test_validate_passes_on_upgraded,
-        test_all_six_columns_in_upgraded,
-    ]
-
-    passed = 0
-    failed = 0
-    for test in tests:
-        try:
-            test()
-            passed += 1
-        except Exception as e:
-            print(f"  ✗ {test.__name__}: {e}")
-            failed += 1
-
-    print(f"\n{'='*60}")
-    print(f"  Results: {passed} passed, {failed} failed out of {len(tests)}")
-    print(f"{'='*60}")
-    if failed > 0:
-        sys.exit(1)
-    print("\n✅ ALL TESTS PASSED")

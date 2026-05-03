@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ERP Ribbon — Operations Tab</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #1e1e1e; color: #d4d4d4; min-height: 100vh; }
+
+  .nav { background: #2d2d30; border-bottom: 1px solid #3e3e42; padding: 8px 16px; display: flex; gap: 16px; align-items: center; font-size: 13px; }
+  .nav a { color: #569cd6; text-decoration: none; }
+  .nav a:hover { text-decoration: underline; }
+  .nav span { color: #808080; }
+
+  .header { background: #252526; padding: 16px 24px; border-bottom: 1px solid #3e3e42; }
+  .header h1 { font-size: 18px; font-weight: 600; color: #569cd6; }
+  .header p { font-size: 12px; color: #858585; margin-top: 4px; }
+
+  .ribbon { background: #f3f3f3; max-width: 1200px; margin: 24px auto; border-radius: 4px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+
+  .tab-strip { background: #d0d0d0; display: flex; border-bottom: 1px solid #a0a0a0; }
+  .tab { padding: 8px 20px; font-size: 13px; font-weight: 600; color: #444; border-right: 1px solid #b0b0b0; cursor: pointer; }
+  .tab.active { background: #ffffff; color: #0078d4; border-bottom: 2px solid #0078d4; margin-bottom: -1px; }
+  .tab:not(.active):hover { background: #e8e8e8; }
+
+  .ribbon-body { background: #ffffff; padding: 8px 4px; }
+
+  .group { display: inline-block; vertical-align: top; margin: 0 4px; border: 1px solid #c8c8c8; border-radius: 3px; background: #f8f8f8; min-width: 120px; position: relative; }
+  .group-label { background: linear-gradient(to bottom, #e8e8e8, #d8d8d8); font-size: 11px; font-weight: 600; color: #333; text-align: center; padding: 3px 8px; border-bottom: 1px solid #b0b0b0; border-radius: 2px 2px 0 0; white-space: nowrap; }
+  .group-controls { padding: 6px 8px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+
+  .ctrl { position: relative; display: inline-block; }
+  .btn { padding: 4px 10px; font-size: 12px; border: 1px solid #a0a0a0; border-radius: 3px; background: linear-gradient(to bottom, #fff, #e6e6e6); color: #333; cursor: pointer; white-space: nowrap; min-height: 22px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+  .btn:hover { background: linear-gradient(to bottom, #fff, #d0d0d0); }
+  .btn.large { padding: 5px 14px; font-weight: 600; }
+
+  .combobox-wrap { display: flex; flex-direction: column; gap: 1px; }
+  .ctrl-label { font-size: 10px; color: #555; text-align: left; }
+  .combobox { padding: 3px 6px; font-size: 11px; border: 1px solid #888; border-radius: 2px; background: #fff; min-width: 100px; height: 20px; cursor: pointer; }
+  .combobox:hover { border-color: #0078d4; }
+
+  .lbl { font-size: 11px; color: #333; background: #f0f0f0; border: 1px solid #c0c0c0; border-radius: 2px; padding: 2px 6px; min-width: 60px; text-align: center; }
+
+  .hotspot { position: absolute; top: -4px; left: -4px; right: -4px; bottom: -4px; border: 2px dotted transparent; border-radius: 4px; cursor: pointer; transition: all 0.15s; }
+  .hotspot:hover { border-color: #0078d4; background: rgba(0,120,212,0.1); box-shadow: 0 0 8px rgba(0,120,212,0.4); }
+
+  .modal { display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; }
+  .modal.show { display: flex; }
+  .modal-box { background: #2d2d30; border: 1px solid #3e3e42; border-radius: 6px; width: 420px; max-width: 95vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
+  .modal-header { background: #333; padding: 12px 16px; border-bottom: 1px solid #3e3e42; display: flex; align-items: center; gap: 10px; }
+  .modal-icon { font-size: 18px; }
+  .modal-title { font-size: 14px; font-weight: 600; color: #d4d4d4; }
+  .modal-title .type { color: #569cd6; font-size: 11px; font-weight: normal; }
+  .modal-body { padding: 14px 16px; }
+  .modal-body p { font-size: 13px; color: #9cdcfe; line-height: 1.6; }
+  .modal-body .source { margin-top: 10px; padding: 8px 10px; background: #1a1a1a; border-radius: 4px; font-size: 11px; color: #858585; font-family: 'Courier New', monospace; }
+  .modal-body .source span { color: #c586c0; }
+  .modal-close { background: #0078d4; color: #fff; border: none; padding: 6px 16px; border-radius: 3px; cursor: pointer; font-size: 12px; margin-top: 10px; }
+  .modal-close:hover { background: #006cbd; }
+  .modal-note { margin-top: 8px; font-size: 11px; color: #ff6a6a; }
+
+  .legend { max-width: 1200px; margin: 16px auto; padding: 12px 16px; background: #252526; border-radius: 4px; font-size: 12px; color: #858585; display: flex; gap: 20px; flex-wrap: wrap; }
+  .legend span { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .dot.blue { background: #0078d4; }
+  .dot.purple { background: #9b59b6; }
+  .dot.green { background: #27ae60; }
+
+  .status-btn-win { background: #27ae60; color: #fff; border-color: #1e8449; }
+  .status-btn-lost { background: #c0392b; color: #fff; border-color: #922b21; }
+  .status-btn-reneg { background: #e67e22; color: #fff; border-color: #ca6f1e; }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <a href="index.html">&#8592; Index</a>
+  <span>|</span>
+  <a href="erp-ribbon-pricing.html">&#8592; Pricing Tab</a>
+  <span>|</span>
+  <a href="https://github.com/nelsonhuynhs-ship-it/FreightBrian/blob/main/plans/260425-system-contract-discovery/reports/phase-02-erp-vba-findings.md" target="_blank">Phase 2 Findings (deep dive)</a>
+</div>
+
+<div class="header">
+  <h1>Operations Tab — ERP Ribbon</h1>
+  <p>19 hotspots | 6 groups | Jobs, Milestones, Booking Pool, Quote Status, Rate Data</p>
+</div>
+
+<div class="ribbon">
+  <div class="tab-strip">
+    <div class="tab" onclick="location.href='erp-ribbon-pricing.html'">Pricing</div>
+    <div class="tab active">Operations</div>
+  </div>
+  <div class="ribbon-body">
+
+    <!-- GROUP 1: MONTH -->
+    <div class="group">
+      <div class="group-label">Month</div>
+      <div class="group-controls">
+        <div class="ctrl">
+          <div class="combobox-wrap">
+            <span class="ctrl-label">Month</span>
+            <div class="combobox">APR 2026 (26 jobs)</div>
+          </div>
+          <div class="hotspot" data-id="cmbMonth" data-type="comboBox" data-label="Month" data-callback="OnChange_Month" data-tip="Chọn tháng để filter Active Jobs + Archive. Hiển thị số jobs trong ngoặc. Dùng AutoFilter trên col 1 (Active) và col 15 (Archive)."></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GROUP 2: MILESTONES -->
+    <div class="group">
+      <div class="group-label">Milestones</div>
+      <div class="group-controls">
+        <div class="ctrl">
+          <button class="btn large" id="btnSyncMilestones">Sync Milestones</button>
+          <div class="hotspot" data-id="btnSyncMilestones" data-type="button" data-label="Sync Milestones" data-callback="Btn_SyncMilestones_OnAction" data-tip="Click → đọc milestone_state.jsonl → lookup Bkg_No trong Active Jobs col H → ghi ATD_DATE + NOTIFIED_ATD/ETA7. JSONL lines được xóa sau khi sync thành công."></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GROUP 3: BOOKING POOL -->
+    <div class="group">
+      <div class="group-label">Booking Pool</div>
+      <div class="group-controls">
+        <div class="ctrl">
+          <button class="btn large" id="btnNewKeepSpace">New Keep Space</button>
+          <div class="hotspot" data-id="btnNewKeepSpace" data-type="button" data-label="New Keep Space" data-callback="Btn_NewKeepSpace_OnAction" data-tip="Click → manual insert keep-space booking vào Booking Pool với status HOLDING. Nhập Bkg_No, POL, POD, CY_Cut, v.v."></div>
+        </div>
+        <div class="ctrl">
+          <button class="btn large" id="btnSyncPool">Sync Pool</button>
+          <div class="hotspot" data-id="btnSyncPool" data-type="button" data-label="Sync Pool" data-callback="Btn_SyncPool_OnAction" data-tip="Click → flush booking_pool_state.jsonl vào Booking Pool sheet. Cập nhật status các bookings đang hold."></div>
+        </div>
+        <div class="ctrl">
+          <button class="btn" id="btnMarkExpired">Mark Expired</button>
+          <div class="hotspot" data-id="btnMarkExpired" data-type="button" data-label="Mark Expired" data-callback="Btn_MarkExpired_OnAction" data-tip="Click → quét Pool với status HOLDING > 30 ngày → set status = EXPIRED. Dọn pool cũ."></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GROUP 4: QUOTE STATUS -->
+    <div class="group">
+      <div class="group-label">Quote</div>
+      <div class="group-controls">
+        <div class="ctrl">
+          <button class="btn large status-btn-win" id="btnWin">WIN</button>
+          <div class="hotspot" data-id="btnWin" data-type="button" data-label="WIN" data-callback="OnAction_MarkQuoteWin" data-tip="Click → mark selected quote là WON. Hỏi Commission % + Insurance → ghi vào Active Jobs (row mới tại row 8+). Đọc hidden cols 15-17 từ Pricing sheet."></div>
+        </div>
+        <div class="ctrl">
+          <button class="btn large status-btn-lost" id="btnLost">LOST</button>
+          <div class="hotspot" data-id="btnLost" data-type="button" data-label="LOST" data-callback="OnAction_MarkQuoteLost" data-tip="Click → mark selected quote là LOST. Hỏi lý do (reason) trước khi ghi."></div>
+        </div>
+        <div class="ctrl">
+          <button class="btn status-btn-reneg" id="btnRenegotiate">Re-neg</button>
+          <div class="hotspot" data-id="btnRenegotiate" data-type="button" data-label="Re-neg" data-callback="OnAction_Renegotiate" data-tip="Click → revise markup cho existing quote. Hỏi từng container type → append remark vào quote. Không tạo row mới."></div>
+        </div>
+        <div class="ctrl">
+          <button class="btn" id="btnQuoteImage">Quote Img</button>
+          <div class="hotspot" data-id="btnQuoteImage" data-type="button" data-label="Quote Img" data-callback="OnAction_QuoteImage" data-tip="Click → tạo quote image vào clipboard. Dùng để paste vào email/body."></div>
+        </div>
+        <div class="ctrl">
+          <button class="btn" id="btnQuoteImageBulk">Bulk Img</button>
+          <div class="hotspot" data-id="btnQuoteImageBulk" data-type="button" data-label="Bulk Img" data-callback="OnAction_QuoteImageBulk" data-tip="Click → chọn nhiều quote rows → sinh N HTML cá nhân hóa cho N khách. Tick 'X' trên BulkRecipients sheet để confirm."></div>
+        </div>
+        <div class="ctrl">
+          <button class="btn" id="btnExpired">Expired</button>
+          <div class="hotspot" data-id="btnExpired" data-type="button" data-label="Expired" data-callback="OnAction_CheckAutoLost" data-tip="Click → auto-expire quotes có Exp date đã qua. Quoting beyond validity date."></div>
+        </div>
+        <div class="ctrl">
+          <button class="btn" id="btnCancelJob">Cancel</button>
+          <div class="hotspot" data-id="btnCancelJob" data-type="button" data-label="Cancel" data-callback="OnAction_CancelJob" data-tip="Click → move selected Active Job row sang Archive sheet. Xóa khỏi Active Jobs."></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GROUP 5: RATE DATA -->
+    <div class="group">
+      <div class="group-label">Rate Data</div>
+      <div class="group-controls">
+        <div class="ctrl">
+          <button class="btn large" id="btnRefreshAll" style="background:#0078d4;color:#fff">Refresh All</button>
+          <div class="hotspot" data-id="btnRefreshAll" data-type="button" data-label="Refresh All" data-callback="OnAction_RefreshAll" data-tip="Click → ONE-CLICK: scan Outlook + import rate files + rebuild parquet + pull vào Excel. Dùng khi thấy email rate mới. Gọi refresh-all-bootstrap.bat qua WMI."></div>
+        </div>
+        <div class="ctrl">
+          <button class="btn" id="btnRefreshRates">Refresh Rates</button>
+          <div class="hotspot" data-id="btnRefreshRates" data-type="button" data-label="Refresh Rates" data-callback="OnAction_RefreshRates" data-tip="Click → chỉ pull parquet vào Excel (skip Outlook scan). Nhanh hơn Refresh All khi parquet đã up-to-date."></div>
+        </div>
+        <div class="ctrl"><span class="lbl" id="lblLastRefresh">—</span><div class="hotspot" data-id="lblLastRefresh" data-type="labelControl" data-label="Last Refresh" data-callback="GetLabel_LastRefresh" data-tip="Hiển thị thời gian refresh cuối. VD: 10:30 AM 25APR"></div></div>
+        <div class="ctrl"><span class="lbl" id="lblRateVer1">—</span><div class="hotspot" data-id="lblRateVer1" data-type="labelControl" data-label="FAK Ver" data-callback="GetLabel_RateVer1" data-tip="Version label của FAK rate. VD: '10APR No1'. Đọc từ RateVersions sheet."></div></div>
+        <div class="ctrl"><span class="lbl" id="lblRateVer2">—</span><div class="hotspot" data-id="lblRateVer2" data-type="labelControl" data-label="SCFI Ver" data-callback="GetLabel_RateVer2" data-tip="Version label của SCFI rate. VD: 'No40'."></div></div>
+        <div class="ctrl"><span class="lbl" id="lblRateVer3">—</span><div class="hotspot" data-id="lblRateVer3" data-type="labelControl" data-label="FIX Ver" data-callback="GetLabel_RateVer3" data-tip="Version label của FIX rate. VD: 'No21'."></div></div>
+        <div class="ctrl"><span class="lbl" id="lblRateVer4">—</span><div class="hotspot" data-id="lblRateVer4" data-type="labelControl" data-label="PUC Ver" data-callback="GetLabel_RateVer4" data-tip="Version label của PUC (Premium UTF Charge). VD: 'MAR 2026'."></div></div>
+      </div>
+    </div>
+
+    <!-- GROUP 6: DEV -->
+    <div class="group">
+      <div class="group-label">Dev</div>
+      <div class="group-controls">
+        <div class="ctrl">
+          <button class="btn" id="btnReloadVBA">Reload VBA</button>
+          <div class="hotspot" data-id="btnReloadVBA" data-type="button" data-label="Reload VBA" data-callback="OnAction_ReloadVBA" data-tip="Click → save + close + re-import all .bas modules via WMI bootstrap → reopen xlsm. Dùng khi develop/debug VBA code."></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="legend">
+  <span><span class="dot blue"></span> Button</span>
+  <span><span class="dot purple"></span> ComboBox</span>
+  <span><span class="dot green"></span> Label (read-only)</span>
+  <span style="margin-left:auto;color:#0078d4">Hover any control → click for tooltip</span>
+</div>
+
+<!-- Modal -->
+<div class="modal" id="modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-icon" id="modalIcon">🔘</span>
+      <span class="modal-title" id="modalTitle">Control</span>
+    </div>
+    <div class="modal-body">
+      <p id="modalTip"></p>
+      <div class="source" id="modalSource"></div>
+      <div class="modal-note" id="modalNote"></div>
+      <button class="modal-close" onclick="closeModal()">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const typeIcon = { button:'🔘', comboBox:'📋', editBox:'✏️', toggleButton:'🔄', labelControl:'🏷️' };
+
+document.querySelectorAll('.hotspot').forEach(el => {
+  el.addEventListener('click', () => {
+    const id = el.dataset.id;
+    const type = el.dataset.type;
+    const label = el.dataset.label;
+    const callback = el.dataset.callback;
+    const tip = el.dataset.tip || 'Không có mô tả.';
+
+    document.getElementById('modalIcon').textContent = typeIcon[type] || '🔘';
+    document.getElementById('modalTitle').innerHTML = `${label} <span class="type">(${type})</span>`;
+    document.getElementById('modalTip').textContent = tip;
+    document.getElementById('modalSource').innerHTML = `Callback: <span>${callback}</span>`;
+    document.getElementById('modalNote').textContent = '';
+    document.getElementById('modal').classList.add('show');
+  });
+});
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+}
+
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal')) closeModal();
+});
+</script>
+</body>
+</html>

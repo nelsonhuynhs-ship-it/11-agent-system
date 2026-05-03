@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quote Sheet Dashboard v3 — Nelson Freight</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #1e3a5f;
+    --primary-light: #2d5a8a;
+    --success: #10b981;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --bg: #f0f4f8;
+    --card: #ffffff;
+    --text: #1e293b;
+    --text-muted: #64748b;
+    --border: #e2e8f0;
+  }
+  body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  /* TOP BAR */
+  .topbar { background: var(--primary); color: #fff; padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; }
+  .topbar h1 { font-size: 18px; font-weight: 600; }
+  .topbar-actions { display: flex; gap: 12px; align-items: center; }
+  .dark-toggle { background: rgba(255,255,255,0.15); border: none; color: #fff; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .dark-toggle:hover { background: rgba(255,255,255,0.25); }
+  /* KPI BANNER */
+  .kpi-banner { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 20px 24px; }
+  .kpi-card { background: var(--card); border-radius: 12px; padding: 20px; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid var(--border); }
+  .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+  .kpi-icon { font-size: 24px; margin-bottom: 8px; }
+  .kpi-value { font-size: 28px; font-weight: 700; color: var(--primary); }
+  .kpi-label { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+  .kpi-card .badge { display: inline-block; background: var(--success); color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 12px; margin-top: 8px; }
+  .kpi-card .badge.danger { background: var(--danger); }
+  /* MAIN CONTENT */
+  .main-content { display: grid; grid-template-columns: 320px 1fr; gap: 20px; padding: 0 24px 24px; }
+  /* HEATMAP SIDEBAR */
+  .heatmap-sidebar { display: flex; flex-direction: column; gap: 20px; }
+  .panel { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid var(--border); }
+  .panel-title { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; }
+  /* CALENDAR HEATMAP */
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-cell { aspect-ratio: 1; border-radius: 4px; cursor: pointer; transition: transform 0.1s; }
+  .cal-cell:hover { transform: scale(1.15); }
+  .cal-cell.win { background: #10b981; }
+  .cal-cell.lost { background: #ef4444; }
+  .cal-cell.neutral { background: var(--border); }
+  .cal-cell.empty { background: transparent; }
+  .cal-legend { display: flex; gap: 16px; margin-top: 12px; font-size: 11px; color: var(--text-muted); align-items: center; }
+  .cal-legend span { display: flex; align-items: center; gap: 4px; }
+  .cal-legend .dot { width: 10px; height: 10px; border-radius: 2px; }
+  /* TREEMAP */
+  .treemap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .tm-cell { border-radius: 6px; padding: 8px; text-align: center; font-size: 11px; font-weight: 500; cursor: pointer; color: #fff; transition: opacity 0.15s; min-height: 52px; display: flex; flex-direction: column; justify-content: center; }
+  .tm-cell:hover { opacity: 0.85; }
+  .tm-cell .tm-name { font-weight: 600; font-size: 12px; }
+  .tm-cell .tm-count { opacity: 0.8; margin-top: 2px; }
+  /* DONUT */
+  .donut-chart { display: flex; align-items: center; gap: 20px; }
+  .donut-ring { width: 80px; height: 80px; position: relative; }
+  .donut-ring svg { transform: rotate(-90deg); }
+  .donut-ring circle { fill: none; stroke-width: 12; }
+  .donut-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: var(--primary); }
+  .donut-legend { display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+  .donut-legend div { display: flex; align-items: center; gap: 6px; }
+  .donut-legend .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  /* QUOTE LIST */
+  .quote-list { display: flex; flex-direction: column; gap: 14px; max-height: calc(100vh - 220px); overflow-y: auto; padding-right: 4px; }
+  .quote-card { background: var(--card); border-radius: 12px; padding: 18px; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid var(--border); }
+  .quote-card:hover { transform: translateY(-2px) scale(1.01); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+  .quote-card.hot { border-left: 4px solid var(--danger); }
+  .quote-card.won { border-left: 4px solid var(--success); }
+  .qc-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+  .qc-customer { display: flex; align-items: center; gap: 8px; }
+  .qc-customer .star { color: var(--warning); }
+  .qc-customer .name { font-size: 15px; font-weight: 600; color: var(--text); }
+  .qc-customer .route { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .qc-meta { display: flex; gap: 6px; align-items: center; }
+  .qc-tag { font-size: 10px; padding: 3px 8px; border-radius: 10px; font-weight: 500; }
+  .qc-tag.won { background: #d1fae5; color: #065f46; }
+  .qc-tag.lost { background: #fee2e2; color: #991b1b; }
+  .qc-tag.today { background: #dbeafe; color: #1e40af; }
+  .qc-body { margin-bottom: 12px; }
+  .qc-containers { display: flex; gap: 8px; flex-wrap: wrap; }
+  .qc-cont { background: var(--bg); border-radius: 8px; padding: 8px 12px; text-align: center; min-width: 58px; border: 1px solid var(--border); }
+  .qc-cont .cont-name { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .qc-cont .cont-price { font-size: 14px; font-weight: 700; color: var(--primary); margin-top: 2px; }
+  .qc-cont.selected { background: var(--primary); border-color: var(--primary); }
+  .qc-cont.selected .cont-name, .qc-cont.selected .cont-price { color: #fff; }
+  .qc-cont.highlight { background: #fff7ed; border-color: var(--warning); }
+  .qc-cont.highlight .cont-price { color: #c2410c; }
+  .qc-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); }
+  .qc-margin { font-weight: 600; color: var(--success); }
+  .qc-margin.negative { color: var(--danger); }
+  /* MODAL */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--card); border-radius: 16px; padding: 28px; width: 520px; max-width: 95vw; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+  .modal h2 { font-size: 18px; margin-bottom: 20px; color: var(--primary); }
+  .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .modal-field { background: var(--bg); border-radius: 8px; padding: 12px; }
+  .modal-field label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px; }
+  .modal-field span { font-size: 14px; font-weight: 600; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+  .modal-btn { padding: 10px 20px; border-radius: 8px; border: none; font-size: 14px; font-weight: 500; cursor: pointer; }
+  .modal-btn.primary { background: var(--primary); color: #fff; }
+  .modal-btn.secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+  .modal-close { position: absolute; top: 16px; right: 20px; font-size: 20px; cursor: pointer; color: var(--text-muted); }
+  /* RESPONSIVE */
+  @media (max-width: 900px) {
+    .kpi-banner { grid-template-columns: repeat(2, 1fr); }
+    .main-content { grid-template-columns: 1fr; }
+    .heatmap-sidebar { display: grid; grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 600px) {
+    .kpi-banner { grid-template-columns: 1fr; }
+    .heatmap-sidebar { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>📊 Quote Dashboard — Nelson Freight</h1>
+  <div class="topbar-actions">
+    <button class="dark-toggle" onclick="document.body.classList.toggle('dark')">🌙 Dark</button>
+  </div>
+</div>
+
+<!-- KPI BANNER -->
+<div class="kpi-banner">
+  <div class="kpi-card" onclick="filterQuotes('today')">
+    <div class="kpi-icon">📊</div>
+    <div class="kpi-value">12</div>
+    <div class="kpi-label">Hôm nay — Báo giá</div>
+    <span class="badge">3 WIN mới</span>
+  </div>
+  <div class="kpi-card" onclick="filterQuotes('week')">
+    <div class="kpi-icon">💰</div>
+    <div class="kpi-value">$28K</div>
+    <div class="kpi-label">Tuần này — Margin</div>
+  </div>
+  <div class="kpi-card" onclick="filterQuotes('winrate')">
+    <div class="kpi-icon">🎯</div>
+    <div class="kpi-value">28%</div>
+    <div class="kpi-label">Tỷ lệ WIN</div>
+  </div>
+  <div class="kpi-card" onclick="filterQuotes('top')">
+    <div class="kpi-icon">🔥</div>
+    <div class="kpi-value">GOWIN</div>
+    <div class="kpi-label">Khách hàng nhiệt</div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="main-content">
+  <!-- HEATMAP SIDEBAR -->
+  <div class="heatmap-sidebar">
+    <!-- Calendar Heatmap -->
+    <div class="panel">
+      <div class="panel-title">📅 Lịch sử 30 ngày</div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div class="cal-legend">
+        <span><div class="dot" style="background:#10b981"></div> WIN</span>
+        <span><div class="dot" style="background:#ef4444"></div> LOST</span>
+        <span><div class="dot" style="background:#e2e8f0"></div> Không có</span>
+      </div>
+    </div>
+    <!-- Customer Treemap -->
+    <div class="panel">
+      <div class="panel-title">🏆 Top Khách Hàng</div>
+      <div class="treemap" id="treemap"></div>
+    </div>
+    <!-- Carrier Donut -->
+    <div class="panel">
+      <div class="panel-title">🚢 Carrier Share</div>
+      <div class="donut-chart">
+        <div class="donut-ring">
+          <svg width="80" height="80" viewBox="0 0 80 80">
+            <circle cx="40" cy="40" r="28" stroke="#1e3a5f" stroke-dasharray="88 176" />
+            <circle cx="40" cy="40" r="28" stroke="#10b981" stroke-dasharray="44 176" stroke-dashoffset="-88" />
+            <circle cx="40" cy="40" r="28" stroke="#f59e0b" stroke-dasharray="26 176" stroke-dashoffset="-132" />
+            <circle cx="40" cy="40" r="28" stroke="#64748b" stroke-dasharray="18 176" stroke-dashoffset="-158" />
+          </svg>
+          <div class="donut-center">28</div>
+        </div>
+        <div class="donut-legend">
+          <div><div class="dot" style="background:#1e3a5f"></div>ONE — 50%</div>
+          <div><div class="dot" style="background:#10b981"></div>YML — 25%</div>
+          <div><div class="dot" style="background:#f59e0b"></div>EMC — 15%</div>
+          <div><div class="dot" style="background:#64748b"></div>Others — 10%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUOTE LIST -->
+  <div class="quote-list" id="quoteList"></div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h2 id="modalTitle">Chi Tiết Báo Giá</h2>
+    <div class="modal-grid" id="modalGrid"></div>
+    <div class="modal-actions">
+      <button class="modal-btn primary" onclick="closeModal()">Đóng</button>
+      <button class="modal-btn secondary">📋 Copy</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const quotes = [
+  { id:1, customer:"GOWIN INTERNATIONAL", star:true, route:"ONE · HCM → LAX/LGB", containers:{selected:"40HC", prices:{"20GP":"$1,750","40GP":"$2,800","40HC":"$2,950 ←","45HC":"$3,100","40NOR":"$3,050"}}, margin:200, marginPct:7, status:"won", time:"Hôm nay", carrier:"ONE" },
+  { id:2, customer:"GOWIN INTERNATIONAL", star:true, route:"YML · HCM → LAX/LGB", containers:{selected:"40GP", prices:{"20GP":"$1,650","40GP":"$2,680 ←","40HC":"$2,800","45HC":"$2,950","40NOR":"$2,900"}}, margin:180, marginPct:7, status:"won", time:"Hôm nay", carrier:"YML" },
+  { id:3, customer:"LOTUS TEXTILE", star:false, route:"ONE · HPH → NYC", containers:{selected:"40HC", prices:{"20GP":"$2,100","40GP":"$3,400","40HC":"$3,550 ←","45HC":"—","40NOR":"—"}}, margin:150, marginPct:4, status:"won", time:"Hôm qua", carrier:"ONE" },
+  { id:4, customer:"GOWIN INTERNATIONAL", star:true, route:"YML · SGN → LGB", containers:{selected:"45HC", prices:{"20GP":"$1,800","40GP":"$2,900","40HC":"$3,050","45HC":"$3,250 ←","40NOR":"$3,100"}}, margin:250, marginPct:8, status:"won", time:"22/04", carrier:"YML" },
+  { id:5, customer:"GLOBAL FLOORING INC", star:false, route:"OOL · HCM → LAX", containers:{selected:"40GP", prices:{"20GP":"$1,550","40GP":"$2,500 ←","40HC":"$2,650","45HC":"$2,800","40NOR":"—"}}, margin:-50, marginPct:-2, status:"lost", time:"22/04", carrier:"OOL" },
+  { id:6, customer:"GOWIN INTERNATIONAL", star:true, route:"EMC · HCM → SAV", containers:{selected:"40HC", prices:{"20GP":"$1,900","40GP":"$3,100","40HC":"$3,250 ←","45HC":"$3,400","40NOR":"$3,350"}}, margin:220, marginPct:7, status:"won", time:"21/04", carrier:"EMC" },
+  { id:7, customer:"KING FURNITURE", star:false, route:"YML · HPH → LAX/LGB", containers:{selected:"40NOR", prices:{"20GP":"$1,700","40GP":"$2,750","40HC":"$2,900","45HC":"$3,050","40NOR":"$2,850 ←"}}, margin:80, marginPct:3, status:"won", time:"21/04", carrier:"YML" },
+  { id:8, customer:"VINH WOOD", star:false, route:"CUL · SGN → NYC", containers:{selected:"20RF", prices:{"20RF":"$2,200","40RF":"$4,000"}}, margin:300, marginPct:12, status:"won", time:"20/04", carrier:"CUL" },
+  { id:9, customer:"GREENLEAF CO", star:false, route:"HMM · HCM → LAX", containers:{selected:"40HC", prices:{"20GP":"$1,600","40GP":"$2,600","40HC":"$2,750 ←","45HC":"$2,900","40NOR":"$2,800"}}, margin:100, marginPct:4, status:"lost", time:"20/04", carrier:"HMM" },
+  { id:10, customer:"SUNTEX INDONESIA", star:false, route:"SML · SGN → LAX", containers:{selected:"40GP", prices:{"20GP":"$1,500","40GP":"$2,450 ←","40HC":"$2,600","45HC":"$2,750","40NOR":"—"}}, margin:120, marginPct:5, status:"won", time:"19/04", carrier:"SML" },
+  { id:11, customer:"METRO WOOD", star:false, route:"YML · HCM → ATL", containers:{selected:"40HC", prices:{"20GP":"$1,800","40GP":"$2,950","40HC":"$3,100 ←","45HC":"$3,250","40NOR":"$3,200"}}, margin:160, marginPct:5, status:"won", time:"19/04", carrier:"YML" },
+  { id:12, customer:"GOWIN INTERNATIONAL", star:true, route:"ONE · HCM → CHI", containers:{selected:"40HC", prices:{"20GP":"$2,200","40GP":"$3,500","40HC":"$3,650 ←","45HC":"$3,800","40NOR":"$3,750"}}, margin:210, marginPct:6, status:"won", time:"18/04", carrier:"ONE" },
+];
+
+function renderQuotes(filter) {
+  const list = document.getElementById('quoteList');
+  list.innerHTML = '';
+  const filtered = filter === 'all' ? quotes : quotes.slice(0, 8);
+  filtered.forEach(q => {
+    const isHot = q.margin > 200;
+    const card = document.createElement('div');
+    card.className = `quote-card ${q.status === 'won' && isHot ? 'hot' : q.status === 'won' ? 'won' : ''}`;
+    card.onclick = () => openModal(q);
+    const contHtml = Object.entries(q.containers.prices).map(([k,v]) => {
+      const sel = k === q.containers.selected ? 'selected' : (k === '45HC' || k === '40NOR') ? 'highlight' : '';
+      return `<div class="qc-cont ${sel}"><div class="cont-name">${k}</div><div class="cont-price">${v}</div></div>`;
+    }).join('');
+    const marginClass = q.margin < 0 ? 'negative' : '';
+    const statusTag = q.status === 'won' ? '<span class="qc-tag won">WIN</span>' : q.status === 'lost' ? '<span class="qc-tag lost">LOST</span>' : '';
+    card.innerHTML = `
+      <div class="qc-header">
+        <div class="qc-customer">
+          ${q.star ? '<span class="star">🌟</span>' : ''}
+          <div>
+            <div class="name">${q.customer}</div>
+            <div class="route">${q.route}</div>
+          </div>
+        </div>
+        <div class="qc-meta">${statusTag}<span class="qc-tag today">${q.time}</span></div>
+      </div>
+      <div class="qc-body"><div class="qc-containers">${contHtml}</div></div>
+      <div class="qc-footer">
+        <span>Margin <span class="qc-margin ${marginClass}">$${Math.abs(q.margin)} (${q.marginPct}%)</span></span>
+        <span>${q.carrier}</span>
+      </div>`;
+    list.appendChild(card);
+  });
+}
+
+function openModal(q) {
+  const overlay = document.getElementById('modalOverlay');
+  const grid = document.getElementById('modalGrid');
+  document.getElementById('modalTitle').textContent = '🌟 ' + q.customer;
+  grid.innerHTML = `
+    <div class="modal-field"><label>Tuyến đường</label><span>${q.route}</span></div>
+    <div class="modal-field"><label>Trạng thái</label><span>${q.status.toUpperCase()}</span></div>
+    <div class="modal-field"><label>Container</label><span>${q.containers.selected}</span></div>
+    <div class="modal-field"><label>Giá chọn</label><span>${q.containers.prices[q.containers.selected]}</span></div>
+    <div class="modal-field"><label>Margin</label><span class="qc-margin ${q.margin<0?'negative':''}">$${Math.abs(q.margin)} (${q.marginPct}%)</span></div>
+    <div class="modal-field"><label>Thời gian</label><span>${q.time}</span></div>`;
+  overlay.classList.add('open');
+}
+
+function closeModal(e) {
+  if (e && e.target !== e.currentTarget) return;
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+// Calendar heatmap
+(function buildCal() {
+  const grid = document.getElementById('calGrid');
+  const data = [
+    {d:0,w:'win'},{d:1,w:'win'},{d:2,w:'neutral'},{d:3,w:'lost'},{d:4,w:'win'},{d:5,w:null},{d:6,w:null},
+    {d:7,w:'win'},{d:8,w:'win'},{d:9,w:'lost'},{d:10,w:'win'},{d:11,w:'win'},{d:12,w:null},{d:13,w:'lost'},
+    {d:14,w:'win'},{d:15,w:'neutral'},{d:16,w:'win'},{d:17,w:'win'},{d:18,w:'lost'},{d:19,w:null},{d:20,w:null},
+    {d:21,w:'win'},{d:22,w:'win'},{d:23,w:'win'},{d:24,w:'neutral'},{d:25,w:'lost'},{d:26,w:'win'},{d:27,w:null},
+  ];
+  const days = ['T2','T3','T4','T5','T6','T7','CN'];
+  days.forEach(d => { const el = document.createElement('div'); el.style.fontSize='9px'; el.style.textAlign='center'; el.style.color='var(--text-muted)'; el.textContent=d; grid.appendChild(el); });
+  data.forEach(item => {
+    const cell = document.createElement('div');
+    cell.className = 'cal-cell ' + (item.w || 'empty');
+    cell.title = item.w || 'Không có';
+    grid.appendChild(cell);
+  });
+})();
+
+// Treemap
+(function buildTreemap() {
+  const map = document.getElementById('treemap');
+  const cells = [
+    {name:'GOWIN',count:'8 quotes',color:'#1e3a5f'},
+    {name:'LOTUS',count:'3 quotes',color:'#2d5a8a'},
+    {name:'GLOBAL',count:'2 quotes',color:'#10b981'},
+    {name:'KING',count:'2 quotes',color:'#059669'},
+    {name:'VINH',count:'1 quote',color:'#f59e0b'},
+    {name:'GREEN',count:'1 quote',color:'#d97706'},
+  ];
+  cells.forEach(c => {
+    const el = document.createElement('div');
+    el.className = 'tm-cell';
+    el.style.backgroundColor = c.color;
+    el.innerHTML = `<div class="tm-name">${c.name}</div><div class="tm-count">${c.count}</div>`;
+    map.appendChild(el);
+  });
+})();
+
+renderQuotes('all');
+</script>
+</body>
+</html>

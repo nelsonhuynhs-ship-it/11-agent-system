@@ -1,0 +1,33 @@
+# CNEE Memory · lorena.elman@nygard.com
+
+**First seen:** 2026-04-22 14:10 UTC  
+**Last updated:** 2026-04-22 14:11 UTC
+
+## Timeline
+
+
+<!-- cnee_event:0000000077901FAA4564914E9715E61FCBF8CCD707002B347C57E4843B43837707706049DB6500000000010C00002B347C57E4843B43837707706049DB650002CB02CDD00000:BOUNCED -->
+### 2026-04-22 14:10 UTC · BOUNCED ⚠
+
+```json
+{
+  "severity": "HARD"
+}
+```
+
+> Email bounced (HARD). Subject: Undeliverable: Ocean Freight Update — HPH to West Coast | Week 17 | NELSON
+
+---
+
+<!-- cnee_event:0000000077901FAA4564914E9715E61FCBF8CCD707002B347C57E4843B43837707706049DB6500000000010C00002B347C57E4843B43837707706049DB650002CB02CDD10000:BOUNCED -->
+### 2026-04-22 14:11 UTC · BOUNCED ⚠
+
+```json
+{
+  "severity": "HARD"
+}
+```
+
+> Email bounced (HARD). Subject: Undeliverable: Ocean Freight Update — HPH to West Coast | Week 17 | NELSON
+
+---

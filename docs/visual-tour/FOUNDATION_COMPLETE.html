@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎉 Foundation Complete — Nelson Rules-of-the-House</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Helvetica Neue", system-ui, sans-serif;
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #14532d 100%);
+    color: #1a2332;
+    min-height: 100vh;
+    padding: 32px 16px;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+
+  header {
+    background: white;
+    border-radius: 20px;
+    padding: 48px 40px;
+    margin-bottom: 28px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+    text-align: center;
+  }
+  header .emoji { font-size: 64px; }
+  header h1 { font-size: 32px; font-weight: 800; color: #0f172a; margin: 12px 0 8px; }
+  header .sub { font-size: 16px; color: #64748b; margin-bottom: 24px; }
+  header .stats { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  header .stat {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    color: white;
+    padding: 14px 24px;
+    border-radius: 12px;
+    min-width: 140px;
+  }
+  header .stat .num { font-size: 28px; font-weight: 800; line-height: 1; }
+  header .stat .label { font-size: 12px; opacity: 0.95; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+  header .stat.warn { background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%); }
+
+  .card {
+    background: white;
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  }
+  .card h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #e2e8f0;
+  }
+
+  .domain-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .domain-card {
+    border-radius: 12px;
+    padding: 20px;
+    border-left: 4px solid;
+  }
+  .domain-card.green { background: #f0fdf4; border-color: #22c55e; }
+  .domain-card.warn { background: #fefce8; border-color: #eab308; }
+  .domain-card h3 { font-size: 17px; font-weight: 700; margin-bottom: 12px; }
+  .domain-card .stats { font-size: 13px; color: #475569; margin-bottom: 10px; }
+  .domain-card ul { list-style: none; padding: 0; }
+  .domain-card li {
+    padding: 6px 0;
+    font-size: 13px;
+    color: #1e293b;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .domain-card li::before { content: "✓"; color: #22c55e; font-weight: bold; flex-shrink: 0; }
+  .domain-card.warn li::before { content: "⚠"; color: #eab308; }
+
+  .issue-card {
+    background: #fef2f2;
+    border-left: 4px solid #ef4444;
+    padding: 20px;
+    border-radius: 12px;
+    margin-top: 16px;
+  }
+  .issue-card h3 { color: #991b1b; margin-bottom: 8px; }
+  .issue-card p { font-size: 14px; color: #7f1d1d; }
+
+  .next-step {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    border-left: 4px solid #2563eb;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 14px;
+  }
+  .next-step h3 { color: #1e3a8a; font-size: 16px; margin-bottom: 6px; }
+  .next-step p { color: #1e293b; font-size: 14px; }
+  .next-step code { background: #1e293b; color: #fbbf24; padding: 2px 8px; border-radius: 4px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+
+  .files-list {
+    background: #1e293b;
+    color: #e2e8f0;
+    padding: 20px;
+    border-radius: 12px;
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    overflow-x: auto;
+  }
+  .files-list .comment { color: #94a3b8; font-style: italic; }
+  .files-list .check { color: #22c55e; }
+
+  footer {
+    text-align: center;
+    color: rgba(255,255,255,0.7);
+    font-size: 13px;
+    padding: 20px 0;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="emoji">🎉</div>
+    <h1>Foundation Complete</h1>
+    <div class="sub">Nelson Rules-of-the-House — đã được Anh confirm và lưu vào hệ thống</div>
+    <div class="stats">
+      <div class="stat"><div class="num">19</div><div class="label">Rules approved</div></div>
+      <div class="stat warn"><div class="num">1</div><div class="label">Cần edit</div></div>
+      <div class="stat"><div class="num">4</div><div class="label">Domains</div></div>
+      <div class="stat"><div class="num">10'</div><div class="label">Anh review</div></div>
+    </div>
+  </header>
+
+  <div class="card">
+    <h2>📋 Đã approve theo domain</h2>
+    <div class="domain-grid">
+
+      <div class="domain-card green">
+        <h3>📊 DATA (5/5)</h3>
+        <div class="stats">Parquet rate, normalize, validator</div>
+        <ul>
+          <li>Total Ocean Freight = giá báo khách</li>
+          <li>POD format LAX/LGB (slash)</li>
+          <li>Container 40HQ → 40HC</li>
+          <li>master_loader_v2.py = importer chuẩn</li>
+          <li>Filter 30 ngày — không lấy rate cũ</li>
+        </ul>
+      </div>
+
+      <div class="domain-card green">
+        <h3>📋 ERP (5/5)</h3>
+        <div class="stats">Excel + VBA workflow</div>
+        <ul>
+          <li>Workflow: Search → Pick → Margin → Quote → WIN</li>
+          <li>Mix Quote: blend FIX + FAK</li>
+          <li>Refresh All: parquet → Excel sheets</li>
+          <li>Active Jobs: theo dõi shipments</li>
+          <li>Hidden cols: Contract / Group Rate / Group Code</li>
+        </ul>
+      </div>
+
+      <div class="domain-card warn">
+        <h3>📧 EMAIL (4/5 + 1 edit)</h3>
+        <div class="stats">Rate &amp; Send pipeline</div>
+        <ul>
+          <li>Rate Table v2: HPH+HCM dual, YOUR LANE</li>
+          <li>Quota: 420/day, 60/campaign, cooldown 14d</li>
+          <li>Bounce: HARD / SOFT / POLICY</li>
+          <li>CNEE master v7: 22,854 contacts</li>
+        </ul>
+      </div>
+
+      <div class="domain-card green">
+        <h3>💻 CODE (5/5)</h3>
+        <div class="stats">Convention + multi-machine</div>
+        <ul>
+          <li>shared/paths.py = SOT cho mọi path</li>
+          <li>Multi-machine: PC / Laptop / VPS</li>
+          <li>Skill orchestration: 11-agent workflow v2</li>
+          <li>System Standards validator</li>
+          <li>Stale detection: file mtime vs server start</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <div class="issue-card">
+      <h3>🔴 KNOWN ISSUE — anh đã đánh dấu cần edit</h3>
+      <p><strong>M5: Smart Send — preview OK, send FAIL.</strong> Anh đang fix dở. Khi nào fix xong, em sẽ update DOMAIN-EMAIL.md remove flag này.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📁 Files đã sinh — foundation hoàn chỉnh</h2>
+    <div class="files-list">
+docs/contracts/<br>
+├── DOMAIN-DATA.md      <span class="check">✓ 5 rules approved</span><br>
+├── DOMAIN-ERP.md       <span class="check">✓ 5 rules approved</span><br>
+├── DOMAIN-EMAIL.md     <span class="check">✓ 4 approved + 1 known issue</span><br>
+└── DOMAIN-CODE.md      <span class="check">✓ 5 rules approved</span><br>
+<br>
+docs/visual-tour/<br>
+├── erp-ribbon-pricing.html        <span class="comment"># 38 button hotspots</span><br>
+├── erp-ribbon-operations.html     <span class="comment"># 19 button hotspots</span><br>
+├── OWNER_REVIEW.html              <span class="check">✓ Done — 19/20 approved</span><br>
+└── FOUNDATION_COMPLETE.html       <span class="comment"># Trang này</span><br>
+<br>
+plans/260425-visual-tour-domain-model/reports/<br>
+├── RULES_CANDIDATES.json          <span class="comment"># 187 raw rules</span><br>
+└── OWNER_APPROVED.json            <span class="check">✓ Anh's decision</span><br>
+<br>
+scripts/<br>
+├── normalize_parquet.py           <span class="check">✓ POD/Container fix</span><br>
+└── validate_contracts.py          <span class="check">✓ Drift prevention</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🚀 Next Steps — Anh có 3 lựa chọn</h2>
+
+    <div class="next-step">
+      <h3>1️⃣ Fix Smart Send bug (anh đang dở)</h3>
+      <p>Bug "Smart Send: preview OK, send FAIL". Khi rảnh, anh nói em <code>fix smart send bug</code> → em delegate M2.7 debug + fix. ETA ~30 phút.</p>
+    </div>
+
+    <div class="next-step">
+      <h3>2️⃣ Apply foundation cho feature mới</h3>
+      <p>Khi build feature thứ 6+, em sẽ tự đọc 4 DOMAIN-*.md trước → KHÔNG vi phạm rules anh đã set. Anh không phải nhắc lại.</p>
+    </div>
+
+    <div class="next-step">
+      <h3>3️⃣ Continue Life OS Phase 2</h3>
+      <p>Foundation đã chắc → an toàn build Phase 2 Life OS (auto-import 5K customers từ cnee_master.xlsx). Anh nói <code>continue life os phase 2</code> khi sẵn sàng.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🛡️ Khi anh build feature mới — em làm gì khác?</h2>
+    <ol style="padding-left: 24px; line-height: 2; color: #1e293b; font-size: 14px;">
+      <li><strong>Em đọc DOMAIN-*.md trước</strong> — biết rules trước khi code</li>
+      <li><strong>Em tham chiếu cụ thể</strong> — "Theo DOMAIN-DATA.md Rule 2: POD phải LAX/LGB..."</li>
+      <li><strong>Validator chạy auto</strong> — pre-commit hook chặn drift</li>
+      <li><strong>Khi anh thay đổi rule</strong> — em update DOMAIN-*.md, validator tự update</li>
+    </ol>
+  </div>
+
+  <footer>
+    Generated 2026-04-25 • Phase 7+8 done by MiniMax M2.7 • Approved by Nelson Huynh<br>
+    🎉 Foundation hoàn chỉnh sau ~10 giờ work (M2.7 background) + 10 phút review
+  </footer>
+
+</div>
+</body>
+</html>

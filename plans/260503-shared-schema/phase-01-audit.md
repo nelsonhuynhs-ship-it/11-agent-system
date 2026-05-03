@@ -1,7 +1,7 @@
 ---
 phase: 1
 title: "Schema Audit — Inventory all schema definitions"
-status: pending
+status: completed
 priority: P1
 effort: "1h"
 dependencies: []

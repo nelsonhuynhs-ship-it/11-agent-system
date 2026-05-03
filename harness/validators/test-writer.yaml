@@ -1,0 +1,44 @@
+# Validator: test-writer phase
+phase: "test-writer"
+timeout: 300
+
+criteria:
+  output_exists:
+    type: "file"
+    path: "plans/reports/test-writer-report.md"
+    required: true
+  output_not_empty:
+    type: "size_min"
+    value: 200
+  has_test_files:
+    type: "bool"
+    description: "Should list test files created"
+  tests_pass:
+    type: "bool"
+    description: "Tests should pass (exit code 0)"
+
+pass_conditions:
+  - output_exists
+  - output_not_empty
+  - tests_pass
+
+fail_actions:
+  - retry: 3
+  - notify: "test-writer failed - tests not passing"
+  - block_proceed: true
+
+report_template: |
+  ## Test Writer Report
+
+  **Phase:** test-writer
+  **Status:** {{status}}
+  **Duration:** {{duration}}s
+
+  ### Test Files
+  {{test_files}}
+
+  ### Test Results
+  {{test_results}}
+
+  ### Next Action
+  {{next_phase}}

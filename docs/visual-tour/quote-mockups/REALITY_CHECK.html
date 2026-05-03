@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>⚠️ Reality Check — Excel native vs Web hybrid</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; background: linear-gradient(135deg, #1e3a5f 0%, #14532d 100%); padding: 24px 16px; min-height: 100vh; color: #1a2332; }
+  .container { max-width: 1200px; margin: 0 auto; }
+  header { background: white; border-radius: 18px; padding: 32px; margin-bottom: 20px; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+  header h1 { font-size: 28px; font-weight: 800; color: #0f172a; margin-bottom: 8px; }
+  header .warn { background: #fef3c7; color: #78350f; padding: 14px 20px; border-radius: 12px; margin-top: 14px; font-weight: 600; font-size: 15px; }
+  .card { background: white; border-radius: 16px; padding: 26px; margin-bottom: 18px; box-shadow: 0 4px 14px rgba(0,0,0,0.1); }
+  .card h2 { font-size: 22px; font-weight: 800; margin-bottom: 14px; color: #0f172a; padding-bottom: 10px; border-bottom: 2px solid #e2e8f0; }
+
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+  @media (max-width: 800px) { .compare-grid { grid-template-columns: 1fr; } }
+
+  .col {
+    border-radius: 12px;
+    padding: 20px;
+    border: 2px solid;
+  }
+  .col.bad { background: #fef2f2; border-color: #ef4444; }
+  .col.ok { background: #fefce8; border-color: #eab308; }
+  .col.good { background: #f0fdf4; border-color: #22c55e; }
+  .col h3 { font-size: 17px; margin-bottom: 12px; }
+  .col h3 small { font-weight: normal; opacity: 0.7; font-size: 12px; }
+  .col ul { list-style: none; padding: 0; margin-bottom: 12px; }
+  .col li { padding: 6px 0; font-size: 13px; line-height: 1.5; display: flex; gap: 6px; align-items: flex-start; }
+  .col.bad li::before { content: "✗"; color: #dc2626; font-weight: bold; }
+  .col.ok li::before { content: "△"; color: #ca8a04; font-weight: bold; }
+  .col.good li::before { content: "✓"; color: #16a34a; font-weight: bold; }
+  .col .verdict { font-weight: 700; padding: 8px 12px; border-radius: 8px; text-align: center; }
+  .col.bad .verdict { background: #fee2e2; color: #991b1b; }
+  .col.ok .verdict { background: #fef3c7; color: #78350f; }
+  .col.good .verdict { background: #d1fae5; color: #065f46; }
+
+  .flow-diagram { background: #1e293b; color: #e2e8f0; border-radius: 12px; padding: 24px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; line-height: 1.8; margin: 16px 0; }
+  .flow-diagram .arrow { color: #94a3b8; }
+  .flow-diagram .highlight { color: #fbbf24; }
+  .flow-diagram .green { color: #4ade80; }
+
+  .mockup-frame {
+    background: #f8fafc;
+    border: 2px solid #cbd5e0;
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 14px;
+  }
+  .mockup-frame h4 { font-size: 14px; color: #475569; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .mockup-frame .ugly { background: #d4d4d4; padding: 16px; border: 2px outset #999; font-family: 'MS Sans Serif', system-ui; font-size: 12px; color: #000; }
+  .mockup-frame .nice { background: white; border-radius: 10px; padding: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  .mockup-frame .nice .stat { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
+  .mockup-frame .nice .stat:last-child { border: none; }
+  .mockup-frame .nice .green { color: #16a34a; font-weight: 700; }
+
+  .recommendation { background: linear-gradient(135deg, #d1fae5, #a7f3d0); border-radius: 16px; padding: 28px; box-shadow: 0 4px 14px rgba(0,0,0,0.1); }
+  .recommendation h2 { color: #064e3b; }
+  .recommendation .big { font-size: 18px; font-weight: 700; color: #065f46; margin: 12px 0; }
+
+  footer { background: rgba(255,255,255,0.1); color: white; border-radius: 12px; padding: 20px; text-align: center; margin-top: 20px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>⚠️ Reality Check — Excel native có đủ value không?</h1>
+    <p>Anh đã chốt Combo A. Trước khi build, em phải honest về Excel limitations.</p>
+    <div class="warn">🤔 Anh đúng skeptical: v1/v2/v3 đều fail. Em phải verify v4 có thực sự đẹp + work trước khi build.</div>
+  </header>
+
+  <div class="card">
+    <h2>🔍 3 Approaches build Combo A — em so sánh thật</h2>
+
+    <div class="compare-grid">
+
+      <div class="col bad">
+        <h3>A. Pure Excel VBA<br><small>(plan ban đầu)</small></h3>
+        <ul>
+          <li>VBA code trong Excel</li>
+          <li>UserForm popup — visual ugly Win95</li>
+          <li>Chart trong UserForm phức tạp, render xấu</li>
+          <li>Latency 5-30s per click (query 6.6M parquet rows từ VBA)</li>
+          <li>VBA không có pandas/duckdb → phải Shell call Python</li>
+          <li>Maintenance nightmare khi schema change</li>
+        </ul>
+        <div class="verdict">❌ KHÔNG nên — anh sẽ thất vọng v4</div>
+      </div>
+
+      <div class="col ok">
+        <h3>B. Excel + Helper sheets<br><small>(half-working)</small></h3>
+        <ul>
+          <li>Pre-compute data vào sheet ẩn (refresh-v14.py update)</li>
+          <li>VBA query helper sheet (fast)</li>
+          <li>UserForm popup vẫn ugly</li>
+          <li>Charts limited to Excel native</li>
+          <li>Data stale nếu refresh không trigger</li>
+        </ul>
+        <div class="verdict">⚠️ OK nhưng visual vẫn xấu</div>
+      </div>
+
+      <div class="col good">
+        <h3>C. Excel button → Web modal<br><small>(em recommend)</small></h3>
+        <ul>
+          <li>Click button trong Excel</li>
+          <li>VBA open browser tới localhost:8100/quote/...</li>
+          <li>Browser render rich modal — đẹp như HTML mockups anh đã xem</li>
+          <li>Latency &lt;1s (FastAPI ready)</li>
+          <li>Charts đẹp (Chart.js / Apex)</li>
+          <li>Reuse 62 endpoints email_engine sẵn có</li>
+        </ul>
+        <div class="verdict">✅ Best UX + dễ maintain</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🎨 Visual comparison — UserForm vs Web modal</h2>
+    <div class="compare-grid" style="grid-template-columns: 1fr 1fr;">
+
+      <div>
+        <h4 style="margin-bottom:10px;color:#dc2626;">❌ Excel UserForm (Approach A/B)</h4>
+        <div class="mockup-frame">
+          <div class="ugly">
+            <div style="background:#ddd;padding:8px;font-weight:bold;border-bottom:1px solid #999;">⚡ So giá - Compare</div>
+            <div style="padding:12px 0;font-family:'Courier New';">
+              HCM-LAX/LGB ONE 40HC<br>
+              Today:    $2300<br>
+              7d ago:   $2400 (-4%)<br>
+              30d ago:  $2500 (-8%)<br>
+              <br>
+              [List: D D D D D D D]<br>
+              [chart placeholder ugly]
+            </div>
+            <button style="background:#ddd;border:2px outset #999;">OK</button>
+          </div>
+          <p style="font-size:12px;color:#64748b;margin-top:8px;">Gray Win95 retro look. Charts khó render đẹp.</p>
+        </div>
+      </div>
+
+      <div>
+        <h4 style="margin-bottom:10px;color:#16a34a;">✅ Web modal (Approach C)</h4>
+        <div class="mockup-frame">
+          <div class="nice">
+            <h3 style="font-size:15px;margin-bottom:8px;color:#0f172a;">⚡ HCM → LAX/LGB · ONE · 40HC</h3>
+            <div class="stat"><span>Hôm nay</span><strong>$2,300</strong></div>
+            <div class="stat"><span>7 ngày trước</span><span class="green">$2,400 ▼ 4%</span></div>
+            <div class="stat"><span>30 ngày trước</span><span class="green">$2,500 ▼ 8%</span></div>
+            <div style="margin-top:14px;padding:12px;background:#eff6ff;border-radius:8px;color:#1e40af;font-size:13px;">
+              💡 Trend ▼ Decreasing 8% trong 30 ngày
+            </div>
+            <div style="margin-top:14px;height:60px;background:linear-gradient(to right, #dbeafe, white);border-radius:6px;display:flex;align-items:center;justify-content:center;color:#3b82f6;font-size:11px;">
+              [Chart.js animated line chart 30d]
+            </div>
+          </div>
+          <p style="font-size:12px;color:#64748b;margin-top:8px;">Modern UI, charts đẹp, fast, professional.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🛠️ Approach C flow (em recommend)</h2>
+    <div class="flow-diagram">
+1. Anh click button "⚡ So giá" trong Excel row<br>
+   <span class="arrow">↓</span><br>
+2. VBA: <span class="highlight">Shell "start http://localhost:8100/quote/compare?row=7"</span><br>
+   <span class="arrow">↓</span><br>
+3. Browser opens (Chrome/Edge tab mới)<br>
+   <span class="arrow">↓</span><br>
+4. FastAPI <span class="highlight">/quote/compare</span> endpoint:<br>
+   • Read row data từ Excel (cached / passed in URL)<br>
+   • Query parquet via DuckDB (đã có FreightDB)<br>
+   • Render Chart.js + table<br>
+   <span class="arrow">↓</span><br>
+5. Anh xem modal đẹp, fast (&lt;1s), close tab khi xong<br>
+   <span class="green">→ Quay lại Excel work tiếp</span>
+    </div>
+    <div style="background:#fef3c7;padding:14px;border-radius:10px;margin-top:14px;font-size:14px;color:#78350f;">
+      <strong>Why approach C reuse infra sẵn có:</strong> email_engine đã có FastAPI 62 endpoints + DuckDB engine + parquet cleaned + Chart capability. Em chỉ ADD 4 endpoint mới cho 4 buttons. KHÔNG xây từ zero.
+    </div>
+  </div>
+
+  <div class="card recommendation">
+    <h2>🎯 Em recommend</h2>
+    <p>Build approach <strong>C — Excel button → Web modal</strong>. Lý do:</p>
+    <ul style="margin: 12px 0 12px 20px; line-height: 1.8;">
+      <li><strong>Visual:</strong> Web modal đẹp hơn UserForm 10x. Anh đã thấy HTML mockups rồi → web modal sẽ đẹp y vậy.</li>
+      <li><strong>Speed:</strong> &lt;1 giây vs 5-30s VBA Shell call.</li>
+      <li><strong>Reuse:</strong> email_engine FastAPI + DuckDB + parquet đã sẵn sàng.</li>
+      <li><strong>Maintain:</strong> Update endpoint Python easier hơn VBA.</li>
+      <li><strong>Future-proof:</strong> Khi anh build webapp Next.js — endpoints reusable.</li>
+    </ul>
+    <div class="big">⏱️ Effort: ~3-4h M2.7 (4 endpoints + browser-launch VBA macros)</div>
+    <p>Vs Approach A (~6h xây từ zero, kết quả ugly + chậm).</p>
+  </div>
+
+  <div class="card">
+    <h2>⚠️ Tradeoff anh cần biết</h2>
+    <table style="width:100%;border-collapse:collapse;">
+      <tr style="background:#f1f5f9;"><th style="padding:10px;text-align:left;">Aspect</th><th style="padding:10px;text-align:left;">Approach A (Pure VBA)</th><th style="padding:10px;text-align:left;">Approach C (Web modal)</th></tr>
+      <tr><td style="padding:10px;border-top:1px solid #e2e8f0;">Visual</td><td style="padding:10px;border-top:1px solid #e2e8f0;color:#dc2626;">Win95 ugly</td><td style="padding:10px;border-top:1px solid #e2e8f0;color:#16a34a;">Modern web</td></tr>
+      <tr><td style="padding:10px;border-top:1px solid #e2e8f0;">Speed</td><td style="padding:10px;border-top:1px solid #e2e8f0;color:#dc2626;">5-30s</td><td style="padding:10px;border-top:1px solid #e2e8f0;color:#16a34a;">&lt;1s</td></tr>
+      <tr><td style="padding:10px;border-top:1px solid #e2e8f0;">Workflow</td><td style="padding:10px;border-top:1px solid #e2e8f0;color:#16a34a;">Stay trong Excel</td><td style="padding:10px;border-top:1px solid #e2e8f0;color:#ca8a04;">Switch tab Excel ↔ browser</td></tr>
+      <tr><td style="padding:10px;border-top:1px solid #e2e8f0;">Build effort</td><td style="padding:10px;border-top:1px solid #e2e8f0;color:#dc2626;">6h, complex VBA</td><td style="padding:10px;border-top:1px solid #e2e8f0;color:#16a34a;">3-4h, reuse FastAPI</td></tr>
+      <tr><td style="padding:10px;border-top:1px solid #e2e8f0;">Maintenance</td><td style="padding:10px;border-top:1px solid #e2e8f0;color:#dc2626;">Hard (VBA + Python shell)</td><td style="padding:10px;border-top:1px solid #e2e8f0;color:#16a34a;">Easy (Python only)</td></tr>
+      <tr><td style="padding:10px;border-top:1px solid #e2e8f0;">Email Dashboard cần chạy?</td><td style="padding:10px;border-top:1px solid #e2e8f0;color:#16a34a;">Không</td><td style="padding:10px;border-top:1px solid #e2e8f0;color:#ca8a04;">Có (localhost:8100 — anh đã chạy daily)</td></tr>
+    </table>
+  </div>
+
+  <footer>
+    💬 Anh chọn:<br>
+    🟢 <strong>Approach C — Web modal</strong> (em recommend, đẹp + fast)<br>
+    🟡 <strong>Approach A — Pure Excel</strong> (giữ Excel native nhưng visual xấu)<br>
+    🔴 <strong>Skip — không build buttons</strong> (ribbon đã đủ)
+  </footer>
+
+</div>
+</body>
+</html>

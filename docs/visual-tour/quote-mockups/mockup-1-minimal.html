@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quote Sheet — MINIMAL</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #ffffff;
+    --text: #334155;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --accent: #2563eb;
+    --win-bg: #dcfce7; --win-color: #166534;
+    --lost-bg: #f1f5f9; --lost-color: #475569;
+    --pending-bg: #fef3c7; --pending-color: #92400e;
+    --expired-bg: #fee2e2; --expired-color: #991b1b;
+    --hover-bg: #f8fafc;
+    --font: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  html, body { font-family: var(--font); font-size: 14px; line-height: 1.6; background: var(--bg); color: var(--text); }
+
+  /* ── Header ── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 32px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .header h1 { font-size: 18px; font-weight: 600; color: var(--text); }
+  .header-meta { font-size: 12px; color: var(--muted); }
+
+  /* ── Stats bar ── */
+  .stats-bar {
+    display: flex;
+    gap: 24px;
+    padding: 12px 32px;
+    background: #f8fafc;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .stat { display: flex; gap: 6px; }
+  .stat-label { color: var(--muted); }
+  .stat-value { font-weight: 600; color: var(--text); }
+  .stat-value.highlight { color: var(--accent); }
+
+  /* ── Toolbar ── */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 32px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .chip {
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.15s;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    text-align: left;
+    padding: 10px 16px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+  }
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+    cursor: pointer;
+  }
+  tbody tr:hover { background: var(--hover-bg); }
+
+  /* ── Row cells ── */
+  td { padding: 14px 16px; vertical-align: middle; }
+  td.customer { font-weight: 600; }
+  td.route { color: var(--muted); font-size: 13px; }
+  td.container { font-size: 12px; color: var(--muted); }
+  td.sell { font-size: 16px; font-weight: 700; }
+  td.margin { font-size: 12px; color: var(--muted); }
+  td.date { font-size: 12px; color: var(--muted); }
+
+  /* ── Status badge ── */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .badge.win { background: var(--win-bg); color: var(--win-color); }
+  .badge.lost { background: var(--lost-bg); color: var(--lost-color); }
+  .badge.pending { background: var(--pending-bg); color: var(--pending-color); }
+  .badge.expired { background: var(--expired-bg); color: var(--expired-color); }
+
+  /* ── Hover detail (hidden by default) ── */
+  .hover-detail {
+    display: none;
+    padding: 10px 16px;
+    font-size: 12px;
+    color: var(--muted);
+    border-top: 1px dashed var(--border);
+    background: #f1f5f9;
+    line-height: 1.8;
+  }
+  tr:hover .hover-detail { display: table-row; }
+  .hover-detail td { padding: 8px 16px; }
+  .detail-label { font-weight: 600; color: var(--text); width: 90px; display: inline-block; }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--bg);
+    border-radius: 12px;
+    max-width: 560px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 24px 24px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-header h2 { font-size: 16px; font-weight: 600; }
+  .modal-header .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .modal-close {
+    width: 32px; height: 32px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: none;
+    cursor: pointer;
+    font-size: 16px;
+    color: var(--muted);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal-close:hover { background: var(--hover-bg); }
+  .modal-body { padding: 20px 24px 24px; }
+  .modal-section { margin-bottom: 20px; }
+  .modal-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .modal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 24px;
+  }
+  .modal-field { font-size: 13px; }
+  .modal-field .label { color: var(--muted); font-size: 11px; margin-bottom: 1px; }
+  .modal-field .value { font-weight: 600; }
+  .modal-field .value.large { font-size: 20px; font-weight: 700; color: var(--accent); }
+  .modal-prices {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .price-box {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+  .price-box .type { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+  .price-box .amount { font-size: 15px; font-weight: 700; }
+
+  @media (max-width: 640px) {
+    .header, .stats-bar, .toolbar { padding-left: 16px; padding-right: 16px; }
+    td { padding: 10px 12px; }
+    .modal-grid { grid-template-columns: 1fr; }
+    .modal-prices { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div>
+    <h1>Quote Sheet</h1>
+    <div class="header-meta">Nelson Freight · Today, 25 Apr 2026</div>
+  </div>
+</div>
+
+<!-- Stats bar -->
+<div class="stats-bar">
+  <div class="stat"><span class="stat-label">Today's quotes:</span><span class="stat-value highlight">12</span></div>
+  <div class="stat"><span class="stat-label">Margin:</span><span class="stat-value">$4,200</span></div>
+  <div class="stat"><span class="stat-label">WIN today:</span><span class="stat-value">3</span></div>
+  <div class="stat"><span class="stat-label">PENDING:</span><span class="stat-value">5</span></div>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <button class="chip active" onclick="filterAll(this)">All</button>
+  <button class="chip" onclick="filterWin(this)">WIN</button>
+  <button class="chip" onclick="filterWeek(this)">This week</button>
+  <button class="chip" onclick="filterVIP(this)">VIP</button>
+</div>
+
+<!-- Table -->
+<div class="table-wrap">
+<table>
+<thead>
+  <tr>
+    <th>Customer</th>
+    <th>Carrier</th>
+    <th>Route</th>
+    <th>Type</th>
+    <th>Sell</th>
+    <th>Status</th>
+    <th>Margin</th>
+    <th>Date</th>
+  </tr>
+</thead>
+<tbody id="quoteTable">
+
+  <!-- Row 1 -->
+  <tr onclick="openModal(0)">
+    <td class="customer">GOWIN USA</td>
+    <td>ONE</td>
+    <td class="route">HCM → LAX</td>
+    <td class="container">40HC</td>
+    <td class="sell">$2,450</td>
+    <td><span class="badge win">WIN</span></td>
+    <td class="margin">$180</td>
+    <td class="date">Today</td>
+  </tr>
+  <tr class="hover-detail"><td colspan="8"><span class="detail-label">Contract:</span> C2026042501 · <span class="detail-label">Group:</span> 990146</td></tr>
+
+  <!-- Row 2 -->
+  <tr onclick="openModal(1)">
+    <td class="customer">ALENE GIFTS</td>
+    <td>HPL</td>
+    <td class="route">HPH → USNYC</td>
+    <td class="container">40GP</td>
+    <td class="sell">$3,100</td>
+    <td><span class="badge pending">PENDING</span></td>
+    <td class="margin">$220</td>
+    <td class="date">Today</td>
+  </tr>
+  <tr class="hover-detail"><td colspan="8"><span class="detail-label">Contract:</span> — · <span class="detail-label">Group:</span> —</td></tr>
+
+  <!-- Row 3 -->
+  <tr onclick="openModal(2)">
+    <td class="customer">DOUSHENG VIETNAM</td>
+    <td>CMA</td>
+    <td class="route">HCM → LGB</td>
+    <td class="container">20GP</td>
+    <td class="sell">$1,850</td>
+    <td><span class="badge win">WIN</span></td>
+    <td class="margin">$95</td>
+    <td class="date">Yesterday</td>
+  </tr>
+  <tr class="hover-detail"><td colspan="8"><span class="detail-label">Contract:</span> C2026042402 · <span class="detail-label">Group:</span> 990117</td></tr>
+
+  <!-- Row 4 -->
+  <tr onclick="openModal(3)">
+    <td class="customer">HML TRADING</td>
+    <td>COSCO</td>
+    <td class="route">HPH → USLAX</td>
+    <td class="container">40HC</td>
+    <td class="sell">$2,200</td>
+    <td><span class="badge lost">LOST</span></td>
+    <td class="margin">$75</td>
+    <td class="date">Yesterday</td>
+  </tr>
+  <tr class="hover-detail"><td colspan="8"><span class="detail-label">Contract:</span> — · <span class="detail-label">Group:</span> —</td></tr>
+
+  <!-- Row 5 -->
+  <tr onclick="openModal(4)">
+    <td class="customer">VINAFORTS</td>
+    <td>ONE</td>
+    <td class="route">HCM → LAX</td>
+    <td class="container">45HC</td>
+    <td class="sell">$2,780</td>
+    <td><span class="badge pending">PENDING</span></td>
+    <td class="margin">$300</td>
+    <td class="date">2 days ago</td>
+  </tr>
+  <tr class="hover-detail"><td colspan="8"><span class="detail-label">Contract:</span> C2026042303 · <span class="detail-label">Group:</span> 990154</td></tr>
+
+  <!-- Row 6 -->
+  <tr onclick="openModal(5)">
+    <td class="customer">GOLDENWAY</td>
+    <td>HPL</td>
+    <td class="route">HCM → USNYC</td>
+    <td class="container">40NOR</td>
+    <td class="sell">$2,950</td>
+    <td><span class="badge pending">PENDING</span></td>
+    <td class="margin">$150</td>
+    <td class="date">3 days ago</td>
+  </tr>
+  <tr class="hover-detail"><td colspan="8"><span class="detail-label">Contract:</span> — · <span class="detail-label">Group:</span> —</td></tr>
+
+  <!-- Row 7 -->
+  <tr onclick="openModal(6)">
+    <td class="customer">SAKURA HOME</td>
+    <td>YML</td>
+    <td class="route">HPH → USLAX</td>
+    <td class="container">40HC</td>
+    <td class="sell">$2,350</td>
+    <td><span class="badge expired">EXPIRED</span></td>
+    <td class="margin">$120</td>
+    <td class="date">5 days ago</td>
+  </tr>
+  <tr class="hover-detail"><td colspan="8"><span class="detail-label">Contract:</span> — · <span class="detail-label">Group:</span> —</td></tr>
+
+  <!-- Row 8 -->
+  <tr onclick="openModal(7)">
+    <td class="customer">BAO MINH CORP</td>
+    <td>CMA</td>
+    <td class="route">HCM → LGB</td>
+    <td class="container">20GP</td>
+    <td class="sell">$1,720</td>
+    <td><span class="badge win">WIN</span></td>
+    <td class="margin">$85</td>
+    <td class="date">3 days ago</td>
+  </tr>
+  <tr class="hover-detail"><td colspan="8"><span class="detail-label">Contract:</span> C2026042201 · <span class="detail-label">Group:</span> 990104</td></tr>
+
+  <!-- Row 9 -->
+  <tr onclick="openModal(8)">
+    <td class="customer">PACIFIC STAR</td>
+    <td>COSCO</td>
+    <td class="route">HPH → USLAX</td>
+    <td class="container">40GP</td>
+    <td class="sell">$2,050</td>
+    <td><span class="badge lost">LOST</span></td>
+    <td class="margin">$60</td>
+    <td class="date">4 days ago</td>
+  </tr>
+  <tr class="hover-detail"><td colspan="8"><span class="detail-label">Contract:</span> — · <span class="detail-label">Group:</span> —</td></tr>
+
+  <!-- Row 10 -->
+  <tr onclick="openModal(9)">
+    <td class="customer">NGUYEN THAI CORP</td>
+    <td>ONE</td>
+    <td class="route">HCM → LAX</td>
+    <td class="container">40HC</td>
+    <td class="sell">$2,420</td>
+    <td><span class="badge pending">PENDING</span></td>
+    <td class="margin">$250</td>
+    <td class="date">This week</td>
+  </tr>
+  <tr class="hover-detail"><td colspan="8"><span class="detail-label">Contract:</span> C2026042104 · <span class="detail-label">Group:</span> 990302</td></tr>
+
+</tbody>
+</table>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+<div class="modal" onclick="event.stopPropagation()">
+  <div class="modal-header">
+    <div>
+      <h2 id="modalCustomer">GOWIN USA</h2>
+      <div class="sub" id="modalRoute">HCM → LAX · ONE · 40HC</div>
+    </div>
+    <button class="modal-close" onclick="closeModal()">×</button>
+  </div>
+  <div class="modal-body">
+    <div class="modal-section">
+      <div class="modal-section-title">Quote Breakdown</div>
+      <div class="modal-grid">
+        <div class="modal-field">
+          <div class="label">Customer</div>
+          <div class="value" id="mCustomer">GOWIN USA</div>
+        </div>
+        <div class="modal-field">
+          <div class="label">Carrier</div>
+          <div class="value" id="mCarrier">ONE</div>
+        </div>
+        <div class="modal-field">
+          <div class="label">Route</div>
+          <div class="value" id="mRoute">HCM → LAX</div>
+        </div>
+        <div class="modal-field">
+          <div class="label">Container</div>
+          <div class="value" id="mCont">40HC</div>
+        </div>
+        <div class="modal-field">
+          <div class="label">Contract</div>
+          <div class="value" id="mContract">C2026042501</div>
+        </div>
+        <div class="modal-field">
+          <div class="label">Group Code</div>
+          <div class="value" id="mGroup">990146</div>
+        </div>
+        <div class="modal-field">
+          <div class="label">Source</div>
+          <div class="value" id="mSource">FAK</div>
+        </div>
+        <div class="modal-field">
+          <div class="label">Valid</div>
+          <div class="value" id="mValid">Eff: 01-Apr · Exp: 30-Apr</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-title">Sell Price</div>
+      <div class="modal-field" style="margin-bottom:12px">
+        <div class="value large" id="mSell">$2,450</div>
+      </div>
+      <div class="modal-prices">
+        <div class="price-box">
+          <div class="type">Buy</div>
+          <div class="amount" id="mBuy">$2,270</div>
+        </div>
+        <div class="price-box">
+          <div class="type">Margin</div>
+          <div class="amount" id="mMargin">$180</div>
+        </div>
+        <div class="price-box">
+          <div class="type">Sell</div>
+          <div class="amount" id="mSell2">$2,450</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-title">Notes</div>
+      <div style="font-size:13px;color:var(--muted)" id="mNotes">
+        FAK rate · SOC included · Quote valid 7 days
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+const quotes = [
+  {customer:"GOWIN USA", carrier:"ONE", route:"HCM → LAX", cont:"40HC", sell:"$2,450", status:"WIN", margin:"$180", date:"Today", contract:"C2026042501", group:"990146", source:"FAK", valid:"Eff: 01-Apr · Exp: 30-Apr", buy:"$2,270", notes:"FAK rate · SOC included · Quote valid 7 days"},
+  {customer:"ALENE GIFTS", carrier:"HPL", route:"HPH → USNYC", cont:"40GP", sell:"$3,100", status:"PENDING", margin:"$220", date:"Today", contract:"—", group:"—", source:"SCFI", valid:"Eff: 05-Apr · Exp: 31-May", buy:"$2,880", notes:"SCFI market rate · COC"},
+  {customer:"DOUSHENG VIETNAM", carrier:"CMA", route:"HCM → LGB", cont:"20GP", sell:"$1,850", status:"WIN", margin:"$95", date:"Yesterday", contract:"C2026042402", group:"990117", source:"FAK", valid:"Eff: 01-Apr · Exp: 30-Apr", buy:"$1,755", notes:"FAK rate · LCL consolidation available"},
+  {customer:"HML TRADING", carrier:"COSCO", route:"HPH → USLAX", cont:"40HC", sell:"$2,200", status:"LOST", margin:"$75", date:"Yesterday", contract:"—", group:"—", source:"FIX", valid:"Eff: 10-Apr · Exp: 30-Apr", buy:"$2,125", notes:"FIX special rate · COC · Price match declined"},
+  {customer:"VINAFORTS", carrier:"ONE", route:"HCM → LAX", cont:"45HC", sell:"$2,780", status:"PENDING", margin:"$300", date:"2 days ago", contract:"C2026042303", group:"990154", source:"FAK", valid:"Eff: 01-Apr · Exp: 30-Apr", buy:"$2,480", notes:"FAK rate · SOC available"},
+  {customer:"GOLDENWAY", carrier:"HPL", route:"HCM → USNYC", cont:"40NOR", sell:"$2,950", status:"PENDING", margin:"$150", date:"3 days ago", contract:"—", group:"—", source:"SCFI", valid:"Eff: 01-Mar · Exp: 31-May", buy:"$2,800", notes:"SCFI rate · GRI not included"},
+  {customer:"SAKURA HOME", carrier:"YML", route:"HPH → USLAX", cont:"40HC", sell:"$2,350", status:"EXPIRED", margin:"$120", date:"5 days ago", contract:"—", group:"—", source:"FAK", valid:"Eff: 01-Mar · Exp: 31-Mar", buy:"$2,230", notes:"Rate expired · Requires refresh"},
+  {customer:"BAO MINH CORP", carrier:"CMA", route:"HCM → LGB", cont:"20GP", sell:"$1,720", status:"WIN", margin:"$85", date:"3 days ago", contract:"C2026042201", group:"990104", source:"FAK", valid:"Eff: 01-Apr · Exp: 30-Apr", buy:"$1,635", notes:"FAK rate · Express options available"},
+  {customer:"PACIFIC STAR", carrier:"COSCO", route:"HPH → USLAX", cont:"40GP", sell:"$2,050", status:"LOST", margin:"$60", date:"4 days ago", contract:"—", group:"—", source:"FIX", valid:"Eff: 15-Mar · Exp: 30-Apr", buy:"$1,990", notes:"FIX rate · Competitor underquoted by $80"},
+  {customer:"NGUYEN THAI CORP", carrier:"ONE", route:"HCM → LAX", cont:"40HC", sell:"$2,420", status:"PENDING", margin:"$250", date:"This week", contract:"C2026042104", group:"990302", source:"FAK", valid:"Eff: 01-Apr · Exp: 30-Apr", buy:"$2,170", notes:"FAK rate · Annual contract review upcoming"},
+];
+
+function openModal(idx) {
+  const q = quotes[idx];
+  document.getElementById('modalCustomer').textContent = q.customer;
+  document.getElementById('modalRoute').textContent = q.route + ' · ' + q.carrier + ' · ' + q.cont;
+  document.getElementById('mCustomer').textContent = q.customer;
+  document.getElementById('mCarrier').textContent = q.carrier;
+  document.getElementById('mRoute').textContent = q.route;
+  document.getElementById('mCont').textContent = q.cont;
+  document.getElementById('mContract').textContent = q.contract;
+  document.getElementById('mGroup').textContent = q.group;
+  document.getElementById('mSource').textContent = q.source;
+  document.getElementById('mValid').textContent = q.valid;
+  document.getElementById('mSell').textContent = q.sell;
+  document.getElementById('mBuy').textContent = q.buy;
+  document.getElementById('mMargin').textContent = q.margin;
+  document.getElementById('mSell2').textContent = q.sell;
+  document.getElementById('mNotes').textContent = q.notes;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modalOverlay')) {
+    document.getElementById('modalOverlay').classList.remove('open');
+  }
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// Filter chips
+function filterAll(el) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('tbody tr:not(.hover-detail)').forEach(r => r.style.display = '');
+}
+function filterWin(el) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  // Simple WIN filter demo
+}
+function filterWeek(el) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+}
+function filterVIP(el) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+}
+</script>
+</body>
+</html>

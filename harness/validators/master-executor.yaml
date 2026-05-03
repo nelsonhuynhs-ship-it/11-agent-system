@@ -1,0 +1,44 @@
+# Validator: master-executor phase
+phase: "master-executor"
+timeout: 600
+
+criteria:
+  output_exists:
+    type: "file"
+    path: "plans/reports/master-executor-report.md"
+    required: true
+  output_not_empty:
+    type: "size_min"
+    value: 200
+  has_files_modified:
+    type: "bool"
+    description: "Should list files created/modified"
+  has_test_results:
+    type: "bool"
+    description: "Should have test results if applicable"
+
+pass_conditions:
+  - output_exists
+  - output_not_empty
+  - has_files_modified
+
+fail_actions:
+  - retry: 3
+  - notify: "master-executor failed - implementation issues"
+  - escalate: "commander-opus"
+
+report_template: |
+  ## Master Executor Report
+
+  **Phase:** master-executor
+  **Status:** {{status}}
+  **Duration:** {{duration}}s
+
+  ### Files Modified
+  {{files_modified}}
+
+  ### Test Results
+  {{test_results}}
+
+  ### Next Action
+  {{next_phase}}

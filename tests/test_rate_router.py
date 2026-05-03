@@ -191,38 +191,3 @@ def test_response_time_under_3s():
         assert elapsed < 3.0, f"{name} took {elapsed:.1f}s > 3s limit"
 
     print(f"  [PASS] All {len(endpoints)} endpoint types respond in < 3s")
-
-
-if __name__ == "__main__":
-    print("=" * 60)
-    print("  RATE ROUTER MIGRATION TESTS — Task 1.1.3")
-    print("=" * 60)
-
-    tests = [
-        test_no_pandas_read_parquet,
-        test_freight_db_import,
-        test_get_rates_logic,
-        test_carriers_logic,
-        test_regions_logic,
-        test_matrix_envelope,
-        test_envelope_endpoint,
-        test_memory_under_200mb,
-        test_response_time_under_3s,
-    ]
-
-    passed = 0
-    failed = 0
-    for test in tests:
-        try:
-            test()
-            passed += 1
-        except Exception as e:
-            print(f"  [FAIL] {test.__name__}: {e}")
-            failed += 1
-
-    print(f"\n{'='*60}")
-    print(f"  Results: {passed} passed, {failed} failed out of {len(tests)}")
-    print(f"{'='*60}")
-    if failed > 0:
-        sys.exit(1)
-    print("\n[PASS] ALL TESTS PASSED")

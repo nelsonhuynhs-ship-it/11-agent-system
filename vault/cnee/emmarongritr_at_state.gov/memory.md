@@ -1,0 +1,46 @@
+# CNEE Memory · emmarongritr@state.gov
+
+**First seen:** 2026-04-22 14:59 UTC  
+**Last updated:** 2026-04-23 08:39 UTC
+
+## Timeline
+
+
+<!-- cnee_event:0000000077901FAA4564914E9715E61FCBF8CCD707002B347C57E4843B43837707706049DB6500000000011600002B347C57E4843B43837707706049DB650002CB0333890000:BOUNCED -->
+### 2026-04-22 14:59 UTC · BOUNCED ⚠
+
+```json
+{
+  "severity": "HARD"
+}
+```
+
+> Email bounced (HARD). Subject: Undeliverable: Delivery Status Notification (Failure)
+
+---
+
+<!-- cnee_event:0000000077901FAA4564914E9715E61FCBF8CCD707002B347C57E4843B43837707706049DB6500000000011600002B347C57E4843B43837707706049DB650002CB0333840000:BOUNCED -->
+### 2026-04-22 15:03 UTC · BOUNCED ⚠
+
+```json
+{
+  "severity": "HARD"
+}
+```
+
+> Email bounced (HARD). Subject: Undeliverable: Delivery Status Notification (Failure)
+
+---
+
+<!-- cnee_event:0000000077901FAA4564914E9715E61FCBF8CCD707002B347C57E4843B43837707706049DB6500000000011600002B347C57E4843B43837707706049DB650002CB03338C0000:BOUNCED -->
+### 2026-04-23 08:39 UTC · BOUNCED ⚠
+
+```json
+{
+  "severity": "HARD"
+}
+```
+
+> Email bounced (HARD). Subject: Undeliverable: Delivery Status Notification (Failure)
+
+---

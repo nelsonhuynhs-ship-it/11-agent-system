@@ -23,6 +23,7 @@ Requires: pywin32, Outlook-free (only Excel used), Windows.
 
 import sys
 import os
+import pytest
 import time
 from pathlib import Path
 
@@ -30,8 +31,7 @@ try:
     import win32com.client
     import pythoncom
 except ImportError:
-    print("FAIL: pywin32 required", file=sys.stderr)
-    sys.exit(1)
+    pytest.skip("win32com/pythoncom not installed — skip COM tests")
 
 ERP_PATH = r"D:\OneDrive\NelsonData\erp\ERP_Master_v14.xlsm"
 VBA_DIR = r"D:\OneDrive\NelsonData\erp"
@@ -602,5 +602,4 @@ def main():
             pass
 
 
-if __name__ == "__main__":
-    sys.exit(main())
+# COM main() moved to: scripts/com-e2e/erp_e2e_com.py

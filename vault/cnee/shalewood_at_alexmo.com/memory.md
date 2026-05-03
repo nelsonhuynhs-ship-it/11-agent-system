@@ -1,0 +1,46 @@
+# CNEE Memory · shalewood@alexmo.com
+
+**First seen:** 2026-04-22 15:06 UTC  
+**Last updated:** 2026-04-23 15:07 UTC
+
+## Timeline
+
+
+<!-- cnee_event:0000000077901FAA4564914E9715E61FCBF8CCD707002B347C57E4843B43837707706049DB6500000000010C00002B347C57E4843B43837707706049DB650002CB02CFA50000:BOUNCED -->
+### 2026-04-22 15:06 UTC · BOUNCED ⚠
+
+```json
+{
+  "severity": "HARD"
+}
+```
+
+> Email bounced (HARD). Subject: Undeliverable: Ocean Freight Update — NAN to West Coast | Week 17 | NELSON
+
+---
+
+<!-- cnee_event:0000000077901FAA4564914E9715E61FCBF8CCD707002B347C57E4843B43837707706049DB6500000000010C00002B347C57E4843B43837707706049DB650002CB02CEB90000:BOUNCED -->
+### 2026-04-22 15:09 UTC · BOUNCED ⚠
+
+```json
+{
+  "severity": "HARD"
+}
+```
+
+> Email bounced (HARD). Subject: Undeliverable: Ocean Freight Update — NAN to West Coast | Week 17 | NELSON
+
+---
+
+<!-- cnee_event:0000000077901FAA4564914E9715E61FCBF8CCD707002B347C57E4843B43837707706049DB6500000000010C00002B347C57E4843B43837707706049DB650002CBB01A030000:BOUNCED -->
+### 2026-04-23 15:07 UTC · BOUNCED ⚠
+
+```json
+{
+  "severity": "HARD"
+}
+```
+
+> Email bounced (HARD). Subject: Undeliverable: Ocean Freight Update — Asia to USA/Canada | Week 17 | NELSON
+
+---

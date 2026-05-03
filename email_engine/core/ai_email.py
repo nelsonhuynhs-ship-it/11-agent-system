@@ -31,7 +31,7 @@ def summarize_email(body: str, sender: str) -> dict:
     """
     system = build_system_prompt("summarize_email")
     prompt = f"From: {sender}\n\n{body}"
-    result = minimax.text(prompt, system=system, max_tokens=256, temperature=0.3)
+    result = minimax.text(prompt, system=system, max_tokens=256, temperature=0.0)
     parsed = _parse_json_response(result)
     return {
         "summary": parsed.get("summary", result),

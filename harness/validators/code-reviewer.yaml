@@ -1,0 +1,44 @@
+# Validator: code-reviewer phase
+phase: "code-reviewer"
+timeout: 300
+
+criteria:
+  output_exists:
+    type: "file"
+    path: "plans/reports/code-review-report.md"
+    required: true
+  output_not_empty:
+    type: "size_min"
+    value: 300
+  has_findings:
+    type: "bool"
+    description: "Should list code issues found"
+  has_fix_suggestions:
+    type: "bool"
+    description: "Should provide fix recommendations"
+
+pass_conditions:
+  - output_exists
+  - output_not_empty
+  - has_findings
+
+fail_actions:
+  - retry: 3
+  - notify: "code-reviewer failed - review output missing"
+  - escalate: "commander-opus"
+
+report_template: |
+  ## Code Review Report
+
+  **Phase:** code-reviewer
+  **Status:** {{status}}
+  **Duration:** {{duration}}s
+
+  ### Findings
+  {{findings_summary}}
+
+  ### Recommendations
+  {{recommendations}}
+
+  ### Next Action
+  {{next_phase}}

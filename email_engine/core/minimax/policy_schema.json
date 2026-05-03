@@ -63,8 +63,7 @@
   "pricing_terms": [
     {"code": "CFR", "name": "Cost and Freight", "description": "Seller pays to destination port"},
     {"code": "CIF", "name": "Cost Insurance and Freight", "description": "CFR + insurance coverage"},
-    {"code": "FOB", "name": "Free on Board", "description": "Seller handles origin port only"},
-    {"code": "DDP", "name": "Delivered Duty Paid", "description": "Seller handles everything including duties"}
+    {"code": "FOB", "name": "Free on Board", "description": "Seller handles origin port only"}
   ],
   "campaigns": [
     {"name": "FLOORING", "prospects": 1057, "industry": "Flooring materials"},

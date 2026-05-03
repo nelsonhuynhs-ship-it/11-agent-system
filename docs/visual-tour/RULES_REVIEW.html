@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rule Review — Visual Tour Domain Model</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:16px}
+.progress-bar-wrap{width:100%;max-width:600px;background:#1a1d26;border-radius:8px;padding:12px 16px;margin-bottom:8px}
+.progress-bar-wrap .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:14px}
+.progress-bar-wrap .domain-filter{display:flex;align-items:center;gap:8px}
+.progress-bar-wrap .domain-filter select{background:#1a1d26;border:1px solid #333;border-radius:6px;color:#e2e8f0;padding:4px 8px;font-size:13px}
+.progress-bar-wrap .stats{display:flex;gap:12px;font-size:12px;color:#94a3b8}
+.progress-bar-wrap .stats span{white-space:nowrap}
+.progress-bar{width:100%;height:8px;background:#1e2433;border-radius:4px;overflow:hidden}
+.progress-bar .fill{height:100%;background:linear-gradient(90deg,#6366f1,#818cf8);border-radius:4px;transition:width .3s ease;min-width:0%}
+.progress-bar .pct{font-size:11px;color:#64748b;margin-top:4px;text-align:right}
+.card-wrap{width:100%;max-width:600px;flex:1;display:flex;align-items:flex-start;justify-content:center;padding:8px 0}
+.card{width:100%;background:#1a1d26;border:1px solid #2a2f3e;border-radius:16px;padding:20px;position:relative;transition:opacity .25s,transform .25s}
+.card.exit{opacity:0;transform:translateX(-80px) rotate(-5deg)}
+.card.enter{opacity:0;transform:translateX(80px) rotate(5deg)}
+.card.flip .card-front{opacity:0;transform:rotateY(90deg)}
+.card.flip .card-edit{opacity:1;transform:rotateY(0deg)}
+.card-front,.card-edit{transition:opacity .3s,transform .3s;backface-visibility:hidden;position:absolute;top:0;left:0;right:0;padding:20px;border-radius:16px;background:#1a1d26;border:1px solid #2a2f3e}
+.card-edit{opacity:0;transform:rotateY(90deg);display:flex;flex-direction:column;gap:12px}
+.card-edit textarea{width:100%;min-height:180px;background:#111827;border:1px solid #374151;border-radius:8px;color:#e2e8f0;padding:12px;font-size:14px;resize:vertical;font-family:inherit}
+.card-edit textarea:focus{outline:none;border-color:#6366f1}
+.card-edit .btn-row{display:flex;gap:8px}
+.card-meta{margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.badge{padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.badge-DATA{background:#1d4ed8;color:#bfdbfe}
+.badge-ERP{background:#15803d;color:#bbf7d0}
+.badge-EMAIL{background:#7c3aed;color:#ddd6fe}
+.badge-CODE{background:#374151;color:#d1d5db}
+.badge-WEBAPP{background:#c2410c;color:#fed7aa}
+.badge-OPS{background:#b91c1c;color:#fecaca}
+.conf-HIGH{background:#15803d;color:#bbf7d0}
+.conf-MEDIUM{background:#ca8a04;color:#fef08a}
+.conf-LOW{background:#374151;color:#d1d5db}
+.type-tag{font-size:11px;color:#64748b;background:#111827;padding:2px 8px;border-radius:4px}
+.rule-num{font-size:12px;color:#64748b;font-weight:600}
+.card-content{margin:16px 0}
+.card-content pre{white-space:pre-wrap;word-break:break-word;font-size:15px;line-height:1.6;color:#f1f5f9;background:#111827;padding:14px;border-radius:8px;border:1px solid #2a2f3e;font-family:inherit}
+.card-source{margin-top:12px;font-size:12px;color:#64748b;display:flex;align-items:flex-start;gap:6px}
+.card-source .icon{margin-top:1px;flex-shrink:0}
+.card-rationale{margin-top:8px;font-size:13px;color:#94a3b8;display:flex;align-items:flex-start;gap:6px}
+.card-rationale .icon{margin-top:2px;flex-shrink:0}
+.card-evidence{margin-top:12px}
+.evidence-toggle{cursor:pointer;font-size:12px;color:#6366f1;display:flex;align-items:center;gap:4px;user-select:none}
+.evidence-toggle:hover{color:#818cf8}
+.evidence-toggle .arrow{transition:transform .2s}
+.evidence-toggle.open .arrow{transform:rotate(180deg)}
+.evidence-content{display:none;margin-top:8px;background:#111827;border:1px solid #2a2f3e;border-radius:8px;padding:12px;font-size:12px;color:#94a3b8;white-space:pre-wrap;word-break:break-word}
+.action-row{margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.action-row button{height:52px;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;transition:transform .1s,filter .1s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.action-row button:active{transform:scale(.96)}
+.action-row button:hover{filter:brightness(1.1)}
+.btn-confirm{background:#15803d;color:#fff}
+.btn-edit{background:#c2410c;color:#fff}
+.btn-drop{background:#b91c1c;color:#fff}
+.btn-skip{background:#374151;color:#fff}
+.key-hint{font-size:10px;opacity:.7;font-weight:400}
+.export-bar{width:100%;max-width:600px;margin-top:12px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.export-bar .stats-panel{display:flex;gap:12px;font-size:12px}
+.export-bar .stats-panel .s-confirmed{color:#4ade80}
+.export-bar .stats-panel .s-edited{color:#fb923c}
+.export-bar .stats-panel .s-rejected{color:#f87171}
+.export-bar .stats-panel .s-skipped{color:#94a3b8}
+.export-btn{background:#6366f1;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;transition:background .2s}
+.export-btn:hover{background:#4f46e5}
+.export-btn:disabled{background:#374151;color:#64748b;cursor:not-allowed}
+.keyboard-hint{width:100%;max-width:600px;margin-top:8px;text-align:center;font-size:11px;color:#475569;line-height:1.8}
+.keyboard-hint kbd{background:#1e2433;border:1px solid #333;border-radius:4px;padding:1px 5px;font-size:10px}
+.no-more{text-align:center;padding:40px 20px;color:#64748b;font-size:15px}
+.no-more h3{margin-bottom:8px;color:#94a3b8;font-size:18px}
+.done-badge{position:absolute;top:-1px;right:-1px;background:#6366f1;color:#fff;font-size:10px;font-weight:700;padding:4px 10px;border-radius:0 16px 0 8px;text-transform:uppercase}
+.done-badge.DONE{background:#15803d}
+.done-badge.EDITED{background:#c2410c}
+.done-badge.REJECTED{background:#b91c1c}
+.done-badge.SKIPPED{background:#374151}
+</style>
+</head>
+<body>
+
+<div class="progress-bar-wrap">
+  <div class="header">
+    <div><strong>Rule Review</strong> — <span id="currentIdx">0</span> / <span id="totalCnt">187</span></div>
+    <div class="domain-filter">
+      <label style="font-size:12px;color:#64748b">Domain:</label>
+      <select id="domainFilter">
+        <option value="ALL">Tất cả</option>
+        <option value="DATA">DATA</option>
+        <option value="ERP">ERP</option>
+        <option value="EMAIL">EMAIL</option>
+        <option value="CODE">CODE</option>
+        <option value="WEBAPP">WEBAPP</option>
+        <option value="OPS">OPS</option>
+      </select>
+    </div>
+  </div>
+  <div class="progress-bar"><div class="fill" id="progressFill" style="width:0%"></div></div>
+  <div class="pct" id="progressPct">0%</div>
+  <div class="stats" style="margin-top:6px">
+    <span id="reviewedCount">Đã duyệt: 0</span>
+    <span id="remainingCount">Còn lại: 187</span>
+    <span id="timeHint" style="margin-left:auto"></span>
+  </div>
+</div>
+
+<div class="card-wrap">
+  <div class="card" id="card">
+    <div class="card-front">
+      <div class="card-meta">
+        <span class="rule-num" id="ruleNum">RULE #1</span>
+        <span class="badge" id="domainBadge">DATA</span>
+        <span class="conf-badge badge" id="confBadge">HIGH</span>
+        <span class="type-tag" id="typeTag">business_rule</span>
+      </div>
+      <div class="card-content">
+        <pre id="ruleText"></pre>
+      </div>
+      <div class="card-source">
+        <span class="icon">📍</span>
+        <span id="ruleSource"></span>
+      </div>
+      <div class="card-rationale">
+        <span class="icon">💡</span>
+        <span id="ruleRationale"></span>
+      </div>
+      <div class="card-evidence">
+        <div class="evidence-toggle" id="evidenceToggle" onclick="toggleEvidence()">
+          <span class="arrow">▼</span> Show evidence
+        </div>
+        <div class="evidence-content" id="evidenceContent"></div>
+      </div>
+    </div>
+    <div class="card-edit">
+      <div style="font-weight:600;font-size:14px;margin-bottom:4px">✏️ Chỉnh sửa rule</div>
+      <textarea id="editTextarea" rows="8"></textarea>
+      <div class="btn-row">
+        <button class="export-btn" style="flex:1;background:#15803d" onclick="saveEdit()">💾 Lưu</button>
+        <button class="export-btn" style="flex:1;background:#374151" onclick="cancelEdit()">✕ Hủy</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="action-row" id="actionRow">
+  <button class="btn-confirm" onclick="doAction('approved')">
+    ✅ Đúng
+    <span class="key-hint">←</span>
+  </button>
+  <button class="btn-edit" onclick="doAction('edited')">
+    ✏️ Sửa
+    <span class="key-hint">↑</span>
+  </button>
+  <button class="btn-drop" onclick="doAction('rejected')">
+    ❌ Sai
+    <span class="key-hint">→</span>
+  </button>
+  <button class="btn-skip" onclick="doAction('skip')">
+    ❓ Không biết
+    <span class="key-hint">↓</span>
+  </button>
+</div>
+
+<div class="export-bar">
+  <div class="stats-panel">
+    <span class="s-confirmed" id="statApproved">✅ 0</span>
+    <span class="s-edited" id="statEdited">✏️ 0</span>
+    <span class="s-rejected" id="statRejected">❌ 0</span>
+    <span class="s-skipped" id="statSkipped">❓ 0</span>
+  </div>
+  <button class="export-btn" id="exportBtn" onclick="exportResults()">📥 Export JSON</button>
+</div>
+
+<div class="keyboard-hint">
+  <kbd>←</kbd> Đúng &nbsp;|&nbsp; <kbd>↑</kbd> Sửa &nbsp;|&nbsp; <kbd>→</kbd> Sai &nbsp;|&nbsp; <kbd>↓</kbd> Không biết &nbsp;|&nbsp; <kbd>E</kbd> Toggle evidence
+</div>
+
+<script>
+const STORAGE_KEY = 'rules_review_state_v1';
+const RULES_DATA = {"scan_date": "2026-04-25", "total_candidates": 187, "by_domain": {"DATA": 42, "ERP": 38, "EMAIL": 65, "CODE": 28, "WEBAPP": 8, "OPS": 6}, "rules": [{"id": 1, "domain": "DATA", "confidence": "HIGH", "source": "CARRIER_RATE_MAPPING.json:11", "type": "business_rule", "rule_text": "Mọi code lấy 'giá báo khách' PHẢI query WHERE Charge_Name = 'Total Ocean Freight'. KHÔNG dùng BASIC O/F / HLCU Basic Cost / Base Ocean Freight.", "rationale": "2026-04-17 incident fix — HPL SCFI under-quote $1,561/40HQ route inland", "evidence": "\"_rule\": \"Mọi code lấy 'giá báo khách' PHẢI query WHERE Charge_Name = 'Total Ocean Freight'\""}, {"id": 2, "domain": "DATA", "confidence": "HIGH", "source": "phase-01-data-layer-findings.md", "type": "data_format", "rule_text": "POD canonical = LAX/LGB (slash). LAX-LGB (dash) bị reject. Space sau slash (USLAX/ USLGB) cũng strip.", "rationale": "2026-04-25 Mix Quote bug trace — POD format inconsistency caused peer search failure", "evidence": "LAX-LGB appears 523,220 times as non-canonical. LAX/LGB (slash) = canonical."}, {"id": 3, "domain": "DATA", "confidence": "HIGH", "source": "phase-01-data-layer-findings.md", "type": "data_format", "rule_text": "Container_Type canonical: 40HC (không phải 40HQ), 45HC (không phải 45HQ hoặc 45'HQ).", "rationale": "Legacy code 40HQ→40HC normalization định nghĩa trong CONTAINER_NORMALIZE nhưng data chưa back-filled", "evidence": "40HQ appears 1,763,608 times, 45HQ appears 1,255,885 times — need normalization"}, {"id": 4, "domain": "DATA", "confidence": "HIGH", "source": "refresh-v14.py:287", "type": "business_rule", "rule_text": "FIX NO.22 file có Eff=NaT cho tất cả rows. Code phải fillna Eff=Exp để pivot_table không drop rows.", "rationale": "2026-04-13 discovered — FIX files without Eff date silently dropped from pivot", "evidence": "# 2026-04-13: FIX NO.22 has Eff=NaT for ALL rows. pivot_table(dropna=True)"}, {"id": 5, "domain": "DATA", "confidence": "MEDIUM", "source": "phase-01-data-layer-findings.md", "type": "data_format", "rule_text": "POL chỉ chấp nhận 3-letter uppercase IATA codes: HPH, HCM, DAD, UIH, VUT. DAD (trailing space) và garbage values (w, c, 33) cần strip/reject.", "rationale": "154 rows có POL garbage values (w, c, 33, DONG NAI) — không phải valid IATA codes", "evidence": "DAD with trailing space: 3,646 rows. POL garbage: 154 rows."}, {"id": 6, "domain": "DATA", "confidence": "HIGH", "source": "CARRIER_RATE_MAPPING.json:139", "type": "business_rule", "rule_text": "Sau khi loader run xong, Parquet KHÔNG được chứa Charge_Name trong forbidden list: HLCU Offer, BASE O/F.", "rationale": "Validator rule — stale charge names indicate loader chưa chạy normalize", "evidence": "\"forbidden_stale_charge_names\": [\"HLCU Offer\", \"BASE O/F\"]"}, {"id": 7, "domain": "ERP", "confidence": "HIGH", "source": "erp-v14-ribbon-callbacks.bas:4290", "type": "business_rule", "rule_text": "FIX peer cho Mix Quote BẮT BUỘC cùng COC. SOC rates KHÔNG được làm peer cho FIX blend.", "rationale": "2026-04-22 BUG FIX (Nelson policy) — MixQuote peer selection excludes SOC rates", "evidence": "' 2026-04-22 BUG FIX (Nelson policy): FIX vs FAK blend MUST both be COC."}, {"id": 8, "domain": "ERP", "confidence": "HIGH", "source": "refresh-v14.py:311", "type": "business_rule", "rule_text": "Dedup key cho Pricing Dry/Reefer = POL + POD + Place + Carrier + Note + Source. KHÔNG bao gồm Commodity.", "rationale": "2026-04-22 BUG FIX — old dedup dropped entire reefer lanes when same route had both dry+reefer commodity", "evidence": "# 2026-04-22 BUG FIX (Nelson audit): previous dedup used route_key WITHOUT Note+Source"}, {"id": 9, "domain": "ERP", "confidence": "HIGH", "source": "refresh-v14.py:1296", "type": "workflow", "rule_text": "Quote insert VÀO ROW 5 (QUOTES_DATA_START), đẩy existing quotes xuống. Newest quote luôn visible ở top.", "rationale": "2026-04-15 Nelson policy — ensures newest quote always visible at top of quotes sheet", "evidence": "Quote insert at QUOTES_DATA_START (row 5)"}, {"id": 10, "domain": "ERP", "confidence": "HIGH", "source": "refresh-v14.py:550", "type": "business_rule", "rule_text": "Hidden cols 15-17 (Contract, Group Rate, Group Code) chỉ được viết cho ONE carrier. Non-ONE carriers có empty values.", "rationale": "2026-04-13+ — Group_Code chỉ ONE có group code structure", "evidence": "# 2026-04-21 Phase 3: hidden cols — Contract #, Group Rate text, ONE group code"}, {"id": 11, "domain": "ERP", "confidence": "HIGH", "source": "erp-v14-ribbon-callbacks.bas:715-761", "type": "business_rule", "rule_text": "Markup store keyed by (Carrier, Lane). Lane = WC/EC/GULF/* được derive từ POD qua GetLaneFromPOD. Fallback = '*' (default row).", "rationale": "2026-04-21 markup system — per-carrier per-lane margin storage", "evidence": "LoadMarkupForCarrier(m_Carrier) → fills margin inputs from stored values per (Carrier, Lane)"}, {"id": 12, "domain": "ERP", "confidence": "HIGH", "source": "erp-v14-jobs-automation.bas:1116-1125", "type": "business_rule", "rule_text": "Active Jobs col H = Bkg_No. Milestone sync tìm Bkg_No trong col H để match với jsonl bkg field.", "rationale": "2026-04-20 milestone sync — Bkg_No là primary lookup key cho ATD/ETA7 sync", "evidence": "Milestone sync searches col H for Bkg_No matching jsonl bkg field"}, {"id": 13, "domain": "ERP", "confidence": "HIGH", "source": "erp-v14-ribbon-callbacks.bas:1876-1890", "type": "business_rule", "rule_text": "CRM lookup bằng CODE hoặc NAME — LUÔN resolve về canonical NAME (col 2), không phải CODE.", "rationale": "2026-04-21 — ensures Active Jobs CUSTOMER col luôn là readable name không phải internal code", "evidence": "Always resolves to canonical NAME (col 2), not CODE"}, {"id": 14, "domain": "ERP", "confidence": "HIGH", "source": "erp-v14-ribbon-callbacks.bas:1299-1314", "type": "business_rule", "rule_text": "QuoteGroupID reuse nếu same customer + same day. Groups batch quotes for same customer same day.", "rationale": "2026-04-15 feature — prevents duplicate quote groups for same customer same day", "evidence": "Groups batch quotes for same customer same day"}, {"id": 15, "domain": "EMAIL", "confidence": "HIGH", "source": "rotation_quota.json", "type": "config", "rule_text": "Daily send quota: 420 emails/day tổng. Chia theo commodity: FLOORING/FURNITURE_INDOOR/CANDLE/RUBBER/PLASTIC/PLYWOOD/FOOD_AMBIENT mỗi 60, OTHERS 0.", "rationale": "2026-04-19 rotation quota config — đảm bảo phân bổ đều across campaigns", "evidence": "\"daily_total\": 420, \"by_commodity\": {\"FLOORING\": 60, ...}"}, {"id": 16, "domain": "EMAIL", "confidence": "HIGH", "source": "rotation_quota.json", "type": "business_rule", "rule_text": "Cooldown = 7 ngày. Email đã gửi trong 7 ngày qua không được gửi lại (cooldown check).", "rationale": "2026-04-19 rotation config — tránh spam same CNEE", "evidence": "\"cooldown_days\": 7"}, {"id": 17, "domain": "EMAIL", "confidence": "HIGH", "source": "rotation_quota.json", "type": "business_rule", "rule_text": "Hard limit = 3 sends trong 30 ngày. Không gửi quá 3 lần cho cùng 1 CNEE trong 30-day window.", "rationale": "2026-04-19 rotation config — prevents over-sending same contact", "evidence": "\"hard_limit_count\": 3, \"hard_limit_window_days\": 30"}, {"id": 18, "domain": "EMAIL", "confidence": "HIGH", "source": "web_server.py:896-898", "type": "business_rule", "rule_text": "_DEAD_STATUSES = HARD_BOUNCE, DEAD, INVALID, NO_MX, UNSUBSCRIBED, SOFT_SUPPRESSED, SPAM. Emails in dead statuses KHÔNG bao giờ được gửi.", "rationale": "2026-04-24 unified — permanent suppression for invalid/bounced/unsubscribed contacts", "evidence": "_DEAD_STATUSES = {\"HARD_BOUNCE\", \"DEAD\", \"INVALID\", \"NO_MX\", \"UNSUBSCRIBED\", \"SOFT_SUPPRESSED\", \"SPAM\"}"}, {"id": 19, "domain": "EMAIL", "confidence": "HIGH", "source": "web_server.py:3273", "type": "business_rule", "rule_text": "SUPPRESSION_STATUSES = HARD_BOUNCE, UNSUBSCRIBED. Đây là permanent block — không bypass được even với skip_cooldown=True.", "rationale": "2026-04-24 Phase B suppression — legal compliance for bounces and unsubscribes", "evidence": "_SUPPRESSION_STATUSES = {\"HARD_BOUNCE\", \"UNSUBSCRIBED\"}"}, {"id": 20, "domain": "EMAIL", "confidence": "HIGH", "source": "web_server.py:695", "type": "business_rule", "rule_text": "Cooldown period = 14 ngày (Phase 2.5 change từ 48h → 14d). Cutoff check: last_sent > (now - 14d).", "rationale": "2026-04-24 Phase 2.5 emergency change — Xerox auto-reply spam incident", "evidence": "cutoff = datetime.now() - pd.Timedelta(days=14)  # Phase 2.5: 48h → 14d cooldown"}, {"id": 21, "domain": "EMAIL", "confidence": "HIGH", "source": "scanner.yaml:25-26", "type": "business_rule", "rule_text": "POSTMASTER_PATTERNS: chỉ real postmaster domains (postmaster@, mailer-daemon@). REMOVED: noreply@ / no-reply@ vì gây false positives (LinkedIn, customer replies).", "rationale": "2026-04-24 fix — noreply false positives caused wrong bounce classification", "evidence": "Strict: only real postmaster domains. Removed \"noreply@\" / \"no-reply@\""}, {"id": 22, "domain": "EMAIL", "confidence": "HIGH", "source": "scanner.yaml:40-58", "type": "business_rule", "rule_text": "Bounce HARD keywords: 'does not exist', 'unknown user', 'invalid address', 'no such user', 'rejected', 'user unknown', 'address rejected', 'not found', 'invalid recipient'.", "rationale": "2026-04-24 hard/soft bounce sub-classification — HARD = permanent failure", "evidence": "hard_keywords: [\"does not exist\", \"unknown user\", \"invalid address\", ...]"}, {"id": 23, "domain": "EMAIL", "confidence": "HIGH", "source": "scanner.yaml:51-58", "type": "business_rule", "rule_text": "Bounce SOFT keywords: 'mailbox full', 'temporarily', 'try again later', 'quota exceeded', 'over quota', 'service unavailable', 'too many connections'.", "rationale": "2026-04-24 — SOFT = temporary failure, có thể retry", "evidence": "soft_keywords: [\"mailbox full\", \"temporarily\", \"try again later\", ...]"}, {"id": 24, "domain": "EMAIL", "confidence": "HIGH", "source": "scanner.yaml:60-71", "type": "business_rule", "rule_text": "Auto-reply detection: 'out of office', 'automatic reply', 'auto-reply', 'auto reply', 'i am on vacation', 'currently out of', 'away from the office', 'ooo', 'đang nghỉ phép', 'vắng mặt'.", "rationale": "2026-04-24 scanner patterns — classify OOO auto-replies as AUTO_REPLY not REAL_REPLY", "evidence": "auto_reply: { subject_patterns: [\"out of office\", \"automatic reply\", ...] }"}, {"id": 25, "domain": "EMAIL", "confidence": "HIGH", "source": "scanner.yaml:73-84", "type": "business_rule", "rule_text": "Unsubscribe detection: 'unsubscribe', 'stop email', 'stop emailing', 'remove me', 'do not email', 'do not contact', 'không nhận email', 'không gửi email nữa', 'huỷ đăng ký', 'huy dang ky'.", "rationale": "2026-04-24 — legal compliance, must honor unsubscribe requests immediately", "evidence": "unsubscribe: { patterns: [\"unsubscribe\", \"stop email\", ...] }"}, {"id": 26, "domain": "EMAIL", "confidence": "HIGH", "source": "builder.py:188-199", "type": "business_rule", "rule_text": "SVC derivation: FAK + ONE/CMA/YML/HPL → SOC; FAK + others → COC; FIX + HPL → SOC; FIX + others → 'Provide commodity'.", "rationale": "2026-04-17 Rate Table v2 rules — container ownership affects service type label", "evidence": "_FAK_SOC_CARRIERS = {\"ONE\", \"CMA\", \"YML\", \"HPL\"}"}, {"id": 27, "domain": "EMAIL", "confidence": "HIGH", "source": "auto_rate_builder.py:266-277", "type": "business_rule", "rule_text": "Rate Type Carrier Matrix: FAK COC={CMA,ONE,HMM,YML,ZIM,HPL,WHL}, FAK SOC={HPL,YML}, SPECIAL SOC={HPL,YML}. Legacy FAK maps to FAK COC, FIX maps to SPECIAL.", "rationale": "2026-04-17 rate table v2 — maps carrier+rate_type combinations to contract categories", "evidence": "RATE_TYPE_CARRIER_MATRIX = {\"FAK COC\": {...}, \"FAK SOC\": {...}, \"SPECIAL SOC\": {...}}"}, {"id": 28, "domain": "EMAIL", "confidence": "HIGH", "source": "master_loader_v2.py:130-136", "type": "business_rule", "rule_text": "PUC SOC correction: Total Ocean Freight = Basic + max(FAK_PUC, PUC_SOC). Luôn dùng giá trị lớn hơn giữa FAK_PUC và PUC_SOC.", "rationale": "2026-04-13 PUC logic — correct Total Ocean Freight cho CMA/ONE/YML SOC rates", "evidence": "# RULE 1 — FAK PUC cell is empty (0): Total = Basic + PUC_SOC\n# RULE 2 — FAK PUC < PUC_SOC: Total = Basic + PUC_SOC\n# RULE 3 — FAK PUC >= PUC_SOC: Total = Basic + FAK_PUC"}, {"id": 29, "domain": "DATA", "confidence": "HIGH", "source": "refresh-v14.py:152-204", "type": "business_rule", "rule_text": "POD contamination guard: 'SUBJECT TO EFS' / 'included EFS' contaminated POD → recover POD from Place column thay vì từ corrupted POD cell.", "rationale": "2026-04-16 HPL SOC FIX rows có POD contamination từ raw Excel", "evidence": "POD cleanup via Place swap — 'SUBJECT TO EFS' / 'included EFS' contaminated POD recovered from Place"}, {"id": 30, "domain": "DATA", "confidence": "MEDIUM", "source": "refresh-v14.py:94-108", "type": "business_rule", "rule_text": "45'HQ → 45HQ pre-pivot normalization. Prevents column collision after pivot_table.", "rationale": "2026-04-11 fix — 45'HQ legacy format caused pivot column collision", "evidence": "# 2026-04-11: Pre-pivot normalize prevents column collision after pivot_table"}, {"id": 31, "domain": "DATA", "confidence": "HIGH", "source": "phase-01-data-layer-findings.md", "type": "data_format", "rule_text": "Note canonical patterns: SOC, CY/R, DIRECT. Too many free-text variants cần consolidation.", "rationale": "Note có 254 unique values — nhiều variants không cần thiết", "evidence": "Note patterns: SOC, SOC DIRECT, SOC Cai Mep (EC3), CY/R, DIRECT, TRANSIT, FIXED RATE"}, {"id": 32, "domain": "EMAIL", "confidence": "HIGH", "source": "web_server.py:2295", "type": "business_rule", "rule_text": "Destinations MERGE strategy: show 10 default lanes ALWAYS trong smart draft, không phụ thuộc CNEE destination preference.", "rationale": "2026-04-23 Nelson decision — bulk-send luôn show 10 lanes để maximize discovery", "evidence": "# Destinations: MERGE strategy (2026-04-23) — show 10 default lanes ALWAYS"}, {"id": 33, "domain": "EMAIL", "confidence": "HIGH", "source": "web_server.py:1598", "type": "business_rule", "rule_text": "Priority isolation: blast list EXCLUDES VIP/HOT/replied/personal contacts. Chỉ prospects mới được trong blast/rotation.", "rationale": "2026-04-23 Nelson decision — protect high-value relationships from bulkautomation", "evidence": "# Priority isolation (2026-04-23): blast list excludes VIP/HOT/replied/personal."}, {"id": 34, "domain": "EMAIL", "confidence": "HIGH", "source": "default_routes.yaml:48-49", "type": "business_rule", "rule_text": "Forbidden ports: IRBND (Iran bend), KPFNJ (North Korea). Không bao giờ quote các ports này.", "rationale": "Sanctions/compliance — không quote embargoed countries", "evidence": "forbidden_ports: [IRBND, KPFNJ]"}, {"id": 35, "domain": "EMAIL", "confidence": "HIGH", "source": "default_routes.yaml:18-20", "type": "business_rule", "rule_text": "POL primary = HPH (Hải Phòng). Fallback = HCM (Hồ Chí Minh). VN-based shipping primary gateway.", "rationale": "2026-04-19 routing config — HPH là main POL cho Nelson Freight", "evidence": "pol: { primary: HPH, fallback: HCM }"}, {"id": 36, "domain": "EMAIL", "confidence": "HIGH", "source": "default_routes.yaml:51-73", "type": "business_rule", "rule_text": "Per-campaign default destinations: FURNITURE→West Coast, FLOORING→East+Gulf, CANDLE→West+East retail hubs, etc.", "rationale": "2026-04-19 campaign routing — mỗi campaign có destination preferences riêng", "evidence": "by_campaign: { FURNITURE: [USLAX, USLGB, USOAK, USSEA], FLOORING: [USNYC, USSAV, USCHS, USHOU], ... }"}, {"id": 37, "domain": "EMAIL", "confidence": "HIGH", "source": "default_routes.yaml:74-78", "type": "business_rule", "rule_text": "Per-POL overrides: HCM lanes khác HPH. HCM = South VN gateway với routes: NYC/SAV/CHS/HOU/CHI/SLC/DAL. HPH = main routes: LAX/LGB/SAV/NYC/ORF/CHS/TIW/CHI/DAL.", "rationale": "2026-04-19 — HCM (South VN) có different routing options soároute preferences khác nhau", "evidence": "by_pol: { HCM: [USNYC, USSAV, USCHS, USHOU, USCHI, USSLC, USDAL], HPH: [USLAX, USLGB, USSAV, USNYC, USORF, USCHS, USTIW, USCHI, USDAL] }"}, {"id": 38, "domain": "EMAIL", "confidence": "MEDIUM", "source": "web_server.py:2146", "type": "business_rule", "rule_text": "Smart Draft override: khi Nelson intentionally picks VIP/PERSONALIZED template, system cho phép bypass blast defaults.", "rationale": "2026-04-24 feature — allow personalized sends even when VIP otherwise excluded", "evidence": "# Smart Draft (2026-04-24): when Nelson intentionally picks a VIP/PERSONALIZED"}, {"id": 39, "domain": "DATA", "confidence": "HIGH", "source": "refresh-v14.py:412", "type": "business_rule", "rule_text": "RateVersions sort by FILENAME upload date (Harry's send date) không phải Eff date.", "rationale": "2026-04-12 change — eff date unreliable for version ordering", "evidence": "# 2026-04-12: Sort by FILENAME upload date (Harry's send date) not Eff date"}, {"id": 40, "domain": "DATA", "confidence": "HIGH", "source": "refresh-v14.py:363", "type": "business_rule", "rule_text": "Normalize carrier's 'FIXED RATE' note → Nelson's 'Special Rate'.", "rationale": "2026-04-22 Nelson audit — FIX rates nên show là 'Special Rate' không phải carrier's raw 'FIXED RATE'", "evidence": "# 2026-04-22: Normalize carrier's \"FIXED RATE\" note → Nelson's \"Special Rate\""}, {"id": 41, "domain": "DATA", "confidence": "HIGH", "source": "refresh-v14.py:111-149", "type": "business_rule", "rule_text": "Commodity normalize: 'REEFER FAK (...)\n' → 'REEFER'. ONE's verbose commodity strings bloat row height.", "rationale": "2026-04-12 fix — ONE REEFER commodity verbose text caused display issues", "evidence": "# 2026-04-12: shorten verbose commodity strings for display"}, {"id": 42, "domain": "ERP", "confidence": "HIGH", "source": "erp-v14-thisworkbook.txt:7-12", "type": "business_rule", "rule_text": "AutoSave OFF when file opened from OneDrive. AutoSave + xlsm + OneDrive = silent VBA corruption.", "rationale": "2026-04-15 discovered — AutoSave on xlsm causes silent VBA module drop", "evidence": "AutoSave OFF on OneDrive — xlsm + AutoSave corrupts VBA silently"}, {"id": 43, "domain": "ERP", "confidence": "HIGH", "source": "erp-v14-jobs-automation.bas:602-644", "type": "business_rule", "rule_text": "RefreshAll URL detection: ThisWorkbook.FullName returns URL when file opened from Teams/O365. Cần detect URL vs local path để fallback correctly.", "rationale": "2026-04-21 BUG FIX (lần 3) — Refresh All URL bug", "evidence": "# URL detection for RefreshAll — ThisWorkbook.FullName returns URL when file opened from Teams/O365"}, {"id": 44, "domain": "EMAIL", "confidence": "HIGH", "source": "scanner.yaml:93-96", "type": "business_rule", "rule_text": "Telegram alert batching: collect alerts trong 300 giây (5 phút) trước khi flush như 1 message. Rate limit 20 alerts/minute.", "rationale": "2026-04-24 Phase 2.5 — prevent Telegram spam from rapid alerts", "evidence": "batch_window_seconds: 300, rate_limit_per_minute: 20"}, {"id": 45, "domain": "DATA", "confidence": "HIGH", "source": "phase-01-data-layer-findings.md", "type": "data_format", "rule_text": "POD format: 3-letter uppercase OR 'CITY, ST' OR 'CITY, CC'. VD: LAX/LGB, USLAX, 'LOS ANGELES, CA (LONG BEACH, CA)'.", "rationale": "POD có nhiều format variants từ different carrier sources", "evidence": "POD Cardinality: 140 unique values — multiple format types"}, {"id": 46, "domain": "DATA", "confidence": "HIGH", "source": "phase-01-data-layer-findings.md", "type": "data_format", "rule_text": "Carrier enum: ONE, HPL, CMA, COSCO, MSC, YML, EMC, ZIM, WHL, HMM, MSK, UWL, SEALEAD, KMTC. COSCO=5 letters, SEALEAD=8 letters, KMTC=4 letters — accepted non-standard.", "rationale": "14 unique carriers, không phải tất cả 3-letter", "evidence": "Carrier Cardinality: 14 unique — COSCO=1,044,956 rows"}, {"id": 47, "domain": "DATA", "confidence": "HIGH", "source": "phase-01-data-layer-findings.md", "type": "data_format", "rule_text": "Commodity có 66 unique values. Top: GARMENT, FAK INCL GARMENT, empty, RATE 1, FAK, FAK EXCL GARMENT, REEFER. Nhiều FAK variants không canonical.", "rationale": "66 unique commodity values — too many free-text variants cần cleanup", "evidence": "Commodity Cardinality: 66 unique — FAK variants chiếm majority"}, {"id": 48, "domain": "DATA", "confidence": "HIGH", "source": "phase-01-data-layer-findings.md", "type": "data_format", "rule_text": "Charge_Name có 27 unique values. Canonical: Total Ocean Freight = all-in price. BASIC O/F, HLCU Basic Cost = raw basic. Surcharges: ISPS, EMF, DLF, COMMISSION, PSS/PUC, ARB/OLF, MFR, EFS, ALF, CARBON.", "rationale": "27 charge name types — cần canonical mapping để quote đúng giá", "evidence": "Charge_Name Cardinality: 27 unique — Total Ocean Freight chiếm 1.2M rows"}, {"id": 49, "domain": "DATA", "confidence": "MEDIUM", "source": "phase-01-data-layer-findings.md", "type": "business_rule", "rule_text": "COMMISION typo → COMMISSION. 336 rows có typo trong COMMISSION surcharge name.", "rationale": "2026-04-25 discovered — typo cần fix để avoid confusion trong reporting", "evidence": "\"COMMISION\" → \"COMMISSION\" (336 rows typo)"}, {"id": 50, "domain": "DATA", "confidence": "MEDIUM", "source": "phase-01-data-layer-findings.md", "type": "business_rule", "rule_text": "Group_Code chỉ ONE carrier có values (990146, 990117, 990154, 990104, 990302, 1, PUDSCF001). Non-ONE carriers empty.", "rationale": "2026-04-13+ — ONE-only group code structure", "evidence": "Group_Code Cardinality: 8 unique — ONE carriers chiếm 1.17M trong 1.59M non-empty rows"}, {"id": 51, "domain": "ERP", "confidence": "MEDIUM", "source": "erp-v14-jobs-automation.bas:762-775", "type": "business_rule", "rule_text": "Month combo reads Archive col 15 for MONTH. Archive header at row 2, col 15 = Field 15 relative to A2.", "rationale": "2026-04-21 — Archive MONTH filter dùng col 15 (1-indexed)", "evidence": "Month combo reads Archive col 15, header row 2"}, {"id": 52, "domain": "ERP", "confidence": "HIGH", "source": "erp-v14-ribbon-callbacks.bas:196", "type": "business_rule", "rule_text": "QuoteImage và QuoteImageBulk tạo image từ Quotes sheet để gửi cho customer qua email.", "rationale": "2026-04-15 feature — visual quote confirmation", "evidence": "OnAction_QuoteImage and OnAction_QuoteImageBulk reference _QuoteImg sheet"}, {"id": 53, "domain": "ERP", "confidence": "HIGH", "source": "erp-v14-ribbon-callbacks.bas:1730", "type": "business_rule", "rule_text": "CRM lookup: CODE hoặc NAME → canonical NAME. Nếu lookup fails, dùng chính input value.", "rationale": "2026-04-21 CRM resilience — fallback to input if CRM lookup fails", "evidence": "CRM lookup by CODE or NAME — canonical NAME (col 2), not CODE"}, {"id": 54, "domain": "ERP", "confidence": "HIGH", "source": "erp-v14-ribbon-callbacks.bas:1620", "type": "business_rule", "rule_text": "OnAction_MarkQuoteWin auto-detect container type từ selected cell column (12-18 cho Dry, 29-35 cho Reefer).", "rationale": "2026-04-20 feature — container type detection từ pricing sheet cell position", "evidence": "Auto-detect container from selected cell column (12-18/29-35)"}, {"id": 55, "domain": "ERP", "confidence": "HIGH", "source": "erp-v14-core.bas:810", "type": "business_rule", "rule_text": "GetLaneFromPOD: LAX/LGB alias → WC (West Coast). NYC alias → EC (East Coast). ATL/SAV/HOU/CHI/etc → tương ứng EC/WC/GULF.", "rationale": "2026-04-15 lane detection — dùng cho markup lookup và routing", "evidence": "GetLaneFromPOD handles LAX/LGB alias (WC), NYC alias (EC), etc."}, {"id": 56, "domain": "ERP", "confidence": "HIGH", "source": "erp-v14-jobs-automation.bas:218-222", "type": "business_rule", "rule_text": "ApplyTrackingDots: 7-stage tracking dots (Request→Booked→To Customer→Docs→ATD→ETA→Delivered). Mỗi stage có colored dot + tooltip với SI Cut countdown, CY Close, Vessel/Voyage, PO#.", "rationale": "2026-04-20 tracking visualization — visual pipeline status", "evidence": "ApplyTrackingDots: 7-stage names + colored dot string + cell comment tooltip"}, {"id": 57, "domain": "EMAIL", "confidence": "HIGH", "source": "web_server.py:46-48", "type": "business_rule", "source_detail": "email_engine/web_server.py:46-48", "rule_text": "CNEE master v7 (22,854 rows, 62 cols) là primary data source. Fallback chain: v7 → v6 → v5 → cnee_master_v2_final.xlsx → local.", "rationale": "2026-04-22 migration — v7 là new canonical source", "evidence": "# 2026-04-22: migrate primary source → contact_unified_v6.xlsx (22,842 rows, v6 schema)"}, {"id": 58, "domain": "EMAIL", "confidence": "HIGH", "source": "web_server.py:208", "type": "business_rule", "rule_text": "Email format cleanup: reject junk prefixes như em@, te@, me@ (Nelson 2026-04-17). Trước đây email nhận dạng sai do prefix.", "rationale": "2026-04-17 Nelson fix — junk email prefixes caused misidentification", "evidence": "# Email format cleanup (Nelson 2026-04-17): reject junk prefixes like em@, te@, me@"}, {"id": 59, "domain": "EMAIL", "confidence": "HIGH", "source": "web_server.py:399", "type": "business_rule", "rule_text": "Domain substring match REMOVED (2026-04-18) per Nelson concern — prevents false positives từ substring matching.", "rationale": "2026-04-18 Nelson concern — domain substring matching caused wrong exclusions", "evidence": "domain substring match was REMOVED (2026-04-18) per Nelson concern"}, {"id": 60, "domain": "EMAIL", "confidence": "HIGH", "source": "web_server.py:519", "type": "business_rule", "rule_text": "Active pool stats EXCLUDES rows với EMAIL_STATUS in _DEAD_STATUSES. Mask out dead statuses trước khi tính active counts.", "rationale": "2026-04-24 unified suppression — đảm bảo dead emails không appear trong active counts", "evidence": "mask_active &= ~status_upper.isin(_DEAD_STATUSES)"}, {"id": 61, "domain": "CODE", "confidence": "HIGH", "source": "email_engine/scanner/classifier.py:115", "type": "business_rule", "rule_text": "Scanner paths updated từ v2 → v7 (2026-04-24). Root cause của 'scanner missed CNEE updates'.", "rationale": "2026-04-24 scanner fix — paths not updated after CNEE master migration", "evidence": "# 2026-04-24: updated paths from v2 → v7. Root cause of \"scanner missed CNEE updates\""}, {"id": 62, "domain": "CODE", "confidence": "MEDIUM", "source": "email_engine/web_server.py:910", "type": "business_rule", "rule_text": "PERF-003: cache pd.to_numeric + pd.to_datetime 15s. Prevents redundant type conversion mỗi request.", "rationale": "2026-04-24 performance fix — reduce CPU overhead for type conversions", "evidence": "# 2026-04-24 PERF-003: cache pd.to_numeric + pd.to_datetime 15s"}, {"id": 63, "domain": "CODE", "confidence": "MEDIUM", "source": "email_engine/api/routes/rotation_router.py:52", "type": "business_rule", "rule_text": "PERF-104: _CACHE_TTL_SECONDS bumped 300→600 (10 phút). Load_master_df heavy operation cần longer cache.", "rationale": "2026-04-24 performance — reduce cache thrashing for expensive operation", "evidence": "_CACHE_TTL_SECONDS = 600  # 2026-04-24 PERF-104: bumped 300→600"}, {"id": 64, "domain": "CODE", "confidence": "MEDIUM", "source": "email_engine/api/routes/sent_scan_router.py:121", "type": "business_rule", "rule_text": "HIGH-3: bound _JOBS to 100 — drop oldest FIFO để avoid OOM. Scan history bounded để prevent memory growth.", "rationale": "2026-04-24 stability — unbounded job list caused OOM on large scans", "evidence": "# 2026-04-24 HIGH-3: bound _JOBS to 100 — drop oldest FIFO to avoid OOM"}, {"id": 65, "domain": "CODE", "confidence": "MEDIUM", "source": "email_engine/api/routes/contacts_router.py:449", "type": "business_rule", "rule_text": "HIGH-2: bound upload to 50MB. Panjiva exports ~5-20MB nên 50MB buffer充足.", "rationale": "2026-04-24 safety — prevent oversized file uploads", "evidence": "# 2026-04-24 HIGH-2: bound upload to 50MB — Panjiva exports ~5-20MB"}, {"id": 66, "domain": "CODE", "confidence": "HIGH", "source": "email_engine/scanner/inbox_scanner.py:129", "type": "business_rule", "rule_text": "IMPORTANT: When called from FastAPI worker thread, COM is NOT initialized. Must call from main thread only.", "rationale": "2026-04-24 COM threading rule — Outlook COM chỉ safe trên main thread", "evidence": "# IMPORTANT: When called from FastAPI worker thread, COM is NOT initialized."}, {"id": 67, "domain": "EMAIL", "confidence": "HIGH", "source": "send_time_rules.json", "type": "business_rule", "rule_text": "Optimal send time per US state: email nên được gửi để land vào lúc 9h local recipient. VN send hours dao động 18h-2h tùy state (timezone offset).", "rationale": "2026-04-19 Nelson + Claude design — maximize open rate by timing", "evidence": "states: {AL:{optimal_send_hour_vn:20}, AK:{optimal_send_hour_vn:23}, CA:{optimal_send_hour_vn:22}, ...}"}, {"id": 68, "domain": "EMAIL", "confidence": "HIGH", "source": "send_time_rules.json:31-32", "type": "business_rule", "rule_text": "Alaska: 9h local Alaska = 18h UTC = 1h VN next day. Hawaii: 9h Hawaii = 19h UTC = 2h VN next day. Special handling cho states không có DST.", "rationale": "2026-04-19 extreme timezones — cần special send hour calculations", "evidence": "AK: optimal_send_hour_vn=23, HI: optimal_send_hour_vn=1"}, {"id": 69, "domain": "EMAIL", "confidence": "MEDIUM", "source": "web_server.py:2141-2145", "type": "business_rule", "rule_text": "Suppression controls: cooldown_days (default 14) và skip_cooldown flag. skip_cooldown=True still blocks HARD_BOUNCE/UNSUB.", "rationale": "2026-04-21 Phase B suppression controls — granular control nhưng không bypass permanent blocks", "evidence": "cooldown_days: int = 14, skip_cooldown: bool = False"}, {"id": 70, "domain": "CODE", "confidence": "HIGH", "source": "ERP/core/install_jobs_automation.py:179", "type": "business_rule", "rule_text": "CRITICAL: Excel COM Save can silently drop customUI bindings if the workbook is saved while the customUI.xml is being modified.", "rationale": "2026-04-24 COM safety — prevent customUI corruption during save operations", "evidence": "CRITICAL: Excel COM Save can silently drop customUI bindings if the..."}, {"id": 71, "domain": "ERP", "confidence": "HIGH", "source": "erp-v14-thisworkbook.txt:47-64", "type": "business_rule", "rule_text": "SelectionChange workbook-level: Only Sheet1 fired SelectionChange — other pricing sheets không update ribbon state. Đã fix 2026-04-22.", "rationale": "2026-04-22 bug — ribbon state không update khi click vào pricing sheet khác Sheet1", "evidence": "SelectionChange workbook-level: Only Sheet1 fired SelectionChange"}, {"id": 72, "domain": "CODE", "confidence": "HIGH", "source": "email_engine/core/outlook_scanner.py:233", "type": "business_rule", "rule_text": "si_48h_alert merged INTO shipment_brain (2026-04-22) per architecture review — consolidation để reduce scattered logic.", "rationale": "2026-04-22 architecture consolidation — merge si_48h_alert into shipment_brain", "evidence": "si_48h_alert merged INTO shipment_brain (2026-04-22) per architecture review"}, {"id": 73, "domain": "CODE", "confidence": "MEDIUM", "source": "email_engine/intel/writeback.py:265", "type": "business_rule", "rule_text": "xlsx mtime change invalidates 3 caches (_CNEE_CACHE, _CNEE_DF_CACHE, _CAMPAIGN_CACHE). Prevents stale data serving.", "rationale": "2026-04-24 cache invalidation — file change detection triggers cache refresh", "evidence": "# 2026-04-24: xlsx mtime change invalidates 3 caches"}, {"id": 74, "domain": "ERP", "confidence": "HIGH", "source": "erp-v14-core.bas", "type": "business_rule", "rule_text": "RateFreshnessColors: cells có background color based on expiry. Green=fresh, Yellow=expiring soon, Red=expired.", "rationale": "2026-04-12 visual freshness indicator — giúp Nelson identify stale rates", "evidence": "RateFreshnessColors — green/yellow/red based on expiry"}, {"id": 75, "domain": "ERP", "confidence": "HIGH", "source": "erp-v14-preset-dryreefer.bas", "type": "business_rule", "rule_text": "DRY/REEFER/ShowAll preset buttons: 2-sheet aware — preset applied per active sheet (Dry or Reefer).", "rationale": "2026-04-12 feature — preset filters work correctly on both pricing sheets", "evidence": "ERPv14Preset — DRY/REEFER/ShowAll preset buttons, 2-sheet aware"}, {"id": 76, "domain": "EMAIL", "confidence": "HIGH", "source": "default_routes.yaml:38-41", "type": "business_rule", "rule_text": "Inland gateway routing: USATL (Atlanta) = RIPI via CHS/NOR/SAV, USCHI/USDAL/USDEN = IPI via LAX/OAK. Inland destinations require extra gateway surcharges.", "rationale": "2026-04-24 Phase 2 inland routing — ARB origin surcharges apply for cross-origin inland", "evidence": "USATL: {gateway: RIPI, via: [CHS, NOR, SAV]}, USCHI: {gateway: IPI, via: [LAX, OAK]}"}, {"id": 77, "domain": "EMAIL", "confidence": "HIGH", "source": "scanner.yaml:11-22", "type": "business_rule", "rule_text": "Scan window = 35 minutes default. Hard cap = 500 items per cycle. Folders scanned: Inbox (6) và Junk Email (23).", "rationale": "2026-04-24 scanner config — bounded scan để prevent runaway", "evidence": "window_minutes: 35, max_items: 500, folders: [6, 23]"}, {"id": 78, "domain": "CODE", "confidence": "MEDIUM", "source": "email_engine/api/routes/rotation_router.py:123", "type": "business_rule", "rule_text": "Dashboard scale can round commodities down to 0 when quota分配 không chia đều. Cần floor function để đảm bảo minimum 1.", "rationale": "2026-04-24 rotation dashboard fix — zero quota bug khi small counts", "evidence": "# 2026-04-24: dashboard scale can round commodities down to 0 when..."}, {"id": 79, "domain": "CODE", "confidence": "MEDIUM", "source": "email_engine/api/routes/rotation_router.py:383", "type": "business_rule", "rule_text": "PERF-103: use queue_store._connect (WAL + busy_timeout=30s). Improves SQLite concurrency.", "rationale": "2026-04-24 performance — WAL mode better for concurrent reads", "evidence": "# 2026-04-24 PERF-103: use queue_store._connect (WAL + busy_timeout=30s)"}, {"id": 80, "domain": "CODE", "confidence": "MEDIUM", "source": "scripts/erp-import-shipments.py:82", "type": "business_rule", "rule_text": "Job_ID hidden col (2026-04-21) — primary key = Bkg_No. Job_ID không còn primary identifier.", "rationale": "2026-04-21 Nelson decision — Bkg_No là primary lookup key không phải Job_ID", "evidence": "\"Job_ID\": 1, # hidden col (2026-04-21) — primary key = Bkg_No"}, {"id": 81, "domain": "CODE", "confidence": "MEDIUM", "source": "scripts/erp-import-shipments.py:96", "type": "business_rule", "rule_text": "MONTH col added (2026-04-21) cho VBA month combo filter. Col 15 trong Active Jobs / Archive sheets.", "rationale": "2026-04-21 — month combo filter cần MONTH column để filter by month", "evidence": "\"MONTH\": 15, # added 2026-04-21 for VBA month combo filter"}, {"id": 82, "domain": "CODE", "confidence": "MEDIUM", "source": "Pricing_Engine/scripts/convert_pricing.py:239", "type": "business_rule", "rule_text": "POD contamination guard: Raw Fixed Rate sheets sometimes có POD values contaminated với 'SUBJECT TO EFS' text.", "rationale": "2026-04-16 POD fix — raw Excel data contamination cần cleanup", "evidence": "# 2026-04-16: POD contamination guard. Raw Fixed Rate sheets sometimes..."}, {"id": 83, "domain": "CODE", "confidence": "MEDIUM", "source": "ERP/core/install_jobs_automation.py", "type": "business_rule", "rule_text": "FindScript helper: tìm refresh-all-bootstrap.bat trong 3 bases (OneDrive repo, PC Home repo, relative path). Đảm bảo script luôn found.", "rationale": "2026-04-21 reliability — script location resilience across machines", "evidence": "FindScript tìm trong multiple bases để ensure script found"}, {"id": 84, "domain": "CODE", "confidence": "MEDIUM", "source": "scripts/migrate-carrier-rules.py", "type": "business_rule", "rule_text": "Carrier rules migration: SOC/PUC/COMMODITY/WEIGHT/BOOKING fields per carrier. SOC=true nghĩa là shipper-owned container rate.", "rationale": "2026-04-20 carrier rules consolidation — unified JSON cho all carriers", "evidence": "SOC carrier rules in unified JSON format"}, {"id": 85, "domain": "CODE", "confidence": "MEDIUM", "source": "ERP/vba-v14-mirror/customui_utils.py:132", "type": "business_rule", "rule_text": "_verify_customui_integrity: verify ribbon XML integrity sau khi inject. Prevents corruption silent failures.", "rationale": "2026-04-24 integrity check — đảm bảo customUI injection thành công", "evidence": "def _verify_customui_integrity(xlsm_path: str, expected_xml: str) -> dict"}, {"id": 86, "domain": "EMAIL", "confidence": "MEDIUM", "source": "email_engine/scanner/classifier.py:250", "type": "business_rule", "rule_text": "sender_domains covers YML/Maersk/MSC tracking bots. Tracking emails từ carriers được classified đúng.", "rationale": "2026-04-24 tracking bot detection — expanded sender domain coverage", "evidence": "# 2026-04-24: sender_domains covers YML/Maersk/MSC etc tracking bots."}, {"id": 87, "domain": "CODE", "confidence": "MEDIUM", "source": "email_engine/web_server.py:3869", "type": "business_rule", "rule_text": "Security 2026-04-24: web_server bind localhost only. Dashboard opens via file:// not network share.", "rationale": "2026-04-24 security — prevent external access to internal dashboard", "evidence": "# Security 2026-04-24: bind localhost only. Dashboard opens via file://"}, {"id": 88, "domain": "DATA", "confidence": "HIGH", "source": "phase-01-data-layer-findings.md", "type": "data_format", "rule_text": "Rate_Type enum: FAK (6.89M rows), SCFI (53K rows), FIX (37K rows). Chỉ 3 rate types được support.", "rationale": "2026-04-25 data audit — 3 rate types in production", "evidence": "Rate_Type Cardinality: 3 unique — FAK/SCFI/FIX"}, {"id": 89, "domain": "EMAIL", "confidence": "HIGH", "source": "auto_rate_builder.py:691", "type": "business_rule", "rule_text": "Rate Table v2 (2026-04-17): dual HPH+HCM side-by-side layout, inland POD routing (via LAX/SAV/CHS), 'YOUR LANE' amber pill cho CNEE's known destination, TOP 3 carriers per POD.", "rationale": "2026-04-17 major feature — rate table layout v2 với dual POL và smart highlights", "evidence": "# ── Rate Table v2 helpers (2026-04-17) ─────────────────────────────────────"}, {"id": 90, "domain": "ERP", "confidence": "MEDIUM", "source": "CostBreakdown.bas:124", "type": "business_rule", "rule_text": "HDL fallback account: R.account = carrier + ' (FALLBACK)'. Warning line appended to email body khi fallback used.", "rationale": "2026-04-20 — fallback indicator giúp identify missing HDL rules", "evidence": "R.account = carrier & \" (FALLBACK)\""}, {"id": 91, "domain": "ERP", "confidence": "HIGH", "source": "CostBreakdown.bas:241-245", "type": "business_rule", "rule_text": "CostBreakdown adds 'GROUP: {groupCode}' line cho ONE carrier only. Non-ONE carriers không có group line.", "rationale": "2026-04-13+ — ONE-specific group code display trong cost breakdown", "evidence": "groupLine for ONE only — CostBreakdown.bas:241-245"}, {"id": 92, "domain": "ERP", "confidence": "MEDIUM", "source": "erp-v14-jobs-automation.bas:647", "type": "business_rule", "rule_text": "FindScript tìm scripts\\refresh-all-bootstrap.bat. Search path: OneDrive repo, PC Home repo, relative to xlsm.", "rationale": "2026-04-21 reliability — bootstrap script location flexible", "evidence": "FindScript(\"scripts\\\\refresh-all-bootstrap.bat\")"}, {"id": 93, "domain": "DATA", "confidence": "HIGH", "source": "master_loader_v2.py:514", "type": "business_rule", "rule_text": "rate_type_key = 'FIX_COC' if mode == 'FIX' else mode. SOC HPL sheet chưa wired vào mapping.", "rationale": "2026-04-13 — FIX SOC HPL mapping not yet connected", "evidence": "rate_type_key = \"FIX_COC\" if mode == \"FIX\" else mode  # SOC HPL sheet not wired yet"}, {"id": 94, "domain": "DATA", "confidence": "MEDIUM", "source": "master_loader_v2.py:616", "type": "business_rule", "rule_text": "SCFI price_start_idx = 5, others = 12. SCFI có different column layout trong source Excel.", "rationale": "2026-04-13 — SCFI vs FAK/FIX có different column positions", "evidence": "price_start_idx = 5 if mode == \"SCFI\" else 12"}, {"id": 95, "domain": "DATA", "confidence": "HIGH", "source": "master_loader_v2.py:549", "type": "business_rule", "rule_text": "SCFI rows: Note = empty string (SCFI không có Note column). Non-SCSI: Note = _get_val('Note').", "rationale": "2026-04-13 — SCFI format khác, không có Note column", "evidence": "'Note': '' if mode == 'SCFI' else _get_val('Note')"}, {"id": 96, "domain": "DATA", "confidence": "MEDIUM", "source": "master_loader_v2.py:559", "type": "business_rule", "rule_text": "ONE_RESOLVER_AVAILABLE: nếu có ONE resolver module, resolve carrier name 'ONE' đúng cách.", "rationale": "2026-04-13 — ONE carrier name resolution", "evidence": "if _ONE_RESOLVER_AVAILABLE and str(record.get('Carrier', '')).upper() == 'ONE'"}, {"id": 97, "domain": "EMAIL", "confidence": "HIGH", "source": "web_server.py:2141-2145", "type": "business_rule", "rule_text": "Smart Draft suppression: skip_cooldown=True still blocks HARD_BOUNCE và UNSUBSCRIBED. Permanent blocks không bao giờ bypass được.", "rationale": "2026-04-21 Phase B — legal compliance: bounces and unsubscribes are permanent", "evidence": "skip_cooldown: if True, bypass cooldown check (still blocks HARD_BOUNCE/UNSUB)"}, {"id": 98, "domain": "CODE", "confidence": "MEDIUM", "source": "api/app.py:132", "type": "business_rule", "rule_text": "REMOVED 2026-04-17: email_rate_router, email_queue_router, auto_quote_router — consolidated vào unified router.", "rationale": "2026-04-17 cleanup — consolidate email-related routes", "evidence": "# REMOVED 2026-04-17: email_rate_router, email_queue_router, auto_quote_router"}, {"id": 99, "domain": "ERP", "confidence": "MEDIUM", "source": "erp-v14-ribbon-callbacks.bas:211", "type": "business_rule", "rule_text": "OnChange_SearchCarrier/POL/POD/Place: resets toggle filters (Source + SOC) on sheet switch.", "rationale": "2026-04-22 post-fix — toggle filter reset prevents stale filter state", "evidence": "Post-fix (2026-04-22): Resets toggle filters (Source + SOC) on sheet switch"}, {"id": 100, "domain": "DATA", "confidence": "HIGH", "source": "master_loader_v2.py:373", "type": "business_rule", "rule_text": "FIX files có multiple layouts: SPECIAL RATE vs Fixed Rate Summary. Cần detect layout type để apply correct mapping.", "rationale": "2026-04-13 — FIX files không homogeneous", "evidence": "# 2026-04-13: FIX files have multiple layouts (SPECIAL RATE vs Fixed Rate..."}, {"id": 101, "domain": "DATA", "confidence": "MEDIUM", "source": "master_loader_v2.py:387", "type": "business_rule", "rule_text": "Nếu multiple mapping files exist cho same mode, pick the one with latest date in filename.", "rationale": "2026-04-13 — disambiguation when multiple mapping files present", "evidence": "# 2026-04-13: If multiple mapping files exist for this mode, pick the one..."}, {"id": 102, "domain": "DATA", "confidence": "MEDIUM", "source": "master_loader_v2.py:643", "type": "business_rule", "rule_text": "Also search processed/ subdirectory for mapping files. Canonical rate file location.", "rationale": "2026-04-13 — expand search path for mapping files", "evidence": "# 2026-04-13: Also search processed/ subdirectory (canonical rate file location)"}, {"id": 103, "domain": "EMAIL", "confidence": "HIGH", "source": "email_engine/core/auto_rate_builder.py:988", "type": "business_rule", "rule_text": "_carriers_to_try = FAK COC carrier list. Thử FAK COC carriers first, sau đó fallback nếu cần.", "rationale": "2026-04-17 carrier fallback — try FAK COC first, then other categories", "evidence": "_carriers_to_try = list(RATE_TYPE_CARRIER_MATRIX.get(\"FAK COC\", set()))"}, {"id": 104, "domain": "EMAIL", "confidence": "HIGH", "source": "email_engine/core/arb_pricing.py:81", "type": "business_rule", "rule_text": "contract_type keys: FAK, FAK_SOC, FAK_COC, FIX. FAK_SOC/FAK_COC are legacy keys normalized to FAK as fallback.", "rationale": "2026-04-17 ARB pricing — legacy contract key normalization", "evidence": "# Normalize legacy keys: FAK_SOC/FAK_COC → try FAK as fallback"}, {"id": 105, "domain": "CODE", "confidence": "MEDIUM", "source": "email_engine/api/routes/rotation_router.py:744", "type": "business_rule", "rule_text": "_invalidate_caches(): khi rotation config thay đổi, invalidates all cached rotation data.", "rationale": "2026-04-24 cache invalidation — config change triggers fresh load", "evidence": "_invalidate_caches() — called when rotation config changes"}, {"id": 106, "domain": "ERP", "confidence": "HIGH", "source": "erp-v14-core.bas", "type": "business_rule", "rule_text": "AutoExpire: auto-expire old rate rows in Pricing sheets. Rate rows với Exp < today được mark/exclude.", "rationale": "2026-04-12 feature — automatic stale rate exclusion", "evidence": "AutoExpire — removes/flags rates that have expired"}, {"id": 107, "domain": "ERP", "confidence": "MEDIUM", "source": "erp-v14-core.bas", "type": "business_rule", "rule_text": "ApplyQuickSearch: filter pricing rows based on ribbon search state. Dynamic filter as user types.", "rationale": "2026-04-12 — real-time search filter on pricing sheet", "evidence": "ApplyQuickSearch — real-time filter as user types in ribbon search boxes"}, {"id": 108, "domain": "ERP", "confidence": "MEDIUM", "source": "erp-v14-core.bas", "type": "business_rule", "rule_text": "GetUniqueVisibleValues: populate combo dropdown lists với only visible (non-filtered) values.", "rationale": "2026-04-12 — cascading dropdown filtering", "evidence": "GetUniqueVisibleValues — rebuild dropdown lists based on current filter"}, {"id": 109, "domain": "DATA", "confidence": "MEDIUM", "source": "refresh-v14.py:319", "type": "business_rule", "rule_text": "FAK COC ONE HCM-TACOMA (SHORT TERM GDSM) missing from Pricing Dry — known gap tracked.", "rationale": "2026-04-22 audit — known missing lane documented", "evidence": "# FAK COC ONE HCM-TACOMA (SHORT TERM GDSM) missing from Pricing Dry"}, {"id": 110, "domain": "EMAIL", "confidence": "HIGH", "source": "email_engine/core/auto_rate_builder.py:1109-1110", "type": "business_rule", "rule_text": "ARB surcharge for FAK_SOC contract type. Sample carrier determines surcharge rule lookup.", "rationale": "2026-04-17 ARB cross-origin surcharge calculation", "evidence": "s20 = get_arb_surcharge(arb_origin, sample_carrier, \"FAK_SOC\", \"20GP\")"}, {"id": 111, "domain": "EMAIL", "confidence": "HIGH", "source": "email_engine/intelligence/builder.py:301", "type": "business_rule", "rule_text": "v3 (2026-04-19): primary_dest — nếu CNEE có known DESTINATION, that POD được highlight trong rate table.", "rationale": "2026-04-19 YOUR LANE feature — highlight CNEE's known destination", "evidence": "v3 (2026-04-19): primary_dest — if CNEE has known DESTINATION"}, {"id": 112, "domain": "EMAIL", "confidence": "HIGH", "source": "email_engine/intelligence/builder.py:219", "type": "business_rule", "rule_text": "_load_routing_config: loads default_routes.yaml từ OneDrive. Fast_bulk_default và max_destinations_per_email = 10.", "rationale": "2026-04-19 routing config — loaded from OneDrive (not hardcoded)", "evidence": "_load_routing_config() — loads default_routes.yaml from OneDrive"}, {"id": 113, "domain": "EMAIL", "confidence": "HIGH", "source": "email_engine/templates/email_rules.yaml:24-25", "type": "business_rule", "rule_text": "default_cross_sell template placed FIRST so it wins scoring when full 10-lane menu in play. 10 lanes: USLAX + USSAV + USNYC + USHOU + USMIA + USTIW + 4 inland.", "rationale": "2026-04-19 template precedence — most generic last", "evidence": "# Placed FIRST so it wins scoring when the full 10-lane menu is in play."}, {"id": 114, "domain": "EMAIL", "confidence": "HIGH", "source": "email_engine/templates/email_rules.yaml:100-101", "type": "business_rule", "rule_text": "default fallback template MUST be last trong template list. Catches unmatched destinations.", "rationale": "2026-04-19 — fallback template là catch-all cho unmatched cases", "evidence": "# Default fallback (MUST be last)"}, {"id": 115, "domain": "DATA", "confidence": "HIGH", "source": "phase-01-data-layer-findings.md", "type": "business_rule", "rule_text": "Eff date format: YYYY-MM-DD canonical. NaT values phải fillna với Exp date.", "rationale": "2026-04-13 fix — NaT causes silent row drops in pivot", "evidence": "Eff (Effective Date): 99.96% non-null, format YYYY-MM-DD"}, {"id": 116, "domain": "DATA", "confidence": "HIGH", "source": "phase-01-data-layer-findings.md", "type": "business_rule", "rule_text": "Exp date format: YYYY-MM-DD canonical. Exp < today = expired rate.", "rationale": "2026-04-13 — expiry check for rate validity", "evidence": "Exp (Expiration Date): 99.99% non-null, format YYYY-MM-DD"}, {"id": 117, "domain": "DATA", "confidence": "MEDIUM", "source": "phase-01-data-layer-findings.md", "type": "data_format", "rule_text": "Contract format: Alphanumeric. SHA0005N25, SEN25392, S25NEA202, etc. 74 unique values.", "rationale": "2026-04-25 data audit — contract ID format", "evidence": "Contract Cardinality: 74 unique — alphanumeric format"}, {"id": 118, "domain": "DATA", "confidence": "MEDIUM", "source": "phase-01-data-layer-findings.md", "type": "data_format", "rule_text": "Place format: CITY, ST (US) or CITY, CC (Canada). DETROIT MI, MEMPHIS TN, CLEVELAND OH, TORONTO ON, MONTREAL QC, etc.", "rationale": "2026-04-25 data audit — Place format already consistent", "evidence": "Place Cardinality: 193 unique, format CITY, ST consistently uppercase"}, {"id": 119, "domain": "DATA", "confidence": "HIGH", "source": "phase-01-data-layer-findings.md", "type": "business_rule", "rule_text": "Amount range: -100 to 300. Negative values (rebates) tồn tại: -100.0 có 80,179 rows.", "rationale": "2026-04-25 data audit — negative rates exist as rebates", "evidence": "Range: -100 to 300, -100.0 (80,179 rows) = rebate entries"}, {"id": 120, "domain": "CODE", "confidence": "HIGH", "source": "email_engine/web_server.py:1894-1927", "type": "business_rule", "rule_text": "Stale detection: _CRITICAL_FILES list compares st_mtime vs SERVER_START_TS. Nelson sees 'needs restart' banner nếu file changed after server start.", "rationale": "2026-04-24 reload guidance — file modification detection for server restart reminder", "evidence": "_CRITICAL_FILES compares st_mtime vs SERVER_START_TS"}, {"id": 121, "domain": "EMAIL", "confidence": "HIGH", "source": "web_server.py:1058", "type": "business_rule", "rule_text": "Bounced count = HARD_BOUNCE + SOFT_BOUNCE + SOFT_SUPPRESSED. Tracked per campaign.", "rationale": "2026-04-24 bounce tracking — aggregate soft và hard bounces", "evidence": "bounced = int(statuses.isin([\"HARD_BOUNCE\", \"SOFT_BOUNCE\", \"SOFT_SUPPRESSED\"]).sum())"}, {"id": 122, "domain": "EMAIL", "confidence": "HIGH", "source": "web_server.py:1377", "type": "business_rule", "rule_text": "Per-CNMEE bounce count: HARD_BOUNCE or SOFT_BOUNCE trong EMAIL_STATUS.", "rationale": "2026-04-24 per-contact bounce tracking", "evidence": "bounced = cnee[\"EMAIL_STATUS\"].isin([\"HARD_BOUNCE\",\"SOFT_BOUNCE\"]).sum()"}, {"id": 123, "domain": "EMAIL", "confidence": "HIGH", "source": "email_engine/scanner/handlers.py:334", "type": "business_rule", "rule_text": "Bounce severity: HARD nếu bounce_type='HARD', SOFT otherwise. EMAIL_STATUS = HARD_BOUNCE hoặc SOFT_BOUNCE.", "rationale": "2026-04-24 bounce severity classification", "evidence": "\"EMAIL_STATUS\": \"HARD_BOUNCE\" if severity == \"HARD\" else \"SOFT_BOUNCE\""}, {"id": 124, "domain": "EMAIL", "confidence": "HIGH", "source": "email_engine/scanner/handlers.py:552", "type": "business_rule", "rule_text": "Unsubscribe: EMAIL_STATUS = UNSUBSCRIBED, UNSUBSCRIBED_AT = timestamp. Permanent block.", "rationale": "2026-04-24 unsubscribe tracking — permanent opt-out", "evidence": "\"EMAIL_STATUS\": \"UNSUBSCRIBED\", \"UNSUBSCRIBED_AT\": datetime.now(timezone.utc).isoformat()"}, {"id": 125, "domain": "EMAIL", "confidence": "HIGH", "source": "web_server.py:1424", "type": "business_rule", "rule_text": "Per-subscriber bounce count cho suppression decisions. Multiple bounces = higher suppression priority.", "rationale": "2026-04-24 bounce tracking per subscriber", "evidence": "bounced = int(csub[\"EMAIL_STATUS\"].isin([\"HARD_BOUNCE\",\"SOFT_BOUNCE\"]).sum())"}, {"id": 126, "domain": "CODE", "confidence": "MEDIUM", "source": "scripts/validate-data-contracts.py:436-439", "type": "business_rule", "rule_text": "Validation results: FAIL/ERROR/SKIP/PASS status per contract check. FAIL = rule violated, ERROR = check couldn't run.", "rationale": "2026-04-22 contract validation — structured result reporting", "evidence": "failures = [n for n, r in results.items() if r.get(\"status\") == \"FAIL\"]"}, {"id": 127, "domain": "CODE", "confidence": "MEDIUM", "source": "scripts/validate-data-contracts.py:61", "type": "business_rule", "rule_text": "Baseline discovered 2026-04-22 from read_schema on real Parquet. Dùng actual data để establish contract baseline.", "rationale": "2026-04-22 — use real data not assumptions for contract validation", "evidence": "# Baseline discovered 2026-04-22 from read_schema on real Parquet"}, {"id": 128, "domain": "CODE", "confidence": "HIGH", "source": "api/data_access.py:133", "type": "business_rule", "rule_text": "load_only_total_ocean_freight=True (default): chỉ load 'Total Ocean Freight' active rates. Giảm data volume significantly.", "rationale": "2026-04-13 data access optimization — default to all-in prices only", "evidence": "# Columns needed for filtered (Total Ocean Freight) queries"}, {"id": 129, "domain": "CODE", "confidence": "MEDIUM", "source": "api/data_access.py:172", "type": "business_rule", "rule_text": "Charge_Name filter: ['Total Ocean Freight', 'Base Ocean Freight'] cho fallback queries. Base Ocean Freight là secondary.", "rationale": "2026-04-13 data access — fallback charge types", "evidence": "df['Charge_Name'].isin(['Total Ocean Freight', 'Base Ocean Freight'])"}, {"id": 130, "domain": "CODE", "confidence": "MEDIUM", "source": "api/pipeline/pricing_engine.py:28", "type": "business_rule", "rule_text": "QUOTABLE_CHARGES = ('ALL IN COST', 'Total Ocean Freight', 'Base Ocean Freight'). Priority order: ALL IN COST first.", "rationale": "2026-04-13 quote engine — charge type priority for pricing", "evidence": "QUOTABLE_CHARGES = ('ALL IN COST', 'Total Ocean Freight', 'Base Ocean Freight')"}, {"id": 131, "domain": "CODE", "confidence": "HIGH", "source": "api/pipeline/pricing_engine.py:135", "type": "business_rule", "rule_text": "Chỉ Total Ocean Freight cho selling rates. 'Base Ocean Freight' không dùng cho quotes.", "rationale": "2026-04-13 — selling rates phải là all-in prices", "evidence": "AND Charge_Name = 'Total Ocean Freight'"}, {"id": 132, "domain": "CODE", "confidence": "HIGH", "source": "api/quote_intelligence.py:41-42", "type": "business_rule", "rule_text": "Only keep Total Ocean Freight when filtering for intelligence. Strip other charge types.", "rationale": "2026-04-13 quote intelligence — all-in prices only", "evidence": "df = df[df['Charge_Name'].str.contains('Total Ocean Freight', na=False)]"}, {"id": 133, "domain": "CODE", "confidence": "MEDIUM", "source": "api/routers/rate_router.py:93-96", "type": "business_rule", "rule_text": "SOC detection: Note contains 'SOC' (case insensitive). Dùng cho SOC vs COC classification.", "rationale": "2026-04-13 SOC flagging — simple substring match", "evidence": "is_soc = 'SOC' in str(row.get('Note', '')).upper()"}, {"id": 134, "domain": "CODE", "confidence": "MEDIUM", "source": "api/routers/rate_router.py:230", "type": "business_rule", "rule_text": "Total Ocean Freight row = selling price. Non-Total rows = surcharge components.", "rationale": "2026-04-13 rate breakdown — separate all-in from components", "evidence": "if cn and cn != 'Total Ocean Freight'"}, {"id": 135, "domain": "CODE", "confidence": "MEDIUM", "source": "db/duckdb_engine.py:96", "type": "business_rule", "rule_text": "DuckDB query: Charge_Name = 'Total Ocean Freight' là default filter. Đảm bảo quoting chỉ dùng all-in prices.", "rationale": "2026-04-13 DuckDB optimization — default to all-in rates", "evidence": "- Charge_Name = 'Total Ocean Freight'"}, {"id": 136, "domain": "CODE", "confidence": "MEDIUM", "source": "db/duckdb_engine.py:234", "type": "business_rule", "rule_text": "is_soc flag: CASE WHEN Note LIKE '%SOC%' THEN true ELSE false. SOC flag for rate queries.", "rationale": "2026-04-13 SOC detection in SQL", "evidence": "CASE WHEN UPPER(COALESCE(Note, '')) LIKE '%SOC%' THEN true ELSE false END AS is_soc"}, {"id": 137, "domain": "EMAIL", "confidence": "HIGH", "source": "shipment_brain.py:166", "type": "business_rule", "rule_text": "Shipment lifecycle: BOOKING_CONFIRMED → SI_SUBMITTED → DRAFT_BL_ISSUED → DRAFT_BL_CONFIRMED → LOADED → ATD → ETA_UPDATE → DN_SENT → INVOICE_ISSUED → PAYMENT_CONFIRMED.", "rationale": "2026-04-22 lifecycle tracking — full container shipping flow", "evidence": "Lifecycle stages: BOOKING_CONFIRMED → ... → PAYMENT_CONFIRMED"}, {"id": 138, "domain": "EMAIL", "confidence": "HIGH", "source": "cnee_milestone.py:137", "type": "business_rule", "rule_text": "ATD detection triggers CNEE draft creation. Draft được created via Outlook COM (win32com).", "rationale": "2026-04-20 milestone automation — ATD triggers customer notification", "evidence": "on_atd_detected(mail_item, stages, identifiers, sender_smtp) → creates Outlook Draft"}, {"id": 139, "domain": "EMAIL", "confidence": "MEDIUM", "source": "cnee_milestone.py:135", "type": "business_rule", "rule_text": "milestone_daily.json: rate limiting max 20 milestones/day, 5/run. Prevents notification overload.", "rationale": "2026-04-20 — milestone notification rate limit", "evidence": "milestone_daily.json — max 20/day, 5/run"}, {"id": 140, "domain": "EMAIL", "confidence": "HIGH", "source": "cnee_milestone.py:142", "type": "business_rule", "rule_text": "Security controls: Auth-Results header (SPF/DKIM/DMARC), OPS allowlist, kill switch, bulk detect (>3 Bkg = skip), date sanity window (ATD within ±30d of ReceivedTime).", "rationale": "2026-04-20 milestone security — prevent false positive milestone detection", "evidence": "Auth-Results header check, OPS allowlist, bulk detect >3 Bkg skip, ATD date sanity ±30d"}, {"id": 141, "domain": "EMAIL", "confidence": "HIGH", "source": "shipment_brain.py:160", "type": "business_rule", "rule_text": "shipment_state.json: atomic write via .tmp file. Prevents corruption nếu write interrupted.", "rationale": "2026-04-22 state persistence — atomic write pattern", "evidence": "atomic write via .tmp"}, {"id": 142, "domain": "EMAIL", "confidence": "HIGH", "source": "cnee_milestone.py:188", "type": "business_rule", "rule_text": "JSONL → ATD/ETA7 type → Bkg_No lookup in col H → write milestone to Active Jobs. Deletes lines from jsonl after successful sync.", "rationale": "2026-04-20 milestone sync — JSONL is write-only from Python, read+flush from VBA", "evidence": "Python writes jsonl → VBA reads+flushes (SYSTEM_STANDARDS §3.4)"}, {"id": 143, "domain": "EMAIL", "confidence": "HIGH", "source": "web_server.py:1985-1997", "type": "business_rule", "rule_text": "CNEE master fallback chain: D:/OneDrive/NelsonData/email/contact_unified_v7.xlsx → v6 → v5 → cnee_master_v2_final.xlsx → local CNEE_V6/CNEE_V2.", "rationale": "2026-04-22 resilience — multiple fallback paths for CNEE data", "evidence": "_resolve_cnee_master_v2() tries 5 paths in order"}, {"id": 144, "domain": "DATA", "confidence": "HIGH", "source": "refresh-v14.py:296-300", "type": "business_rule", "rule_text": "fillna metadata cols: Eff/Exp/Contract/GroupRate/GroupCode = '' nếu NaN. Prevents pivot_table dropping rows với NaN metadata.", "rationale": "2026-04-21 Phase 3 — NaN metadata causes row loss in pivot", "evidence": "# 2026-04-21 Phase 3: fill NaN in metadata cols so pivot_table (dropna=True default)"}, {"id": 145, "domain": "DATA", "confidence": "HIGH", "source": "refresh-v14.py:662", "type": "business_rule", "rule_text": "Hidden cols O/P/Q (15/16/17): Contract, Group Rate, Group Code. Được viết nhưng hidden từ Nelson's view.", "rationale": "2026-04-21 Phase 3 — metadata columns hidden but preserved", "evidence": "# 2026-04-21 Phase 3: Hide cols O/P/Q (15/16/17) — Contract, Group Rate, Group Code"}, {"id": 146, "domain": "DATA", "confidence": "MEDIUM", "source": "refresh-v14.py:628", "type": "business_rule", "rule_text": "Row heights reset to fixed 18pt sau pivot. Prevents rows không overlap/stack.", "rationale": "2026-04-12 display fix — verbose text causes row height issues", "evidence": "# 2026-04-12: Reset row heights to fixed 18pt so rows don't overlap/stack."}, {"id": 147, "domain": "DATA", "confidence": "MEDIUM", "source": "refresh-v14.py:639-640", "type": "business_rule", "rule_text": "Visible cols 1-14 (Dry) / 1-11 (Reefer) unhide + safety buffer to 14. Hidden cols 15-17 explicitly hidden sau.", "rationale": "2026-04-21 Phase 3 — explicit show/hide for pricing columns", "evidence": "# 2026-04-21 Phase 3: Expanded to 17 then hide cols 15/16/17 explicitly below."}, {"id": 148, "domain": "DATA", "confidence": "MEDIUM", "source": "refresh-v14.py:646", "type": "business_rule", "rule_text": "Set sane default widths cho commonly-narrow cols. Prevents columns being too narrow to read.", "rationale": "2026-04-12 display improvement", "evidence": "# 2026-04-12: Set sane default widths for commonly-narrow cols"}, {"id": 149, "domain": "ERP", "confidence": "MEDIUM", "source": "erp-v14-ribbon-callbacks.bas:1296", "type": "business_rule", "rule_text": "OnAction_MarkQuoteWin reads hidden cols 15 (Contract), 16 (Group Rate), 17 (Group Code) để preserve trong Active Jobs.", "rationale": "2026-04-21 Phase 3 — preserve metadata from pricing through to jobs", "evidence": "OnAction_MarkQuoteWin reads hidden cols 15-17 for Contract/GroupRate/GroupCode"}, {"id": 150, "domain": "ERP", "confidence": "HIGH", "source": "erp-v14-core.bas:570", "type": "business_rule", "rule_text": "RebuildVisibleComboLists: cascade filter khi user changes carrier/POL/POD/Place. Khi carrier thay đổi, POD list update theo carrier's available PODs.", "rationale": "2026-04-12 — cascading dropdown refresh for search", "evidence": "RebuildVisibleComboLists — cascade filter on carrier/POL/POD/Place changes"}, {"id": 151, "domain": "ERP", "confidence": "HIGH", "source": "erp-v14-core.bas:228", "type": "business_rule", "rule_text": "MsgBoxOrSilent: hiển thị MsgBox nếu not g_TestMode, otherwise silent. Cho phép automated testing without dialogs.", "rationale": "2026-04-11 test mode — suppress dialogs during automated tests", "evidence": "MsgBoxOrSilent — conditional message box based on g_TestMode"}, {"id": 152, "domain": "CODE", "confidence": "MEDIUM", "source": "scripts/migrate-carrier-rules.py:202", "type": "business_rule", "rule_text": "Carrier rules table format: CARRIER | SOC | PUC | COMMODITY | NOTES | WEIGHT | BOOKING. SOC=true cho shipper-owned container carriers.", "rationale": "2026-04-20 carrier rules schema — unified format across all carriers", "evidence": "print(f\"{'CARRIER':<10} {'SOC':>5} {'PUC':>5} {'COMMODITY':>10} {'NOTES':>8} {'WEIGHT':>8} {'BOOKING':>8}\")"}, {"id": 153, "domain": "CODE", "confidence": "MEDIUM", "source": "scripts/test_milestone_smoke.py:167", "type": "business_rule", "rule_text": "Milestone state JSONL format: {ts, bkg, type, date, mail_entry_id}. type = ATD/ETA7.", "rationale": "2026-04-20 milestone state schema", "evidence": "{\"ts\": \"2026-04-20T10:00:00\", \"bkg\": \"SGNG47156900\", \"type\": \"ATD\", \"date\": \"2026-04-20\", \"mail_entry_id\": \"x\"}"}, {"id": 154, "domain": "CODE", "confidence": "MEDIUM", "source": "scripts/erp-import-shipments.py:591", "type": "business_rule", "rule_text": "Action INSERT vs UPDATE vs SKIP logic: nếu existing_hdr == 'Job_ID' và month_hdr == 'MONTH' thì skip header detection.", "rationale": "2026-04-21 — prevent header row being treated as data", "evidence": "if action == \"INSERT\": if existing_hdr == \"Job_ID\" and month_hdr == \"MONTH\":"}, {"id": 155, "domain": "CODE", "confidence": "MEDIUM", "source": "scripts/erp-import-shipments.py:722", "type": "business_rule", "rule_text": "Batch insert action INSERT: nhiều rows cùng lúc, dùng array insert.", "rationale": "2026-04-21 bulk import optimization", "evidence": "if action == \"INSERT\": (array insert path)"}, {"id": 156, "domain": "ERP", "confidence": "MEDIUM", "source": "erp-v14-ribbon-callbacks.bas:2020", "type": "business_rule", "rule_text": "TEU calculation: 20GP=1 TEU, 40GP/40HQ/40HC=2 TEU, 45HQ=2 TEU, 20RF/40RF=2 TEU. TEU = container count × TEU_factor.", "rationale": "2026-04-20 — TEU (Twenty-foot Equivalent Unit) calculation for capacity planning", "evidence": "TEU calc per container type"}, {"id": 157, "domain": "CODE", "confidence": "MEDIUM", "source": "ERP/intelligence/tracking_manager.py:561", "type": "business_rule", "rule_text": "Sample shipment data: ETD=2026-03-22, ETA=2026-04-18. Transit time ~27 days.", "rationale": "2026-04-25 tracking sample data", "evidence": "etd=\"2026-03-22\", eta=\"2026-04-18\""}, {"id": 158, "domain": "CODE", "confidence": "MEDIUM", "source": "scripts/erp-import-shipments.py:680", "type": "business_rule", "rule_text": "Column 15 (MONTH) added to Archive sheet import. MONTH field is required for VBA month combo filter.", "rationale": "2026-04-21 — MONTH column needed for Archive filtering", "evidence": "\"MONTH\", # col 15 — added 2026-04-21 for VBA month combo filter"}, {"id": 159, "domain": "CODE", "confidence": "MEDIUM", "source": "scripts/erp-hide-jobid-cols.py:4", "type": "business_rule", "rule_text": "Nelson decision (2026-04-21): Job_ID is no longer the primary key. Bkg_No is primary lookup key.", "rationale": "2026-04-21 — Job_ID demoted from primary key", "evidence": "Nelson decision (2026-04-21): Job_ID is no longer the primary key."}, {"id": 160, "domain": "CODE", "confidence": "MEDIUM", "source": "scripts/audit-pricing-pipeline.py:109", "type": "business_rule", "rule_text": "rate_type == 'FAK': FAK mode detection for pipeline audit.", "rationale": "2026-04-13 pipeline audit — FAK mode check", "evidence": "if rate_type == 'FAK'"}, {"id": 161, "domain": "EMAIL", "confidence": "MEDIUM", "source": "email_engine/api/routes/rotation_router.py:52", "type": "business_rule", "rule_text": "_CACHE_TTL_SECONDS = 600 (10 min). Cache rotation plan để reduce recompute.", "rationale": "2026-04-24 performance — cache rotation plan for 10 minutes", "evidence": "_CACHE_TTL_SECONDS = 600"}, {"id": 162, "domain": "EMAIL", "confidence": "MEDIUM", "source": "rotation_engine.py:204", "type": "business_rule", "rule_text": "Redistribution: deficit in one commodity → proportional spread to surplus commodities. Ensures full 420 quota used even if some commodities short.", "rationale": "2026-04-19 — quota redistribution ensures maximum sends", "evidence": "Redistribution: deficit in one commodity → proportional spread to surplus commodities"}, {"id": 163, "domain": "EMAIL", "confidence": "HIGH", "source": "rotation_engine.py:206", "type": "business_rule", "rule_text": "Final pick respects cooldown (7d), hard limit (3 sends/30d). Filters applied after redistribution.", "rationale": "2026-04-19 — cooldown và hard limit applied as final filter", "evidence": "Final pick respects cooldown (7d), hard limit (3 sends/30d)"}, {"id": 164, "domain": "EMAIL", "confidence": "MEDIUM", "source": "web_server.py:880", "type": "business_rule", "rule_text": "SEND_PROGRESS tracks: sent, total, errors, status, skipped_cooldown per campaign.", "rationale": "2026-04-24 campaign progress tracking", "evidence": "SEND_PROGRESS[campaign_id] = {\"sent\": 0, \"total\": len(req.contacts), \"errors\": [], \"status\": \"queued\", \"skipped_cooldown\": 0}"}, {"id": 165, "domain": "EMAIL", "confidence": "MEDIUM", "source": "web_server.py:905", "type": "business_rule", "rule_text": "Progress stats: in_cooldown, sent_today counters.", "rationale": "2026-04-24 real-time progress tracking", "evidence": "\"in_cooldown\": 0, \"sent_today\": 0"}, {"id": 166, "domain": "CODE", "confidence": "MEDIUM", "source": "email_engine/api/routes/rotation_router.py:744", "type": "business_rule", "rule_text": "Cache invalidation: khi quota config changes, old cached rotation plans are discarded.", "rationale": "2026-04-24 cache management — config changes invalidate cached data", "evidence": "_invalidate_caches() — called on rotation config changes"}, {"id": 167, "domain": "EMAIL", "confidence": "HIGH", "source": "email_engine/web_server.py:3277-3283", "type": "business_rule", "rule_text": "_load_recent_sends: return set of lowercase emails sent within cooldown_days. Empty set if cooldown_days <= 0.", "rationale": "2026-04-24 cooldown checking — efficient set lookup", "evidence": "if cooldown_days <= 0 or not _LOG_FILE_PATH.exists(): return set()"}, {"id": 168, "domain": "EMAIL", "confidence": "MEDIUM", "source": "web_server.py:3345-3346", "type": "business_rule", "rule_text": "cooldown_sample: first 5 emails in cooldown (for debugging/display).", "rationale": "2026-04-24 — cooldown debugging sample", "evidence": "if len(cooldown_sample) < 5: cooldown_sample.append(e)"}, {"id": 169, "domain": "CODE", "confidence": "MEDIUM", "source": "scripts/validate-data-contracts.py:61", "type": "business_rule", "rule_text": "Validator baseline from real Parquet schema. Dùng actual data shape not assumptions.", "rationale": "2026-04-22 — data-driven validation baseline", "evidence": "# Baseline discovered 2026-04-22 from read_schema on real Parquet"}, {"id": 170, "domain": "CODE", "confidence": "MEDIUM", "source": "api/erp_api_bridge.py:58-60", "type": "business_rule", "rule_text": "ERP bridge: GET vs POST method routing. Method uppercase comparison.", "rationale": "2026-04-13 ERP bridge routing", "evidence": "if method.upper() == \"GET\": elif method.upper() == \"POST\":"}, {"id": 171, "domain": "CODE", "confidence": "MEDIUM", "source": "api/routers/job_router.py:209", "type": "business_rule", "rule_text": "Active jobs filter: status == 'ACTIVE'. Inactive jobs excluded from normal queries.", "rationale": "2026-04-20 job status filtering", "evidence": "jobs = [j for j in jobs if j.get(\"status\") == \"ACTIVE\"]"}, {"id": 172, "domain": "CODE", "confidence": "MEDIUM", "source": "scripts/dedupe-customer-rules.py:51", "type": "business_rule", "rule_text": "KEY priority customers: special handling, không bị cooldown压制.", "rationale": "2026-04-19 — KEY customers bypass normal rules", "evidence": "if cust.get(\"priority\") == \"KEY\""}, {"id": 173, "domain": "CODE", "confidence": "MEDIUM", "source": "scripts/panjiva_clean.py:539", "type": "business_rule", "rule_text": "HARD_BOUNCE email validation: email phải chứa '@' và được mark HARD_BOUNCE trong status.", "rationale": "2026-04-19 — bounce email validation rule", "evidence": "if s.upper() == \"HARD_BOUNCE\" and \"@\" in e"}, {"id": 174, "domain": "CODE", "confidence": "MEDIUM", "source": "scripts/panjiva_clean.py:189-197", "type": "business_rule", "rule_text": "CONSIGNEE vs SHIPPER detection: CONSIGNEE emails tracked differently, không suppress shipper emails.", "rationale": "2026-04-19 — CNEE vs shipper distinction matters for suppression", "evidence": "if cu == \"CONSIGNEE\": if \"CONSIGNEE EMAIL 1\" in cu or cu == \"CONSIGNEE EMAIL 1\":"}, {"id": 175, "domain": "CODE", "confidence": "MEDIUM", "source": "scripts/_migrate_v7_helpers.py:122", "type": "business_rule", "rule_text": "Default gate = HOLD for SHIPPER sheet, ACTIVE for CONSIGNEE sheet. Panjiva import gating.", "rationale": "2026-04-18 — Panjiva import gate defaults by sheet type", "evidence": "default_gate = \"HOLD\" if sheet == \"SHIPPER\" else \"ACTIVE\""}, {"id": 176, "domain": "CODE", "confidence": "MEDIUM", "source": "scripts/_migrate_v7_helpers.py:145", "type": "business_rule", "rule_text": "TIER column: map sang EMAIL_STATUS tier system. HOT/ACTIVE/DEAD/etc.", "rationale": "2026-04-18 — tier to status mapping", "evidence": "if col == \"TIER\":"}, {"id": 177, "domain": "CODE", "confidence": "MEDIUM", "source": "scripts/_migrate_v7_helpers.py:160", "type": "business_rule", "rule_text": "COMMODITY_CATEGORY: 18 clean categories mapped từ raw commodity names.", "rationale": "2026-04-18 — commodity categorization", "evidence": "if col == \"COMMODITY_CATEGORY\":"}, {"id": 178, "domain": "CODE", "confidence": "MEDIUM", "source": "scripts/_migrate_v7_helpers.py:170", "type": "business_rule", "rule_text": "ORIGIN_COUNTRIES: multi-value country field parsed and normalized.", "rationale": "2026-04-18 — origin country parsing", "evidence": "if col == \"ORIGIN_COUNTRIES\":"}, {"id": 179, "domain": "CODE", "confidence": "MEDIUM", "source": "scripts/erp-import-shipments.py:82", "type": "business_rule", "rule_text": "Job_ID col (1-indexed trong Excel): hidden column chứa internal ID không phải primary key.", "rationale": "2026-04-21 — Job_ID is hidden metadata", "evidence": "\"Job_ID\": 1, # hidden col (2026-04-21)"}, {"id": 180, "domain": "CODE", "confidence": "MEDIUM", "source": "scripts/erp-import-shipments.py:96", "type": "business_rule", "rule_text": "MONTH col (15): ISO month label như 'APR-26' cho VBA month combo filter.", "rationale": "2026-04-21 — MONTH for Archive sheet filtering", "evidence": "\"MONTH\": 15, # added 2026-04-21 for VBA month combo filter"}, {"id": 181, "domain": "CODE", "confidence": "MEDIUM", "source": "scripts/erp-build-crm.py:191-195", "type": "business_rule", "rule_text": "CUSTOMER type mapping: DIRECT/FWD/CNEE → mapped to CRM type field.", "rationale": "2026-04-20 — customer type classification", "evidence": "if raw_type == \"DIRECT\": elif raw_type == \"FWD\": elif raw_type == \"CNEE\":"}, {"id": 182, "domain": "CODE", "confidence": "MEDIUM", "source": "ERP/jobs/yml_email_scan.py:186-207", "type": "business_rule", "rule_text": "YML tracking email parsing: GTIN/VD/VA/ETA_INFO entity types extracted.", "rationale": "2026-04-19 — YML email tracking entity extraction", "evidence": "if etype == \"GTIN\": elif etype == \"VD\": elif etype == \"VA\": elif etype == \"ETA_INFO\":"}, {"id": 183, "domain": "CODE", "confidence": "MEDIUM", "source": "ERP/jobs/release_alerts.py:179-184", "type": "business_rule", "rule_text": "Release alert priority: URGENT/WARN/INFO. FILL_URGENT/FILL_WARN/FILL_INFO colors applied.", "rationale": "2026-04-14 — release alert severity levels", "evidence": "fill = FILL_URGENT if a.priority == \"URGENT\" else FILL_WARN if a.priority == \"WARN\" else FILL_INFO"}, {"id": 184, "domain": "CODE", "confidence": "MEDIUM", "source": "ERP/jobs/release_alerts.py:205", "type": "business_rule", "rule_text": "URGENT priority breach: ' BREACHED' suffix added to alert text.", "rationale": "2026-04-14 — breach indicator for urgent alerts", "evidence": "suffix = \" BREACHED\" if priority == \"URGENT\" else \"\""}, {"id": 185, "domain": "CODE", "confidence": "MEDIUM", "source": "ERP/jobs/release_alerts.py:230-232", "type": "business_rule", "rule_text": "Alert grouping: urgent/warn/info separated lists for differentiated handling.", "rationale": "2026-04-14 — alert prioritization", "evidence": "urgent = [a for a in alerts if a.priority == \"URGENT\"]; warn = [...]"}, {"id": 186, "domain": "CODE", "confidence": "MEDIUM", "source": "ERP/quotes/crm_quote_manager.py:77", "type": "business_rule", "rule_text": "Status emoji: WIN=🟢, LOST=🔴, other=🟡. Visual status indicator.", "rationale": "2026-04-15 — visual quote status", "evidence": "emoji = \"🟢\" if status == 'WIN' else \"🔴\" if status == 'LOST' else \"🟡\""}, {"id": 187, "domain": "CODE", "confidence": "MEDIUM", "source": "ERP/quotes/crm_quote_manager.py:101", "type": "business_rule", "rule_text": "WIN status change triggers: Active Jobs update, CRM update, booking pool prompt.", "rationale": "2026-04-15 — WIN triggers multiple downstream updates", "evidence": "if new_status == 'WIN':"}]};
+const ALL_RULES = RULES_DATA.rules;
+const TOTAL = ALL_RULES.length;
+
+let state = {
+  current: 0,
+  filter: 'ALL',
+  reviewed: 0,
+  counts: { approved: 0, edited: 0, rejected: 0, skip: 0 },
+  decisions: {}
+};
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed.decisionList && Array.isArray(parsed.decisionList)) {
+        state.decisionList = parsed.decisionList;
+        state.current = parsed.currentIndex || 0;
+        state.filter = parsed.filter || 'ALL';
+        state.counts = parsed.counts || { approved: 0, edited: 0, rejected: 0, skip: 0 };
+        return true;
+      }
+    }
+  } catch(e) {}
+  return false;
+}
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      decisionList: state.decisionList || [],
+      currentIndex: state.current,
+      filter: state.filter,
+      counts: state.counts
+    }));
+  } catch(e) {}
+}
+
+function getFilteredRules() {
+  if (state.filter === 'ALL') return ALL_RULES;
+  return ALL_RULES.filter(r => r.domain === state.filter);
+}
+
+function getActiveList() {
+  return getFilteredRules();
+}
+
+function getDecision(ruleId) {
+  return (state.decisionList || []).find(d => d.id === ruleId);
+}
+
+function setDecision(ruleId, status, editedText) {
+  if (!state.decisionList) state.decisionList = [];
+  const existing = state.decisionList.findIndex(d => d.id === ruleId);
+  const entry = { id: ruleId, status, edited_text: editedText || null };
+  if (existing >= 0) {
+    state.decisionList[existing] = entry;
+  } else {
+    state.decisionList.push(entry);
+  }
+  if (status === 'approved') state.counts.approved++;
+  else if (status === 'edited') state.counts.edited++;
+  else if (status === 'rejected') state.counts.rejected++;
+  else if (status === 'skip') state.counts.skip++;
+}
+
+function getNextUnreviewed(currentIdx) {
+  const list = getActiveList();
+  for (let i = currentIdx + 1; i < list.length; i++) {
+    if (!getDecision(list[i].id)) return i;
+  }
+  for (let i = 0; i <= currentIdx; i++) {
+    if (!getDecision(list[i].id)) return i;
+  }
+  return -1;
+}
+
+function updateStats() {
+  const list = getActiveList();
+  const totalFilter = list.length;
+  const decided = (state.decisionList || []).filter(d => list.some(r => r.id === d.id)).length;
+  const pct = totalFilter > 0 ? Math.round((decided / totalFilter) * 100) : 0;
+  const remaining = totalFilter - decided;
+  const timeLeft = remaining * 15; // ~15 sec per rule estimate
+
+  document.getElementById('currentIdx').textContent = state.current + 1;
+  document.getElementById('totalCnt').textContent = totalFilter;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressPct').textContent = pct + '%';
+  document.getElementById('reviewedCount').textContent = 'Đã duyệt: ' + decided;
+  document.getElementById('remainingCount').textContent = 'Còn lại: ' + remaining;
+  if (remaining > 0) {
+    const mins = Math.ceil(timeLeft / 60);
+    document.getElementById('timeHint').textContent = '~' + mins + ' phút còn lại';
+  } else {
+    document.getElementById('timeHint').textContent = 'Hoàn tất! 🎉';
+  }
+
+  document.getElementById('statApproved').textContent = '✅ ' + state.counts.approved;
+  document.getElementById('statEdited').textContent = '✏️ ' + state.counts.edited;
+  document.getElementById('statRejected').textContent = '❌ ' + state.counts.rejected;
+  document.getElementById('statSkipped').textContent = '❓ ' + state.counts.skip;
+}
+
+function showCard(animate) {
+  const list = getActiveList();
+  const idx = state.current;
+  if (idx < 0 || idx >= list.length) {
+    document.getElementById('card').innerHTML = '<div class=no-more><h3>🎉 Hoàn tất!</h3><p>Tất cả rules đã được duyệt. Nhấn Export để tải JSON.</p></div>';
+    document.getElementById('actionRow').style.display = 'none';
+    return;
+  }
+
+  const rule = list[idx];
+  const decision = getDecision(rule.id);
+  const card = document.getElementById('card');
+  const actionRow = document.getElementById('actionRow');
+
+  if (animate) {
+    card.classList.add('exit');
+    setTimeout(() => {
+      renderCard(rule, decision);
+      card.classList.remove('exit');
+      card.classList.add('enter');
+      setTimeout(() => card.classList.remove('enter'), 50);
+    }, 250);
+  } else {
+    renderCard(rule, decision);
+  }
+
+  actionRow.style.display = 'flex';
+}
+
+function renderCard(rule, decision) {
+  const card = document.getElementById('card');
+  const badgeClass = 'badge-' + rule.domain;
+  const confClass = rule.confidence === 'HIGH' ? 'conf-HIGH' : (rule.confidence === 'MEDIUM' ? 'conf-MEDIUM' : 'conf-LOW');
+
+  let statusBadge = '';
+  if (decision) {
+    const badgeMap = { approved: 'DONE', edited: 'EDITED', rejected: 'REJECTED', skip: 'SKIPPED' };
+    statusBadge = '<div class="done-badge ' + badgeMap[decision.status] + '">' + (decision.status === 'approved' ? 'ĐÚNG' : decision.status === 'edited' ? 'SỬA' : decision.status === 'rejected' ? 'SAI' : 'SKIP') + '</div>';
+  }
+
+  card.innerHTML = `
+    <div class="card-front">
+      ${statusBadge}
+      <div class="card-meta">
+        <span class="rule-num">RULE #${rule.id}</span>
+        <span class="badge ${badgeClass}">${rule.domain}</span>
+        <span class="conf-badge badge ${confClass}">${rule.confidence}</span>
+        <span class="type-tag">${rule.type}</span>
+      </div>
+      <div class="card-content">
+        <pre id="ruleText">${escapeHtml(rule.rule_text)}</pre>
+      </div>
+      <div class="card-source">
+        <span class="icon">📍</span>
+        <span id="ruleSource">${escapeHtml(rule.source)}</span>
+      </div>
+      <div class="card-rationale">
+        <span class="icon">💡</span>
+        <span id="ruleRationale">${escapeHtml(rule.rationale)}</span>
+      </div>
+      <div class="card-evidence">
+        <div class="evidence-toggle" id="evidenceToggle" onclick="toggleEvidence()">
+          <span class="arrow">▼</span> Show evidence
+        </div>
+        <div class="evidence-content" id="evidenceContent">${escapeHtml(rule.evidence || 'Không có evidence.')}</div>
+      </div>
+    </div>
+    <div class="card-edit">
+      <div style="font-weight:600;font-size:14px;margin-bottom:4px">✏️ Chỉnh sửa rule</div>
+      <textarea id="editTextarea" rows="8">${escapeHtml(rule.rule_text)}</textarea>
+      <div class="btn-row">
+        <button class="export-btn" style="flex:1;background:#15803d" onclick="saveEdit()">💾 Lưu</button>
+        <button class="export-btn" style="flex:1;background:#374151" onclick="cancelEdit()">✕ Hủy</button>
+      </div>
+    </div>
+  `;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function doAction(status) {
+  const list = getActiveList();
+  const rule = list[state.current];
+  setDecision(rule.id, status);
+  state.current = getNextUnreviewed(state.current);
+  saveState();
+  updateStats();
+  showCard(true);
+}
+
+function toggleEvidence() {
+  const el = document.getElementById('evidenceToggle');
+  const content = document.getElementById('evidenceContent');
+  if (!el || !content) return;
+  const isOpen = el.classList.toggle('open');
+  content.style.display = isOpen ? 'block' : 'none';
+  el.querySelector('.arrow').textContent = isOpen ? '▲' : '▼';
+  el.querySelector('span:last-child').textContent = isOpen ? ' Hide evidence' : ' Show evidence';
+}
+
+function openEdit() {
+  const card = document.getElementById('card');
+  card.classList.add('flip');
+  setTimeout(() => {
+    const ta = document.getElementById('editTextarea');
+    if (ta) ta.focus();
+  }, 300);
+}
+
+function saveEdit() {
+  const ta = document.getElementById('editTextarea');
+  if (!ta) return;
+  const editedText = ta.value.trim();
+  if (!editedText) return;
+  const list = getActiveList();
+  const rule = list[state.current];
+  setDecision(rule.id, 'edited', editedText);
+  state.current = getNextUnreviewed(state.current);
+  saveState();
+  updateStats();
+  showCard(true);
+}
+
+function cancelEdit() {
+  const card = document.getElementById('card');
+  card.classList.remove('flip');
+}
+
+function exportResults() {
+  const approved = state.counts.approved;
+  const edited = state.counts.edited;
+  const rejected = state.counts.rejected;
+  const skipped = state.counts.skip;
+  const rulesOut = ALL_RULES.map(r => {
+    const d = getDecision(r.id);
+    return {
+      id: r.id,
+      domain: r.domain,
+      confidence: r.confidence,
+      source: r.source,
+      type: r.type,
+      rule_text: r.rule_text,
+      rationale: r.rationale,
+      evidence: r.evidence,
+      status: d ? d.status : 'unreviewed',
+      edited_text: d && d.edited_text ? d.edited_text : null
+    };
+  });
+  const result = {
+    review_date: '2026-04-25',
+    total: TOTAL,
+    approved,
+    edited,
+    rejected,
+    skipped,
+    rules: rulesOut
+  };
+  const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'RULES_REVIEWED.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function handleKey(e) {
+  if (e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'ArrowLeft') { e.preventDefault(); doAction('approved'); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); doAction('rejected'); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); doAction('edited'); openEdit(); }
+  else if (e.key === 'ArrowDown') { e.preventDefault(); doAction('skip'); }
+  else if (e.key === 'e' || e.key === 'E') { toggleEvidence(); }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('domainFilter').value = state.filter;
+  document.getElementById('domainFilter').addEventListener('change', (e) => {
+    state.filter = e.target.value;
+    state.current = 0;
+    saveState();
+    updateStats();
+    showCard(false);
+  });
+
+  document.addEventListener('keydown', handleKey);
+
+  loadState();
+  updateStats();
+  showCard(false);
+});
+</script>
+</body>
+</html>

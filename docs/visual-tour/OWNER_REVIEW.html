@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nelson Domain Review — Final Approval</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; min-height: 100vh; }
+.container { max-width: 600px; margin: 0 auto; padding: 20px; }
+.header { text-align: center; margin-bottom: 24px; }
+.header h1 { font-size: 1.4rem; color: #fff; margin-bottom: 8px; }
+.progress-bar { background: #2a2a4a; border-radius: 12px; height: 12px; overflow: hidden; margin: 12px 0; }
+.progress-fill { background: linear-gradient(90deg, #4ade80, #22d3ee); height: 100%; transition: width 0.4s ease; border-radius: 12px; }
+.progress-text { font-size: 0.85rem; color: #aaa; }
+.card { background: #16213e; border-radius: 16px; padding: 24px; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+.domain-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; margin-bottom: 12px; }
+.domain-DATA { background: #3b82f6; }
+.domain-ERP { background: #8b5cf6; }
+.domain-EMAIL { background: #f59e0b; }
+.domain-CODE { background: #10b981; }
+.rule-number { font-size: 0.8rem; color: #888; margin-bottom: 8px; }
+.rule-title { font-size: 1.1rem; color: #fff; margin-bottom: 16px; font-weight: 600; line-height: 1.4; }
+.rule-content { background: #0f172a; border-radius: 12px; padding: 16px; margin-bottom: 16px; font-size: 0.9rem; line-height: 1.6; border-left: 3px solid #4ade80; }
+.rule-consequence { font-size: 0.85rem; color: #f87171; margin-top: 10px; padding-top: 10px; border-top: 1px solid #1e293b; }
+.actions { display: flex; gap: 12px; justify-content: center; }
+.btn { padding: 12px 24px; border: none; border-radius: 12px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: transform 0.15s, opacity 0.15s; display: flex; align-items: center; gap: 6px; }
+.btn:hover { transform: scale(1.05); }
+.btn:active { transform: scale(0.95); }
+.btn-correct { background: #22c55e; color: #fff; }
+.btn-edit { background: #f59e0b; color: #fff; }
+.btn-wrong { background: #ef4444; color: #fff; }
+.keyboard-hint { text-align: center; font-size: 0.75rem; color: #666; margin-top: 12px; }
+.keyboard-hint kbd { background: #333; padding: 2px 8px; border-radius: 4px; margin: 0 4px; }
+.review-complete { text-align: center; padding: 40px; }
+.review-complete h2 { color: #4ade80; font-size: 1.5rem; margin-bottom: 16px; }
+.review-complete p { color: #aaa; margin-bottom: 24px; }
+.btn-export { background: #4ade80; color: #1a1a2e; padding: 14px 32px; border: none; border-radius: 12px; font-size: 1rem; font-weight: 600; cursor: pointer; }
+.nav-info { text-align: center; font-size: 0.8rem; color: #666; margin-top: 16px; }
+.detail-toggle { font-size: 0.8rem; color: #666; cursor: pointer; margin-top: 12px; text-align: center; }
+.detail-toggle:hover { color: #aaa; }
+.detail-content { display: none; font-size: 0.75rem; color: #888; margin-top: 8px; background: #0f172a; padding: 12px; border-radius: 8px; }
+.detail-content.show { display: block; }
+.footer-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; }
+.btn-nav { background: #333; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
+.btn-nav:disabled { opacity: 0.3; cursor: not-allowed; }
+.count-badge { font-size: 0.75rem; color: #aaa; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>Nelson Domain Review — Final Approval</h1>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill">0%</div></div>
+    <div class="progress-text" id="progressText">0 / 20 rules (0 phút còn lại)</div>
+  </div>
+  <div id="cardContainer"></div>
+  <div class="keyboard-hint">
+    Keyboard: <kbd>←</kbd> Đúng &nbsp; <kbd>↑</kbd> Sửa &nbsp; <kbd>→</kbd> Sai &nbsp; | &nbsp; <kbd>N</kbd> next &nbsp; <kbd>P</kbd> prev
+  </div>
+  <div id="completeSection" class="review-complete" style="display:none;">
+    <h2>Review Hoàn Tất!</h2>
+    <p>20/20 rules đã được duyệt. Cảm ơn anh!</p>
+    <button class="btn-export" onclick="exportJSON()">Xuất OWNER_APPROVED.json</button>
+    <div id="exportStatus" style="margin-top:12px;color:#aaa;font-size:0.85rem;"></div>
+  </div>
+</div>
+<script>
+const DOMAIN_DATA = [
+  {
+    id: "D1", domain: "DATA", title: "Giá báo khách luôn dùng Total Ocean Freight",
+    content: "Khi anh click QUOTE hoặc Mix Quote, giá hiển thị ở ô = Sell Rate là giá đã bao gồm tất cả phí. Đây là giá anh gửi cho khách.\n\nQuy định: Giá báo khách PHẢI lấy từ dòng có Charge_Name = 'Total Ocean Freight'. KHÔNG BAO GIỜ dùng Basic Ocean Freight / HLCU Basic Cost / Base Ocean Freight.",
+    consequence: "Báo giá thiếu phí → lỗ tiền. HPL SCFI từng bị under-quote $1,561/40HQ.",
+    details: "Charge_Name = 'Total Ocean Freight' cho mọi quote. COMMISION typo → COMMISSION (336 rows). Group_Code: ONE carriers only. Rate_Type enum: FAK/SCFI/FIX."
+  },
+  {
+    id: "D2", domain: "DATA", title: "POD format LAX/LGB — gạch chéo, không gạch ngang",
+    content: "Khi anh chọn POD trong ô tìm kiếm (ví dụ: Los Angeles), hệ thống hiểu LAX/LGB nghĩa là cảng Long Beach + Los Angeles gộp lại.\n\nQuy định: POD chuẩn = LAX/LGB (dấu slash /). LAX-LGB (dấu dash -) → bị reject. USLAX/ USLGB (space sau slash) → strip space.",
+    consequence: "Mix Quote không tìm thấy peer → trả sai giá.",
+    details: "LAX-LGB (dash): 523,220 rows violation. USLAX/ USLGB (space): 62,748 rows. Legacy HPL: 'LOS ANGELES, CA (LONG BEACH, CA)' → normalize to LAX/LGB."
+  },
+  {
+    id: "D3", domain: "DATA", title: "Container 40HQ → 40HC, 45HQ → 45HC",
+    content: "Khi báo giá container 40ft, hệ thống tự đổi 40HQ thành 40HC.\n\nQuy định: Container type chuẩn: 40HC (không phải 40HQ), 45HC (không phải 45HQ hoặc 45'HQ). 40HQ → đổi thành 40HC khi nạp data.",
+    consequence: "1.76M rows 40HQ chưa normalize → potential column collision.",
+    details: "40HQ = 1,763,608 rows → normalize to 40HC. 45HQ = 1,255,885 rows → normalize to 45HC. 45'HQ = 132,476 rows."
+  },
+  {
+    id: "D4", domain: "DATA", title: "Nạp rate file mới phải qua master_loader_v2.py",
+    content: "Khi Harry gửi file rate mới (FAK 01 MAY NO.1.xlsx, FIX NO.24.xlsx, SCFI Contract 43.xlsx), file được nạp qua script chuẩn.\n\nQuy định: Mọi rate file mới phải qua master_loader_v2.py. Mapping files (V4_FINAL_CHECK_*.csv) định nghĩa cách đọc columns.",
+    consequence: "Parquet drift → các ô giá trên ERP không khớp.",
+    details: "Input: FAK/FIX/SCFI xlsx → output: Cleaned_Master_History.parquet. Dedup key = POL+POD+Place+Carrier+Note+Source (không Commodity)."
+  },
+  {
+    id: "D5", domain: "DATA", title: "Filter 30 ngày — không lấy rate cũ",
+    content: "Khi làm việc trên ERP, các dòng rate hiển thị chỉ là rate còn hiệu lực.\n\nQuy định: Parquet queries LUÔN filter: Eff date >= 30 ngày trước. Exp < hôm nay = expired → không dùng để báo giá.",
+    consequence: "Báo giá rate đã hết hạn → khách hỏi tại sao giá không đúng.",
+    details: "Eff = NaT → fillna với Exp date. AutoExpire: rows có Exp < today được mark/exclude. RateVersions sort by filename upload date."
+  }
+];
+
+const DOMAIN_ERP = [
+  {
+    id: "E1", domain: "ERP", title: "Quy trình báo giá: Search → Pick → Margin → Quote → WIN",
+    content: "Khi anh cần báo giá cho khách:\n1. Search: Chọn Carrier + POL + POD + Place trong ribbon\n2. Pick: Click vào dòng rate phù hợp\n3. Margin: Điền số margin vào ô + Margin (20GP +, 40GP +, v.v.)\n4. Quote: Click QUOTE (hoặc Batch nếu nhiều dòng)\n5. WIN/LOST: Sau khi khách xác nhận, click WIN hoặc LOST",
+    consequence: "Quote mới không hiện ở top → anh không thấy. Khách trùng tên bị resolve sai.",
+    details: "Quote insert VÀO ROW 5. QuoteGroupID reuse same-day same-customer. CRM lookup: CODE or NAME → canonical NAME. Container detect: cols 12-18 Dry, 29-35 Reefer. TEU: 20GP=1, 40GP/40HC/45HC=2."
+  },
+  {
+    id: "E2", domain: "ERP", title: "Mix Quote — blend FIX + FAK cho giá tốt nhất",
+    content: "Khi anh muốn blend giữa FIX (giá cố định) và FAK (giá thị trường):\n1. Điền FIX x và FAK x trong nhóm Rate Mix\n2. Click Mix Quote\n3. Hệ thống blend → hiển thị ở Mix Sell\n\nQuy định: FIX peer BẮT BUỘC cùng COC. Markup keyed by (Carrier, Lane).",
+    consequence: "Mix Quote trả sai giá (blend với SOC rate không hợp lệ).",
+    details: "OnAction_MixQuote: FIX peer COC only (2026-04-22 fix). GetLaneFromPOD: LAX/LGB → WC, NYC → EC. Markup_Store fallback = '*'."
+  },
+  {
+    id: "E3", domain: "ERP", title: "Refresh All — cập nhật giá từ parquet vào Excel",
+    content: "Khi anh cần cập nhật giá mới từ Harry:\n1. Click Refresh All trong nhóm Rate Data\n2. Hệ thống chạy refresh-v14.py → cập nhật 5 sheets\n3. Labels RateVer1-4 hiển thị version info\n\nQuy định: Refresh All = Refresh Rates + Outlook scan + milestone sync.",
+    consequence: "Rate_versions không update → anh không biết giá mới từ file nào.",
+    details: "OnAction_RefreshAll: calls refresh-all-bootstrap.bat. 5 sheets: Dry, Reefer, ChargeBreakdown, RateVersions, PUC_Lookup. AutoSave OFF on OneDrive. URL detection (2026-04-21)."
+  },
+  {
+    id: "E4", domain: "ERP", title: "Active Jobs — theo dõi tất cả shipments",
+    content: "Tab Active Jobs hiển thị tất cả bookings. Anh thấy: Customer name, POL_POD, Bkg_No, 7-stage tracking dots, Sync Milestones button.\n\nQuy định: Bkg_No = primary key. Col H = Bkg_No. MONTH col = col 15.",
+    consequence: "Milestone sync fail → ATD/ETA không được update.",
+    details: "7-stage: Request→Booked→To Customer→Docs→ATD→ETA→Delivered. Btn_SyncMilestones: JSONL → Active Jobs cols 46-48. ATD within ±30d of ReceivedTime."
+  },
+  {
+    id: "E5", domain: "ERP", title: "Hidden columns — Contract / Group Rate / Group Code",
+    content: "Anh không thấy 3 cột này trên sheet Pricing, nhưng chúng có dữ liệu quan trọng:\n- Contract (col 15): số contract — dùng khi WIN\n- Group Rate (col 16): text label\n- Group Code (col 17): CHỈ ONE carrier có group code",
+    consequence: "WIN không preserve Contract/Group Rate/Group Code.",
+    details: "Group_Code: ONE carriers only (990146, 990117, etc.). CostBreakdown.bas: groupLine for ONE only. HDL fallback: R.account = carrier + ' (FALLBACK)'."
+  }
+];
+
+const DOMAIN_EMAIL = [
+  {
+    id: "M1", domain: "EMAIL", title: "Rate Table v2 — dual HPH+HCM, YOUR LANE highlight",
+    content: "Khi bấm Rate & Send trên dashboard, email gửi cho khách có rate table với:\n- 2 cột: HPH và HCM side-by-side\n- 'YOUR LANE' pill màu amber cho destination quen thuộc\n- TOP 3 carriers per POD\n\nQuy định: FAK + ONE/CMA/YML/HPL → SOC container.",
+    consequence: "Khách không thấy YOUR LANE → không biết được báo đúng lane.",
+    details: "FAK SOC: HPL, YML. SPECIAL SOC: HPL, YML. ARB surcharge: USATL=RIPI (via CHS/NOR/SAV). 10 lanes default: USLAX + USSAV + USNYC + USHOU + USMIA + USTIW + 4 inland."
+  },
+  {
+    id: "M2", domain: "EMAIL", title: "Send quota — 420/day, 60/campaign, cooldown 14d",
+    content: "Mỗi ngày hệ thống gửi tối đa 420 email. Chia theo commodity: FLOORING, FURNITURE_INDOOR, CANDLE, RUBBER, PLASTIC, PLYWOOD, FOOD_AMBIENT mỗi loại 60.\n\nQuy định: Cooldown = 14 ngày. Hard limit = 3 sends trong 30 ngày.",
+    consequence: "Gửi quá nhiều → spam complaints → email bị block.",
+    details: "redistribution: deficit → spread proportional. Priority isolation: blast list EXCLUDES VIP/HOT/replied/personal. _SUPPRESSION_STATUSES: HARD_BOUNCE, UNSUBSCRIBED — permanent."
+  },
+  {
+    id: "M3", domain: "EMAIL", title: "Bounce detection — HARD / SOFT / POLICY",
+    content: "Khi email bị trả lại (bounce), hệ thống tự phân loại:\n- HARD_BOUNCE: hộp thư không tồn tại → permanent block\n- SOFT_BOUNCE: hộp thư đầy → retry được\n- SOFT_SUPPRESSED: policy violation\n\n7 dead statuses: HARD_BOUNCE, DEAD, INVALID, NO_MX, UNSUBSCRIBED, SOFT_SUPPRESSED, SPAM.",
+    consequence: "Gửi tiếp đến dead email → spam complaints → reputation hỏng.",
+    details: "HARD keywords: 'does not exist', 'unknown user', 'invalid address'. SOFT: 'mailbox full', 'temporarily'. AUTO_REPLY: 'out of office', 'automatic reply'."
+  },
+  {
+    id: "M4", domain: "EMAIL", title: "CNEE master v7 — 22,854 contacts, fallback chain",
+    content: "Contact list trên dashboard được đọc từ contact_unified_v7.xlsx.\n\nQuy định: Primary: D:/OneDrive/NelsonData/email/contact_unified_v7.xlsx (22,854 CNEE, 62 cols). Fallback: v7 → v6 → v5 → cnee_master_v2_final.xlsx → local.",
+    consequence: "Dashboard không thấy contacts → không gửi được email.",
+    details: "_resolve_cnee_master_v2() tries 5 paths. xlsx mtime change → invalidates 3 caches. COMMODITY_CATEGORY: 18 clean categories."
+  },
+  {
+    id: "M5", domain: "EMAIL", title: "🔴 KNOWN ISSUE: Smart Send — preview OK, send FAIL",
+    content: "Khi anh bấm 'Rate & Send' trên dashboard, preview hiển thị đúng nhưng khi gửi thì thất bại. Không có error message rõ ràng.\n\nNguyên nhân: Đang investigation — có thể do cooldown check hoặc SMTP configuration.\n\nWorkaround: Thử lại sau 5 phút, hoặc kiểm tra email_log.csv để xem chi tiết lỗi.",
+    consequence: "Anh không gửi được email cho khách khi cần.",
+    details: "Status: ĐANG FIX. Triệu chứng: preview OK nhưng send fail. Cần check: cooldown check, SMTP config, email_log.csv."
+  }
+];
+
+const DOMAIN_CODE = [
+  {
+    id: "C1", domain: "CODE", title: "Path resolver — shared/paths.py là SOT cho mọi path",
+    content: "Khi em làm việc với đường dẫn file, em dùng shared/paths.py để resolve đúng đường dẫn trên máy anh.\n\nQuy định: shared/paths.py = Single Source of Truth cho tất cả paths. Tự động detect machine: PC Home / Laptop VP / VPS.",
+    consequence: "Hardcoded path → không work trên machine khác.",
+    details: "MACHINE auto-detect: pc-home / laptop-vp / vps. OneDrive: C:/Users/ADMIN/ (PC Home), C:/Users/Nelson/ (Laptop VP). GoClaw: D:/GoClaw/data/goclaw.db."
+  },
+  {
+    id: "C2", domain: "CODE", title: "Multi-machine — code phải work trên 3 environments",
+    content: "Code của anh chạy trên 3 machine:\n- PC Home: Claude Code development + Email Dashboard\n- Laptop VP: Telegram bot runtime (bot_v5)\n- VPS (14.225.207.145): API port 8100 + WebApp port 3003\n\nQuy định: Port 3000/3001: TraSuaPOS Docker — KHÔNG BAO GIỜ chạm.",
+    consequence: "Code chỉ work trên PC Home → fail trên VPS.",
+    details: "VPS services: nelson-api (8100), nelson-webapp3003 (3003). Cowork deploy: PowerShell script. SSH key: C:\\Users\\ADMIN\\.ssh\\id_nelson_vps (PC Home)."
+  },
+  {
+    id: "C3", domain: "CODE", title: "Skill orchestration — 11-agent workflow v2.0",
+    content: "Khi anh yêu cầu một feature mới, em dùng 11-agent workflow:\n- Phase 1: design-finder\n- Phase 2: ux-reviewer, code-reviewer, security-auditor, perf-analyzer\n- Phase 3: master-executor\n- Phase 4: test-writer, doc-writer, tech-debt-tracker\n- Phase 5: git-commit",
+    consequence: "Feature không đúng spec → rework. Security issue không được catch.",
+    details: "Trigger: 'tính năng mới' → design-finder. 'fix bug' → code-reviewer → master-executor. Never: tự chạy git commit/push, npm publish, deploy."
+  },
+  {
+    id: "C4", domain: "CODE", title: "System Standards validator — check trước khi commit",
+    content: "Trước khi commit bất kỳ thay đổi nào, em phải chạy:\n\npython scripts/validate-system.py\n\nQuy định: docs/SYSTEM_STANDARDS.md = Single Source of Truth. Pass mới commit — không được bypass.",
+    consequence: "System drift → các phần không hoạt động đúng với nhau.",
+    details: "12 sections: canonical paths, charge name mapping, Active Jobs schema, VBA launch pattern. Validator reads SYSTEM_STANDARDS.md → check compliance."
+  },
+  {
+    id: "C5", domain: "CODE", title: "Stale detection — file changed sau server start",
+    content: "Khi dashboard hiển thị banner 'needs restart', có nghĩa là file đã được sửa sau khi server bắt đầu.\n\nQuy định: _CRITICAL_FILES list compares st_mtime vs SERVER_START_TS. Sau restart, curl 3 endpoint chậm trước khi dùng.",
+    consequence: "Server không reload code mới → feature mới không hoạt động.",
+    details: "Stale detection: _CRITICAL_FILES vs SERVER_START_TS. Pre-warm: curl send-stats, rotation-today, analytics-overview sau restart."
+  }
+];
+
+const allRules = [...DOMAIN_DATA, ...DOMAIN_ERP, ...DOMAIN_EMAIL, ...DOMAIN_CODE];
+const STORAGE_KEY = 'nelson_domain_review_v1';
+
+let currentIndex = 0;
+let decisions = {};
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const data = JSON.parse(saved);
+      decisions = data.decisions || {};
+      currentIndex = data.currentIndex || 0;
+    }
+  } catch(e) {}
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    decisions, currentIndex, savedAt: new Date().toISOString()
+  }));
+}
+
+function getDecidedCount() {
+  return Object.keys(decisions).filter(k => decisions[k]).length;
+}
+
+function renderCard(index) {
+  const container = document.getElementById('cardContainer');
+  if (index >= allRules.length) {
+    document.getElementById('cardContainer').style.display = 'none';
+    document.getElementById('completeSection').style.display = 'block';
+    updateProgress();
+    return;
+  }
+  const rule = allRules[index];
+  const decided = decisions[rule.id];
+  container.innerHTML = `
+    <div class="card">
+      <span class="domain-badge domain-${rule.domain}">${rule.domain}</span>
+      <div class="rule-number">Rule ${index + 1}/20 — ${rule.id}</div>
+      <div class="rule-title">${rule.title}</div>
+      <div class="rule-content">${rule.content.replace(/\n/g, '<br>')}
+        ${rule.consequence ? `<div class="rule-consequence">⚠️ ${rule.consequence}</div>` : ''}
+      </div>
+      ${rule.details ? `<div class="detail-toggle" onclick="toggleDetail(this)">▼ Detailed (em handle)</div><div class="detail-content">${rule.details}</div>` : ''}
+      <div class="actions">
+        <button class="btn btn-correct" onclick="decide('${rule.id}', 'correct')" ${decided === 'correct' ? 'style="opacity:0.5"' : ''}>✅ Đúng</button>
+        <button class="btn btn-edit" onclick="decide('${rule.id}', 'edit')" ${decided === 'edit' ? 'style="opacity:0.5"' : ''}>✏️ Sửa</button>
+        <button class="btn btn-wrong" onclick="decide('${rule.id}', 'wrong')" ${decided === 'wrong' ? 'style="opacity:0.5"' : ''}>❌ Sai</button>
+      </div>
+      <div class="footer-nav">
+        <button class="btn-nav" onclick="prev()" ${index === 0 ? 'disabled' : ''}>← Prev</button>
+        <span class="count-badge">${getDecidedCount()}/20 đã duyệt</span>
+        <button class="btn-nav" onclick="next()">Next →</button>
+      </div>
+    </div>
+  `;
+  updateProgress();
+}
+
+function updateProgress() {
+  const total = allRules.length;
+  const decided = getDecidedCount();
+  const pct = Math.round((currentIndex / total) * 100);
+  document.getElementById('progressFill').style.width = pct + '%';
+  const minsLeft = Math.ceil((total - currentIndex) * 0.5);
+  document.getElementById('progressText').textContent = `${currentIndex} / ${total} rules (${minsLeft} phút còn lại)`;
+}
+
+function decide(id, value) {
+  decisions[id] = value;
+  saveState();
+  next();
+}
+
+function next() {
+  if (currentIndex < allRules.length) currentIndex++;
+  saveState();
+  renderCard(currentIndex);
+}
+
+function prev() {
+  if (currentIndex > 0) currentIndex--;
+  saveState();
+  renderCard(currentIndex);
+}
+
+function toggleDetail(el) {
+  const content = el.nextElementSibling;
+  content.classList.toggle('show');
+  el.textContent = content.classList.contains('show') ? '▲ Detailed (em handle)' : '▼ Detailed (em handle)';
+}
+
+function exportJSON() {
+  const approved = Object.entries(decisions).map(([id, decision]) => {
+    const rule = allRules.find(r => r.id === id);
+    return { id, domain: rule?.domain, title: rule?.title, decision, reviewedAt: new Date().toISOString() };
+  }).filter(r => r.decision);
+  const json = JSON.stringify({ exportedAt: new Date().toISOString(), total: approved.length, rules: approved }, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'OWNER_APPROVED.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  document.getElementById('exportStatus').textContent = '✓ Đã xuất OWNER_APPROVED.json — ' + approved.length + ' rules';
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowRight') decide(allRules[currentIndex]?.id, 'correct');
+  if (e.key === 'ArrowLeft') decide(allRules[currentIndex]?.id, 'wrong');
+  if (e.key === 'ArrowUp') decide(allRules[currentIndex]?.id, 'edit');
+  if (e.key === 'n' || e.key === 'N') next();
+  if (e.key === 'p' || e.key === 'P') prev();
+});
+
+loadState();
+renderCard(currentIndex);
+</script>
+</body>
+</html>

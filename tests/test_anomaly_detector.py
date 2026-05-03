@@ -165,38 +165,3 @@ def test_batch_performance():
     assert len(results) == 50
     assert elapsed < 1.0, f"Batch took {elapsed:.2f}s, must be < 1s"
     print(f"  ✓ batch performance: 50 rates in {elapsed*1000:.1f}ms")
-
-
-if __name__ == "__main__":
-    print("=" * 60)
-    print("  ANOMALY DETECTOR TESTS — Task 2.1.1")
-    print("=" * 60)
-
-    tests = [
-        test_normal_rate,
-        test_warning_above,
-        test_critical_above,
-        test_warning_below,
-        test_critical_below,
-        test_no_data_route,
-        test_batch_check,
-        test_route_context,
-        test_batch_performance,
-    ]
-
-    passed = 0
-    failed = 0
-    for test in tests:
-        try:
-            test()
-            passed += 1
-        except Exception as e:
-            print(f"  ✗ {test.__name__}: {e}")
-            failed += 1
-
-    print(f"\n{'='*60}")
-    print(f"  Results: {passed} passed, {failed} failed out of {len(tests)}")
-    print(f"{'='*60}")
-    if failed > 0:
-        sys.exit(1)
-    print("\n✅ ALL TESTS PASSED")

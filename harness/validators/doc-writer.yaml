@@ -1,0 +1,37 @@
+# Validator: doc-writer phase
+phase: "doc-writer"
+timeout: 300
+
+criteria:
+  output_exists:
+    type: "file"
+    path: "plans/reports/doc-writer-report.md"
+    required: true
+  output_not_empty:
+    type: "size_min"
+    value: 100
+  has_docs_updated:
+    type: "bool"
+    description: "Should list documentation updated"
+
+pass_conditions:
+  - output_exists
+  - output_not_empty
+
+fail_actions:
+  - retry: 3
+  - notify: "doc-writer failed"
+  - fallback: "proceed to git-commit"
+
+report_template: |
+  ## Doc Writer Report
+
+  **Phase:** doc-writer
+  **Status:** {{status}}
+  **Duration:** {{duration}}s
+
+  ### Documentation Updated
+  {{docs_updated}}
+
+  ### Next Action
+  {{next_phase}}

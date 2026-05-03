@@ -1,0 +1,44 @@
+# Validator: ux-reviewer phase
+phase: "ux-reviewer"
+timeout: 300
+
+criteria:
+  output_exists:
+    type: "file"
+    path: "plans/reports/ux-review-report.md"
+    required: true
+  output_not_empty:
+    type: "size_min"
+    value: 200
+  has_issues_list:
+    type: "bool"
+    description: "Should list identified UX issues"
+  has_severity_rating:
+    type: "bool"
+    description: "Should have severity (critical/high/medium/low) per issue"
+
+pass_conditions:
+  - output_exists
+  - output_not_empty
+  - has_issues_list
+
+fail_actions:
+  - retry: 3
+  - notify: "ux-reviewer failed - no review output"
+  - fallback: "proceed to code-reviewer"
+
+report_template: |
+  ## UX Review Report
+
+  **Phase:** ux-reviewer
+  **Status:** {{status}}
+  **Duration:** {{duration}}s
+
+  ### Issues Found
+  {{issues_summary}}
+
+  ### Severity Distribution
+  {{severity_distribution}}
+
+  ### Next Action
+  {{next_phase}}

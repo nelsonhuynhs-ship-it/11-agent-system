@@ -143,37 +143,3 @@ def test_memory_usage():
     peak_mb = peak / (1024 * 1024)
     print(f"  ✓ Memory: current={current / (1024*1024):.1f}MB, peak={peak_mb:.1f}MB")
     assert peak_mb < 200, f"Peak memory {peak_mb:.1f}MB exceeds 200MB limit"
-
-
-if __name__ == "__main__":
-    print("=" * 60)
-    print("  FREIGHTDB ENGINE TESTS — Task 1.1.2")
-    print("=" * 60)
-
-    tests = [
-        test_query_rates,
-        test_query_rates_filtered,
-        test_get_route_median,
-        test_get_market_envelope,
-        test_get_carrier_list,
-        test_get_carrier_list_filtered,
-        test_get_rate_stats,
-        test_memory_usage,
-    ]
-
-    passed = 0
-    failed = 0
-    for test in tests:
-        try:
-            test()
-            passed += 1
-        except Exception as e:
-            print(f"  ✗ {test.__name__}: {e}")
-            failed += 1
-
-    print(f"\n{'='*60}")
-    print(f"  Results: {passed} passed, {failed} failed out of {len(tests)}")
-    print(f"{'='*60}")
-    if failed > 0:
-        sys.exit(1)
-    print("\n✅ ALL TESTS PASSED")

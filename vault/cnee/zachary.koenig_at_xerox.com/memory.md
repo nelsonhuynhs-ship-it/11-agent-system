@@ -1,0 +1,33 @@
+# CNEE Memory · zachary.koenig@xerox.com
+
+**First seen:** 2026-04-21 00:31 UTC  
+**Last updated:** 2026-04-21 04:42 UTC
+
+## Timeline
+
+
+<!-- cnee_event:0000000077901FAA4564914E9715E61FCBF8CCD707002B347C57E4843B43837707706049DB6500000000010C00002B347C57E4843B43837707706049DB650002C958DEE20000:BOUNCED -->
+### 2026-04-21 00:31 UTC · BOUNCED ⚠
+
+```json
+{
+  "severity": "HARD"
+}
+```
+
+> Email bounced (HARD). Subject: Undeliverable: Ocean Freight Update — HPH to West Coast | Week 17 | NELSON
+
+---
+
+<!-- cnee_event:0000000077901FAA4564914E9715E61FCBF8CCD707002B347C57E4843B43837707706049DB6500000000010C00002B347C57E4843B43837707706049DB650002C958E02F0000:BOUNCED -->
+### 2026-04-21 04:42 UTC · BOUNCED ⚠
+
+```json
+{
+  "severity": "HARD"
+}
+```
+
+> Email bounced (HARD). Subject: Undeliverable: Ocean Freight Rate Update | Week 16 | NELSON
+
+---

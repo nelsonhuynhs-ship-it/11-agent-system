@@ -1,0 +1,44 @@
+# Validator: perf-analyzer phase
+phase: "perf-analyzer"
+timeout: 300
+
+criteria:
+  output_exists:
+    type: "file"
+    path: "plans/reports/perf-analysis-report.md"
+    required: true
+  output_not_empty:
+    type: "size_min"
+    value: 300
+  has_bottlenecks:
+    type: "bool"
+    description: "Should identify performance bottlenecks"
+  has_recommendations:
+    type: "bool"
+    description: "Should have optimization recommendations"
+
+pass_conditions:
+  - output_exists
+  - output_not_empty
+  - has_bottlenecks
+
+fail_actions:
+  - retry: 3
+  - notify: "perf-analyzer failed"
+  - fallback: "proceed to master-executor"
+
+report_template: |
+  ## Performance Analysis Report
+
+  **Phase:** perf-analyzer
+  **Status:** {{status}}
+  **Duration:** {{duration}}s
+
+  ### Bottlenecks Identified
+  {{bottlenecks}}
+
+  ### Recommendations
+  {{recommendations}}
+
+  ### Next Action
+  {{next_phase}}

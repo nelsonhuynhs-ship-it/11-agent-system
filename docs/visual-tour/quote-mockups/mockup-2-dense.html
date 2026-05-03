@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quote Dashboard — DENSE Mode</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f4f6f9;
+    --panel: #fff;
+    --border: #dde2ec;
+    --text: #1a1f36;
+    --text-muted: #6b7280;
+    --accent: #3b82f6;
+    --win: #10b981;
+    --lost: #ef4444;
+    --pending: #f59e0b;
+    --expired: #9ca3af;
+    --vip: #8b5cf6;
+    --new: #06b6d4;
+    --margin-hot: #fee2e2;
+    --margin-warm: #fef9c3;
+    --margin-cool: #d1fae5;
+    --margin-sizzling: #fca5a5;
+    --margin-lukewarm: #fde68a;
+    --margin-cold: #6ee7b7;
+  }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 12px;
+    background: var(--bg);
+    color: var(--text);
+    padding: 16px;
+  }
+
+  /* ── TOP BANNER ─────────────────────────────── */
+  .banner {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .stat-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    flex: 1;
+    min-width: 140px;
+  }
+  .stat-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
+  .stat-value { font-size: 20px; font-weight: 700; margin-top: 2px; }
+  .stat-sub   { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+  .win-badge  { color: var(--win); }
+  .margin-highlight { color: var(--accent); }
+
+  /* ── TOOLBAR ───────────────────────────────── */
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 8px;
+  }
+  .filter-group label { font-size: 11px; color: var(--text-muted); }
+  .filter-group select, .filter-group input {
+    border: none; background: transparent; font-size: 12px; color: var(--text); outline: none;
+  }
+  .btn-tool {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .col-count { font-size: 11px; color: var(--text-muted); margin-left: auto; }
+
+  /* ── TABLE WRAP ────────────────────────────── */
+  .table-wrap {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  /* ── STICKY HEADER ──────────────────────────── */
+  thead th {
+    position: sticky;
+    top: 0;
+    background: #1a1f36;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    padding: 8px 6px;
+    border-right: 1px solid #2d3555;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    z-index: 10;
+  }
+  thead th:hover { background: #2d3555; }
+  thead th.sorted { color: #60a5fa; }
+
+  /* ── TABLE BODY ─────────────────────────────── */
+  tbody tr { border-bottom: 1px solid var(--border); }
+  tbody tr:hover { background: #f0f4ff; }
+  tbody tr.context-open { background: #dbeafe; }
+
+  td { padding: 6px 6px; vertical-align: middle; }
+  td.center { text-align: center; }
+
+  /* ── CUSTOMER ──────────────────────────────── */
+  .customer { font-weight: 700; font-size: 12px; }
+  .tier-vip  { color: var(--vip); }
+  .tier-new  { color: var(--new); }
+  .tier-reg  { color: var(--text); }
+
+  /* ── CARRIER ───────────────────────────────── */
+  .carrier { font-size: 12px; }
+  .carrier-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    background: #f1f5f9; border: 1px solid #cbd5e1;
+    border-radius: 4px; padding: 2px 6px; font-size: 11px; font-weight: 600;
+  }
+
+  /* ── ROUTE ─────────────────────────────────── */
+  .route { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+  .route strong { color: var(--text); }
+
+  /* ── CONTAINER BADGES ──────────────────────── */
+  .cont-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 5px;
+    border-radius: 4px;
+    margin: 1px;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .cont-badge:hover { border-color: var(--accent); }
+  .cont-20gp { background: #e0f2fe; color: #0369a1; }
+  .cont-40gp { background: #d1fae5; color: #065f46; }
+  .cont-40hc { background: #fef9c3; color: #713f12; }
+  .cont-45hc { background: #fce7f3; color: #9d174d; }
+  .cont-40nor { background: #f3f4f6; color: #374151; }
+  .cont-20rf { background: #ede9fe; color: #5b21b6; }
+  .cont-40rf { background: #fae8ff; color: #86198f; }
+
+  /* ── RATE COLS ─────────────────────────────── */
+  .rate-buy  { font-size: 12px; color: var(--text-muted); text-align: right; }
+  .rate-mar  { font-size: 12px; text-align: center; }
+  .rate-sell { font-size: 12px; font-weight: 700; text-align: right; }
+
+  /* ── MARGIN HEATMAP ─────────────────────────── */
+  .margin-cell {
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
+    border-radius: 4px;
+    padding: 3px 6px;
+  }
+  .m-hot     { background: var(--margin-sizzling); color: #7f1d1d; }
+  .m-warm    { background: var(--margin-lukewarm); color: #713f12; }
+  .m-cool    { background: var(--margin-cold); color: #064e3b; }
+  .m-empty   { background: #f3f4f6; color: var(--text-muted); }
+
+  /* ── STATUS PILL ────────────────────────────── */
+  .status-pill {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  .s-win     { background: #d1fae5; color: #065f46; }
+  .s-pending { background: #fef9c3; color: #713f12; }
+  .s-lost    { background: #fee2e2; color: #7f1d1d; }
+  .s-expired { background: #f3f4f6; color: #6b7280; }
+
+  /* ── SPARKLINE ──────────────────────────────── */
+  .spark-wrap { width: 70px; height: 22px; display: inline-block; vertical-align: middle; }
+  .spark-wrap svg { width: 70px; height: 22px; overflow: visible; }
+
+  /* ── FRESHNESS ──────────────────────────────── */
+  .freshness {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-block;
+  }
+  .f-new  { background: #d1fae5; color: #065f46; }
+  .f-mid  { background: #fef9c3; color: #713f12; }
+  .f-old  { background: #fee2e2; color: #7f1d1d; }
+
+  /* ── CONTEXT MENU ───────────────────────────── */
+  #ctx {
+    display: none;
+    position: fixed;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.15);
+    z-index: 999;
+    min-width: 180px;
+    padding: 4px 0;
+  }
+  .ctx-item {
+    padding: 8px 14px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ctx-item:hover { background: #f0f4ff; }
+  .ctx-sep { border-top: 1px solid var(--border); margin: 4px 0; }
+
+  /* ── PRINT ─────────────────────────────────── */
+  @media print {
+    body { background: #fff; padding: 0; }
+    .toolbar .btn-tool, #ctx, .col-count { display: none; }
+    thead th { position: static; background: #333; color: #fff; }
+    .table-wrap { border: 1px solid #333; }
+    .banner { gap: 8px; }
+    .stat-card { border: 1px solid #333; min-width: 100px; padding: 6px 10px; }
+  }
+
+  /* ── TOOLTIP ───────────────────────────────── */
+  [data-tip] { cursor: help; border-bottom: 1px dashed var(--text-muted); }
+</style>
+</head>
+<body>
+
+<!-- TOP BANNER -->
+<div class="banner">
+  <div class="stat-card">
+    <div class="stat-label">Hôm nay</div>
+    <div class="stat-value">12 <span class="win-badge">quotes</span></div>
+    <div class="stat-sub">3 WIN · $4,200 margin</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Tuần này</div>
+    <div class="stat-value">67 <span class="win-badge">quotes</span></div>
+    <div class="stat-sub">19 WIN · ~$28K margin</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Top Customer</div>
+    <div class="stat-value">🌟 GOWIN</div>
+    <div class="stat-sub">$8.5K margin tuần này</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Quote mới</div>
+    <div class="stat-value">+3 <span style="font-size:11px;color:var(--new)">NEW</span></div>
+    <div class="stat-sub">chờ xử lý</div>
+  </div>
+</div>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <div class="filter-group">
+    <label>Carrier:</label>
+    <select id="f-carrier"><option value="">Tất cả</option><option>ONE</option><option>YML</option><option>OOL</option><option>HPL</option><option>EMC</option></select>
+  </div>
+  <div class="filter-group">
+    <label>Status:</label>
+    <select id="f-status"><option value="">Tất cả</option><option>WIN</option><option>PENDING</option><option>LOST</option><option>EXPIRED</option></select>
+  </div>
+  <div class="filter-group">
+    <label>Margin:</label>
+    <select id="f-margin">
+      <option value="">Tất cả</option>
+      <option value="hot">≥ $150 🔥</option>
+      <option value="warm">$50–$149</option>
+      <option value="cool">&lt; $50</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label>🔍</label>
+    <input type="text" id="f-search" placeholder="Tìm customer / route..." style="width:160px">
+  </div>
+  <span class="col-count">Hiển thị: <strong id="row-count">20</strong> / 20 rows</span>
+</div>
+
+<!-- TABLE -->
+<div class="table-wrap">
+<table id="qt">
+<thead>
+<tr>
+<th data-col="customer"  class="sorted">Customer ↕</th>
+<th data-col="carrier"  >Carrier ↕</th>
+<th data-col="route"    >Route ↕</th>
+<th>20GP</th><th>40GP</th><th>40HC</th><th>45HC</th><th>40NOR</th><th>20RF</th><th>40RF</th>
+<th data-col="buy">Buy ↕</th>
+<th data-col="margin">Margin ↕</th>
+<th data-col="sell">Sell ↕</th>
+<th>Status</th>
+<th data-col="heat">Heat ↕</th>
+<th>Spark (30d)</th>
+<th data-col="fresh">Fresh ↕</th>
+</tr>
+</thead>
+<tbody id="qt-body">
+<!-- 20 rows generated by JS -->
+</tbody>
+</table>
+</div>
+
+<!-- CONTEXT MENU -->
+<div id="ctx">
+  <div class="ctx-item" onclick="ctxAction('requote')">📋 Re-quote</div>
+  <div class="ctx-item" onclick="ctxAction('renegotiate')">🔄 Renegotiate</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" onclick="ctxAction('archive')">📦 Archive</div>
+  <div class="ctx-item" onclick="ctxAction('email')">📧 Send Email</div>
+  <div class="ctx-item" onclick="ctxAction('win')">✅ Mark WIN</div>
+  <div class="ctx-item" onclick="ctxAction('lost')">❌ Mark LOST</div>
+</div>
+
+<script>
+// ── SAMPLE DATA ──────────────────────────────────────────────────────────────
+const carriers = ['ONE','YML','OOL','HPL','EMC','CSL','MIS'];
+const routes   = [
+  {pol:'HPH',pod:'LAX/LGB'},{pol:'HCM',pod:'LAX/LGB'},{pol:'HPH',pod:'NYC'},
+  {pol:'SGN',pod:'LAX/LGB'},{pol:'HPH',pod:'SAV'},{pol:'HCM',pod:'NYC'},
+  {pol:'HPH',pod:'HOU'},{pol:'SGN',pod:'NYC'},{pol:'HCM',pod:'ATL'},
+  {pol:'HPH',pod:'CHI'},{pol:'SGN',pod:'SAV'},{pol:'HCM',pod:'HOU'},
+];
+const customers = [
+  {n:'GOWIN GLOBAL LOGISTICS',t:'vip'},
+  {n:'SUNRISE FURNITURE CORP',t:'vip'},
+  {n:'GREENLINE TRADING',t:'new'},
+  {n:'ATLAS WOOD PRODUCTS',t:'reg'},
+  {n:'PREMIUM FLOORING INC',t:'reg'},
+  {n:'NOVA COMMODITIES',t:'vip'},
+  {n:'ASIA PACIFIC CARGO',t:'reg'},
+  {n:'SWIFT LOGISTICS VN',t:'new'},
+  {n:'EVEREST TEXTILE',t:'reg'},
+  {n:'DELTA SUPPLY CHAIN',t:'reg'},
+  {n:'PRIME SHIPPING CO',t:'vip'},
+  {n:'GOLDEN GATE FREIGHT',t:'reg'},
+  {n:'APEX CARGO SERVICES',t:'new'},
+  {n:'PACIFIC TRADE VN',t:'reg'},
+  {n:'CLEARWATER TRADING',t:'vip'},
+  {n:'HORIZON LOGISTICS',t:'reg'},
+  {n:'TOPAZ SHIPPING',t:'reg'},
+  {n:'ZENITH GLOBAL',t:'new'},
+  {n:'AURORA FREIGHT',t:'reg'},
+  {n:'MERIDIAN CARGO',t:'reg'},
+];
+const statuses  = ['WIN','WIN','WIN','PENDING','PENDING','LOST','EXPIRED','WIN'];
+
+function rng(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+
+function buildSpark(mid, trend){
+  // trend: 1=up, -1=down, 0=flat
+  let v = mid;
+  const pts = [];
+  for(let i=0;i<10;i++){
+    v = Math.max(50, v + (Math.random()-0.5)*40 + trend*5);
+    pts.push(((i/9)*60).toFixed(1)+','+(22-(v/10)).toFixed(1));
+  }
+  return pts.join(' ');
+}
+
+// Generate rows
+const rows = [];
+let seed = 42;
+const rand = ()=>{ seed=(seed*1664525+1013904223)&0xffffffff; return (seed>>>0)/0xffffffff; };
+const rndInt = (a,b)=>Math.floor(rand()*(b-a+1))+a;
+
+for(let i=0;i<20;i++){
+  const c = customers[i];
+  const cr = carriers[rndInt(0,carriers.length-1)];
+  const rt = routes[rndInt(0,routes.length-1)];
+  const st = statuses[rndInt(0,statuses.length-1)];
+
+  const base = rndInt(1800,3200);
+  const marPct = (rand()*0.20 + 0.05).toFixed(2);
+  const margin = Math.round(base * parseFloat(marPct));
+  const sell = base + margin;
+
+  const freshness = rndInt(0,2);
+  const freshDays = [1,5,12][freshness];
+  const freshClass = ['f-new','f-mid','f-old'][freshness];
+
+  const trend = rand()>0.5 ? 1 : -1;
+  const sparkPts = buildSpark(sell, trend);
+
+  // container values (some empty)
+  const containers = {
+    '20GP': rand()>0.15 ? rndInt(1800,3200) : null,
+    '40GP': rand()>0.08 ? rndInt(2800,4800) : null,
+    '40HC': rand()>0.08 ? rndInt(2900,5000) : null,
+    '45HC': rand()>0.55 ? rndInt(3100,5400) : null,
+    '40NOR': rand()>0.60 ? rndInt(2600,4400) : null,
+    '20RF': rand()>0.75 ? rndInt(3500,5800) : null,
+    '40RF': rand()>0.70 ? rndInt(4200,6800) : null,
+  };
+
+  const heatClass = margin>=150?'m-hot':margin>=50?'m-warm':'m-cool';
+
+  rows.push({
+    customer: c.n, tier: c.t,
+    carrier: cr,
+    pol: rt.pol, pod: rt.pod,
+    buy: base, margin, sell,
+    status: st,
+    heatClass,
+    sparkPts,
+    freshDays, freshClass,
+    containers,
+  });
+}
+
+// ── RENDER ───────────────────────────────────────────────────────────────────
+function tierEmoji(t){ return t==='vip'?'🌟':t==='new'?'🆕':'👤'; }
+function tierClass(t){ return 'tier-'+t; }
+function carrierEmoji(c){
+  const map = {ONE:'🚢',YML:'⚓',OOL:'🌊',HPL:'🔱',EMC:'⚓',CSL:'🚢',MIS:'🌊'};
+  return map[c]||'🚢';
+}
+function contBadge(v, type){
+  if(v===null) return '';
+  const cls = 'cont-'+type.toLowerCase().replace(' ','').replace("'",'');
+  return `<span class="cont-badge ${cls}">$${v.toLocaleString()}</span>`;
+}
+function sparkSVG(pts){
+  return `<svg viewBox="0 0 60 22" xmlns="http://www.w3.org/2000/svg">
+    <polyline points="${pts}" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${pts.split(' ')[9].split(',')[0]}" cy="${pts.split(' ')[9].split(',')[1]}" r="2" fill="#3b82f6"/>
+  </svg>`;
+}
+function statusClass(s){
+  return {WIN:'s-win',PENDING:'s-pending',LOST:'s-lost',EXPIRED:'s-expired'}[s]||'s-pending';
+}
+function freshnessLabel(d){
+  if(d<=1) return 'vừa xong';
+  if(d<=5) return `${d}d trước`;
+  return `${d}d trước`;
+}
+
+const tbody = document.getElementById('qt-body');
+tbody.innerHTML = rows.map((r,i)=>`
+<tr data-i="${i}">
+  <td class="customer ${tierClass(r.tier)}">${tierEmoji(r.tier)} ${r.customer}</td>
+  <td class="carrier">
+    <span class="carrier-badge">${carrierEmoji(r.carrier)} ${r.carrier}</span>
+  </td>
+  <td class="route"><strong>${r.pol}</strong> → ${r.pod}</td>
+  <td class="center">${contBadge(r.containers['20GP'],'20GP')}</td>
+  <td class="center">${contBadge(r.containers['40GP'],'40GP')}</td>
+  <td class="center">${contBadge(r.containers['40HC'],'40HC')}</td>
+  <td class="center">${contBadge(r.containers['45HC'],'45HC')}</td>
+  <td class="center">${contBadge(r.containers['40NOR'],'40NOR')}</td>
+  <td class="center">${contBadge(r.containers['20RF'],'20RF')}</td>
+  <td class="center">${contBadge(r.containers['40RF'],'40RF')}</td>
+  <td class="rate-buy">$${r.buy.toLocaleString()}</td>
+  <td class="rate-mar">+$${r.margin.toLocaleString()}</td>
+  <td class="rate-sell">$${r.sell.toLocaleString()}</td>
+  <td class="center"><span class="status-pill ${statusClass(r.status)}">${r.status}</span></td>
+  <td class="center"><span class="margin-cell ${r.heatClass}">$${r.margin}</span></td>
+  <td class="center"><div class="spark-wrap">${sparkSVG(r.sparkPts)}</div></td>
+  <td class="center"><span class="freshness ${r.freshClass}" data-tip="Updated ${freshnessLabel(r.freshDays)}">${freshnessLabel(r.freshDays)}</span></td>
+</tr>`).join('');
+
+// ── CONTEXT MENU ─────────────────────────────────────────────────────────────
+const ctxEl = document.getElementById('ctx');
+let activeRow = null;
+
+document.addEventListener('contextmenu', e=>{
+  const tr = e.target.closest('tr');
+  if(!tr) return;
+  e.preventDefault();
+  activeRow = tr;
+  tr.classList.add('context-open');
+  ctxEl.style.display='block';
+  ctxEl.style.left = Math.min(e.clientX, window.innerWidth-200)+'px';
+  ctxEl.style.top  = Math.min(e.clientY, window.innerHeight-220)+'px';
+});
+
+document.addEventListener('click', ()=>{
+  ctxEl.style.display='none';
+  document.querySelectorAll('.context-open').forEach(r=>r.classList.remove('context-open'));
+});
+
+function ctxAction(action){
+  if(!activeRow) return;
+  const idx = parseInt(activeRow.dataset.i);
+  console.log(`${action} → row ${idx}: ${rows[idx].customer}`);
+}
+
+// ── SORT ────────────────────────────────────────────────────────────────────
+const colMap = {customer:0, carrier:1, route:2, buy:9, margin:11, sell:12, heat:14, fresh:16};
+let sortCol = 'customer', sortDir = 1;
+
+document.querySelectorAll('thead th[data-col]').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const col = th.dataset.col;
+    if(sortCol===col) sortDir*=-1;
+    else { sortCol=col; sortDir=1; }
+    document.querySelectorAll('thead th').forEach(h=>h.classList.remove('sorted'));
+    th.classList.add('sorted');
+    applySort();
+  });
+});
+
+function applySort(){
+  const ci = colMap[sortCol];
+  const sorted = [...rows].sort((a,b)=>{
+    let va, vb;
+    if(sortCol==='customer') { va=a.customer; vb=b.customer; }
+    else if(sortCol==='carrier') { va=a.carrier; vb=b.carrier; }
+    else if(sortCol==='route') { va=a.pol+'-'+a.pod; vb=b.pol+'-'+b.pod; }
+    else if(sortCol==='buy') { va=a.buy; vb=b.buy; }
+    else if(sortCol==='margin') { va=a.margin; vb=b.margin; }
+    else if(sortCol==='sell') { va=a.sell; vb=b.sell; }
+    else if(sortCol==='heat') { va=a.margin; vb=b.margin; }
+    else if(sortCol==='fresh') { va=a.freshDays; vb=b.freshDays; }
+    if(typeof va==='string') return sortDir*va.localeCompare(vb);
+    return sortDir*(va-vb);
+  });
+  tbody.innerHTML = sorted.map((r,i)=>`
+<tr data-i="${i}">
+  <td class="customer ${tierClass(r.tier)}">${tierEmoji(r.tier)} ${r.customer}</td>
+  <td class="carrier"><span class="carrier-badge">${carrierEmoji(r.carrier)} ${r.carrier}</span></td>
+  <td class="route"><strong>${r.pol}</strong> → ${r.pod}</td>
+  <td class="center">${contBadge(r.containers['20GP'],'20GP')}</td>
+  <td class="center">${contBadge(r.containers['40GP'],'40GP')}</td>
+  <td class="center">${contBadge(r.containers['40HC'],'40HC')}</td>
+  <td class="center">${contBadge(r.containers['45HC'],'45HC')}</td>
+  <td class="center">${contBadge(r.containers['40NOR'],'40NOR')}</td>
+  <td class="center">${contBadge(r.containers['20RF'],'20RF')}</td>
+  <td class="center">${contBadge(r.containers['40RF'],'40RF')}</td>
+  <td class="rate-buy">$${r.buy.toLocaleString()}</td>
+  <td class="rate-mar">+$${r.margin.toLocaleString()}</td>
+  <td class="rate-sell">$${r.sell.toLocaleString()}</td>
+  <td class="center"><span class="status-pill ${statusClass(r.status)}">${r.status}</span></td>
+  <td class="center"><span class="margin-cell ${r.heatClass}">$${r.margin}</span></td>
+  <td class="center"><div class="spark-wrap">${sparkSVG(r.sparkPts)}</div></td>
+  <td class="center"><span class="freshness ${r.freshClass}" data-tip="Updated ${freshnessLabel(r.freshDays)}">${freshnessLabel(r.freshDays)}</span></td>
+</tr>`).join('');
+}
+
+// ── FILTER ─────────────────────────────────────────────────────────────────
+function applyFilter(){
+  const fc = document.getElementById('f-carrier').value;
+  const fs = document.getElementById('f-status').value;
+  const fm = document.getElementById('f-margin').value;
+  const fq = document.getElementById('f-search').value.toLowerCase();
+  let visible = 0;
+  document.querySelectorAll('#qt-body tr').forEach(tr=>{
+    const idx = parseInt(tr.dataset.i);
+    const r = rows[idx];
+    const matchC = !fc || r.carrier===fc;
+    const matchS = !fs || r.status===fs;
+    const matchM = !fm || (fm==='hot'&&r.margin>=150)||(fm==='warm'&&r.margin>=50&&r.margin<150)||(fm==='cool'&&r.margin<50);
+    const matchQ = !fq || r.customer.toLowerCase().includes(fq) || r.pol.toLowerCase().includes(fq) || r.pod.toLowerCase().includes(fq);
+    const show = matchC && matchS && matchM && matchQ;
+    tr.style.display = show?'':'none';
+    if(show) visible++;
+  });
+  document.getElementById('row-count').textContent = visible;
+}
+
+['f-carrier','f-status','f-margin','f-search'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', applyFilter);
+  document.getElementById(id).addEventListener('change', applyFilter);
+});
+</script>
+</body>
+</html>

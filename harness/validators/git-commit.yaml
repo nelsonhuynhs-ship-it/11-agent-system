@@ -1,0 +1,33 @@
+# Validator: git-commit phase
+phase: "git-commit"
+timeout: 120
+
+criteria:
+  commit_created:
+    type: "bool"
+    description: "Git commit should be created successfully"
+  no_uncommitted_changes:
+    type: "bool"
+    description: "All changes should be committed"
+
+pass_conditions:
+  - commit_created
+
+fail_actions:
+  - retry: 1
+  - notify: "git-commit failed - commit not created"
+  - preserve_changes: true
+
+report_template: |
+  ## Git Commit Report
+
+  **Phase:** git-commit
+  **Status:** {{status}}
+  **Duration:** {{duration}}s
+
+  ### Commit Info
+  {{commit_hash}}
+  {{commit_message}}
+
+  ### Next Action
+  {{next_phase}}

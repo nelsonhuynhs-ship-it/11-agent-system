@@ -1,0 +1,33 @@
+# CNEE Memory · vnjenny@htctechvn.com
+
+**First seen:** 2026-04-22 15:09 UTC  
+**Last updated:** 2026-04-22 15:12 UTC
+
+## Timeline
+
+
+<!-- cnee_event:0000000077901FAA4564914E9715E61FCBF8CCD707002B347C57E4843B43837707706049DB6500000000010C00002B347C57E4843B43837707706049DB650002CB02D0300000:BOUNCED -->
+### 2026-04-22 15:09 UTC · BOUNCED ⚠
+
+```json
+{
+  "severity": "HARD"
+}
+```
+
+> Email bounced (HARD). Subject: Undeliverable: Ocean Freight Update — NAN to US | Week 17 | NELSON
+
+---
+
+<!-- cnee_event:0000000077901FAA4564914E9715E61FCBF8CCD707002B347C57E4843B43837707706049DB6500000000010C00002B347C57E4843B43837707706049DB650002CB02D10E0000:BOUNCED -->
+### 2026-04-22 15:12 UTC · BOUNCED ⚠
+
+```json
+{
+  "severity": "HARD"
+}
+```
+
+> Email bounced (HARD). Subject: Undeliverable: Ocean Freight Update — NAN to US | Week 17 | NELSON
+
+---

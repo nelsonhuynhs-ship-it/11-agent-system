@@ -67,13 +67,17 @@ class MiniMaxClient:
             log.warning("minimax.text error: %s", exc)
             return f"[ERROR] {exc}"
 
-    def vision(self, image_path: str, prompt: str, model: VLModel = VLModel.VL_02) -> str:
+    def vision(self, image_path: str, prompt: str, model: VLModel = VLModel.VL_02, system: Optional[str] = None) -> str:
         if _IS_MOCK:
             return f"[MOCK VL] image={image_path}, prompt={prompt[:50]}"
 
         with open(image_path, "rb") as f:
             import base64
             img_b64 = base64.b64encode(f.read()).decode()
+
+        text_content = prompt
+        if system:
+            text_content = f"{system}\n\n{prompt}"
 
         payload = {
             "model": model.value,
@@ -82,7 +86,7 @@ class MiniMaxClient:
                     "role": "user",
                     "content": [
                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}},
-                        {"type": "text", "text": prompt},
+                        {"type": "text", "text": text_content},
                     ],
                 }
             ],

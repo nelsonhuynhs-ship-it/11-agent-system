@@ -1,0 +1,40 @@
+# Validator: design-finder phase
+phase: "design-finder"
+timeout: 300
+
+criteria:
+  output_exists:
+    type: "file"
+    path: "plans/reports/design-inspiration.md"
+    required: true
+  output_not_empty:
+    type: "size_min"
+    value: 100
+  has_mockups:
+    type: "bool"
+    description: "Should include mockup URLs or ASCII diagrams"
+  has_similar_references:
+    type: "bool"
+    description: "Should reference similar implementations"
+
+pass_conditions:
+  - output_exists
+  - output_not_empty
+
+fail_actions:
+  - retry: 3
+  - notify: "design-finder failed - no inspiration output"
+  - fallback: "skip to code-reviewer"
+
+report_template: |
+  ## Design Finder Report
+
+  **Phase:** design-finder
+  **Status:** {{status}}
+  **Duration:** {{duration}}s
+
+  ### Output
+  {{output_summary}}
+
+  ### Next Action
+  {{next_phase}}

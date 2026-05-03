@@ -1,0 +1,54 @@
+# Validator: security-auditor phase
+phase: "security-auditor"
+timeout: 300
+
+criteria:
+  output_exists:
+    type: "file"
+    path: "plans/reports/security-audit-report.md"
+    required: true
+  output_not_empty:
+    type: "size_min"
+    value: 500
+  has_severity_summary:
+    type: "bool"
+    description: "Must have critical/high/medium/low counts"
+  has_critical_fixes:
+    type: "bool"
+    description: "Must list critical vulnerabilities with fixes"
+
+pass_conditions:
+  - output_exists
+  - output_not_empty
+  - has_severity_summary
+  - has_critical_fixes
+
+fail_actions:
+  - retry: 3
+  - notify: "CRITICAL: security-audit failed"
+  - escalate: "commander-opus"
+  - block_proceed: true
+
+report_template: |
+  ## Security Audit Report
+
+  **Phase:** security-auditor
+  **Status:** {{status}}
+  **Duration:** {{duration}}s
+
+  ### Severity Summary
+  | Severity | Count |
+  |----------|-------|
+  | Critical | {{critical_count}} |
+  | High | {{high_count}} |
+  | Medium | {{medium_count}} |
+  | Low | {{low_count}} |
+
+  ### Critical Issues
+  {{critical_issues}}
+
+  ### Required Fixes
+  {{required_fixes}}
+
+  ### Next Action
+  {{next_phase}}

@@ -64,9 +64,11 @@ STATE_FILE      = PROJECT_ROOT / "data" / "shipment_state.json"
 ORG_RULES_FILE  = BASE_DIR / "org_rules.json"
 LOG_FILE        = BASE_DIR / "shipment_brain.log"
 
-# ─── Telegram (reuse env vars or config) ──────────────────────────────────────
-TELEGRAM_TOKEN  = os.environ.get("TELEGRAM_TOKEN", "")
-TELEGRAM_CHAT   = os.environ.get("TELEGRAM_CHAT_ID", "")
+# ─── Telegram (DISABLED 2026-05-03 per user request) ──────────────────────────
+# To re-enable: set ENABLED = True AND uncomment TOKEN/CHAT lines
+ENABLED = False   # Master kill-switch — DISABLED means NO Telegram from this module
+TELEGRAM_TOKEN  = ""   # os.environ.get("TELEGRAM_TOKEN", "")   # DISABLED
+TELEGRAM_CHAT   = ""    # os.environ.get("TELEGRAM_CHAT_ID", "")  # DISABLED
 
 # ─── Outlook COM ──────────────────────────────────────────────────────────────
 PR_SMTP_ADDRESS = "http://schemas.microsoft.com/mapi/proptag/0x39FE001E"
@@ -404,7 +406,9 @@ def update_shipment_state(state: dict, shipment_id: str, stage: str,
 # ==============================================================================
 
 def send_telegram(message: str) -> bool:
-    """Send a Telegram message. Returns True on success."""
+    """Send a Telegram message. DISABLED 2026-05-03."""
+    if not ENABLED:
+        return False
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT:
         log.debug("Telegram not configured — skipping alert.")
         return False

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>🗑️ Cleanup Proposal — Anh confirm em archive</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; background: linear-gradient(135deg, #1e3a5f 0%, #14532d 100%); padding: 24px 16px; min-height: 100vh; }
+  .container { max-width: 1100px; margin: 0 auto; }
+  header { background: white; border-radius: 18px; padding: 28px; margin-bottom: 20px; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+  header h1 { font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 8px; }
+  header p { color: #64748b; }
+
+  .section { background: white; border-radius: 14px; padding: 22px; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  .section h2 { font-size: 18px; margin-bottom: 14px; color: #0f172a; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0; display: flex; align-items: center; gap: 10px; }
+  .section h2 .count { background: #e2e8f0; padding: 3px 10px; border-radius: 12px; font-size: 13px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 10px 12px; text-align: left; font-size: 14px; border-bottom: 1px solid #f1f5f9; }
+  th { background: #f8fafc; font-weight: 700; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  td.action { font-weight: 700; }
+  td.action.keep { color: #16a34a; }
+  td.action.archive { color: #ca8a04; }
+  td.action.delete { color: #dc2626; }
+  td.action.consolidate { color: #2563eb; }
+  td .file { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: #475569; }
+  td .reason { color: #64748b; font-size: 13px; }
+
+  .summary { background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 14px; padding: 20px; margin-bottom: 16px; color: #78350f; }
+  .summary h2 { color: #78350f; border-color: #fde68a; }
+  .summary ul { margin-left: 20px; line-height: 2; }
+
+  footer { background: rgba(255,255,255,0.1); color: white; border-radius: 12px; padding: 20px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>🗑️ Cleanup Proposal</h1>
+    <p>Anh confirm em sẽ move ✅ archive / 🗑️ delete file dưới đây</p>
+  </header>
+
+  <div class="summary">
+    <h2>📊 Tóm tắt</h2>
+    <ul>
+      <li><strong>40 file</strong> tích tụ trong session hôm nay</li>
+      <li>🟢 <strong>9 file KEEP</strong> — work hoặc đang sử dụng</li>
+      <li>🟡 <strong>23 file ARCHIVE</strong> — done/superseded, có thể tham khảo sau</li>
+      <li>🔴 <strong>8 file DELETE</strong> — temp/duplicate, không cần</li>
+    </ul>
+  </div>
+
+  <!-- PLANS -->
+  <div class="section">
+    <h2>📋 Plans <span class="count">4 active</span></h2>
+    <table>
+      <tr><th>File</th><th>Status</th><th>Action</th></tr>
+      <tr>
+        <td><span class="file">260416-email-nelson-solo-platform/</span><br><span class="reason">Master plan email solo, in-progress</span></td>
+        <td>🔨 Active</td>
+        <td class="action keep">KEEP</td>
+      </tr>
+      <tr>
+        <td><span class="file">260424-rate-table-v2-redesign/</span><br><span class="reason">Phase 06 Mix Quote bug — đã fix qua plan 260425. Có 5 phases pending</span></td>
+        <td>🟡 Subsumed</td>
+        <td class="action archive">ARCHIVE (mark superseded)</td>
+      </tr>
+      <tr>
+        <td><span class="file">260425-system-contract-discovery/</span><br><span class="reason">Phase 1-6 done. ERP Mix Quote fixed. DOMAIN_MODEL approved</span></td>
+        <td>✅ DONE</td>
+        <td class="action archive">ARCHIVE</td>
+      </tr>
+      <tr>
+        <td><span class="file">260425-visual-tour-domain-model/</span><br><span class="reason">Pending — Quote sheet upgrade chưa chốt approach. Anh đang quyết Approach A/B/C</span></td>
+        <td>⏳ Pending</td>
+        <td class="action keep">KEEP (active)</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- QUOTE MOCKUPS -->
+  <div class="section">
+    <h2>🎨 Quote Mockups <span class="count">11 file</span></h2>
+    <table>
+      <tr><th>File</th><th>Status</th><th>Action</th></tr>
+      <tr>
+        <td><span class="file">index.html</span><br><span class="reason">Landing tile chọn 4 mockups</span></td>
+        <td>📄 Helper</td>
+        <td class="action archive">ARCHIVE (decision tool, đã quyết)</td>
+      </tr>
+      <tr>
+        <td><span class="file">mockup-1-minimal.html</span><br><span class="reason">Anh KHÔNG chọn</span></td>
+        <td>❌ Rejected</td>
+        <td class="action delete">DELETE</td>
+      </tr>
+      <tr>
+        <td><span class="file">mockup-2-dense.html</span><br><span class="reason">Anh CHỐT direction này</span></td>
+        <td>✅ Chosen direction</td>
+        <td class="action keep">KEEP (reference)</td>
+      </tr>
+      <tr>
+        <td><span class="file">mockup-3-dashboard.html</span><br><span class="reason">Anh KHÔNG chọn</span></td>
+        <td>❌ Rejected</td>
+        <td class="action delete">DELETE</td>
+      </tr>
+      <tr>
+        <td><span class="file">mockup-4-quote-image-v2.html</span><br><span class="reason">Anh REJECT, giữ template cũ</span></td>
+        <td>❌ Rejected</td>
+        <td class="action delete">DELETE</td>
+      </tr>
+      <tr>
+        <td><span class="file">QUOTE_DENSE_DEMO.xlsx</span> (v1)<br><span class="reason">Trend vô dụng + emoji vô nghĩa, superseded by v3</span></td>
+        <td>❌ Superseded</td>
+        <td class="action delete">DELETE</td>
+      </tr>
+      <tr>
+        <td><span class="file">QUOTE_DENSE_DEMO_v2.xlsm</span><br><span class="reason">VBA bug, superseded by v3</span></td>
+        <td>❌ Buggy</td>
+        <td class="action delete">DELETE</td>
+      </tr>
+      <tr>
+        <td><span class="file">QUOTE_DENSE_DEMO_v3.xlsm</span><br><span class="reason">Buttons trùng ribbon → đã agree pivot sang Approach C web modal</span></td>
+        <td>🟡 Buttons rejected</td>
+        <td class="action archive">ARCHIVE (visual ref)</td>
+      </tr>
+      <tr>
+        <td><span class="file">~$QUOTE_DENSE_DEMO_v3.xlsm</span><br><span class="reason">Excel lock file — Excel đang mở v3</span></td>
+        <td>🔒 Lock</td>
+        <td class="action delete">DELETE (đóng Excel trước)</td>
+      </tr>
+      <tr>
+        <td><span class="file">BUTTONS_PROPOSAL.html</span><br><span class="reason">Decision tool, anh đã chốt Combo A</span></td>
+        <td>📄 Helper</td>
+        <td class="action archive">ARCHIVE</td>
+      </tr>
+      <tr>
+        <td><span class="file">REALITY_CHECK.html</span><br><span class="reason">Đang dùng — anh đang quyết Approach A/B/C</span></td>
+        <td>⏳ Active decision</td>
+        <td class="action keep">KEEP</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- SCRATCH -->
+  <div class="section">
+    <h2>📝 Scratch — Delegation Plans <span class="count">19 file</span></h2>
+    <p style="color:#64748b;font-size:13px;margin-bottom:12px;">Em đề xuất: <strong>archive ALL</strong> sang `.scratch/_archive/`. Đây là delegation plans em đã pass cho M2.7. Mỗi cái đã work (M2.7 đã thực thi). Giữ lại để future debug nếu cần re-run.</p>
+    <table>
+      <tr><th>Group</th><th>Count</th><th>Action</th></tr>
+      <tr>
+        <td><span class="reason">System Contract Discovery (phase 1-6)</span></td>
+        <td>6 file</td>
+        <td class="action archive">ARCHIVE</td>
+      </tr>
+      <tr>
+        <td><span class="reason">Visual Tour (vt-phase 1, 2, 5, 7+8)</span></td>
+        <td>4 file</td>
+        <td class="action archive">ARCHIVE</td>
+      </tr>
+      <tr>
+        <td><span class="reason">Quote Mockups (mockup 1, 2, 3, 4)</span></td>
+        <td>4 file</td>
+        <td class="action archive">ARCHIVE</td>
+      </tr>
+      <tr>
+        <td><span class="reason">Excel Demos (v1, v2, v3)</span></td>
+        <td>3 file</td>
+        <td class="action archive">ARCHIVE</td>
+      </tr>
+      <tr>
+        <td><span class="reason">Test files: smoke-test, integration-test, hello.html</span></td>
+        <td>3 file</td>
+        <td class="action delete">DELETE</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- ACTIONS SUMMARY -->
+  <div class="section" style="background:#f0fdf4;border-left:4px solid #22c55e;">
+    <h2>✨ Sau cleanup — Trạng thái sạch</h2>
+    <table>
+      <tr><th>Folder</th><th>Trước</th><th>Sau</th></tr>
+      <tr><td>plans/ (active)</td><td>4</td><td>2 (260416 + 260425-visual-tour)</td></tr>
+      <tr><td>plans/archive/</td><td>~10</td><td>~12 (+ 260424, 260425-system-contract)</td></tr>
+      <tr><td>quote-mockups/</td><td>11</td><td>3 (mockup-2 ref + v3 ref + REALITY_CHECK)</td></tr>
+      <tr><td>quote-mockups/_archive/</td><td>0</td><td>3 (index, BUTTONS, v3)</td></tr>
+      <tr><td>.scratch/ active</td><td>20</td><td>1 (current MM_REQUOTE plan)</td></tr>
+      <tr><td>.scratch/_archive/</td><td>0</td><td>17</td></tr>
+    </table>
+  </div>
+
+  <footer>
+    💬 Anh trả lời:<br>
+    🟢 <strong>"OK clean tất"</strong> — em archive theo proposal trên<br>
+    🟡 <strong>"Sửa: keep file X"</strong> — anh nói cụ thể file nào muốn giữ<br>
+    🔴 <strong>"Để mai làm"</strong> — em pause cleanup
+  </footer>
+
+</div>
+</body>
+</html>

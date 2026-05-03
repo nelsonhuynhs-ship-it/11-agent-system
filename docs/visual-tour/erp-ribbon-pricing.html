@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ERP Ribbon — Pricing Tab</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #1e1e1e; color: #d4d4d4; min-height: 100vh; }
+
+  /* Nav bar */
+  .nav {
+    background: #2d2d30; border-bottom: 1px solid #3e3e42;
+    padding: 8px 16px; display: flex; gap: 16px; align-items: center; font-size: 13px;
+  }
+  .nav a { color: #569cd6; text-decoration: none; }
+  .nav a:hover { text-decoration: underline; }
+  .nav span { color: #808080; }
+
+  /* Page title */
+  .header {
+    background: #252526; padding: 16px 24px; border-bottom: 1px solid #3e3e42;
+  }
+  .header h1 { font-size: 18px; font-weight: 600; color: #569cd6; }
+  .header p { font-size: 12px; color: #858585; margin-top: 4px; }
+
+  /* Ribbon container */
+  .ribbon {
+    background: #f3f3f3; max-width: 1200px; margin: 24px auto;
+    border-radius: 4px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+
+  /* Tab strip */
+  .tab-strip {
+    background: #d0d0d0; display: flex; border-bottom: 1px solid #a0a0a0;
+  }
+  .tab {
+    padding: 8px 20px; font-size: 13px; font-weight: 600; color: #444;
+    border-right: 1px solid #b0b0b0; cursor: pointer;
+  }
+  .tab.active {
+    background: #ffffff; color: #0078d4; border-bottom: 2px solid #0078d4;
+    margin-bottom: -1px;
+  }
+  .tab:not(.active):hover { background: #e8e8e8; }
+
+  /* Ribbon body */
+  .ribbon-body { background: #ffffff; padding: 8px 4px; }
+
+  /* Group */
+  .group {
+    display: inline-block; vertical-align: top; margin: 0 4px;
+    border: 1px solid #c8c8c8; border-radius: 3px;
+    background: #f8f8f8; min-width: 120px; position: relative;
+  }
+  .group-label {
+    background: linear-gradient(to bottom, #e8e8e8, #d8d8d8);
+    font-size: 11px; font-weight: 600; color: #333;
+    text-align: center; padding: 3px 8px; border-bottom: 1px solid #b0b0b0;
+    border-radius: 2px 2px 0 0; white-space: nowrap;
+  }
+  .group-controls {
+    padding: 6px 8px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
+  }
+
+  /* Controls */
+  .ctrl { position: relative; display: inline-block; }
+
+  /* Buttons */
+  .btn {
+    padding: 4px 10px; font-size: 12px; border: 1px solid #a0a0a0;
+    border-radius: 3px; background: linear-gradient(to bottom, #fff, #e6e6e6);
+    color: #333; cursor: pointer; white-space: nowrap; min-height: 22px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  }
+  .btn:hover { background: linear-gradient(to bottom, #fff, #d0d0d0); }
+  .btn.large { padding: 5px 14px; font-weight: 600; }
+  .btn.toggle { min-width: 44px; }
+  .btn.toggle.pressed { background: #c8d4e0; border-color: #7a9bb5; color: #1a4a6e; }
+  .btn.toggle:hover:not(.pressed) { background: linear-gradient(to bottom, #fff, #d8d8d8); }
+
+  /* ComboBox */
+  .combobox-wrap { display: flex; flex-direction: column; gap: 1px; }
+  .ctrl-label { font-size: 10px; color: #555; text-align: left; }
+  .combobox {
+    padding: 3px 6px; font-size: 11px; border: 1px solid #888;
+    border-radius: 2px; background: #fff; min-width: 80px; height: 20px;
+    cursor: pointer;
+  }
+  .combobox:hover { border-color: #0078d4; }
+
+  /* EditBox */
+  .editbox {
+    padding: 3px 6px; font-size: 11px; border: 1px solid #888;
+    border-radius: 2px; background: #fff; width: 70px; height: 20px;
+  }
+  .editbox:hover { border-color: #0078d4; }
+
+  /* Label (read-only) */
+  .lbl {
+    font-size: 11px; color: #333; background: #f0f0f0;
+    border: 1px solid #c0c0c0; border-radius: 2px;
+    padding: 2px 6px; min-width: 60px; text-align: center;
+  }
+
+  /* Hotspot indicator */
+  .hotspot {
+    position: absolute; top: -4px; left: -4px; right: -4px; bottom: -4px;
+    border: 2px dotted transparent; border-radius: 4px; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .hotspot:hover {
+    border-color: #0078d4; background: rgba(0,120,212,0.1);
+    box-shadow: 0 0 8px rgba(0,120,212,0.4);
+  }
+
+  /* Modal */
+  .modal {
+    display: none; position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,0.7); align-items: center; justify-content: center;
+  }
+  .modal.show { display: flex; }
+  .modal-box {
+    background: #2d2d30; border: 1px solid #3e3e42; border-radius: 6px;
+    width: 420px; max-width: 95vw; max-height: 90vh; overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  }
+  .modal-header {
+    background: #333; padding: 12px 16px; border-bottom: 1px solid #3e3e42;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .modal-icon { font-size: 18px; }
+  .modal-title { font-size: 14px; font-weight: 600; color: #d4d4d4; }
+  .modal-title .type { color: #569cd6; font-size: 11px; font-weight: normal; }
+  .modal-body { padding: 14px 16px; }
+  .modal-body p { font-size: 13px; color: #9cdcfe; line-height: 1.6; }
+  .modal-body .source {
+    margin-top: 10px; padding: 8px 10px; background: #1a1a1a;
+    border-radius: 4px; font-size: 11px; color: #858585;
+    font-family: 'Courier New', monospace;
+  }
+  .modal-body .source span { color: #c586c0; }
+  .modal-close {
+    background: #0078d4; color: #fff; border: none; padding: 6px 16px;
+    border-radius: 3px; cursor: pointer; font-size: 12px; margin-top: 10px;
+  }
+  .modal-close:hover { background: #006cbd; }
+  .modal-note { margin-top: 8px; font-size: 11px; color: #ff6a6a; }
+
+  /* Legend */
+  .legend {
+    max-width: 1200px; margin: 16px auto; padding: 12px 16px;
+    background: #252526; border-radius: 4px; font-size: 12px; color: #858585;
+    display: flex; gap: 20px; flex-wrap: wrap;
+  }
+  .legend span { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .dot.blue { background: #0078d4; }
+  .dot.purple { background: #9b59b6; }
+  .dot.green { background: #27ae60; }
+  .dot.orange { background: #e67e22; }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <a href="index.html">&#8592; Index</a>
+  <span>|</span>
+  <a href="erp-ribbon-operations.html">Operations Tab &#8594;</a>
+  <span>|</span>
+  <a href="https://github.com/nelsonhuynhs-ship-it/FreightBrian/blob/main/plans/260425-system-contract-discovery/reports/phase-02-erp-vba-findings.md" target="_blank">Phase 2 Findings (deep dive)</a>
+</div>
+
+<div class="header">
+  <h1>Pricing Tab — ERP Ribbon</h1>
+  <p>38 hotspots | 6 groups | Daily workflow: Search &#8594; Pick &#8594; Margin &#8594; Quote</p>
+</div>
+
+<div class="ribbon">
+  <div class="tab-strip">
+    <div class="tab active">Pricing</div>
+    <div class="tab" onclick="location.href='erp-ribbon-operations.html'">Operations</div>
+  </div>
+  <div class="ribbon-body">
+
+    <!-- GROUP 1: SEARCH -->
+    <div class="group">
+      <div class="group-label">Search</div>
+      <div class="group-controls">
+
+        <div class="ctrl">
+          <div class="combobox-wrap">
+            <span class="ctrl-label">Carrier</span>
+            <div class="combobox">ALL</div>
+          </div>
+          <div class="hotspot" data-id="cmbCarrier" data-type="comboBox" data-label="Carrier" data-callback="OnChange_SearchCarrier" data-tip="Chọn carrier để filter bảng giá. Dropdown list được rebuild động theo POL/POD/Place."></div>
+        </div>
+
+        <div class="ctrl">
+          <div class="combobox-wrap">
+            <span class="ctrl-label">POL</span>
+            <div class="combobox">HPH</div>
+          </div>
+          <div class="hotspot" data-id="cmbPOL" data-type="comboBox" data-label="POL" data-callback="OnChange_SearchPOL" data-tip="Filter theo Port of Loading. Kết hợp với Carrier + POD để thu hẹp kết quả."></div>
+        </div>
+
+        <div class="ctrl">
+          <div class="combobox-wrap">
+            <span class="ctrl-label">POD</span>
+            <div class="combobox">LAX</div>
+          </div>
+          <div class="hotspot" data-id="cmbPOD" data-type="comboBox" data-label="POD" data-callback="OnChange_SearchPOD" data-tip="Filter theo Port of Discharge. Ảnh hưởng lane detection (WC/EC/Gulf)."></div>
+        </div>
+
+        <div class="ctrl">
+          <div class="combobox-wrap">
+            <span class="ctrl-label">Place</span>
+            <div class="combobox">LOS ANGELES</div>
+          </div>
+          <div class="hotspot" data-id="cmbPlace" data-type="comboBox" data-label="Place" data-callback="OnChange_SearchPlace" data-tip="Filter theo Place (city). Dùng để match exact door address."></div>
+        </div>
+
+        <div class="ctrl">
+          <div class="combobox-wrap">
+            <span class="ctrl-label">Exp</span>
+            <div class="combobox">Active only</div>
+          </div>
+          <div class="hotspot" data-id="cmbExp" data-type="comboBox" data-label="Exp" data-callback="OnChange_SearchExp" data-tip="Preset filter: Active only / This week / This month / All. Ảnh hưởng QuickSearch logic."></div>
+        </div>
+
+        <div class="ctrl">
+          <button class="btn toggle" id="btnSrcSCFI">SCFI</button>
+          <div class="hotspot" data-id="btnSrcSCFI" data-type="toggleButton" data-label="SCFI" data-callback="OnAction_ToggleSrcSCFI" data-tip="Click → bật/tắt filter Source = SCFI. Tích hợp với FAK + FIX toggles."></div>
+        </div>
+
+        <div class="ctrl">
+          <button class="btn toggle" id="btnSrcFAK">FAK</button>
+          <div class="hotspot" data-id="btnSrcFAK" data-type="toggleButton" data-label="FAK" data-callback="OnAction_ToggleSrcFAK" data-tip="Click → bật/tắt filter Source = FAK. FAK = Freight All Kinds (generic rate)."></div>
+        </div>
+
+        <div class="ctrl">
+          <button class="btn toggle" id="btnSrcFIX">FIX</button>
+          <div class="hotspot" data-id="btnSrcFIX" data-type="toggleButton" data-label="FIX" data-callback="OnAction_ToggleSrcFIX" data-tip="Click → bật/tắt filter Source = FIX. FIX = Special Rate (contract rate, thường rẻ hơn)."></div>
+        </div>
+
+        <div class="ctrl">
+          <button class="btn toggle" id="btnSoc">SOC</button>
+          <div class="hotspot" data-id="btnSoc" data-type="toggleButton" data-label="SOC" data-callback="OnAction_ToggleSoc" data-tip="Click → bật/tắt filter Note contains SOC. SOC = Shipper's Own Container."></div>
+        </div>
+
+        <div class="ctrl">
+          <button class="btn" id="btnBestPrice">Best Price</button>
+          <div class="hotspot" data-id="btnBestPrice" data-type="button" data-label="Best Price" data-callback="OnAction_HighlightBest" data-tip="Click → highlight màu xanh row rẻ nhất per carrier trong các rows visible. Không ghi sheet."></div>
+        </div>
+
+        <div class="ctrl">
+          <button class="btn" id="btnClearSearch">Clear</button>
+          <div class="hotspot" data-id="btnClearSearch" data-type="button" data-label="Clear" data-callback="OnAction_ClearSearch" data-tip="Click → xóa tất cả search filters + reset combo boxes về placeholder. Gọi RestorePlaceholder."></div>
+        </div>
+
+        <div class="ctrl">
+          <button class="btn" id="btnRefreshColors">Freshness</button>
+          <div class="hotspot" data-id="btnRefreshColors" data-type="button" data-label="Freshness" data-callback="OnAction_RefreshColors" data-tip="Click → apply color coding theo rate age (fresh = xanh, stale = đỏ). Dựa trên Eff/Exp dates."></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- GROUP 2: SELECTED ROW -->
+    <div class="group">
+      <div class="group-label">Selected Row</div>
+      <div class="group-controls">
+        <div class="ctrl"><span class="lbl" id="lblCarrier">—</span><div class="hotspot" data-id="lblCarrier" data-type="labelControl" data-label="Carrier" data-callback="GetLabel_Carrier" data-tip="Hiển thị carrier của row đang chọn. Cập nhật khi click vào Pricing Dry/Reefer."></div></div>
+        <div class="ctrl"><span class="lbl" id="lblRoute">—</span><div class="hotspot" data-id="lblRoute" data-type="labelControl" data-label="Route" data-callback="GetLabel_Route" data-tip="Hiển thị route: POL-POD-Place. VD: HPH-LAX-LOS ANGELES"></div></div>
+        <div class="ctrl"><span class="lbl" id="lblDates">—</span><div class="hotspot" data-id="lblDates" data-type="labelControl" data-label="Dates" data-callback="GetLabel_Dates" data-tip="Hiển thị Eff→Exp. VD: 01APR→30APR. Dùng cho xác nhận rate còn valid."></div></div>
+        <div class="ctrl"><span class="lbl" id="lblPUCInfo">—</span><div class="hotspot" data-id="lblPUCInfo" data-type="labelControl" data-label="PUC" data-callback="GetLabel_PUCInfo" data-tip="Hiển thị PUC surcharge info (chỉ áp dụng SOC). VD: +$150/150 cho LAX."></div></div>
+      </div>
+    </div>
+
+    <!-- GROUP 3: + MARGIN -->
+    <div class="group">
+      <div class="group-label">+ Margin</div>
+      <div class="group-controls">
+        <div class="ctrl">
+          <div class="combobox-wrap"><span class="ctrl-label">20GP +</span><input class="editbox" value="0" id="ebMar20GP"></div>
+          <div class="hotspot" data-id="ebMar20GP" data-type="editBox" data-label="20GP +" data-callback="OnChange_Mar20GP" data-tip="Nhập markup USD/20GP. Sell = Buy + Margin. Giá trị được lưu module-level."></div>
+        </div>
+        <div class="ctrl">
+          <div class="combobox-wrap"><span class="ctrl-label">40GP +</span><input class="editbox" value="0" id="ebMar40GP"></div>
+          <div class="hotspot" data-id="ebMar40GP" data-type="editBox" data-label="40GP +" data-callback="OnChange_Mar40GP" data-tip="Nhập markup USD/40GP. Sell = Buy + Margin."></div>
+        </div>
+        <div class="ctrl">
+          <div class="combobox-wrap"><span class="ctrl-label">40HC +</span><input class="editbox" value="0" id="ebMar40HC"></div>
+          <div class="hotspot" data-id="ebMar40HC" data-type="editBox" data-label="40HC +" data-callback="OnChange_Mar40HC" data-tip="Nhập markup USD/40HC. 40HC = 40ft High Cube."></div>
+        </div>
+        <div class="ctrl">
+          <div class="combobox-wrap"><span class="ctrl-label">45HC +</span><input class="editbox" value="0" id="ebMar45HC"></div>
+          <div class="hotspot" data-id="ebMar45HC" data-type="editBox" data-label="45HC +" data-callback="OnChange_Mar45HC" data-tip="Nhập markup USD/45HC. 45HC = 45ft High Cube."></div>
+        </div>
+        <div class="ctrl">
+          <div class="combobox-wrap"><span class="ctrl-label">40NOR +</span><input class="editbox" value="0" id="ebMar40NOR"></div>
+          <div class="hotspot" data-id="ebMar40NOR" data-type="editBox" data-label="40NOR +" data-callback="OnChange_Mar40NOR" data-tip="Nhập markup USD/40NOR. NOR = Non-Operating Reefer (empty reefer slot)."></div>
+        </div>
+        <div class="ctrl">
+          <div class="combobox-wrap"><span class="ctrl-label">20RF +</span><input class="editbox" value="0" id="ebMar20RF"></div>
+          <div class="hotspot" data-id="ebMar20RF" data-type="editBox" data-label="20RF +" data-callback="OnChange_Mar20RF" data-tip="Nhập markup USD/20RF. 20RF = 20ft Reefer container."></div>
+        </div>
+        <div class="ctrl">
+          <div class="combobox-wrap"><span class="ctrl-label">40RF +</span><input class="editbox" value="0" id="ebMar40RF"></div>
+          <div class="hotspot" data-id="ebMar40RF" data-type="editBox" data-label="40RF +" data-callback="OnChange_Mar40RF" data-tip="Nhập markup USD/40RF. 40RF = 40ft Reefer container."></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GROUP 4: = SELL RATE -->
+    <div class="group">
+      <div class="group-label">= Sell Rate</div>
+      <div class="group-controls">
+        <div class="ctrl"><span class="lbl" id="lblSell20GP">—</span><div class="hotspot" data-id="lblSell20GP" data-type="labelControl" data-label="20GP" data-callback="GetLabel_Sell20GP" data-tip="Buy + Margin = Sell price cho 20GP. Cập nhật real-time khi nhập margin."></div></div>
+        <div class="ctrl"><span class="lbl" id="lblSell40GP">—</span><div class="hotspot" data-id="lblSell40GP" data-type="labelControl" data-label="40GP" data-callback="GetLabel_Sell40GP" data-tip="Sell price cho 40GP."></div></div>
+        <div class="ctrl"><span class="lbl" id="lblSell40HC">—</span><div class="hotspot" data-id="lblSell40HC" data-type="labelControl" data-label="40HC" data-callback="GetLabel_Sell40HC" data-tip="Sell price cho 40HC."></div></div>
+        <div class="ctrl"><span class="lbl" id="lblSell45HC">—</span><div class="hotspot" data-id="lblSell45HC" data-type="labelControl" data-label="45HC" data-callback="GetLabel_Sell45HC" data-tip="Sell price cho 45HC."></div></div>
+        <div class="ctrl"><span class="lbl" id="lblSell40NOR">—</span><div class="hotspot" data-id="lblSell40NOR" data-type="labelControl" data-label="40NOR" data-callback="GetLabel_Sell40NOR" data-tip="Sell price cho 40NOR."></div></div>
+        <div class="ctrl"><span class="lbl" id="lblSell20RF">—</span><div class="hotspot" data-id="lblSell20RF" data-type="labelControl" data-label="20RF" data-callback="GetLabel_Sell20RF" data-tip="Sell price cho 20RF."></div></div>
+        <div class="ctrl"><span class="lbl" id="lblSell40RF">—</span><div class="hotspot" data-id="lblSell40RF" data-type="labelControl" data-label="40RF" data-callback="GetLabel_Sell40RF" data-tip="Sell price cho 40RF."></div></div>
+        <div class="ctrl"><span class="lbl" id="lblProfit" style="background:#1a3a1a;color:#6fcf6f">—</span><div class="hotspot" data-id="lblProfit" data-type="labelControl" data-label="Profit" data-callback="GetLabel_Profit" data-tip="Total profit = Σ(Sell-Buy)×Qty. Màu xanh = lãi, đỏ = lỗ."></div></div>
+      </div>
+    </div>
+
+    <!-- GROUP 5: RATE MIX -->
+    <div class="group">
+      <div class="group-label">Rate Mix</div>
+      <div class="group-controls">
+        <div class="ctrl">
+          <div class="combobox-wrap"><span class="ctrl-label">FIX x</span><input class="editbox" value="0" id="ebFixQty" style="width:40px"></div>
+          <div class="hotspot" data-id="ebFixQty" data-type="editBox" data-label="FIX x" data-callback="OnChange_MixFixQty" data-tip="Số lượng container FIX để blend. Dùng với FAK x để tính tỷ lệ mix."></div>
+        </div>
+        <div class="ctrl">
+          <div class="combobox-wrap"><span class="ctrl-label">FAK x</span><input class="editbox" value="0" id="ebFakQty" style="width:40px"></div>
+          <div class="hotspot" data-id="ebFakQty" data-type="editBox" data-label="FAK x" data-callback="OnChange_MixFakQty" data-tip="Số lượng container FAK để blend. Tỷ lệ FIX/FAK quyết định blended rate."></div>
+        </div>
+        <div class="ctrl"><span class="lbl" id="lblMixSell">—</span><div class="hotspot" data-id="lblMixSell" data-type="labelControl" data-label="Mix Sell" data-callback="GetLabel_MixSell" data-tip="Blended sell price = (FIX×priceFIX + FAK×priceFAK) / total. Cập nhật real-time."></div></div>
+        <div class="ctrl">
+          <button class="btn large" id="btnMixQuote">Mix Quote</button>
+          <div class="hotspot" data-id="btnMixQuote" data-type="button" data-label="Mix Quote" data-callback="OnAction_MixQuote" data-tip="Click → blend FIX+FAK theo tỷ lệ → tạo PENDING quote. ⚠️ FIX peer phải là COC (SOC excluded by policy)."></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GROUP 6: QUOTE -->
+    <div class="group">
+      <div class="group-label">Quote</div>
+      <div class="group-controls">
+        <div class="ctrl">
+          <div class="combobox-wrap">
+            <span class="ctrl-label">Customer</span>
+            <div class="combobox" style="min-width:120px">—</div>
+          </div>
+          <div class="hotspot" data-id="cmbCustomer" data-type="comboBox" data-label="Customer" data-callback="OnChange_Customer" data-tip="Chọn customer để quote. Dropdown từ CRM list. Nhập để filter."></div>
+        </div>
+        <div class="ctrl"><span class="lbl" id="lblLastQuoted">—</span><div class="hotspot" data-id="lblLastQuoted" data-type="labelControl" data-label="Last Quoted" data-callback="GetLabel_LastQuoted" data-tip="Hiển thị last quoted price cho customer này (từ Quotes sheet)."></div></div>
+        <div class="ctrl">
+          <button class="btn large" id="btnQuote" style="background:#0078d4;color:#fff">QUOTE</button>
+          <div class="hotspot" data-id="btnQuote" data-type="button" data-label="QUOTE" data-callback="OnAction_GenerateQuote" data-tip="Click → tạo 1 quote cho row đang chọn. Hỏi container type + quantity trước khi ghi vào Quotes sheet (insert at row 5)."></div>
+        </div>
+        <div class="ctrl">
+          <button class="btn large" id="btnQuoteBatch">Batch</button>
+          <div class="hotspot" data-id="btnQuoteBatch" data-type="button" data-label="Batch" data-callback="OnAction_GenerateQuoteBatch" data-tip="Click → chọn nhiều rows trên Pricing Dry/Reefer → 1 click tạo N quotes cùng customer + cùng markup. Preview confirm trước khi ghi."></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <span><span class="dot blue"></span> Button</span>
+  <span><span class="dot purple"></span> ComboBox / EditBox</span>
+  <span><span class="dot green"></span> Label (read-only)</span>
+  <span><span class="dot orange"></span> Toggle Button</span>
+  <span style="margin-left:auto;color:#0078d4">Hover any control → click for tooltip</span>
+</div>
+
+<!-- Modal -->
+<div class="modal" id="modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-icon" id="modalIcon">🔘</span>
+      <span class="modal-title" id="modalTitle">Control</span>
+    </div>
+    <div class="modal-body">
+      <p id="modalTip"></p>
+      <div class="source" id="modalSource"></div>
+      <div class="modal-note" id="modalNote"></div>
+      <button class="modal-close" onclick="closeModal()">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const typeIcon = { button:'🔘', comboBox:'📋', editBox:'✏️', toggleButton:'🔄', labelControl:'🏷️' };
+
+document.querySelectorAll('.hotspot').forEach(el => {
+  el.addEventListener('click', () => {
+    const id = el.dataset.id;
+    const type = el.dataset.type;
+    const label = el.dataset.label;
+    const callback = el.dataset.callback;
+    const tip = el.dataset.tip || 'Không có mô tả.';
+
+    document.getElementById('modalIcon').textContent = typeIcon[type] || '🔘';
+    document.getElementById('modalTitle').innerHTML = `${label} <span class="type">(${type})</span>`;
+    document.getElementById('modalTip').textContent = tip;
+    document.getElementById('modalSource').innerHTML = `Callback: <span>${callback}</span>`;
+    document.getElementById('modalNote').textContent = '';
+    document.getElementById('modal').classList.add('show');
+  });
+});
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+}
+
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal')) closeModal();
+});
+
+// Toggle buttons toggle state
+document.querySelectorAll('.btn.toggle').forEach(btn => {
+  btn.addEventListener('click', () => {
+    btn.classList.toggle('pressed');
+  });
+});
+</script>
+</body>
+</html>

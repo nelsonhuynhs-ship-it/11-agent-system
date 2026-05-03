@@ -103,10 +103,6 @@ def generate_summary() -> str:
 
 
 def send_daily_report() -> bool:
-    """Called by APScheduler at 21:00."""
-    try:
-        msg = generate_summary()
-    except Exception as exc:
-        log.error("generate_summary failed: %s", exc)
-        msg = f"<b>Nelson Scanner — Daily Report</b>\n<i>Summary generation failed: {exc}</i>"
-    return tg.send_alert(msg)
+    """Called by APScheduler at 21:00. DISABLED 2026-05-03."""
+    log.debug("daily_report.send_daily_report disabled — no Telegram")
+    return True
