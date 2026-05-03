@@ -1,0 +1,132 @@
+{
+  "company": {
+    "name": "Nelson Freight",
+    "type": "NVOCC (Non-Vessel Operating Common Carrier)",
+    "lanes": ["Vietnam → USA", "Vietnam → Canada"],
+    "ports_of_loading": ["HCM (Ho Chi Minh / Cat Lai)", "HPH (Hai Phong)"],
+    "ports_of_discharge": [
+      "USLGB (Long Beach)",
+      "USLAX (Los Angeles)",
+      "USNYC (New York)",
+      "USSAV (Savannah)",
+      "CAVAN (Vancouver)",
+      "CAMTR (Montreal)"
+    ],
+    "contact": {
+      "email": "nelson@pudongprime.vn",
+      "phone": "+84-28-XXXX"
+    }
+  },
+  "services": [
+    {
+      "id": "FCL",
+      "name": "FCL (Full Container Load)",
+      "description": "20GP, 40GP, 40HQ containers — best for volume shippers",
+      "container_types": [
+        "20GP (20ft General Purpose)",
+        "40GP (40ft General Purpose)",
+        "40HQ (40ft High Cube)"
+      ],
+      "use_case": "Shipments requiring full container, typically 28+ cbm"
+    },
+    {
+      "id": "LCL",
+      "name": "LCL (Less than Container Load)",
+      "description": "Consolidated shipping — pay only for your cubic",
+      "use_case": "Smaller shipments under 28 cbm, frequency shippers"
+    },
+    {
+      "id": "AIR",
+      "name": "Air Freight",
+      "description": "Urgent shipments via air cargo",
+      "use_case": "Time-critical, high-value, samples"
+    },
+    {
+      "id": "DDP",
+      "name": "Delivered Duty Paid",
+      "description": "End-to-end door delivery including duties",
+      "use_case": "Buyers wanting all-inclusive price to their door"
+    },
+    {
+      "id": "CUSTOMS",
+      "name": "Customs Clearance",
+      "description": "Import/export customs brokerage USA/Canada",
+      "use_case": "End-to-end service including customs clearance"
+    },
+    {
+      "id": "WAREHOUSE",
+      "name": "Warehousing & Distribution",
+      "description": "Storage and last-mile delivery in USA",
+      "use_case": "Buyers needing storage before distribution"
+    }
+  ],
+  "pricing_terms": [
+    {"code": "CFR", "name": "Cost and Freight", "description": "Seller pays to destination port"},
+    {"code": "CIF", "name": "Cost Insurance and Freight", "description": "CFR + insurance coverage"},
+    {"code": "FOB", "name": "Free on Board", "description": "Seller handles origin port only"},
+    {"code": "DDP", "name": "Delivered Duty Paid", "description": "Seller handles everything including duties"}
+  ],
+  "campaigns": [
+    {"name": "FLOORING", "prospects": 1057, "industry": "Flooring materials"},
+    {"name": "FURNITURE", "prospects": 745, "industry": "Furniture"},
+    {"name": "PLASTIC", "prospects": 590, "industry": "Plastic goods"},
+    {"name": "MALAYSIA", "prospects": 562, "industry": "Malaysia trade lane"},
+    {"name": "CANDLE", "prospects": 495, "industry": "Candle manufacturing"},
+    {"name": "PAPER", "prospects": 312, "industry": "Paper products"},
+    {"name": "RUBBER", "prospects": 287, "industry": "Rubber products"},
+    {"name": "CHEMICAL", "prospects": 245, "industry": "Industrial chemicals"},
+    {"name": "AUTO_PARTS", "prospects": 198, "industry": "Automotive parts"},
+    {"name": "TEXTILE", "prospects": 176, "industry": "Textiles and garments"}
+  ],
+  "carriers": [
+    {"code": "HPL", "name": "Hapag-Lloyd", "coverage": "Global"},
+    {"code": "MSC", "name": "MSC", "coverage": "Global"},
+    {"code": "COSCO", "name": "COSCO", "coverage": "Global"},
+    {"code": "OOCL", "name": "OOCL", "coverage": "Global"},
+    {"code": "EMC", "name": "Evergreen", "coverage": "Global"},
+    {"code": "ZIM", "name": "ZIM", "coverage": "Global"},
+    {"code": "YML", "name": "Yang Ming", "coverage": "Global"},
+    {"code": "ONE", "name": "Ocean Network Express", "coverage": "Global"}
+  ],
+  "email_policy": {
+    "tone": "Professional but friendly — freight expert helping client",
+    "response_time": "Within 4 business hours",
+    "sign_off": "Best regards, Nelson | Nelson Freight | nelson@pudongprime.vn",
+    "language": "English for external, Vietnamese for internal"
+  },
+  "intent_mapping": {
+    "RFQ": "price_inquiry — extract POL, POD, container_type, volume, urgency",
+    "BOOKING": "booking_intent — collect booking details, BL info",
+    "QUOTE": "quote_followup — check quote status, negotiate",
+    "SHIPMENT": "shipment_update — provide tracking, ETD/ETA",
+    "BL": "document_request — send Draft BL, request confirmation",
+    "PAYMENT": "payment_reminder — confirm payment, send invoice",
+    "COMPLAINT": "complaint — apologize, offer solution"
+  },
+  "service_recommendation_rules": [
+    {
+      "condition": "volume >= 28 AND container_type IN ['40HQ', '40GP']",
+      "recommend": "FCL",
+      "reason": "Full container load is more economical for this volume"
+    },
+    {
+      "condition": "volume < 28",
+      "recommend": "LCL",
+      "reason": "LCL consolidation saves cost for smaller shipments"
+    },
+    {
+      "condition": "urgency == high",
+      "recommend": "AIR",
+      "reason": "Air freight for time-critical shipments"
+    },
+    {
+      "condition": "request_ddp == true",
+      "recommend": "DDP",
+      "reason": "DDP includes all costs to door delivery"
+    }
+  ],
+  "volume_thresholds": {
+    "fcl_min_cbm": 28,
+    "lcl_max_cbm": 27
+  }
+}

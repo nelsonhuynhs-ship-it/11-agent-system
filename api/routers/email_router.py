@@ -96,3 +96,32 @@ def email_timeline(shipment_id: str):
         return {"events": [], "error": "email_event_engine not available"}
     events = ee["timeline"](shipment_id)
     return {"shipment_id": shipment_id, "events": events, "total": len(events)}
+
+
+# ─── Email AI Features ────────────────────────────────────────────
+
+@router.post("/api/emails/summarize")
+def summarize_email_route(sender: str = "", body: str = ""):
+    """Summarize email content and return structured sentiment/action."""
+    from email_engine.core.ai_email import summarize_email
+    return summarize_email(body=body, sender=sender)
+
+
+@router.post("/api/emails/draft-reply")
+def draft_reply_route(incoming: dict = None, cnee_context: dict = None):
+    """Draft a reply to an incoming email using CNEE context."""
+    from email_engine.core.ai_email import draft_reply
+    if incoming is None:
+        incoming = {}
+    if cnee_context is None:
+        cnee_context = {}
+    return {"reply": draft_reply(incoming, cnee_context)}
+
+
+@router.post("/api/compose/suggest")
+def suggest_route(thread_history: list = None, draft_so_far: str = ""):
+    """Suggest the next sentence given thread history and current draft."""
+    from email_engine.core.ai_email import suggest_next_sentence
+    if thread_history is None:
+        thread_history = []
+    return {"suggestion": suggest_next_sentence(thread_history, draft_so_far)}

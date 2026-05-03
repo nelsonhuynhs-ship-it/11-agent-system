@@ -119,6 +119,7 @@ from routers.shipment_router import router as shipment_router
 from routers.dashboard_router import router as dashboard_router
 from routers.intelligence_router import router as intelligence_router
 from routers.email_router import router as email_router
+from routers.voice_router import router as voice_router
 from routers.auth_router import router as auth_router
 from routers.worker_router import router as worker_router
 from routers.erp_router import router as erp_router
@@ -129,6 +130,7 @@ from routers.job_router import router as job_router
 from routers.data_router import router as data_router              # Email platform data
 from routers.sync_router import router as sync_router                # ERP sync
 from routers.customer_check_router import router as customer_check_router  # Tax code check
+from routers.admin_router import router as admin_router                  # Token admin
 # REMOVED 2026-04-17: email_rate_router, email_queue_router, auto_quote_router
 # Email send pipeline now lives in email_engine/web_server.py (local PC + Outlook COM).
 # See docs/EMAIL_PIPELINE_SOURCE_OF_TRUTH.md
@@ -139,6 +141,7 @@ app.include_router(shipment_router)
 app.include_router(dashboard_router)
 app.include_router(intelligence_router)
 app.include_router(email_router)
+app.include_router(voice_router)
 app.include_router(auth_router)
 app.include_router(worker_router)
 app.include_router(erp_router)
@@ -149,6 +152,7 @@ app.include_router(job_router)
 app.include_router(data_router)
 app.include_router(sync_router)
 app.include_router(customer_check_router)
+app.include_router(admin_router)
 
 # ── Event Bus ─────────────────────────────────────────────────────────────────
 from event_bus import bus
