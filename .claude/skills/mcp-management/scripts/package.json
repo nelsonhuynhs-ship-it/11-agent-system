@@ -5,17 +5,16 @@
   "description": "MCP client scripts for managing MCP servers",
   "scripts": {
     "build": "tsc",
-    "cli": "npx tsx cli.ts",
-    "list-tools": "npx tsx cli.ts list-tools",
-    "list-prompts": "npx tsx cli.ts list-prompts",
-    "list-resources": "npx tsx cli.ts list-resources"
+    "test": "node --loader ts-node/esm test.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0"
+    "@modelcontextprotocol/sdk": "^1.25.1"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "typescript": "^5.0.0",
-    "tsx": "^4.0.0"
+    "nodemon": "^3.1.11",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
   }
 }

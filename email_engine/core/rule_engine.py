@@ -15,7 +15,10 @@ Maps per Nelson's market knowledge (2026-04-22):
 from __future__ import annotations
 
 import random
+import re
 from datetime import datetime
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 # ── Country → route config ───────────────────────────────────────────────────
@@ -40,6 +43,117 @@ VN_PORTS: frozenset[str] = frozenset({
 
 # China NGB variants that map to "ningbo" ARB key instead of "shanghai"
 CN_NINGBO_VARIANTS: frozenset[str] = frozenset({"NGB", "NINGBO"})
+
+# ── YAML Config Loading ──────────────────────────────────────────────────────
+
+_YAML_PATH = Path(__file__).parent.parent / "config" / "commodity_groups.yaml"
+
+
+@lru_cache(maxsize=1)
+def _load_yaml() -> dict:
+    """Load commodity_groups.yaml. Cached — call cache_clear() to reload."""
+    if not _YAML_PATH.exists():
+        return {}
+    try:
+        import yaml
+        with open(_YAML_PATH, encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+    except Exception:
+        return {}
+
+
+def invalidate_yaml_cache():
+    """Clear YAML cache so next call reloads from disk."""
+    _load_yaml.cache_clear()
+
+
+@lru_cache(maxsize=1)
+def load_commodity_groups() -> list[dict]:
+    """Return list of commodity group dicts from YAML. Priority order = YAML order."""
+    data = _load_yaml()
+    return data.get("commodity_groups", [])
+
+
+@lru_cache(maxsize=1)
+def load_pol_patterns() -> list[dict]:
+    """Return list of pol_pattern dicts from YAML. Priority order = YAML order."""
+    data = _load_yaml()
+    return data.get("pol_patterns", [])
+
+
+@lru_cache(maxsize=1)
+def load_arb_origins() -> dict[str, dict]:
+    """Return arb_origins dict from YAML. Key = arb_origin key (e.g. 'port_klang')."""
+    data = _load_yaml()
+    return data.get("arb_origins", {})
+
+
+@lru_cache(maxsize=1)
+def load_vn_domestic_ports() -> frozenset[str]:
+    """Return frozenset of VN domestic ports that never get ARB surcharge."""
+    data = _load_yaml()
+    ports = data.get("vn_domestic_ports", [])
+    return frozenset(p.upper() for p in ports if p)
+
+
+def normalize_commodity(raw: str | None) -> str:
+    """Map raw COMMODITY_CATEGORY string to canonical group name.
+
+    Priority: YAML commodity_groups order (first match wins).
+    Falls back to 'OTHERS' if no pattern matches.
+    """
+    if not raw:
+        return "OTHERS"
+    raw_upper = str(raw).upper().strip()
+    if raw_upper in ("", "NAN", "NONE"):
+        return "OTHERS"
+    for group in load_commodity_groups():
+        for pattern in group.get("patterns", []):
+            if pattern == ".*":
+                # OTHERS fallback — only use if nothing else matched
+                continue
+            if re.search(rf"\b{re.escape(pattern.upper())}\b", raw_upper):
+                return group["name"]
+    return "OTHERS"
+
+
+def pol_from_campaign(campaign_id: str | None) -> dict | None:
+    """Extract POL + country + ARB key from CAMPAIGN_ID string.
+
+    Returns dict {pol, country, arb_key, label} or None if no pattern matched.
+    Uses pol_patterns from YAML, priority order.
+    """
+    if not campaign_id:
+        return None
+    camp_upper = str(campaign_id).upper().strip()
+    if not camp_upper or camp_upper in ("", "NAN", "NONE"):
+        return None
+    for pattern_group in load_pol_patterns():
+        for pattern in pattern_group.get("patterns", []):
+            if re.search(rf"\b{re.escape(pattern.upper())}\b", camp_upper):
+                return {
+                    "pol":      pattern_group["pol"],
+                    "country":  pattern_group["country"],
+                    "arb_key":  pattern_group.get("arb_key"),
+                    "label":    pattern_group.get("label", pattern_group["pol"]),
+                }
+    return None
+
+
+def get_pod_default(commodity_group: str) -> list[str]:
+    """Return default POD list for a canonical commodity group."""
+    for group in load_commodity_groups():
+        if group["name"] == commodity_group:
+            return group.get("pod_default", ["USLAX", "USLGB"])
+    return ["USLAX", "USLGB"]
+
+
+def get_arb_origin_config(arb_key: str | None) -> dict | None:
+    """Return arb_origin config dict from YAML, or None if not found."""
+    if not arb_key:
+        return None
+    return load_arb_origins().get(arb_key)
+
 
 # ── Subject templates ─────────────────────────────────────────────────────────
 # 5 variants for anti-spam rotation — prevents Gmail/Outlook pattern filter
@@ -234,12 +348,21 @@ def resolve_config(
         return default
 
     try:
-        country     = _normalize_country(g("ORIGIN_COUNTRY"))
-        pol         = _resolve_pol(g("POL"), country)
+        # 1. Try POL from CAMPAIGN_ID (Malaysia LOC patterns — Priority)
+        pol_config = pol_from_campaign(g("CAMPAIGN_ID"))
+        if pol_config:
+            pol        = pol_config["pol"]
+            arb_origin = pol_config["arb_key"]
+            country    = pol_config["country"]  # override ORIGIN_COUNTRY
+        else:
+            # 2. Fallback: normalize country, then POL from row
+            country    = _normalize_country(g("ORIGIN_COUNTRY"))
+            pol        = _resolve_pol(g("POL"), country)
+            arb_origin = _resolve_arb_key(pol, country)
+
         destination = _resolve_destination(g("DESTINATION"))
-        arb_origin  = _resolve_arb_key(pol, country)
-        commodity   = campaign_override or g(
-            "COMMODITY_CATEGORY", "CAMPAIGN_ID", "CMD_NAME", default="General"
+        commodity   = normalize_commodity(
+            campaign_override or g("COMMODITY_CATEGORY", "CAMPAIGN_ID", "CMD_NAME")
         )
         subject     = _resolve_subject(pol, commodity, destination, subject_seed)
 
@@ -250,7 +373,7 @@ def resolve_config(
             "arb_origin":  arb_origin,
             "markup":      user_markup,
             "subject":     subject,
-            "commodity":   commodity,
+            "commodity":   commodity,   # normalized canonical group
             "company":     g("COMPANY", "CNEE_NAME"),
             "pic":         g("PIC", "CNEE_PIC", default="there"),
             "tier":        g("TIER", default=""),

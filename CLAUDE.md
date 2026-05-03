@@ -1,8 +1,82 @@
 # CLAUDE.md — Nelson Freight AI System
-Last updated: 2026-04-01 (claudekit skill map integrated)
+Last updated: 2026-04-26 (Telegram Channels routing added)
 
 ## Language
 **LUÔN trả lời bằng tiếng Việt** — mọi giải thích, phân tích, hướng dẫn đều dùng tiếng Việt. Code/command vẫn viết bằng tiếng Anh như bình thường.
+
+---
+
+## 🔴 TELEGRAM CHANNELS ROUTING — BẮT BUỘC TUÂN THỦ
+> Áp dụng KHI session chạy với `--channels plugin:telegram@claude-plugins-official` (Sếp DM bot @nelson_freight_bot từ phone).
+
+### Rule 1 — Reply NGẮN ≤5 dòng
+Sếp đọc trên phone, đi ngoài. Format chuẩn:
+```
+✅ <Status> — <one-line summary>
+   <key metric 1>, <key metric 2>
+   📄 Full report: <Funnel HTML link>
+   🔀 PR: <GitHub link nếu có>
+```
+- Status emoji: ✅ done · ⚠ partial · ❌ failed · 🔄 in-progress
+- KHÔNG paste markdown table phức tạp (Telegram render xấu)
+- KHÔNG paste code block >20 dòng — dump vào HTML thay
+
+### Rule 2 — Output dài → BẮT BUỘC sinh cream HTML + reply link
+Khi output > 5 dòng:
+1. Invoke skill `cream-output` (có trong skill list)
+2. Save vào `D:/OneDrive/NelsonData/reports/<today>/<slug>.html`
+3. Auto-rebuild index
+4. Reply Telegram chỉ summary + URL `https://laptop-no6f8ibp.tail82dc4e.ts.net/<today>/<slug>.html`
+
+### Rule 3 — Slash command từ Telegram = INVOKE skill literal
+Khi Sếp gõ `/skill <args>` từ Telegram (vd `/brainstorm cách add filter`):
+- **TREAT AS NATIVE SLASH COMMAND** — KHÔNG reply text "đưa A/B option"
+- Invoke skill matching tên (vd `/brainstorm` → invoke brainstorm skill, args = `cách add filter`)
+- Mapping 11 commands đã đăng ký Telegram bot menu:
+
+| Sếp gõ | Em invoke |
+|---|---|
+| `/brainstorm <topic>` | brainstorm skill |
+| `/fix <issue>` | fix skill --auto |
+| `/cook <feature>` | cook skill |
+| `/research <topic>` | research skill |
+| `/plan <feature>` | ck-plan skill |
+| `/report <subject>` | cream-output skill |
+| `/status` | nelson-system-audit skill |
+| `/minimax <task>` | delegate-mm skill |
+| `/review <branch>` | code-reviewer agent |
+| `/deploy` | run cowork_deploy.ps1 |
+| `/help` | list 11 commands above |
+
+### Rule 4 — Natural language tiếng Việt → auto invoke skill
+Nếu Sếp KHÔNG dùng slash, detect intent từ keywords:
+- "brainstorm/thảo luận/ý tưởng" → brainstorm
+- "fix/sửa/lỗi" → fix
+- "build/code/làm tính năng/implement" → cook
+- "research/tìm hiểu" → research
+- "lên plan/kế hoạch" → ck-plan
+- "audit/check hệ thống" → nelson-system-audit
+- "giao M2.7/minimax/đỡ tốn token" → delegate-mm
+- "deploy/ship" → cowork_deploy.ps1
+
+### Rule 5 — `cmd:` prefix cho slash literal
+Nếu Sếp gõ `cmd: /reload-plugins` hoặc `cmd: /telegram:access list`:
+- Strip prefix `cmd:`
+- Execute literal slash command (skip mapping)
+
+### Rule 6 — PR-only safety, KHÔNG push main
+Khi DM task code change:
+1. Branch `claude/<slug>` từ main
+2. Commit
+3. `git push origin claude/<slug>`
+4. `gh pr create --base main --head claude/<slug> --title "..." --body "..."`
+5. Reply Sếp link PR (cho Sếp tap review GitHub mobile)
+KHÔNG `git push origin main` trừ Sếp explicit "skip PR, push main".
+
+### Rule 7 — Khi report dài kèm cream HTML
+Đầu reply Telegram nên có `📄` icon + link Funnel. Nếu Sếp tap link không mở được → báo Sếp `_serve.bat` HTTP server có thể chết, restart bằng double-click `D:/OneDrive/NelsonData/reports/_serve.bat`.
+
+---
 
 ## Me
 **Nelson Huynh** — Owner, Nelson Freight (NVOCC). Vietnam→USA/Canada freight forwarding.

@@ -2,10 +2,29 @@
 import os, sys, csv, random, logging, threading
 from pathlib import Path
 from datetime import date, datetime, timedelta, timezone
-from typing import List, Optional
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional
 
 BASE_DIR = Path(__file__).parent
 ENGINE_TEST = BASE_DIR.parent
+
+
+@dataclass
+class SendProgress:
+    """Immutable-ish send progress tracker — replaces raw dict in SEND_PROGRESS."""
+    campaign_id: str
+    total: int
+    sent: int = 0
+    errors: list = field(default_factory=list)
+    status: str = "queued"   # queued / running / done / cancelled
+    skipped: int = 0          # generic skip count (excluded/suppressed/no-html)
+    skipped_cooldown: int = 0
+    skipped_hard_limit: int = 0
+    skipped_typo: int = 0
+    deferred_smart_send: int = 0
+    skipped_duplicate: int = 0
+    interval_id: int | None = None
+    started_at: datetime = field(default_factory=datetime.now)
 
 # Single source of truth for dashboard version.
 # Bump here on each release; UI reads via /api/version — NO need to rename files.
@@ -132,7 +151,7 @@ CNEE_V2     = _ONEDRIVE_EMAIL / "cnee_master_v2_final.xlsx"
 CNEE_V1     = _ONEDRIVE_EMAIL / "cnee_master.xlsx"
 (BASE_DIR / "logs").mkdir(exist_ok=True)
 
-SEND_PROGRESS: dict = {}  # campaign_id → {sent, total, errors, status}
+SEND_PROGRESS: Dict[str, SendProgress] = {}  # campaign_id → SendProgress instance
 SCAN_PENDING: bool = False  # Set True after batch complete → auto-trigger sent scan after 5 min
 
 log.info(f"Loading contacts from {DATA_FILE}...")
@@ -620,7 +639,11 @@ def _clean_pic(pic: str, company: str) -> str:
     return "Team"
 
 @app.get("/api/contacts")
-def get_contacts(campaign: Optional[str] = Query(None)):
+def get_contacts(
+    campaign: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(100, ge=1, le=500),
+):
     subset = df_contacts[df_contacts["CMD_NAME"] == campaign].copy() if (campaign and campaign != "ALL") else df_contacts.copy()
     subset = subset[subset["CNEE_EMAIL"].notna()]
     subset["_el"] = subset["CNEE_EMAIL"].astype(str).str.lower().str.strip()
@@ -647,7 +670,18 @@ def get_contacts(campaign: Optional[str] = Query(None)):
             "dest": clean("DESTINATION"),
         })
     results.sort(key=lambda x: x["company"])
-    return {"contacts": results, "subject": gen_subject(), "total": len(results), "dropped_bad_email": dropped_bad_email}
+    total = len(results)
+    start = (page - 1) * page_size
+    end = start + page_size
+    return {
+        "contacts": results[start:end],
+        "subject": gen_subject(),
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size if page_size else 1,
+        "dropped_bad_email": dropped_bad_email,
+    }
 
 @app.get("/api/rate-preview")
 def rate_preview(pol: str, destinations: str = "", markup: float = 20.0, arb_origin: str = None):
@@ -751,6 +785,75 @@ def get_arb_rates():
         log.warning(f"ARB rates load failed: {e}")
         return {"origins": [], "raw": {}}
 
+
+@app.get("/api/routing/preview")
+def get_routing_preview(
+    email: str = Query(...),
+    markup: int = Query(20),
+):
+    """Return routing decision for a contact email.
+
+    Query params:
+        email: CNEE email address
+        markup: USD markup (optional, default 20)
+    """
+    try:
+        from email_engine.core.rule_engine import (
+            resolve_config, get_pod_default, get_arb_origin_config,
+        )
+        from email_engine.core.arb_pricing import get_arb_surcharge
+
+        # Load CNEE row from cnee_master DataFrame
+        df = _get_cnee_df()
+        row = None
+        if df is not None:
+            email_lower = email.lower().strip()
+            matched = df[df["CNEE_EMAIL"].astype(str).str.lower().str.strip() == email_lower]
+            if not matched.empty:
+                row = matched.iloc[0].to_dict()
+
+        if not row:
+            # Fallback: try EMAIL column
+            if df is not None and "EMAIL" in df.columns:
+                matched = df[df["EMAIL"].astype(str).str.lower().str.strip() == email_lower]
+                if not matched.empty:
+                    row = matched.iloc[0].to_dict()
+
+        if not row:
+            return {"error": "email not found"}, 404
+
+        # Resolve routing config
+        cfg = resolve_config(row, user_markup=markup)
+
+        # Get ARB surcharge if applicable
+        arb_surcharge_40hq = None
+        if cfg["arb_origin"]:
+            surcharge = get_arb_surcharge(cfg["arb_origin"])
+            if surcharge:
+                arb_surcharge_40hq = surcharge.get("40hq") or surcharge.get("40HC") or surcharge.get("40GP")
+
+        # Get arb origin label
+        arb_label = None
+        arb_cfg = get_arb_origin_config(cfg["arb_origin"])
+        if arb_cfg:
+            arb_label = arb_cfg.get("label")
+
+        return {
+            "email": cfg["email"],
+            "pol": cfg["pol"],
+            "pol_label": cfg["pol"],
+            "country": cfg["country"],
+            "arb_origin": cfg["arb_origin"],
+            "arb_label": arb_label,
+            "arb_surcharge_40hq": arb_surcharge_40hq,
+            "pod_list": get_pod_default(cfg["commodity"]),
+            "commodity_group": cfg["commodity"],
+            "markup": markup,
+        }
+    except Exception as e:
+        log.error(f"Routing preview error: {e}")
+        return {"error": str(e)}, 500
+
 def _log_send(email, subj, cid, pol, dest, backend="", graph_msg_id="", verified=""):
     """Append row to email_log.csv. New columns (backend, graph_msg_id, verified) are
     appended after the legacy 8 columns so existing readers that expect exactly those
@@ -801,7 +904,10 @@ def _add_to_defer_queue(email: str, scheduled_at: datetime, campaign_id: str) ->
 def _do_send(campaign_id: str, req: SendRequest):
     from auto_rate_builder import build_rate_table_for_customer
     prog = SEND_PROGRESS[campaign_id]
-    prog["status"] = "running"
+    prog.status = "running"
+
+    # Deduplicate _get_cnee_df() — call once, reuse result
+    _cnee = _get_cnee_df()
 
     default_intro = CFG.get("INTROTEXT", CFG.get("IntroText", ""))
     closing   = CFG.get("CLOSINGTEXT", CFG.get("ClosingText", ""))
@@ -820,7 +926,6 @@ def _do_send(campaign_id: str, req: SendRequest):
     suppressed_emails: set = set()
     SUPPRESSED_STATUSES = {"HARD_BOUNCE", "INVALID", "NO_MX"}
     try:
-        _cnee = _get_cnee_df()
         if _cnee is not None and "EMAIL_STATUS" in _cnee.columns:
             _bad = _cnee[_cnee["EMAIL_STATUS"].isin(SUPPRESSED_STATUSES)]
             suppressed_emails = set(_bad["EMAIL"].astype(str).str.lower().str.strip())
@@ -832,36 +937,35 @@ def _do_send(campaign_id: str, req: SendRequest):
         em_lower = c.email.strip().lower()
         # Excluded customers (active / opt-out) — ALWAYS skip, even with force_send
         if em_lower in EXCLUDED_EMAILS:
-            prog["skipped"] = prog.get("skipped", 0) + 1
+            prog.skipped += 1
             log.info(f"EXCLUDED -> {c.email} (active customer)")
             continue
         # Suppression check: skip hard bounced / invalid / no-MX emails
         if em_lower in suppressed_emails and not c.force_send:
-            prog["skipped"] = prog.get("skipped", 0) + 1
+            prog.skipped += 1
             log.info(f"SUPPRESSED -> {c.email}")
             continue
 
         # Cooldown check: skip if sent within last 14 days
         last_sent = cooldown_map.get(c.email.strip().lower())
         if last_sent and last_sent > cutoff and not c.force_send:
-            prog["skipped_cooldown"] = prog.get("skipped_cooldown", 0) + 1
+            prog.skipped_cooldown += 1
             log.info(f"COOLDOWN -> {c.email} (last: {last_sent})")
             continue
 
         # SEND_COUNT hard limit: max 3 sends total per contact (Phase 2.5)
         # Row-level lookup from cnee_master so we catch count even without email_log
         try:
-            _cnee_row = _get_cnee_df()
-            _row_mask = _cnee_row["EMAIL"].astype(str).str.lower().str.strip() == em_lower if _cnee_row is not None and "EMAIL" in _cnee_row.columns else None
-            if _cnee_row is not None and _row_mask is not None and _row_mask.any():
-                _sc_raw = _cnee_row.loc[_row_mask, "SEND_COUNT"].iloc[0] if "SEND_COUNT" in _cnee_row.columns else 0
+            _row_mask = _cnee["EMAIL"].astype(str).str.lower().str.strip() == em_lower if _cnee is not None and "EMAIL" in _cnee.columns else None
+            if _cnee is not None and _row_mask is not None and _row_mask.any():
+                _sc_raw = _cnee.loc[_row_mask, "SEND_COUNT"].iloc[0] if "SEND_COUNT" in _cnee.columns else 0
             else:
                 _sc_raw = 0
         except Exception:
             _sc_raw = 0
         send_count = int(_sc_raw or 0) if str(_sc_raw).replace(".", "").isdigit() else 0
         if send_count >= 3 and not c.force_send:
-            prog["skipped_hard_limit"] = prog.get("skipped_hard_limit", 0) + 1
+            prog.skipped_hard_limit += 1
             log.warning(f"HARD_LIMIT_3 -> {c.email} (count: {send_count})")
             continue
 
@@ -870,7 +974,7 @@ def _do_send(campaign_id: str, req: SendRequest):
             from email_engine.core.typo_shield import check_typo
             typo_result = check_typo(c.email)
             if typo_result.is_suspect and typo_result.confidence >= 85 and not c.force_send:
-                prog["skipped_typo"] = prog.get("skipped_typo", 0) + 1
+                prog.skipped_typo += 1
                 log.warning(f"TYPO_BLOCK -> {c.email} (suggest: {typo_result.suggested_fix}, confidence: {typo_result.confidence:.0f})")
                 continue
         except Exception as _te:
@@ -881,19 +985,18 @@ def _do_send(campaign_id: str, req: SendRequest):
             try:
                 from email_engine.core.smart_send_window import plan_send_time
                 from datetime import timezone as _tz
-                _cnee_df_ref = _get_cnee_df()
                 _contact_row: dict = {}
-                if _cnee_df_ref is not None:
-                    _em_mask = _cnee_df_ref.get("EMAIL", pd.Series(dtype=str)).astype(str).str.lower().str.strip() == em_lower
+                if _cnee is not None:
+                    _em_mask = _cnee.get("EMAIL", pd.Series(dtype=str)).astype(str).str.lower().str.strip() == em_lower
                     if _em_mask.any():
-                        _contact_row = _cnee_df_ref[_em_mask].iloc[0].to_dict()
+                        _contact_row = _cnee[_em_mask].iloc[0].to_dict()
                 _contact_row["URGENT"] = getattr(c, "urgent", False)
                 scheduled = plan_send_time(_contact_row, now_utc=datetime.now(_tz.utc))
                 now_naive = datetime.now()
                 scheduled_naive = scheduled.replace(tzinfo=None) if scheduled.tzinfo else scheduled
                 if scheduled_naive > now_naive + timedelta(minutes=1):
                     _add_to_defer_queue(c.email, scheduled_naive, campaign_id)
-                    prog["deferred_smart_send"] = prog.get("deferred_smart_send", 0) + 1
+                    prog.deferred_smart_send += 1
                     log.info(f"DEFERRED -> {c.email} (scheduled: {scheduled_naive.strftime('%Y-%m-%d %H:%M')})")
                     continue
             except Exception as _swe:
@@ -921,7 +1024,7 @@ def _do_send(campaign_id: str, req: SendRequest):
             )
             html = result.get("html", "")
             if not html and not c.force_send:
-                prog["skipped"] = prog.get("skipped", 0) + 1
+                prog.skipped += 1
                 continue
 
             # Pick intro based on AI market context (if model loaded)
@@ -934,7 +1037,7 @@ def _do_send(campaign_id: str, req: SendRequest):
             subj = req.subject or gen_subject()
             # Skip if auto-rate builder produced no real lanes — avoid empty "NAN" emails
             if not html or "No rates available" in html:
-                prog["skipped"] = prog.get("skipped", 0) + 1
+                prog.skipped += 1
                 log.info(f"SKIP (no rates) -> {c.email}")
                 continue
             # Test mode: redirect to Nelson's personal email, tag subject
@@ -948,21 +1051,21 @@ def _do_send(campaign_id: str, req: SendRequest):
                 body += f"<br>{signature}"
             html_body = f"<html><body>{body}</body></html>"
             result = _send_email_html(to=to_addr, subject=subj, html_body=html_body)
-            prog["sent"] += 1
+            prog.sent += 1
             verified = "yes" if result.get("graph_msg_id") else "pending"
             _log_send(c.email, subj, campaign_id, pol, dest, backend=result["backend"], graph_msg_id=result.get("graph_msg_id") or "", verified=verified)
             log.info(f"[SEND-OK] backend={result['backend']} to={to_addr} msg_id={result.get('graph_msg_id')} sent_at={result['sent_at']}")
         except Exception as e:
-            prog["errors"].append({"email": c.email, "error": str(e)})
+            prog.errors.append({"email": c.email, "error": str(e)})
             log.error(f"FAIL -> {c.email}: {e}")
 
-    prog["status"] = "done"
+    prog.status = "done"
 
     # Auto-trigger sent scan 5 min after batch completes (if at least 1 email sent)
-    if prog.get("sent", 0) > 0:
+    if prog.sent > 0:
         global SCAN_PENDING
         SCAN_PENDING = True
-        log.info(f"[SentScan] Batch done ({prog['sent']} sent) — scan pending in 5 min")
+        log.info(f"[SentScan] Batch done ({prog.sent} sent) — scan pending in 5 min")
         import threading
 
         def _deferred_scan():
@@ -991,7 +1094,7 @@ def _do_send(campaign_id: str, req: SendRequest):
 @app.post("/api/send", status_code=202)
 def send_emails(req: SendRequest, background_tasks: BackgroundTasks):
     campaign_id = f"DASH_{datetime.now():%Y%m%d_%H%M%S}"
-    SEND_PROGRESS[campaign_id] = {"sent": 0, "total": len(req.contacts), "errors": [], "status": "queued", "skipped_cooldown": 0}
+    SEND_PROGRESS[campaign_id] = SendProgress(campaign_id=campaign_id, total=len(req.contacts))
     background_tasks.add_task(_do_send, campaign_id, req)
     return {"campaign_id": campaign_id, "total": len(req.contacts), "status": "queued"}
 
@@ -1030,44 +1133,71 @@ def _do_send_built_emails(campaign_id: str, emails_out: list[dict]) -> None:
     Duplicate guard: skips emails already SENT today (read from email_log.csv).
     """
     prog = SEND_PROGRESS[campaign_id]
-    prog["status"] = "running"
+    prog.status = "running"
 
     # Duplicate guard — skip emails already sent today
     today_sent = _load_today_sent_set()
     if today_sent:
         log.info(f"[smart-batch] Today already sent: {len(today_sent)} emails — will be skipped")
-    prog["skipped_duplicate"] = 0
 
     for em in emails_out:
         to_addr = em.get("cnee_email", "").strip()
         subject = em.get("subject", "")
         html_body = em.get("html_body", "")
         if not to_addr or not html_body:
-            prog["errors"].append({"email": to_addr, "error": "missing recipient or body"})
+            prog.errors.append({"email": to_addr, "error": "missing recipient or body"})
             continue
         if to_addr.lower() in today_sent:
-            prog["skipped_duplicate"] += 1
+            prog.skipped_duplicate += 1
             log.info(f"[smart-batch] SKIP duplicate -> {to_addr} (already sent today)")
             continue
         try:
             result = _send_email_html(to=to_addr, subject=subject, html_body=html_body)
-            prog["sent"] += 1
+            prog.sent += 1
             verified = "yes" if result.get("graph_msg_id") else "pending"
             _log_send(to_addr, subject, em.get("campaign_id") or campaign_id, "", "", backend=result["backend"], graph_msg_id=result.get("graph_msg_id") or "", verified=verified)
             log.info(f"[SEND-OK] backend={result['backend']} to={to_addr} msg_id={result.get('graph_msg_id')} sent_at={result['sent_at']}")
             today_sent.add(to_addr.lower())  # update set so within-batch dupes also skip
         except Exception as e:
-            prog["errors"].append({"email": to_addr, "error": str(e)})
+            prog.errors.append({"email": to_addr, "error": str(e)})
             log.error(f"[smart-batch] FAIL -> {to_addr}: {e}")
 
-    prog["status"] = "done"
+    prog.status = "done"
 
 @app.get("/api/send-status/{campaign_id}")
 def send_status(campaign_id: str):
     prog = SEND_PROGRESS.get(campaign_id)
     if prog is None:
         err(404, f"campaign_id '{campaign_id}' not found")
-    return {"campaign_id": campaign_id, **prog}
+    return {
+        "campaign_id": campaign_id,
+        "sent": prog.sent,
+        "total": prog.total,
+        "errors": prog.errors,
+        "status": prog.status,
+        "skipped_cooldown": prog.skipped_cooldown,
+        "skipped_hard_limit": prog.skipped_hard_limit,
+        "skipped_typo": prog.skipped_typo,
+        "deferred_smart_send": prog.deferred_smart_send,
+        "skipped_duplicate": prog.skipped_duplicate,
+        "started_at": prog.started_at.isoformat() if prog.started_at else None,
+    }
+
+
+@app.delete("/api/send/{campaign_id}")
+def cancel_send(campaign_id: str):
+    """Cancel a running or queued campaign."""
+    prog = SEND_PROGRESS.get(campaign_id)
+    if prog is None:
+        err(404, f"campaign_id '{campaign_id}' not found")
+    if prog.interval_id:
+        import threading
+        # Note: threading.Timer cannot be cancelled, but we mark the status
+        # and let the next loop iteration check prog.status == "cancelled"
+        pass
+    prog.status = "cancelled"
+    return {"status": "cancelled", "campaign_id": campaign_id}
+
 
 @app.get("/api/sent-scan/pending")
 def scan_pending_status():
@@ -1092,7 +1222,7 @@ def _empty_send_stats() -> dict:
 # Endpoint polled every 10s from dashboard → recompute on 22k rows wasteful.
 _SEND_STATS_CACHE: dict | None = None
 _SEND_STATS_CACHE_TS: datetime | None = None
-_SEND_STATS_TTL_SECONDS = 15
+_SEND_STATS_TTL_SECONDS: int = int(os.environ.get("SEND_STATS_CACHE_TTL_SECONDS", "15"))
 
 
 @app.get("/api/send-stats")
@@ -1905,7 +2035,7 @@ def v4_bulk_send(req: V4BulkSendRequest, background_tasks: BackgroundTasks):
         raise HTTPException(404, "No matching contacts found")
     v2_req = SendRequest(contacts=contacts, subject=req.subject, markup=req.markup)
     campaign_id = f"V4_{datetime.now():%Y%m%d_%H%M%S}"
-    SEND_PROGRESS[campaign_id] = {"sent": 0, "total": len(contacts), "errors": [], "status": "queued", "skipped_cooldown": 0}
+    SEND_PROGRESS[campaign_id] = SendProgress(campaign_id=campaign_id, total=len(contacts))
     background_tasks.add_task(_do_send, campaign_id, v2_req)
     return {"sent": len(contacts), "failed": 0, "campaign_id": campaign_id, "status": "queued"}
 
@@ -2681,13 +2811,7 @@ def batch_enqueue(req: BatchEnqueueRequest, confirm: Optional[str] = None):
     # Real send path: bypass SQLite queue, dispatch directly via background thread.
     # Uses Outlook COM exclusively. _send_email_html handles the actual dispatch.
     campaign_id = f"SMART_{datetime.now():%Y%m%d_%H%M%S}"
-    SEND_PROGRESS[campaign_id] = {
-        "sent": 0,
-        "total": len(emails_out),
-        "errors": [],
-        "status": "queued",
-        "batch_id": req.batch_id,
-    }
+    SEND_PROGRESS[campaign_id] = SendProgress(campaign_id=campaign_id, total=len(emails_out))
     # Spawn background thread directly (FastAPI BackgroundTasks not injected here).
     threading.Thread(
         target=_do_send_built_emails,

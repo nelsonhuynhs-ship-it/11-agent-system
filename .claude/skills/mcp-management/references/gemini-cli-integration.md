@@ -1,5 +1,25 @@
 # Gemini CLI Integration Guide
 
+## Model Configuration
+
+Read model from `.claude/.ck.json`: `gemini.model` (default: `gemini-3-flash-preview`)
+
+## ⚠️ CRITICAL: Stdin Piping for MCP Tasks
+
+For **MCP tool execution**, use stdin piping — `--prompt`/`-p` has historically been reported to have issues with MCP server initialization in headless mode:
+
+```bash
+# ❌ AVOID for MCP tasks - historically reported MCP init issues in headless mode
+gemini -y -m <gemini.model> -p "Take a screenshot"
+
+# ✅ RECOMMENDED for MCP tasks - stdin piping as safer default
+echo "Take a screenshot" | gemini -y -m <gemini.model>
+```
+
+**Why**: Stdin piping has been more reliable for MCP tool execution in practice. Use it as the safer default for MCP tasks.
+
+**Note**: The `-p`/`--prompt` flag is NOT deprecated — it is the official headless mode flag and works correctly for non-MCP tasks (research, analysis). The MCP init concern is based on observed behavior, not official documentation.
+
 ## Overview
 
 Gemini CLI provides automatic MCP tool discovery and execution via natural language prompts. This is the recommended primary method for executing MCP tools.
@@ -46,44 +66,68 @@ This prevents committing sensitive API keys and server configurations.
 ### Basic Syntax
 
 ```bash
-gemini [flags] -p "<prompt>"
+# IMPORTANT: Use stdin piping for MCP tasks (headless --prompt mode may skip MCP server init)
+echo "<prompt>" | gemini [flags]
 ```
 
 ### Essential Flags
 
 - `-y`: Skip confirmation prompts (auto-approve tool execution)
 - `-m <model>`: Model selection
-  - `gemini-2.5-flash` (fast, recommended for MCP)
-  - `gemini-2.5-flash` (balanced)
-  - `gemini-pro` (high quality)
-- `-p "<prompt>"`: Task description
+  - `gemini-2.5-flash` (stable, works on all account tiers)
+  - `gemini-3-flash-preview` (fast, may require Google AI Pro/Ultra for CLI)
+  - `gemini-2.5-pro` (quality, may hit capacity limits)
 
 ### Examples
 
 **Screenshot Capture**:
 ```bash
-gemini -y -m gemini-2.5-flash -p "Take a screenshot of https://www.google.com.vn"
+echo "Take a screenshot of https://www.google.com.vn" | gemini -y -m <gemini.model>
 ```
 
 **Memory Operations**:
 ```bash
-gemini -y -m gemini-2.5-flash -p "Remember that Alice is a React developer working on e-commerce projects"
+echo "Remember that Alice is a React developer working on e-commerce projects" | gemini -y -m <gemini.model>
 ```
 
 **Web Research**:
 ```bash
-gemini -y -m gemini-2.5-flash -p "Search for latest Next.js 15 features and summarize the top 3"
+echo "Search for latest Next.js 15 features and summarize the top 3" | gemini -y -m <gemini.model>
 ```
 
 **Multi-Tool Orchestration**:
 ```bash
-gemini -y -m gemini-2.5-flash -p "Search for Claude AI documentation, take a screenshot of the homepage, and save both to memory"
+echo "Search for Claude AI documentation, take a screenshot of the homepage, and save both to memory" | gemini -y -m <gemini.model>
 ```
 
 **Browser Automation**:
 ```bash
-gemini -y -m gemini-2.5-flash -p "Navigate to https://example.com, click the signup button, and take a screenshot"
+echo "Navigate to https://example.com, click the signup button, and take a screenshot" | gemini -y -m <gemini.model>
 ```
+
+## Error Handling
+
+When gemini CLI fails, check exit code and output for known error markers:
+```bash
+RESULT=$(echo "task" | gemini -y -m <gemini.model> 2>&1)
+EXIT_CODE=$?
+if [ $EXIT_CODE -ne 0 ] || echo "$RESULT" | grep -q "GaxiosError\|RESOURCE_EXHAUSTED\|MODEL_CAPACITY_EXHAUSTED\|PERMISSION_DENIED\|UNAUTHENTICATED"; then
+  echo "[GEMINI_UNAVAILABLE] Falling back to script execution."
+  # Use Pattern 2 (direct scripts) or Pattern 3 (mcp-manager subagent)
+else
+  echo "$RESULT"
+fi
+```
+
+Common failure modes:
+- **429 `MODEL_CAPACITY_EXHAUSTED`**: Model overloaded. Try `gemini-2.5-flash` as fallback.
+- **429 `RESOURCE_EXHAUSTED`**: Rate limit. Wait and retry or switch to script execution.
+- **403 `PERMISSION_DENIED`**: Account tier doesn't support the model, or auth token expired.
+- **401 `UNAUTHENTICATED`**: OAuth token invalid or expired. Re-authenticate with `gemini` interactive login.
+- **Exit 142 (SIGALRM)**: Timeout from retry loop. Reduce prompt complexity or switch model.
+- **Exit 1**: Generic API error (including 429 after internal retries exhaust). No dedicated exit code for quota errors.
+- **Keychain error**: Cosmetic warning (`Cannot find module keytar.node`), does not affect functionality.
+- **YOLO mode warning**: Cosmetic stderr noise, safe to ignore.
 
 ## How It Works
 
@@ -179,7 +223,7 @@ Should show symlink pointing to `.claude/.mcp.json`.
 ### Debug Mode
 
 ```bash
-gemini --debug -p "Take a screenshot"
+echo "Take a screenshot" | gemini --debug
 ```
 
 Shows detailed MCP communication logs.

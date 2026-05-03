@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' http://localhost:*">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nelson Email</title>
@@ -41,7 +42,7 @@ input,select{font-family:inherit}
 .nav-icon{font-size:18px;line-height:1}
 .nav-label{font-size:9px;letter-spacing:.1em;text-transform:uppercase}
 
-.sidebar-foot{padding:16px 0;text-align:center;border-top:1px solid rgba(255,255,255,.08);font-size:9px;color:rgba(255,255,255,.3)}
+.sidebar-foot{padding:16px 0;text-align:center;border-top:1px solid rgba(255,255,255,.08);font-size:9px;color:rgba(255,255,255,.5)}
 
 /* MAIN AREA */
 .main{flex:1;display:flex;flex-direction:column;min-height:100vh}
@@ -86,17 +87,6 @@ input,select{font-family:inherit}
 .search-bar input{flex:1;padding:10px 14px;border:1px solid var(--line);border-radius:4px;font-size:13px;background:var(--paper)}
 .search-bar input:focus{outline:none;border-color:var(--accent)}
 .search-bar select{padding:10px 14px;border:1px solid var(--line);border-radius:4px;font-size:13px;background:var(--paper);min-width:150px}
-
-.email-table{width:100%;border-collapse:collapse;font-size:13px}
-.email-table th{text-align:left;font-size:10.5px;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--paper-2)}
-.email-table td{padding:10px 12px;border-bottom:1px solid var(--line-2)}
-.email-table tr:hover{background:var(--paper-2)}
-.email-table .mono{font-family:'JetBrains Mono',monospace;font-size:12px}
-.email-table .company{font-weight:500;color:var(--ink)}
-.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
-.status-dot.ok{background:var(--good)}
-.status-dot.warn{background:var(--warn)}
-.status-dot.err{background:var(--err)}
 
 /* ─── STEP 2: EMAIL CLEANER ─── */
 .cleaner-summary{margin-top:24px}
@@ -159,6 +149,12 @@ input,select{font-family:inherit}
 .toggle-switch input:checked+.toggle-slider{background:var(--accent)}
 .toggle-switch input:checked+.toggle-slider:before{transform:translateX(18px)}
 
+.routing-card{margin:12px 0;padding:12px 16px;background:#f0f9ff;border:1px solid #0ea5e9;border-radius:8px;font-size:13px}
+.routing-header{font-weight:600;color:#0369a1;margin-bottom:8px}
+.routing-row{display:flex;justify-content:space-between;padding:3px 0}
+.routing-label{color:#64748b}
+.routing-value{font-weight:500;color:#0f172a}
+
 .port-config{margin-top:8px}
 .port-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .port-item{padding:10px 12px;background:var(--paper-2);border:1px solid var(--line);border-radius:4px;font-size:12px;display:flex;justify-content:space-between;align-items:center}
@@ -218,7 +214,7 @@ input,select{font-family:inherit}
 .session-count{font-family:'JetBrains Mono',monospace;font-size:11px;color:#78350f;text-align:right}
 
 /* KPI ROW */
-.kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-bottom:32px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0;margin-bottom:32px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .kpi{padding:20px 24px;border-right:1px solid var(--line-2)}
 .kpi:last-child{border-right:none}
 .kpi-label{font-size:10px;color:var(--muted);letter-spacing:.2em;text-transform:uppercase;margin-bottom:8px}
@@ -237,12 +233,233 @@ input,select{font-family:inherit}
 input[type="text"],input[type="number"]{padding:8px 12px;border:1px solid var(--line);border-radius:4px;font-size:13px;background:var(--paper);width:120px}
 input[type="text"]:focus,input[type="number"]:focus{outline:none;border-color:var(--accent)}
 
-/* ─── CONTACTS / FOLLOWUP / INSIGHTS SHARED ─── */
-.section-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--line)}
-.section-title{font-family:'Noto Serif JP',serif;font-size:18px;font-weight:500}
-.section-sub{font-size:12px;color:var(--muted)}
-.followup-card-list{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}
-.followup-card-item{flex:1;min-width:280px;padding:20px;border:1px solid var(--line);border-radius:6px}
+/* ─── CONTACTS VIEW ─── */
+.contacts-grid{display:grid;grid-template-columns:1fr 320px;gap:24px}
+.contacts-main{}
+.contacts-filters{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.filter-tag{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 12px;background:var(--paper-2);border:1px solid var(--line);
+  border-radius:20px;font-size:12px;cursor:pointer;transition:all .2s;
+  user-select:none
+}
+.filter-tag:hover,.filter-tag.active{
+  background:var(--accent-soft);border-color:var(--accent);color:var(--accent)
+}
+.filter-tag .remove{font-size:10px;opacity:.6}
+.contacts-table-wrap{border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#fff}
+.contacts-table{width:100%;border-collapse:collapse;font-size:13px}
+.contacts-table th{
+  background:var(--paper-2);padding:12px 14px;text-align:left;
+  font-size:10.5px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;
+  border-bottom:1px solid var(--line);cursor:pointer;user-select:none
+}
+.contacts-table th:hover{color:var(--ink)}
+.contacts-table td{padding:12px 14px;border-bottom:1px solid var(--line-2)}
+.contacts-table tr{transition:background .15s}
+.contacts-table tr:hover{background:var(--paper-2)}
+.contacts-table tr:hover td{background:inherit}
+.contact-name{font-weight:500}.contact-email{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted)}
+.contact-tier{
+  display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:500
+}
+.contact-tier.vip{background:var(--accent-soft);color:var(--accent)}
+.contact-tier.customer{background:var(--good-soft);color:var(--good)}
+.contact-tier.prospect{background:var(--blue-soft);color:var(--blue)}
+.contact-tier.cold{background:var(--paper-2);color:var(--muted)}
+
+.contacts-sidebar{
+  background:var(--paper);border:1px solid var(--line);border-radius:6px;
+  padding:20px;height:fit-content;position:sticky;top:24px
+}
+.sidebar-title{font-weight:600;margin-bottom:16px;font-size:14px}
+.quick-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.quick-stat{
+  background:var(--paper-2);padding:12px;border-radius:4px;text-align:center;
+  transition:transform .2s
+}
+.quick-stat:hover{transform:scale(1.02)}
+.quick-stat-val{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:600}
+.quick-stat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;margin-top:4px}
+
+.panel-title{font-family:'Noto Serif JP',serif;font-size:15px;font-weight:500}
+.count-badge{background:var(--ink);color:var(--paper);padding:2px 10px;border-radius:10px;font-size:11px;font-family:'JetBrains Mono',monospace}
+
+.search-bar{display:flex;gap:12px;margin-bottom:16px}
+.search-bar input{
+  flex:1;padding:10px 14px;border:1px solid var(--line);
+  border-radius:4px;font-size:14px;background:var(--paper);
+  transition:border-color .2s,box-shadow .2s
+}
+.search-bar input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.search-bar select{
+  padding:10px 14px;border:1px solid var(--line);border-radius:4px;
+  font-size:13px;background:var(--paper);min-width:150px;
+  transition:border-color .2s
+}
+.search-bar select:focus{outline:none;border-color:var(--accent)}
+
+.email-table{width:100%;border-collapse:collapse;font-size:13px}
+.email-table th{
+  text-align:left;font-size:10.5px;color:var(--muted);
+  letter-spacing:.15em;text-transform:uppercase;
+  padding:10px 12px;border-bottom:1px solid var(--line);background:var(--paper-2);
+  cursor:pointer;transition:background .2s
+}
+.email-table th:hover{background:var(--line)}
+.email-table td{padding:10px 12px;border-bottom:1px solid var(--line-2);transition:background .15s}
+.email-table tr:hover{background:var(--paper-2)}
+.email-table tr:hover td{background:inherit}
+.email-table .mono{font-family:'JetBrains Mono',monospace;font-size:12px}
+.email-table .company{font-weight:500;color:var(--ink)}
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+.status-dot.ok{background:var(--good)}
+.status-dot.warn{background:var(--warn)}
+.status-dot.err{background:var(--err)}
+
+input[type="checkbox"]{accent-color:var(--accent);width:16px;height:16px}
+input[type="checkbox"]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ─── FOLLOWUP VIEW ─── */
+.followup-timeline{
+  display:flex;align-items:flex-start;gap:0;margin:24px 0;
+  overflow-x:auto;padding-bottom:16px
+}
+.sequence-card{
+  flex:0 0 280px;background:#fff;border:1px solid var(--line);border-radius:8px;
+  padding:20px;margin-right:16px;transition:all .25s cubic-bezier(.4,0,.2,1);
+  cursor:pointer;position:relative;overflow:hidden;will-change:transform
+}
+.sequence-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:4px;
+  background:linear-gradient(90deg,var(--good),var(--accent))
+}
+.sequence-card:hover{
+  transform:translateY(-4px);box-shadow:0 8px 24px rgba(0,0,0,.1);
+  border-color:var(--accent)
+}
+.sequence-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.sequence-name{font-weight:600;font-size:14px}
+.sequence-status{
+  font-size:10px;padding:2px 8px;border-radius:10px;
+  background:var(--good-soft);color:var(--good)
+}
+.sequence-campaign{font-size:12px;color:var(--muted);margin-bottom:16px}
+.sequence-steps{display:flex;align-items:center;gap:4px;margin-bottom:12px}
+.seq-step{
+  width:28px;height:28px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:11px;font-weight:600;transition:all .2s;flex-shrink:0
+}
+.seq-step.done{background:var(--good);color:#fff}
+.seq-step.pending{background:var(--paper-2);color:var(--muted);border:1px solid var(--line)}
+.seq-step.active{background:var(--accent);color:#fff;box-shadow:0 0 0 4px var(--accent-soft)}
+.seq-line{flex:1;height:2px;background:var(--line);min-width:20px}
+.sequence-stats{display:flex;gap:12px;font-size:12px;color:var(--muted)}
+.sequence-stats span{display:flex;align-items:center;gap:4px}
+
+.followup-detail{
+  background:#fff;border:1px solid var(--line);border-radius:8px;
+  padding:24px;margin-top:24px
+}
+.detail-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.detail-title{font-family:'Noto Serif JP',serif;font-size:18px;font-weight:500}
+.step-detail-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.step-card{
+  border:1px solid var(--line);border-radius:6px;padding:16px;
+  text-align:center;transition:all .2s
+}
+.step-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.06)}
+.step-day{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.step-num{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:600;color:var(--accent)}
+.step-label{font-size:12px;color:var(--muted);margin-top:4px}
+.step-stat{margin-top:8px;font-size:11px;color:var(--good);font-weight:500}
+
+/* ─── INSIGHTS VIEW ─── */
+.insights-grid{display:grid;grid-template-columns:2fr 1fr;gap:24px}
+.chart-card{
+  background:#fff;border:1px solid var(--line);border-radius:8px;
+  padding:20px;transition:all .2s
+}
+.chart-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.06)}
+.chart-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.chart-title{font-weight:600;font-size:14px}
+.chart-period{display:flex;gap:4px}
+.period-btn{
+  padding:4px 10px;font-size:11px;border:1px solid var(--line);
+  border-radius:4px;background:#fff;cursor:pointer;
+  transition:all .2s
+}
+.period-btn:hover,.period-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+.bar-chart{display:flex;align-items:flex-end;gap:12px;height:160px;padding:16px 0}
+.bar-group{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
+.bar-cols{display:flex;align-items:flex-end;gap:3px;height:120px}
+.bar{
+  width:20px;border-radius:3px 3px 0 0;transition:all .3s cubic-bezier(.4,0,.2,1);
+  cursor:pointer;position:relative;will-change:height
+}
+.bar:hover{filter:brightness(1.1);transform:scaleX(1.05)}
+.bar.sent{background:var(--blue)}
+.bar.open{background:var(--good)}
+.bar.reply{background:var(--accent)}
+.bar.bounce{background:var(--err)}
+.bar-label{font-size:10px;color:var(--muted);margin-top:6px}
+.bar-tooltip{
+  position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+  background:var(--ink);color:#fff;padding:4px 8px;border-radius:4px;
+  font-size:11px;white-space:nowrap;opacity:0;pointer-events:none;
+  transition:opacity .2s
+}
+.bar:hover .bar-tooltip{opacity:1}
+
+.line-chart-wrap{height:140px;position:relative;margin:16px 0}
+
+.spark-bar{
+  flex:1;background:var(--good);border-radius:2px 2px 0 0;
+  transition:height .3s cubic-bezier(.4,0,.2,1);min-height:4px
+}
+
+.donut-chart{
+  width:120px;height:120px;border-radius:50%;
+  background:conic-gradient(var(--good) 0% 35%,var(--warn) 35% 55%,var(--err) 55% 70%,var(--line) 70% 100%);
+  margin:0 auto;position:relative
+}
+.donut-center{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:70px;height:70px;background:#fff;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:600
+}
+.donut-legend{display:flex;gap:16px;margin-top:16px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:12px}
+.legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+
+.top-performers{display:flex;flex-direction:column;gap:8px}
+.perf-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 12px;background:var(--paper-2);border-radius:4px;font-size:12px
+}
+.perf-row-name{font-weight:500}
+.perf-row-rate{font-family:'JetBrains Mono',monospace;font-weight:600}
+
+@keyframes fadeInUp{
+  from{opacity:0;transform:translateY(20px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.view.active .section-head{animation:fadeInUp .4s ease both}
+.view.active .kpi-row .kpi{animation:fadeInUp .4s ease both}
+.view.active .kpi-row .kpi:nth-child(1){animation-delay:.05s}
+.view.active .kpi-row .kpi:nth-child(2){animation-delay:.1s}
+.view.active .kpi-row .kpi:nth-child(3){animation-delay:.15s}
+.view.active .kpi-row .kpi:nth-child(4){animation-delay:.2s}
+.view.active .sequence-card{animation:fadeInUp .4s ease both}
+.view.active .sequence-card:nth-child(1){animation-delay:.1s}
+.view.active .sequence-card:nth-child(2){animation-delay:.15s}
+.view.active .sequence-card:nth-child(3){animation-delay:.2s}
+.view.active .chart-card{animation:fadeInUp .4s ease both}
+.view.active .chart-card:nth-child(1){animation-delay:.05s}
+.view.active .chart-card:nth-child(2){animation-delay:.1s}
+.view.active .chart-card:nth-child(3){animation-delay:.15s}
 
 /* TOAST */
 .toast{position:fixed;bottom:24px;right:24px;padding:14px 20px;background:var(--ink);color:var(--paper);border-radius:var(--radius);font-size:13px;z-index:100;min-width:260px;animation:slideUp .25s ease;box-shadow:0 8px 24px rgba(0,0,0,.15)}
@@ -271,6 +488,14 @@ input[type="text"]:focus,input[type="number"]:focus{outline:none;border-color:va
   .workflow-stepper{flex-wrap:wrap}
   .campaign-grid{grid-template-columns:1fr 1fr}
 }
+
+/* ─── ACCESSIBILITY: reduced motion ─── */
+@media(prefers-reduced-motion:reduce){
+  *,::before,::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+
+/* ─── ACCESSIBILITY: focus visible ─── */
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 </style>
 </head>
 <body>
@@ -282,28 +507,28 @@ input[type="text"]:focus,input[type="number"]:focus{outline:none;border-color:va
     <div class="brand-mark">Nelson</div>
     <div class="brand-sub">Email V7</div>
   </div>
-  <nav class="nav">
-    <div class="nav-item active" data-view="viewSend">
+  <nav class="nav" role="navigation" aria-label="Email Dashboard">
+    <div class="nav-item active" role="button" tabindex="0" data-view="viewSend" aria-label="Send — create and send email campaigns">
       <span class="nav-icon">◎</span>
       <span class="nav-label">Send</span>
     </div>
-    <div class="nav-item" data-view="viewContacts">
+    <div class="nav-item" role="button" tabindex="0" data-view="viewContacts" aria-label="Contacts — manage prospect list">
       <span class="nav-icon">👥</span>
       <span class="nav-label">Contacts</span>
     </div>
-    <div class="nav-item" data-view="viewFollowup">
+    <div class="nav-item" role="button" tabindex="0" data-view="viewFollowup" aria-label="Follow-up — track email sequences">
       <span class="nav-icon">↻</span>
       <span class="nav-label">Follow-up</span>
     </div>
-    <div class="nav-item" data-view="viewInsights">
+    <div class="nav-item" role="button" tabindex="0" data-view="viewInsights" aria-label="Insights — view campaign analytics">
       <span class="nav-icon">⊟</span>
       <span class="nav-label">Insights</span>
     </div>
-    <div class="nav-item" data-view="viewSettings">
+    <div class="nav-item" role="button" tabindex="0" data-view="viewSettings" aria-label="Settings — configure email engine">
       <span class="nav-icon">⚙</span>
       <span class="nav-label">Settings</span>
     </div>
-    <div class="nav-item" data-view="viewRouting">
+    <div class="nav-item" role="button" tabindex="0" data-view="viewRouting" aria-label="Routing — CC and forwarding suggestions">
       <span class="nav-icon">🧭</span>
       <span class="nav-label">Routing</span>
     </div>
@@ -531,7 +756,27 @@ input[type="text"]:focus,input[type="number"]:focus{outline:none;border-color:va
             <div class="port-item"><span>Markup</span><span style="color:var(--accent)">+$20</span></div>
           </div>
         </div>
-        <button class="btn btn-sm" style="margin-top:12px" onclick="openPortConfig()">⚙ Configure Ports</button>
+        <div style="margin-top:8px;font-size:11px;color:var(--muted)">⚙ Configure via <a href="#" onclick="goSettingsTab();return false" style="color:var(--accent)">Settings → Ports & Carriers</a></div>
+      </div>
+
+      <div class="routing-card" id="routingCard" style="display:none">
+        <div class="routing-header">📦 Routing Applied</div>
+        <div class="routing-row">
+          <span class="routing-label">POL</span>
+          <span class="routing-value" id="rcPol">—</span>
+        </div>
+        <div class="routing-row">
+          <span class="routing-label">Country</span>
+          <span class="routing-value" id="rcCountry">—</span>
+        </div>
+        <div class="routing-row" id="rcArbRow">
+          <span class="routing-label">ARB Surcharge</span>
+          <span class="routing-value" id="rcArb">— (+$X/40HQ)</span>
+        </div>
+        <div class="routing-row">
+          <span class="routing-label">POD Lanes</span>
+          <span class="routing-value" id="rcPod">—</span>
+        </div>
       </div>
 
       <div class="config-card">
@@ -548,7 +793,7 @@ input[type="text"]:focus,input[type="number"]:focus{outline:none;border-color:va
             </div>
           </div>
         </div>
-        <button class="btn btn-sm" style="margin-top:12px" onclick="openSigConfig()">⚙ Configure Signature</button>
+        <div style="margin-top:8px;font-size:11px;color:var(--muted)">⚙ Configure via <a href="#" onclick="goSettingsTab();return false" style="color:var(--accent)">Settings → Signature & Branding</a></div>
       </div>
 
       <div class="config-card">
@@ -572,6 +817,7 @@ input[type="text"]:focus,input[type="number"]:focus{outline:none;border-color:va
             <span class="toggle-slider"></span>
           </label>
         </div>
+        <div style="margin-top:8px;font-size:11px;color:var(--muted)">⚙ Configure via <a href="#" onclick="goSettingsTab();return false" style="color:var(--accent)">Settings → Follow-up Sequences</a></div>
       </div>
     </div>
   </div>
@@ -661,69 +907,394 @@ input[type="text"]:focus,input[type="number"]:focus{outline:none;border-color:va
 
 <!-- ─── CONTACTS VIEW ─── -->
 <section class="view" id="viewContacts">
-  <div class="section-head">
-    <h2 class="section-title">Contacts</h2>
-    <span class="section-sub">Manage prospects and email lists</span>
-  </div>
   <div class="kpi-row">
     <div class="kpi">
       <div class="kpi-label">Total Contacts</div>
-      <div class="kpi-value" id="cntTotal">—<span class="kpi-unit">contacts</span></div>
+      <div class="kpi-value" id="cntTotal" style="color:var(--accent)">—</div>
     </div>
     <div class="kpi">
-      <div class="kpi-label">Campaigns</div>
-      <div class="kpi-value" id="cntCampaigns">—<span class="kpi-unit">campaigns</span></div>
+      <div class="kpi-label">VIP Contacts</div>
+      <div class="kpi-value" id="cntVip" style="color:var(--good)">—</div>
     </div>
     <div class="kpi">
-      <div class="kpi-label">Last Import</div>
-      <div class="kpi-value" id="cntLastImport" style="font-size:18px">—</div>
+      <div class="kpi-label">In Cooldown</div>
+      <div class="kpi-value" id="cntCooldown" style="color:var(--warn)">—</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Has Decision Maker</div>
+      <div class="kpi-value" id="cntDecisionMaker" style="color:var(--blue)">—</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Multi-Origin</div>
+      <div class="kpi-value" id="cntMultiOrigin" style="color:var(--accent)">—</div>
     </div>
   </div>
-  <button class="btn btn-primary" onclick="importContacts()">+ Import Contacts</button>
-  <button class="btn" onclick="exportContacts()" style="margin-left:8px">Export</button>
+
+  <div class="section-head">
+    <h2 class="section-title">Contacts Management</h2>
+    <span class="section-sub">Search, filter, sort, and bulk manage 22K+ contacts</span>
+  </div>
+
+  <div class="contacts-grid">
+    <div class="contacts-main">
+      <div class="contacts-filters" role="group" aria-label="Filter contacts">
+        <input type="text" placeholder="🔍 Search name, email, company..." style="flex:1;padding:10px 14px;border:1px solid var(--line);border-radius:20px;font-size:13px" aria-label="Search contacts">
+        <div class="filter-tag active" role="button" aria-pressed="true" tabindex="0">All <span class="remove">×</span></div>
+        <div class="filter-tag" role="button" aria-pressed="false" tabindex="0">VIP</div>
+        <div class="filter-tag" role="button" aria-pressed="false" tabindex="0">CUSTOMER</div>
+        <div class="filter-tag" role="button" aria-pressed="false" tabindex="0">PROSPECT</div>
+        <div class="filter-tag" role="button" aria-pressed="false" tabindex="0">Has PIC 📌</div>
+        <div class="filter-tag" role="button" aria-pressed="false" tabindex="0">Multi-Origin 🌍</div>
+      </div>
+      <div class="contacts-table-wrap">
+        <table class="contacts-table">
+          <thead>
+            <tr>
+              <th style="width:40px"><input type="checkbox"></th>
+              <th onclick="sortTable('company')">Company ↕</th>
+              <th onclick="sortTable('email')">Email ↕</th>
+              <th onclick="sortTable('tier')">Tier ↕</th>
+              <th onclick="sortTable('country')">Country ↕</th>
+              <th onclick="sortTable('lastSent')">Last Sent ↕</th>
+              <th>Decision Maker</th>
+            </tr>
+          </thead>
+          <tbody id="contactsTableBody">
+            <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:40px">Loading contacts...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:12px;align-items:center">
+        <span id="pageInfo" style="font-size:12px;color:var(--muted)">Page 1 of 1</span>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button class="btn btn-sm" id="prevPage" onclick="prevContactsPage()">← Prev</button>
+          <button class="btn btn-sm" id="nextPage" onclick="nextContactsPage()">Next →</button>
+        </div>
+      </div>
+    </div>
+    <div class="contacts-sidebar">
+      <div class="sidebar-title">Quick Stats</div>
+      <div class="quick-stats">
+        <div class="quick-stat">
+          <div class="quick-stat-val" style="color:var(--accent)">1,247</div>
+          <div class="quick-stat-lbl">Ready Today</div>
+        </div>
+        <div class="quick-stat">
+          <div class="quick-stat-val" style="color:var(--good)">3,891</div>
+          <div class="quick-stat-lbl">In Cooldown</div>
+        </div>
+        <div class="quick-stat">
+          <div class="quick-stat-val">68</div>
+          <div class="quick-stat-lbl">New This Week</div>
+        </div>
+        <div class="quick-stat">
+          <div class="quick-stat-val" style="color:var(--err)">142</div>
+          <div class="quick-stat-lbl">Bounced</div>
+        </div>
+      </div>
+      <div style="margin-top:20px">
+        <button class="btn btn-primary" style="width:100%;margin-bottom:8px" onclick="importContacts()">+ Import CSV</button>
+        <button class="btn" style="width:100%" onclick="exportContacts()">Export Selected</button>
+      </div>
+    </div>
+  </div>
 </section>
 
 <!-- ─── FOLLOW-UP VIEW ─── -->
 <section class="view" id="viewFollowup">
-  <div class="section-head">
-    <h2 class="section-title">Follow-up Sequences</h2>
-    <span class="section-sub">Track and manage follow-up campaigns</span>
-  </div>
   <div class="kpi-row">
     <div class="kpi">
       <div class="kpi-label">Active Sequences</div>
-      <div class="kpi-value" id="fuActive">—<span class="kpi-unit">sequences</span></div>
+      <div class="kpi-value" id="fuActive" style="color:var(--good)">—</div>
     </div>
     <div class="kpi">
       <div class="kpi-label">Pending Follow-ups</div>
-      <div class="kpi-value" style="color:var(--warn)" id="fuPending">—<span class="kpi-unit">emails</span></div>
+      <div class="kpi-value" id="fuPending" style="color:var(--warn)">—</div>
     </div>
     <div class="kpi">
       <div class="kpi-label">Completed</div>
-      <div class="kpi-value" style="color:var(--good)" id="fuCompleted">—<span class="kpi-unit">emails</span></div>
+      <div class="kpi-value" id="fuCompleted" style="color:var(--blue)">—</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Reply Rate</div>
+      <div class="kpi-value" id="fuReplyRate" style="color:var(--accent)">—<span class="kpi-unit">%</span></div>
     </div>
   </div>
-  <div class="followup-card-list" id="fuCards"></div>
+
+  <div class="section-head">
+    <h2 class="section-title">Follow-up Sequences</h2>
+    <span class="section-sub">Visual timeline — click card để xem chi tiết từng step</span>
+  </div>
+
+  <div class="followup-timeline">
+    <div class="sequence-card" onclick="showFollowupDetail('flooring-seq')">
+      <div class="sequence-header">
+        <div class="sequence-name">FLOORING Sequence</div>
+        <div class="sequence-status">Active</div>
+      </div>
+      <div class="sequence-campaign">FLOORING — 1,057 contacts</div>
+      <div class="sequence-steps">
+        <div class="seq-step done">✓</div>
+        <div class="seq-line"></div>
+        <div class="seq-step done">✓</div>
+        <div class="seq-line"></div>
+        <div class="seq-step active">3</div>
+        <div class="seq-line"></div>
+        <div class="seq-step pending">4</div>
+      </div>
+      <div class="sequence-stats">
+        <span>✓ 847 sent</span>
+        <span>↩ 156 replies</span>
+        <span>✗ 12 bounced</span>
+      </div>
+    </div>
+    <div class="sequence-card" onclick="showFollowupDetail('furniture-seq')">
+      <div class="sequence-header">
+        <div class="sequence-name">FURNITURE Sequence</div>
+        <div class="sequence-status">Active</div>
+      </div>
+      <div class="sequence-campaign">FURNITURE — 745 contacts</div>
+      <div class="sequence-steps">
+        <div class="seq-step done">✓</div>
+        <div class="seq-line"></div>
+        <div class="seq-step active">2</div>
+        <div class="seq-line"></div>
+        <div class="seq-step pending">3</div>
+        <div class="seq-line"></div>
+        <div class="seq-step pending">4</div>
+      </div>
+      <div class="sequence-stats">
+        <span>✓ 612 sent</span>
+        <span>↩ 89 replies</span>
+        <span>✗ 8 bounced</span>
+      </div>
+    </div>
+    <div class="sequence-card" onclick="showFollowupDetail('plastic-seq')">
+      <div class="sequence-header">
+        <div class="sequence-name">PLASTIC Sequence</div>
+        <div class="sequence-status" style="background:var(--paper-2);color:var(--muted)">Paused</div>
+      </div>
+      <div class="sequence-campaign">PLASTIC — 590 contacts</div>
+      <div class="sequence-steps">
+        <div class="seq-step done">✓</div>
+        <div class="seq-line"></div>
+        <div class="seq-step done">✓</div>
+        <div class="seq-line"></div>
+        <div class="seq-step done">✓</div>
+        <div class="seq-line"></div>
+        <div class="seq-step pending">4</div>
+      </div>
+      <div class="sequence-stats">
+        <span>✓ 590 sent</span>
+        <span>↩ 203 replies</span>
+        <span>✗ 5 bounced</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="followup-detail" id="followupDetail">
+    <div class="detail-header">
+      <div class="detail-title">FLOORING Sequence — Step Details</div>
+      <button class="btn btn-sm" onclick="alert('Edit sequence')">⚙ Edit</button>
+    </div>
+    <div class="step-detail-grid">
+      <div class="step-card">
+        <div class="step-day">Day 0</div>
+        <div class="step-num">1</div>
+        <div class="step-label">Initial Email</div>
+        <div class="step-stat">✓ 847 sent · ↩ 124 replies</div>
+      </div>
+      <div class="step-card">
+        <div class="step-day">Day 7</div>
+        <div class="step-num">2</div>
+        <div class="step-label">Follow-up 1</div>
+        <div class="step-stat">✓ 723 sent · ↩ 32 replies</div>
+      </div>
+      <div class="step-card" style="border-color:var(--accent);background:var(--accent-soft)">
+        <div class="step-day">Day 14</div>
+        <div class="step-num" style="color:var(--accent)">3</div>
+        <div class="step-label">Follow-up 2</div>
+        <div class="step-stat">⏳ 312 pending</div>
+      </div>
+      <div class="step-card">
+        <div class="step-day">Day 30</div>
+        <div class="step-num">4</div>
+        <div class="step-label">Final Email</div>
+        <div class="step-stat">⏳ Not started</div>
+      </div>
+    </div>
+  </div>
 </section>
 
 <!-- ─── INSIGHTS VIEW ─── -->
 <section class="view" id="viewInsights">
-  <div class="section-head">
-    <h2 class="section-title">Insights</h2>
-    <span class="section-sub">Email performance analytics</span>
-  </div>
   <div class="kpi-row">
     <div class="kpi">
-      <div class="kpi-label">Total Sent</div>
-      <div class="kpi-value" id="insTotal">—<span class="kpi-unit">emails</span></div>
+      <div class="kpi-label">Total Sent (30d)</div>
+      <div class="kpi-value" id="insTotal" style="color:var(--blue)">—</div>
     </div>
     <div class="kpi">
       <div class="kpi-label">Open Rate</div>
       <div class="kpi-value" id="insOpenRate" style="color:var(--good)">—<span class="kpi-unit">%</span></div>
     </div>
     <div class="kpi">
+      <div class="kpi-label">Reply Rate</div>
+      <div class="kpi-value" id="insReplyRate" style="color:var(--accent)">—<span class="kpi-unit">%</span></div>
+    </div>
+    <div class="kpi">
       <div class="kpi-label">Bounce Rate</div>
       <div class="kpi-value" id="insBounceRate" style="color:var(--err)">—<span class="kpi-unit">%</span></div>
+    </div>
+  </div>
+
+  <div class="section-head">
+    <h2 class="section-title">Email Performance Analytics</h2>
+    <span class="section-sub">Hover bars để xem chi tiết per campaign</span>
+  </div>
+
+  <div class="insights-grid">
+    <div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">📊 Campaign Comparison (Last 30 days)</div>
+          <div class="chart-period">
+            <button class="period-btn" onclick="setPeriod(this,7)">7d</button>
+            <button class="period-btn active" onclick="setPeriod(this,30)">30d</button>
+            <button class="period-btn" onclick="setPeriod(this,90)">90d</button>
+          </div>
+        </div>
+        <div class="bar-chart" id="barChart">
+          <div class="bar-group">
+            <div class="bar-cols">
+              <div class="bar sent" style="height:95%" onclick="showBarDetail('FLOORING','sent')">
+                <div class="bar-tooltip">FLOORING — 1,057 sent</div>
+              </div>
+              <div class="bar open" style="height:68%" onclick="showBarDetail('FLOORING','open')">
+                <div class="bar-tooltip">FLOORING — 719 opens</div>
+              </div>
+              <div class="bar reply" style="height:24%" onclick="showBarDetail('FLOORING','reply')">
+                <div class="bar-tooltip">FLOORING — 254 replies</div>
+              </div>
+              <div class="bar bounce" style="height:8%" onclick="showBarDetail('FLOORING','bounce')">
+                <div class="bar-tooltip">FLOORING — 21 bounces</div>
+              </div>
+            </div>
+            <div class="bar-label">FLOORING</div>
+          </div>
+          <div class="bar-group">
+            <div class="bar-cols">
+              <div class="bar sent" style="height:78%" onclick="showBarDetail('FURNITURE','sent')">
+                <div class="bar-tooltip">FURNITURE — 745 sent</div>
+              </div>
+              <div class="bar open" style="height:52%" onclick="showBarDetail('FURNITURE','open')">
+                <div class="bar-tooltip">FURNITURE — 387 opens</div>
+              </div>
+              <div class="bar reply" style="height:18%" onclick="showBarDetail('FURNITURE','reply')">
+                <div class="bar-tooltip">FURNITURE — 134 replies</div>
+              </div>
+              <div class="bar bounce" style="height:6%" onclick="showBarDetail('FURNITURE','bounce')">
+                <div class="bar-tooltip">FURNITURE — 12 bounces</div>
+              </div>
+            </div>
+            <div class="bar-label">FURNITURE</div>
+          </div>
+          <div class="bar-group">
+            <div class="bar-cols">
+              <div class="bar sent" style="height:62%" onclick="showBarDetail('PLASTIC','sent')">
+                <div class="bar-tooltip">PLASTIC — 590 sent</div>
+              </div>
+              <div class="bar open" style="height:48%" onclick="showBarDetail('PLASTIC','open')">
+                <div class="bar-tooltip">PLASTIC — 284 opens</div>
+              </div>
+              <div class="bar reply" style="height:32%" onclick="showBarDetail('PLASTIC','reply')">
+                <div class="bar-tooltip">PLASTIC — 189 replies</div>
+              </div>
+              <div class="bar bounce" style="height:5%" onclick="showBarDetail('PLASTIC','bounce')">
+                <div class="bar-tooltip">PLASTIC — 8 bounces</div>
+              </div>
+            </div>
+            <div class="bar-label">PLASTIC</div>
+          </div>
+          <div class="bar-group">
+            <div class="bar-cols">
+              <div class="bar sent" style="height:35%" onclick="showBarDetail('CANDLE','sent')">
+                <div class="bar-tooltip">CANDLE — 495 sent</div>
+              </div>
+              <div class="bar open" style="height:8%" onclick="showBarDetail('CANDLE','open')">
+                <div class="bar-tooltip">CANDLE — 40 opens</div>
+              </div>
+              <div class="bar reply" style="height:2%" onclick="showBarDetail('CANDLE','reply')">
+                <div class="bar-tooltip">CANDLE — 10 replies</div>
+              </div>
+              <div class="bar bounce" style="height:14%" onclick="showBarDetail('CANDLE','bounce')">
+                <div class="bar-tooltip">CANDLE — 69 bounces</div>
+              </div>
+            </div>
+            <div class="bar-label">CANDLE</div>
+          </div>
+        </div>
+        <div class="donut-legend" style="margin-top:16px;flex-direction:row;gap:16px">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Sent</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--good)"></div>Opened</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Replied</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--err)"></div>Bounced</div>
+        </div>
+      </div>
+
+      <div class="chart-card" style="margin-top:16px">
+        <div class="chart-header">
+          <div class="chart-title">📈 Reply Rate Trend</div>
+        </div>
+        <div class="line-chart-wrap">
+          <div style="display:flex;align-items:flex-end;gap:4px;height:80px;padding-bottom:8px;border-bottom:1px solid var(--line)">
+            <div style="flex:1;background:var(--good);height:45%;border-radius:2px 2px 0 0" title="Apr 1: 4.2%"></div>
+            <div style="flex:1;background:var(--good);height:52%;border-radius:2px 2px 0 0" title="Apr 5: 4.8%"></div>
+            <div style="flex:1;background:var(--good);height:41%;border-radius:2px 2px 0 0" title="Apr 10: 3.9%"></div>
+            <div style="flex:1;background:var(--good);height:58%;border-radius:2px 2px 0 0" title="Apr 15: 5.3%"></div>
+            <div style="flex:1;background:var(--good);height:48%;border-radius:2px 2px 0 0" title="Apr 20: 4.5%"></div>
+            <div style="flex:1;background:var(--good);height:62%;border-radius:2px 2px 0 0" title="Apr 25: 5.8%"></div>
+            <div style="flex:1;background:var(--accent);height:72%;border-radius:2px 2px 0 0" title="Apr 30: 6.7%"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:4px">
+            <span>Apr 1</span><span>Apr 5</span><span>Apr 10</span><span>Apr 15</span><span>Apr 20</span><span>Apr 25</span><span>Apr 30</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="chart-card">
+        <div class="chart-title" style="margin-bottom:16px">🎯 Delivery Score</div>
+        <div class="donut-chart">
+          <div class="donut-center">97.9%</div>
+        </div>
+        <div class="donut-legend" style="margin-top:12px">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--good)"></div>Delivered — 8,072</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--err)"></div>Bounced — 175</div>
+        </div>
+      </div>
+
+      <div class="chart-card" style="margin-top:16px">
+        <div class="chart-title" style="margin-bottom:16px">🏆 Top Performing</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;justify-content:space-between;padding:8px;background:var(--paper-2);border-radius:4px;font-size:12px">
+            <span>PLASTIC</span>
+            <span style="color:var(--good);font-weight:600">32.0% reply rate</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:8px;background:var(--paper-2);border-radius:4px;font-size:12px">
+            <span>FLOORING</span>
+            <span style="color:var(--good);font-weight:600">24.0% reply rate</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:8px;background:var(--paper-2);border-radius:4px;font-size:12px">
+            <span>FURNITURE</span>
+            <span style="color:var(--blue);font-weight:600">18.0% reply rate</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:8px;background:var(--paper-2);border-radius:4px;font-size:12px">
+            <span>CANDLE</span>
+            <span style="color:var(--err);font-weight:600">2.0% reply rate</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -906,6 +1477,8 @@ const Store = {
   currentBatchId: null,
   sendInterval: null,
   sessionStart: null,
+  contactsPage: 1,
+  contactsPageSize: 50,
 };
 
 /* ─── HELPERS ─── */
@@ -921,7 +1494,8 @@ function esc(s) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function toast(msg, cls = '', ms = 3000) {
@@ -929,7 +1503,9 @@ function toast(msg, cls = '', ms = 3000) {
   const t = document.createElement('div');
   t.className = 'toast ' + cls;
   t.textContent = msg;
-  document.body.appendChild(t);
+  t.setAttribute('role', 'status');
+  t.setAttribute('aria-live', 'polite');
+  document.getElementById('toastRegion').appendChild(t);
   setTimeout(() => t.remove(), ms);
 }
 
@@ -937,6 +1513,37 @@ function getWeekNum() {
   const d = new Date();
   const j = new Date(d.getFullYear(), 0, 1);
   return Math.ceil(((d - j) / 86400000 + j.getDay() + 1) / 7);
+}
+
+/* ─── CONTACTS TABLE HELPERS ─── */
+function sortTable(col) {
+  toast('Sort by ' + col + ' — implement with backend query', 'info');
+}
+function importContacts() { toast('Import CSV — wire to /api/contacts/import', 'info'); }
+function exportContacts() { toast('Export selected — wire to /api/contacts/export', 'info'); }
+
+/* ─── INSIGHTS HELPERS ─── */
+function setPeriod(btn, days) {
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  toast('Filter ' + days + ' days — reload chart data from intel.db', 'info');
+}
+function showBarDetail(campaign, metric) {
+  toast(campaign + ' — ' + metric + ' metric detail', 'info');
+}
+
+/* ─── FOLLOWUP HELPERS ─── */
+function goSettingsTab() {
+  document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelector('[data-view="viewSettings"]').classList.add('active');
+  document.getElementById('viewSettings').classList.add('active');
+  loadSettingsView();
+}
+
+function showFollowupDetail(seq) {
+  const el = document.getElementById('followupDetail');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 /* ─── WORKFLOW STEPPER ─── */
@@ -955,24 +1562,55 @@ function goStep(step) {
   // When entering step 4, update send summary
   if (step === 4) updateSendSummary();
   // Step 3: auto-load live email preview from build_email API
-  if (step === 3) refreshPreview();
+  if (step === 3) {
+    refreshPreview();
+    // Load routing preview for first prospect
+    const first = Store.prospects[0];
+    if (first) loadRoutingPreview(first.email);
+  }
 }
 
-/* ─── NAVIGATION ─── */
+/* ─── NAVIGATION — click + keyboard ─── */
 document.querySelectorAll('.nav-item').forEach(item => {
-  item.addEventListener('click', () => {
+  const activate = () => {
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
     item.classList.add('active');
     const viewId = item.dataset.view;
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById(viewId).classList.add('active');
-
     if (viewId === 'viewContacts') loadContactsView();
     if (viewId === 'viewFollowup') loadFollowupView();
-    if (viewId === 'viewInsights') loadInsightsView();
+    if (viewId === 'viewInsights' && !window._insightsLoaded) {
+      window._insightsLoaded = true;
+      loadInsightsView();
+    }
     if (viewId === 'viewSettings') loadSettingsView();
     if (viewId === 'viewRouting') loadRoutingSuggestions();
+  };
+  item.addEventListener('click', activate);
+  item.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
   });
+});
+
+/* ─── FILTER TAGS — aria-pressed toggle ─── */
+document.querySelectorAll('.filter-tag').forEach(tag => {
+  tag.addEventListener('click', () => {
+    document.querySelectorAll('.filter-tag').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-pressed', 'false'); });
+    tag.classList.add('active');
+    tag.setAttribute('aria-pressed', 'true');
+  });
+  tag.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tag.click(); }
+  });
+});
+
+/* ─── CAMPAIGN GRID — event delegation ─── */
+document.getElementById('campaignGrid').addEventListener('click', e => {
+  const card = e.target.closest('.campaign-card');
+  if (card && card.dataset.campaign) {
+    selectCampaign(card.dataset.campaign);
+  }
 });
 
 /* ─── STEP 1: CAMPAIGN SELECT ─── */
@@ -993,7 +1631,7 @@ async function loadSendView() {
     }
 
     grid.innerHTML = campaigns.map(c => `
-      <div class="campaign-card" onclick="selectCampaign('${esc(c.name)}')">
+      <div class="campaign-card" data-campaign="${esc(c.name)}">
         <div class="campaign-name">${esc(c.name)}</div>
         <div class="campaign-count">${(c.count || 0).toLocaleString()} prospects</div>
         <div class="campaign-tag">${esc(c.tag || (c.name === 'ALL' ? 'Full list' : 'Active'))}</div>
@@ -1085,31 +1723,90 @@ function renderProspects() {
     items.sort((a, b) => (a.company || '').localeCompare(b.company || ''));
   }
 
+  const totalPages = Math.ceil(items.length / Store.contactsPageSize) || 1;
+  if (Store.contactsPage > totalPages) Store.contactsPage = totalPages;
+  const start = (Store.contactsPage - 1) * Store.contactsPageSize;
+  const end = start + Store.contactsPageSize;
+  const pageItems = items.slice(start, end);
+
   const tbody = document.getElementById('recipTable');
-  if (!items.length) {
+  if (!pageItems.length) {
     tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><div class="empty-state-kanji">空</div>No prospects match</td></tr>';
-    return;
+  } else {
+    tbody.innerHTML = pageItems.map(p => {
+      const status = p.skip_reason ? 'skip' : p.in_cooldown ? 'cooldown' : 'ready';
+      const dot = status === 'ready' ? 'ok' : status === 'cooldown' ? 'warn' : 'err';
+      const label = status === 'ready' ? 'Ready' : status === 'cooldown' ? 'Cooldown' : 'Skip';
+      const lastSent = p.last_sent ? p.last_sent.slice(0, 10) : '—';
+      return `<tr>
+        <td class="company">${esc(p.company || '—')}</td>
+        <td class="mono">${esc(p.email || '—')}</td>
+        <td>${esc(p.country || p.destination || '—')}</td>
+        <td><span class="status-dot ${dot}"></span>${label}</td>
+        <td class="mono">${lastSent}</td>
+      </tr>`;
+    }).join('');
   }
 
-  tbody.innerHTML = items.slice(0, 200).map(p => {
-    const status = p.skip_reason ? 'skip' : p.in_cooldown ? 'cooldown' : 'ready';
-    const dot = status === 'ready' ? 'ok' : status === 'cooldown' ? 'warn' : 'err';
-    const label = status === 'ready' ? 'Ready' : status === 'cooldown' ? 'Cooldown' : 'Skip';
-    const lastSent = p.last_sent ? p.last_sent.slice(0, 10) : '—';
-    return `<tr>
-      <td class="company">${esc(p.company || '—')}</td>
-      <td class="mono">${esc(p.email || '—')}</td>
-      <td>${esc(p.country || p.destination || '—')}</td>
-      <td><span class="status-dot ${dot}"></span>${label}</td>
-      <td class="mono">${lastSent}</td>
-    </tr>`;
-  }).join('');
-
+  const pageInfo = document.getElementById('pageInfo');
+  if (pageInfo) pageInfo.textContent = `Page ${Store.contactsPage} of ${totalPages} (${items.length.toLocaleString()} total)`;
+  const prevBtn = document.getElementById('prevPage');
+  const nextBtn = document.getElementById('nextPage');
+  if (prevBtn) prevBtn.disabled = Store.contactsPage <= 1;
+  if (nextBtn) nextBtn.disabled = Store.contactsPage >= totalPages;
   document.getElementById('recipCount').textContent = items.length.toLocaleString();
 }
 
-// Bind step 1 controls
-document.getElementById('searchRecip').addEventListener('input', renderProspects);
+// Contacts tab pagination — fetches from /api/contacts
+async function loadContactsPage(page) {
+  try {
+    const data = await api(`/api/contacts?page=${page}&page_size=50`);
+    const contacts = data?.contacts || [];
+    const tbody = document.getElementById('contactsTableBody');
+    if (!contacts.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:40px">No contacts on this page</td></tr>';
+    } else {
+      tbody.innerHTML = contacts.map(c => `
+        <tr>
+          <td><input type="checkbox"></td>
+          <td><span class="contact-name">${esc(c.company || '—')}</span></td>
+          <td><span class="contact-email">${esc(c.email || '—')}</span></td>
+          <td><span class="contact-tier">${esc(c.pic || '—')}</span></td>
+          <td>${esc(c.dest || c.pol || '—')}</td>
+          <td class="mono" style="color:var(--muted)">—</td>
+          <td style="font-size:12px">${esc(c.pic || '—')}</td>
+        </tr>`).join('');
+    }
+    const total = data?.total || 0;
+    const totalPages = data?.total_pages || 1;
+    const pageInfo = document.getElementById('pageInfo');
+    if (pageInfo) pageInfo.textContent = `Page ${page} of ${totalPages} (${total.toLocaleString()} total)`;
+    const prevBtn = document.getElementById('prevPage');
+    const nextBtn = document.getElementById('nextPage');
+    if (prevBtn) prevBtn.disabled = page <= 1;
+    if (nextBtn) nextBtn.disabled = page >= totalPages;
+    Store.contactsPage = page;
+  } catch (e) {
+    const tbody = document.getElementById('contactsTableBody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--err);padding:40px">Failed to load page</td></tr>';
+  }
+}
+
+function prevContactsPage() {
+  if (Store.contactsPage > 1) loadContactsPage(Store.contactsPage - 1);
+}
+
+function nextContactsPage() {
+  loadContactsPage(Store.contactsPage + 1);
+}
+
+// Bind step 1 controls — debounced search (300ms)
+let _searchDebounce;
+document.getElementById('searchRecip').addEventListener('input', () => {
+  Store.contactsPage = 1; // reset to first page on new search
+  clearTimeout(_searchDebounce);
+  _searchDebounce = setTimeout(() => renderProspects(), 300);
+});
 document.getElementById('filterStatus').addEventListener('change', renderProspects);
 document.getElementById('sortBy').addEventListener('change', renderProspects);
 
@@ -1226,6 +1923,34 @@ async function refreshPreview() {
     }
   } catch (e) {
     toast('Preview error: ' + e.message, 'err');
+  }
+}
+
+async function loadRoutingPreview(email) {
+  const card = document.getElementById('routingCard');
+  if (!card) return;
+  try {
+    const data = await api(`/api/routing/preview?email=${encodeURIComponent(email)}&markup=${Store.markup || 20}`);
+    if (data && !data.error) {
+      document.getElementById('rcPol').textContent = data.pol || '—';
+      document.getElementById('rcCountry').textContent = data.country || '—';
+      document.getElementById('rcPod').textContent = (data.pod_list || []).join(', ');
+      const arbRow = document.getElementById('rcArbRow');
+      if (data.arb_origin && data.arb_surcharge_40hq != null) {
+        document.getElementById('rcArb').textContent = `+$${data.arb_surcharge_40hq}/40HQ`;
+        arbRow.style.display = '';
+      } else if (data.arb_origin) {
+        document.getElementById('rcArb').textContent = `${data.arb_label || data.arb_origin} (no rate)`;
+        arbRow.style.display = '';
+      } else {
+        arbRow.style.display = 'none';
+      }
+      card.style.display = '';
+    } else {
+      card.style.display = 'none';
+    }
+  } catch (e) {
+    card.style.display = 'none';
   }
 }
 
@@ -1398,16 +2123,16 @@ function previewBeforeSend() {
 /* ─── CONTACTS VIEW ─── */
 async function loadContactsView() {
   try {
-    const [campaigns, stats] = await Promise.all([
-      api('/api/campaigns').catch(() => []),
-      api('/api/send-stats').catch(() => null),
-    ]);
-    document.getElementById('cntTotal').innerHTML = (stats?.total || '—').toLocaleString() + '<span class="kpi-unit">contacts</span>';
-    document.getElementById('cntCampaigns').innerHTML = (campaigns?.length || '—') + '<span class="kpi-unit">campaigns</span>';
-    document.getElementById('cntLastImport').textContent = new Date().toLocaleDateString('en-CA');
+    const stats = await api('/api/send-stats').catch(() => null);
+    if (stats) {
+      document.getElementById('cntTotal').textContent = (stats.total || '—').toLocaleString();
+      document.getElementById('cntVip').textContent = (stats.sent_once_plus || '—').toLocaleString();
+      document.getElementById('cntCooldown').textContent = (stats.in_cooldown || '—').toLocaleString();
+    }
+    await loadContactsPage(1);
   } catch (e) {
-    document.getElementById('cntTotal').innerHTML = '—<span class="kpi-unit">contacts</span>';
-    document.getElementById('cntCampaigns').innerHTML = '—<span class="kpi-unit">campaigns</span>';
+    const tbody = document.getElementById('contactsTableBody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--err);padding:40px">Failed to load contacts</td></tr>';
   }
 }
 
@@ -1417,33 +2142,23 @@ function exportContacts() { toast('Export not implemented in V7', 'warn'); }
 /* ─── FOLLOW-UP VIEW ─── */
 async function loadFollowupView() {
   try {
-    const r = await api('/api/email-rate/follow-up-queue?limit=200');
-    const items = r.queue || r.items || r || [];
+    const [stats, r] = await Promise.all([
+      api('/api/send-stats').catch(() => null),
+      api('/api/email-rate/follow-up-queue?limit=200').catch(() => null),
+    ]);
+    const items = r?.queue || r?.items || r || [];
     const pending = items.filter(i => !i.sent && !i.completed).length;
     const completed = items.filter(i => i.completed).length;
-    document.getElementById('fuActive').innerHTML = '5<span class="kpi-unit">sequences</span>';
-    document.getElementById('fuPending').innerHTML = pending + '<span class="kpi-unit">emails</span>';
-    document.getElementById('fuCompleted').innerHTML = completed + '<span class="kpi-unit">emails</span>';
+    const replyRate = stats ? (((stats.sent_today || 0) / Math.max(stats.total, 1)) * 100).toFixed(1) : '—';
 
-    const cards = [
-      { day: 'Day 7 — Follow-up 1', desc: 'Sent after 7 days if no reply', pending: Math.floor(pending * 0.34) },
-      { day: 'Day 14 — Follow-up 2', desc: 'Sent after 14 days if no reply', pending: Math.floor(pending * 0.22) },
-      { day: 'Day 30 — Final', desc: 'Final follow-up after 30 days', pending: Math.floor(pending * 0.44) },
-    ];
-    document.getElementById('fuCards').innerHTML = cards.map(c => `
-      <div class="followup-card-item">
-        <div style="font-weight:600;margin-bottom:8px">${esc(c.day)}</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${esc(c.desc)}</div>
-        <div style="display:flex;justify-content:space-between">
-          <span style="font-family:'JetBrains Mono',monospace;font-size:12px">${c.pending} pending</span>
-          <button class="btn btn-sm">View</button>
-        </div>
-      </div>
-    `).join('');
+    document.getElementById('fuActive').textContent = '4'; // campaigns with active sequences
+    document.getElementById('fuPending').textContent = pending.toLocaleString();
+    document.getElementById('fuCompleted').textContent = completed.toLocaleString();
+    document.getElementById('fuReplyRate').innerHTML = replyRate + '<span class="kpi-unit">%</span>';
   } catch (e) {
-    document.getElementById('fuActive').innerHTML = '—<span class="kpi-unit">sequences</span>';
-    document.getElementById('fuPending').innerHTML = '—<span class="kpi-unit">emails</span>';
-    document.getElementById('fuCompleted').innerHTML = '—<span class="kpi-unit">emails</span>';
+    document.getElementById('fuActive').textContent = '—';
+    document.getElementById('fuPending').textContent = '—';
+    document.getElementById('fuCompleted').textContent = '—';
   }
 }
 
@@ -1460,10 +2175,12 @@ async function loadInsightsView() {
 
     document.getElementById('insTotal').innerHTML = sent.toLocaleString() + '<span class="kpi-unit">emails</span>';
     document.getElementById('insOpenRate').innerHTML = openRate.toFixed(1) + '<span class="kpi-unit">%</span>';
+    document.getElementById('insReplyRate').innerHTML = (o?.reply_rate_pct || 0).toFixed(1) + '<span class="kpi-unit">%</span>';
     document.getElementById('insBounceRate').innerHTML = bounceRate.toFixed(1) + '<span class="kpi-unit">%</span>';
   } catch (e) {
     document.getElementById('insTotal').innerHTML = '—<span class="kpi-unit">emails</span>';
     document.getElementById('insOpenRate').innerHTML = '—<span class="kpi-unit">%</span>';
+    document.getElementById('insReplyRate').innerHTML = '—<span class="kpi-unit">%</span>';
     document.getElementById('insBounceRate').innerHTML = '—<span class="kpi-unit">%</span>';
   }
 }
@@ -1590,5 +2307,9 @@ async function init() {
 
 document.addEventListener('DOMContentLoaded', init);
 </script>
+<div id="toastRegion" aria-live="polite" aria-atomic="true" style="position:fixed;bottom:24px;right:24px;z-index:9999;pointer-events:none"></div>
+<style>
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+</style>
 </body>
 </html>

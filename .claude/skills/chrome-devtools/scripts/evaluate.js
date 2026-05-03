@@ -3,7 +3,7 @@
  * Execute JavaScript in page context
  * Usage: node evaluate.js --script "document.title" [--url https://example.com]
  */
-import { getBrowser, getPage, closeBrowser, parseArgs, outputJSON, outputError } from './lib/browser.js';
+import { getBrowser, getPage, closeBrowser, disconnectBrowser, parseArgs, outputJSON, outputError } from './lib/browser.js';
 
 async function evaluate() {
   const args = parseArgs(process.argv.slice(2));
@@ -15,7 +15,7 @@ async function evaluate() {
 
   try {
     const browser = await getBrowser({
-      headless: args.headless !== 'false'
+      headless: args.headless
     });
 
     const page = await getPage(browser);
@@ -27,9 +27,10 @@ async function evaluate() {
       });
     }
 
-    const result = await page.evaluate((script) => {
+    const result = await page.evaluate(async (script) => {
+      // Wrap in async IIFE so user scripts can use await
       // eslint-disable-next-line no-eval
-      return eval(script);
+      return await eval(`(async () => { return ${script}; })()`);
     }, args.script);
 
     outputJSON({
@@ -38,11 +39,17 @@ async function evaluate() {
       url: page.url()
     });
 
-    if (args.close !== 'false') {
+    // Default: disconnect to keep browser running for session persistence
+    // Use --close true to fully close browser
+    if (args.close === 'true') {
       await closeBrowser();
+    } else {
+      await disconnectBrowser();
     }
+    process.exit(0);
   } catch (error) {
     outputError(error);
+    process.exit(1);
   }
 }
 

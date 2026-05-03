@@ -1,6 +1,12 @@
 ---
-name: mermaidjs-v11
-description: Create diagrams and visualizations using Mermaid.js v11 syntax. Use when generating flowcharts, sequence diagrams, class diagrams, state diagrams, ER diagrams, Gantt charts, user journeys, timelines, architecture diagrams, or any of 24+ diagram types. Supports JavaScript API integration, CLI rendering to SVG/PNG/PDF, theming, configuration, and accessibility features. Essential for documentation, technical diagrams, project planning, system architecture, and visual communication.
+name: ck:mermaidjs-v11
+description: Create diagrams with Mermaid.js v11 syntax. Use for flowcharts, sequence diagrams, class diagrams, ER diagrams, Gantt charts, state diagrams, architecture diagrams, timelines, user journeys.
+category: utilities
+keywords: [mermaid, diagrams, flowcharts, charts]
+argument-hint: "[diagram-type or description]"
+metadata:
+  author: claudekit
+  version: "1.0.0"
 ---
 
 # Mermaid.js v11

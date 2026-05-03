@@ -1,0 +1,244 @@
+# ═════════════════════════════════════════════════════════════════════════════
+# commodity_groups.yaml — Canonical Commodity Groupings + POL Patterns + ARB
+# Phase 05: Email Routing + Commodity Normalization (260503)
+#
+# Priority order: YAML list order = matching priority (first match wins)
+# Nelson có thể edit file này để thêm commodity group mới mà không cần code
+# ═════════════════════════════════════════════════════════════════════════════
+
+version: 1
+
+# ─── Canonical Commodity Groups ───────────────────────────────────────────────
+# 46 COMMODITY_CATEGORY values → 8 canonical groups
+# Multi-value combos (VD: FLOORING,FURNITURE_INDOOR,WOOD) → match FLOORING first
+commodity_groups:
+  - name: FLOORING
+    patterns:
+      - FLOORING
+      - "FLOORING,WOOD"
+      - "FLOORING,PLASTIC"
+      - "FLOORING,FURNITURE_INDOOR"
+      - "FLOORING,FOOD_AMBIENT"
+      - "FLOORING,FOOD_FROZEN"
+      - "FLOORING,OTHERS"
+      - "FLOORING,GARMENT"
+      - "FLOORING,SEAFOOD"
+      - "FLOORING,TOY"
+      - "FLOORING,RUBBER"
+    pod_default: [USLAX, USLGB, USNYC, USSAV, USHOU]
+
+  - name: FURNITURE
+    patterns:
+      - FURNITURE_INDOOR
+      - FURNITURE_OUTDOOR
+      - "FURNITURE_INDOOR,WOOD"
+      - "FURNITURE,WOOD"
+      - "FURNITURE,CHAIR"
+      - "FURNITURE,SOFA"
+      - LCHFURNITURE
+    pod_default: [USLAX, USLGB, USSEA, USNYC, USSAV]
+
+  - name: PLASTIC
+    patterns:
+      - PLASTIC
+      - "PLASTIC,WOOD"
+      - "PLASTIC,FLOORING"
+      - "PLASTIC,FURNITURE_INDOOR"
+      - LOC_PLASTIC
+      - PLASTIC_CANADA_LOC
+    pod_default: [USLAX, USHOU, USNYC, USSAV]
+
+  - name: RUBBER
+    patterns:
+      - RUBBER
+      - "RUBBER,WOOD"
+    pod_default: [USLAX, USNYC, USSAV, USHOU]
+
+  - name: PLYWOOD
+    patterns:
+      - PLYWOOD
+      - "PLYWOOD,WOOD"
+      - PLYWOOD_LOC
+    pod_default: [USNYC, USSAV, USLAX, USHOU]
+
+  - name: FOOD
+    patterns:
+      - FOOD
+      - FOOD_AMBIENT
+      - FOOD_FROZEN
+      - FOOD_FRUIT
+      - SEAFOOD
+      - "FLOORING,SEAFOOD"
+      - "FLOORING,FOOD_FROZEN"
+      - LCHFOOD
+      - FOODSTUFF
+    pod_default: [USLAX, USMIA, USNYC, USHOU, USSAV]
+
+  - name: GARMENT
+    patterns:
+      - GARMENT
+      - APPAREL
+      - TOY
+      - STEEL
+      - LED_LIGHT
+      - GARMENT_C.A
+      - "GARMENT,BANGLADESH"
+    pod_default: [USLAX, USNYC, USSAV, USHOU]
+
+  - name: CANDLE
+    patterns:
+      - CANDLE
+      - "CANDLE,WOOD"
+      - "CANDLE,FLOORING"
+      - "CANDLE,FLOORING,WOOD"
+    pod_default: [USLAX, USLGB, USSAV, USMIA]
+
+  - name: OTHERS
+    patterns:
+      - ".*"
+    pod_default: [USLAX, USLGB, USNYC, USSAV]
+
+# ─── POL Patterns extracted from CAMPAIGN_ID ────────────────────────────────
+# LOC suffix (Malaysia) = POL indicator, không phải commodity
+# Priority: specific patterns first (TANJUNG PELEPAS) → generic (LOC)
+pol_patterns:
+  - name: TANJUNG_PELEPAS
+    patterns:
+      - "TANJUNG PELEPAS LOC"
+      - "TANJUNG PELEPAS"
+      - "TANJUNG"
+      - "TPNG"
+    pol: TPNG
+    country: MY
+    arb_key: port_klang
+    label: "Tanjung Pelepas, Malaysia"
+
+  - name: PORT_KLANG
+    patterns:
+      - "PORT KLANG LOC"
+      - "PORT KLANG"
+      - "MALAYSIA"
+    pol: PKG
+    country: MY
+    arb_key: port_klang
+    label: "Port Klang, Malaysia"
+
+  - name: RUBBER_LOC
+    patterns:
+      - "RUBBER LOC"
+    pol: TPNG
+    country: MY
+    arb_key: port_klang
+    label: "Tanjung Pelepas, Malaysia"
+
+  - name: PENANG
+    patterns:
+      - PENANG
+      - PNG
+    pol: PNG
+    country: MY
+    arb_key: port_klang
+    label: "Penang, Malaysia"
+
+  - name: LAEM_CHABANG
+    patterns:
+      - LAEM CHABANG
+      - LAEMCHABANG
+      - LCB
+    pol: LCB
+    country: TH
+    arb_key: lat_krabang
+    label: "Laem Chabang, Thailand"
+
+  - name: BANGKOK
+    patterns:
+      - "BANGKOK"
+      - "BKK"
+    pol: BKK
+    country: TH
+    arb_key: lat_krabang
+    label: "Bangkok, Thailand"
+
+  - name: SHANGHAI
+    patterns:
+      - SHANGHAI
+      - SHA
+    pol: SHA
+    country: CN
+    arb_key: shanghai
+    label: "Shanghai, China"
+
+  - name: NINGBO
+    patterns:
+      - NINGBO
+      - NGB
+    pol: NGB
+    country: CN
+    arb_key: ningbo
+    label: "Ningbo, China"
+
+  - name: PHNOM_PENH
+    patterns:
+      - PHNOM PENH
+      - PNOM
+      - CAMBODIA
+    pol: PNOM
+    country: KH
+    arb_key: phnom_penh
+    label: "Phnom Penh, Cambodia"
+
+  - name: SINGAPORE
+    patterns:
+      - SINGAPORE
+      - SIN
+    pol: SIN
+    country: SG
+    arb_key: null
+    label: "Singapore"
+
+# ─── ARB Origin Config (base POL mapping) ───────────────────────────────────
+arb_origins:
+  shanghai:
+    base_pol: SHA
+    label: "Shanghai, China"
+    flag: CN
+  ningbo:
+    base_pol: NGB
+    label: "Ningbo, China"
+    flag: CN
+  lat_krabang:
+    base_pol: BKK
+    label: "Lat Krabang, Thailand"
+    flag: TH
+  port_klang:
+    base_pol: PKG
+    label: "Port Klang, Malaysia"
+    flag: MY
+  phnom_penh:
+    base_pol: PNOM
+    label: "Phnom Penh, Cambodia"
+    flag: KH
+  da_nang:
+    base_pol: VNDAD
+    label: "Da Nang, Vietnam"
+    flag: VN
+  qui_nhon:
+    base_pol: VNUIH
+    label: "Qui Nhon, Vietnam"
+    flag: VN
+
+# ─── VN Domestic Ports (no ARB) ──────────────────────────────────────────────
+vn_domestic_ports:
+  - HPH
+  - HCM
+  - SGN
+  - HAN
+  - DAD
+  - VUT
+  - CMT
+  - UIH
+  - DONG NAI
+  - BINH DUONG
+  - VNSGN
+  - VNHPH
+  - VNDAD

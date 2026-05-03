@@ -6,7 +6,7 @@
  *   - CSS: node fill.js --selector "#email" --value "user@example.com"
  *   - XPath: node fill.js --selector "//input[@type='email']" --value "user@example.com"
  */
-import { getBrowser, getPage, closeBrowser, parseArgs, outputJSON, outputError } from './lib/browser.js';
+import { getBrowser, getPage, closeBrowser, disconnectBrowser, parseArgs, outputJSON, outputError } from './lib/browser.js';
 import { parseSelector, waitForElement, typeIntoElement, enhanceError } from './lib/selector.js';
 
 async function fill() {
@@ -24,7 +24,7 @@ async function fill() {
 
   try {
     const browser = await getBrowser({
-      headless: args.headless !== 'false'
+      headless: args.headless
     });
 
     const page = await getPage(browser);
@@ -58,9 +58,14 @@ async function fill() {
       url: page.url()
     });
 
-    if (args.close !== 'false') {
+    // Default: disconnect to keep browser running for session persistence
+    // Use --close true to fully close browser
+    if (args.close === 'true') {
       await closeBrowser();
+    } else {
+      await disconnectBrowser();
     }
+    process.exit(0);
   } catch (error) {
     // Enhance error message with troubleshooting tips
     const enhanced = enhanceError(error, args.selector);

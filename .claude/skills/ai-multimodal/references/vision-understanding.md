@@ -29,10 +29,6 @@ Comprehensive guide for image analysis, object detection, and visual understandi
 - **gemini-2.5-flash**: Fast, efficient, all features
 - **gemini-2.5-flash-lite**: Lightweight, all features
 
-### Gemini 2.0 Series
-- **gemini-2.0-flash**: Object detection support
-- **gemini-2.0-flash-lite**: Lightweight detection
-
 ### Feature Requirements
 - **Segmentation**: Requires 2.5+ models
 - **Object Detection**: Requires 2.0+ models
@@ -88,11 +84,11 @@ response = client.models.generate_content(
 
 ## Advanced Features
 
-### Object Detection (2.0+)
+### Object Detection (2.5+)
 
 ```python
 response = client.models.generate_content(
-    model='gemini-2.0-flash',
+    model='gemini-2.5-flash',
     contents=[
         'Detect all objects in this image and provide bounding boxes',
         img_part
@@ -481,3 +477,16 @@ def analyze_image_with_retry(image_path, prompt, max_retries=3):
 - Segmentation requires 2.5+ models
 - No video frame extraction (use video API)
 - Regional restrictions on child images (EEA, CH, UK)
+
+---
+
+## Related References
+
+**Current**: Image Understanding
+
+**Related Capabilities**:
+- [Image Generation](./image-generation.md) - Create and edit images
+- [Video Analysis](./video-analysis.md) - Analyze video frames
+- [Video Generation](./video-generation.md) - Reference images for video generation
+
+**Back to**: [AI Multimodal Skill](../SKILL.md)

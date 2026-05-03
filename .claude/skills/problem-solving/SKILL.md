@@ -1,69 +1,101 @@
 ---
-name: problem-solving
-description: Creative problem-solving techniques for breaking through stuck points - includes collision-zone thinking, inversion, pattern recognition, and simplification
-when_to_use: when stuck on a problem, need innovation beyond conventional approaches, or want to find elegant solutions
-version: 1.0.0
+name: ck:problem-solving
+description: Apply systematic problem-solving techniques when stuck. Use for complexity spirals, innovation blocks, recurring patterns, assumption constraints, simplification cascades, scale uncertainty.
+category: utilities
+keywords: [problem-solving, stuck, patterns, simplify]
+argument-hint: "[problem description]"
+metadata:
+  author: claudekit
+  version: "2.0.0"
 ---
 
-# Problem-Solving Skills
+# Problem-Solving Techniques
 
-A collection of techniques for breaking through stuck points and finding elegant solutions.
-
-## Available Sub-Skills
-
-### When Stuck (Dispatch)
-**Location:** `when-stuck/SKILL.md`
-
-Start here when stuck. Matches your stuck-type to the right technique. Quick dispatch table for routing to the appropriate sub-skill.
-
-### Collision-Zone Thinking
-**Location:** `collision-zone-thinking/SKILL.md`
-
-Force unrelated concepts together to discover emergent properties. "What if we treated X like Y?" Revolutionary insights come from deliberate metaphor-mixing.
-
-### Inversion Exercise
-**Location:** `inversion-exercise/SKILL.md`
-
-Flip every assumption and see what still works. "What if the opposite were true?" Exposes hidden constraints and alternative approaches.
-
-### Meta-Pattern Recognition
-**Location:** `meta-pattern-recognition/SKILL.md`
-
-Spot patterns appearing in 3+ domains to find universal principles. Extract abstract forms that apply across domains.
-
-### Scale Game
-**Location:** `scale-game/SKILL.md`
-
-Test at extremes (1000x bigger/smaller) to expose fundamental truths. What breaks? What survives? Extremes reveal what normal scales hide.
-
-### Simplification Cascades
-**Location:** `simplification-cascades/SKILL.md`
-
-Find one insight that eliminates multiple components. "If this is true, we don't need X, Y, or Z." Look for unifying principles.
+Systematic approaches for different types of stuck-ness. Each technique targets specific problem patterns.
 
 ## When to Use
 
-| How You're Stuck | Use This |
-|------------------|----------|
-| **Don't know which technique** | when-stuck |
-| **Need breakthrough innovation** | collision-zone-thinking |
-| **Forced by assumptions** | inversion-exercise |
-| **Same issue in different places** | meta-pattern-recognition |
-| **Unsure about production scale** | scale-game |
-| **Complexity spiraling** | simplification-cascades |
+Apply when encountering:
+- **Complexity spiraling** - Multiple implementations, growing special cases, excessive branching
+- **Innovation blocks** - Conventional solutions inadequate, need breakthrough thinking
+- **Recurring patterns** - Same issue across domains, reinventing solutions
+- **Assumption constraints** - Forced into "only way", can't question premise
+- **Scale uncertainty** - Production readiness unclear, edge cases unknown
+- **General stuck-ness** - Unsure which technique applies
 
-## Quick Reference
+## Quick Dispatch
 
-```
-Conventional solutions inadequate?  → collision-zone-thinking
-"This must be done this way"?       → inversion-exercise
-Same pattern 3+ places?             → meta-pattern-recognition
-Will it work at scale?              → scale-game
-Same thing implemented 5+ ways?     → simplification-cascades
-```
+**Match symptom to technique:**
 
-## Core Philosophy
+| Stuck Symptom | Technique | Reference |
+|---------------|-----------|-----------|
+| Same thing implemented 5+ ways, growing special cases | **Simplification Cascades** | `references/simplification-cascades.md` |
+| Conventional solutions inadequate, need breakthrough | **Collision-Zone Thinking** | `references/collision-zone-thinking.md` |
+| Same issue in different places, reinventing wheels | **Meta-Pattern Recognition** | `references/meta-pattern-recognition.md` |
+| Solution feels forced, "must be done this way" | **Inversion Exercise** | `references/inversion-exercise.md` |
+| Will this work at production? Edge cases unclear? | **Scale Game** | `references/scale-game.md` |
+| Unsure which technique to use | **When Stuck** | `references/when-stuck.md` |
 
-> "One powerful abstraction > ten clever hacks"
+## Core Techniques
 
-These techniques help you find the elegant solution that makes complexity unnecessary, rather than managing complexity through brute force.
+### 1. Simplification Cascades
+Find one insight eliminating multiple components. "If this is true, we don't need X, Y, Z."
+
+**Key insight:** Everything is a special case of one general pattern.
+
+**Red flag:** "Just need to add one more case..." (repeating forever)
+
+### 2. Collision-Zone Thinking
+Force unrelated concepts together to discover emergent properties. "What if we treated X like Y?"
+
+**Key insight:** Revolutionary ideas from deliberate metaphor-mixing.
+
+**Red flag:** "I've tried everything in this domain"
+
+### 3. Meta-Pattern Recognition
+Spot patterns appearing in 3+ domains to find universal principles.
+
+**Key insight:** Patterns in how patterns emerge reveal reusable abstractions.
+
+**Red flag:** "This problem is unique" (probably not)
+
+### 4. Inversion Exercise
+Flip core assumptions to reveal hidden constraints. "What if the opposite were true?"
+
+**Key insight:** Valid inversions reveal context-dependence of "rules."
+
+**Red flag:** "There's only one way to do this"
+
+### 5. Scale Game
+Test at extremes (1000x bigger/smaller, instant/year-long) to expose fundamental truths.
+
+**Key insight:** What works at one scale fails at another.
+
+**Red flag:** "Should scale fine" (without testing)
+
+## Application Process
+
+1. **Identify stuck-type** - Match symptom to technique above
+2. **Load detailed reference** - Read specific technique from `references/`
+3. **Apply systematically** - Follow technique's process
+4. **Document insights** - Record what worked/failed
+5. **Combine if needed** - Some problems need multiple techniques
+
+## Combining Techniques
+
+Powerful combinations:
+- **Simplification + Meta-pattern** - Find pattern, then simplify all instances
+- **Collision + Inversion** - Force metaphor, then invert its assumptions
+- **Scale + Simplification** - Extremes reveal what to eliminate
+- **Meta-pattern + Scale** - Universal patterns tested at extremes
+
+## References
+
+Load detailed guides as needed:
+- `references/when-stuck.md` - Dispatch flowchart and decision tree
+- `references/simplification-cascades.md` - Cascade detection and extraction
+- `references/collision-zone-thinking.md` - Metaphor collision process
+- `references/meta-pattern-recognition.md` - Pattern abstraction techniques
+- `references/inversion-exercise.md` - Assumption flipping methodology
+- `references/scale-game.md` - Extreme testing procedures
+- `references/attribution.md` - Source and adaptation notes

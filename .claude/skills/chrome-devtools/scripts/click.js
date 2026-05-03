@@ -6,7 +6,7 @@
  *   - CSS: node click.js --selector "button.submit"
  *   - XPath: node click.js --selector "//button[contains(text(),'Submit')]"
  */
-import { getBrowser, getPage, closeBrowser, parseArgs, outputJSON, outputError } from './lib/browser.js';
+import { getBrowser, getPage, closeBrowser, disconnectBrowser, parseArgs, outputJSON, outputError } from './lib/browser.js';
 import { parseSelector, waitForElement, clickElement, enhanceError } from './lib/selector.js';
 
 async function click() {
@@ -19,7 +19,7 @@ async function click() {
 
   try {
     const browser = await getBrowser({
-      headless: args.headless !== 'false'
+      headless: args.headless
     });
 
     const page = await getPage(browser);
@@ -65,9 +65,14 @@ async function click() {
       title: await page.title()
     });
 
-    if (args.close !== 'false') {
+    // Default: disconnect to keep browser running for session persistence
+    // Use --close true to fully close browser
+    if (args.close === 'true') {
       await closeBrowser();
+    } else {
+      await disconnectBrowser();
     }
+    process.exit(0);
   } catch (error) {
     // Enhance error message with troubleshooting tips
     const enhanced = enhanceError(error, args.selector);

@@ -5,15 +5,30 @@
  * Supports both CSS and XPath selectors:
  *   - CSS: node screenshot.js --selector ".main-content" --output page.png
  *   - XPath: node screenshot.js --selector "//div[@class='main-content']" --output page.png
+ *
+ * Session behavior:
+ *   By default, browser stays running for session persistence
+ *   Use --close true to fully close browser
  */
-import { getBrowser, getPage, closeBrowser, parseArgs, outputJSON, outputError } from './lib/browser.js';
+import { getBrowser, getPage, closeBrowser, disconnectBrowser, parseArgs, outputJSON, outputError } from './lib/browser.js';
 import { parseSelector, getElement, enhanceError } from './lib/selector.js';
 import fs from 'fs/promises';
 import path from 'path';
-import { execFileSync } from 'child_process';
 
 /**
- * Compress image using ImageMagick if it exceeds max size
+ * Check if Sharp is available
+ */
+let sharp = null;
+try {
+  sharp = (await import('sharp')).default;
+} catch {
+  // Sharp not installed, compression disabled
+}
+
+/**
+ * Compress image using Sharp if it exceeds max size
+ * Sharp is 4-5x faster than ImageMagick with lower memory usage
+ * Falls back to no compression if Sharp is not installed
  * @param {string} filePath - Path to the image file
  * @param {number} maxSizeMB - Maximum file size in MB (default: 5)
  * @returns {Promise<{compressed: boolean, originalSize: number, finalSize: number}>}
@@ -27,71 +42,63 @@ async function compressImageIfNeeded(filePath, maxSizeMB = 5) {
     return { compressed: false, originalSize, finalSize: originalSize };
   }
 
+  if (!sharp) {
+    console.error('Warning: Sharp not installed. Run npm install to enable automatic compression.');
+    return { compressed: false, originalSize, finalSize: originalSize };
+  }
+
   try {
-    // Check if ImageMagick is available and determine the command name
-    let magickCmd = 'magick';
-    try {
-      execFileSync('magick', ['-version'], { stdio: 'pipe' });
-    } catch {
-      try {
-        execFileSync('convert', ['-version'], { stdio: 'pipe' });
-        magickCmd = 'convert';
-      } catch {
-        console.error('Warning: ImageMagick not found. Install it to enable automatic compression.');
-        return { compressed: false, originalSize, finalSize: originalSize };
-      }
-    }
-
     const ext = path.extname(filePath).toLowerCase();
-    const tempPath = filePath.replace(ext, `.temp${ext}`);
+    const imageBuffer = await fs.readFile(filePath);
+    const metadata = await sharp(imageBuffer).metadata();
 
-    // Determine compression strategy based on file type
-    // Using execFileSync with array args prevents command injection
-    let compressionArgs;
+    // First pass: moderate compression
+    let outputBuffer;
     if (ext === '.png') {
-      // For PNG: resize and compress with quality
-      compressionArgs = [filePath, '-strip', '-resize', '90%', '-quality', '85', tempPath];
+      // PNG: resize to 90% and compress
+      const newWidth = Math.round(metadata.width * 0.9);
+      outputBuffer = await sharp(imageBuffer)
+        .resize(newWidth)
+        .png({ quality: 85, compressionLevel: 9 })
+        .toBuffer();
     } else if (ext === '.jpg' || ext === '.jpeg') {
-      // For JPEG: compress with quality and progressive
-      compressionArgs = [filePath, '-strip', '-quality', '80', '-interlace', 'Plane', tempPath];
+      // JPEG: quality 80 with progressive encoding
+      outputBuffer = await sharp(imageBuffer)
+        .jpeg({ quality: 80, progressive: true, mozjpeg: true })
+        .toBuffer();
+    } else if (ext === '.webp') {
+      // WebP: quality 80
+      outputBuffer = await sharp(imageBuffer)
+        .webp({ quality: 80 })
+        .toBuffer();
     } else {
-      // For other formats: convert to JPEG with compression
-      compressionArgs = [filePath, '-strip', '-quality', '80', tempPath.replace(ext, '.jpg')];
+      // Other formats: convert to JPEG
+      outputBuffer = await sharp(imageBuffer)
+        .jpeg({ quality: 80, progressive: true, mozjpeg: true })
+        .toBuffer();
     }
 
-    // Try compression - execFileSync doesn't invoke shell, preventing injection
-    execFileSync(magickCmd, compressionArgs, { stdio: 'pipe' });
-
-    const compressedStats = await fs.stat(tempPath);
-    const compressedSize = compressedStats.size;
-
-    // If still too large, try more aggressive compression
-    if (compressedSize > maxSizeBytes) {
-      const finalPath = filePath.replace(ext, `.final${ext}`);
-      let aggressiveArgs;
-
+    // Second pass: aggressive compression if still too large
+    if (outputBuffer.length > maxSizeBytes) {
       if (ext === '.png') {
-        aggressiveArgs = [tempPath, '-strip', '-resize', '75%', '-quality', '70', finalPath];
+        const newWidth = Math.round(metadata.width * 0.75);
+        outputBuffer = await sharp(outputBuffer)
+          .resize(newWidth)
+          .png({ quality: 70, compressionLevel: 9 })
+          .toBuffer();
       } else {
-        aggressiveArgs = [tempPath, '-strip', '-quality', '60', '-sampling-factor', '4:2:0', finalPath];
+        outputBuffer = await sharp(outputBuffer)
+          .jpeg({ quality: 60, progressive: true, mozjpeg: true })
+          .toBuffer();
       }
-
-      execFileSync(magickCmd, aggressiveArgs, { stdio: 'pipe' });
-      await fs.unlink(tempPath);
-      await fs.rename(finalPath, filePath);
-    } else {
-      await fs.rename(tempPath, filePath);
     }
 
-    const finalStats = await fs.stat(filePath);
-    return { compressed: true, originalSize, finalSize: finalStats.size };
+    // Write compressed image back to file
+    await fs.writeFile(filePath, outputBuffer);
+
+    return { compressed: true, originalSize, finalSize: outputBuffer.length };
   } catch (error) {
     console.error('Compression error:', error.message);
-    // If compression fails, keep original file
-    try {
-      const tempPath = filePath.replace(path.extname(filePath), '.temp' + path.extname(filePath));
-      await fs.unlink(tempPath).catch(() => {});
-    } catch {}
     return { compressed: false, originalSize, finalSize: originalSize };
   }
 }
@@ -106,7 +113,7 @@ async function screenshot() {
 
   try {
     const browser = await getBrowser({
-      headless: args.headless !== 'false'
+      headless: args.headless
     });
 
     const page = await getPage(browser);
@@ -117,6 +124,10 @@ async function screenshot() {
         waitUntil: args['wait-until'] || 'networkidle2'
       });
     }
+
+    // Ensure output directory exists
+    const outputDir = path.dirname(path.resolve(args.output));
+    await fs.mkdir(outputDir, { recursive: true });
 
     const screenshotOptions = {
       path: args.output,
@@ -165,9 +176,14 @@ async function screenshot() {
 
     outputJSON(result);
 
-    if (args.close !== 'false') {
+    // Default: disconnect to keep browser running for session persistence
+    // Use --close true to fully close browser
+    if (args.close === 'true') {
       await closeBrowser();
+    } else {
+      await disconnectBrowser();
     }
+    process.exit(0);
   } catch (error) {
     // Enhance error message if selector-related
     if (args.selector) {

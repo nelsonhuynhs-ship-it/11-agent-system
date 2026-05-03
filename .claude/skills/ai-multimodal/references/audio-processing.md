@@ -25,6 +25,7 @@ Comprehensive guide for audio analysis and speech generation using Gemini API.
   - Inline: 20 MB max total request
   - File API: 2 GB per file, 20 GB project quota
   - Retention: 48 hours auto-delete
+- **Important:** if you are going to generate a transcript of the audio, and the audio length is longer than 15 minutes, the transcript often gets truncated due to output token limits in the Gemini API response. To get the full transcript, you need to split the audio into smaller chunks (max 15 minutes per chunk) and transcribe each segment for a complete transcript.
 
 ## Transcription
 
@@ -371,3 +372,16 @@ response = client.models.generate_content(
 - Files expire after 48 hours
 - No real-time streaming support
 - Non-speech audio less accurate than speech
+
+---
+
+## Related References
+
+**Current**: Audio Processing
+
+**Related Capabilities**:
+- [Video Analysis](./video-analysis.md) - Extract audio from videos
+- [Video Generation](./video-generation.md) - Generate videos with native audio
+- [Image Understanding](./vision-understanding.md) - Analyze audio with visual context
+
+**Back to**: [AI Multimodal Skill](../SKILL.md)

@@ -24,6 +24,7 @@ from typing import Any
 from .market_engine import analyze_lane
 from .template_selector import match as tmpl_match, dominant_state, load_rules
 from .template_renderer import render_email, render_text
+from ..core.rule_engine import load_vn_domestic_ports
 
 log = logging.getLogger("intelligence_builder")
 
@@ -759,9 +760,6 @@ def _load_signature_html_from_config() -> str:
         return ""
 
 
-_VN_POLS = frozenset({"HPH", "HCM", "SGN", "HAN", "DAD", "VUT", "CMT", "UIH", "DONG NAI"})
-
-
 def build_email(
     cnee_email: str,
     pol: str,
@@ -819,7 +817,7 @@ def build_email(
             sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core"))
         from auto_rate_builder import build_rate_table_for_customer
         # Non-VN POLs (PKG/BKK/SHA/etc) aren't in parquet — lookup via HCM + ARB surcharge layer
-        lookup_pol = pol if pol in _VN_POLS else "HCM"
+        lookup_pol = pol if pol.upper() in load_vn_domestic_ports() else "HCM"
         arb_result = build_rate_table_for_customer(
             pol=lookup_pol, destinations=",".join(destinations), markup=float(markup or 0),
             top_per_route=3, arb_origin=arb_origin,
