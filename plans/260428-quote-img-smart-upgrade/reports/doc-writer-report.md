@@ -1,5 +1,0 @@
-
-
-```
-DOC_RESULT: WRITTEN
-```
