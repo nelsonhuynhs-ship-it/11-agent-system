@@ -596,10 +596,15 @@ def get_campaigns():
     df_active = df_contacts[mask_active]
     suppressed_count = total_all - len(df_active)
 
+    from email_engine.core.rule_engine import normalize_commodity
     group_col = "COMMODITY_CATEGORY" if "COMMODITY_CATEGORY" in df_active.columns else "CMD_NAME"
-    cmds = df_active.groupby(group_col).size().reset_index(name="count")
+    df_active = df_active.copy()
+    df_active["_commodity_group"] = df_active[group_col].apply(
+        lambda v: normalize_commodity(str(v)) if pd.notna(v) else "OTHERS"
+    )
+    cmds = df_active.groupby("_commodity_group").size().reset_index(name="count")
     cmds = cmds.sort_values("count", ascending=False)
-    result = [{"name": r[group_col], "count": int(r["count"])} for _, r in cmds.iterrows()]
+    result = [{"name": r["_commodity_group"], "count": int(r["count"])} for _, r in cmds.iterrows()]
     result.insert(0, {
         "name": "ALL",
         "count": int(len(df_active)),
