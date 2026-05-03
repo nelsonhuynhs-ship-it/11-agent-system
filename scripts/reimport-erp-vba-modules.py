@@ -30,6 +30,7 @@ BAS_FILES = [
     "erp-v14-preset-dryreefer.bas",
     "erp-v14-quick-wins.bas",
     "CostBreakdown.bas",
+    "erp-v14-test-e2e.bas",
 ]
 
 

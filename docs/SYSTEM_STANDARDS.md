@@ -211,79 +211,143 @@ ThisWorkbook.Close SaveChanges:=False
 
 ---
 
-## Section 6.5 — Email Anti-Spam Standards (v6 2026-04-22)
+## Section 6.5 — Email Anti-Spam Standards (v7 2026-04-28)
 
-**Master data:** `D:/OneDrive/NelsonData/email/contact_unified_v6.xlsx` (2-sheet: CNEE + SHIPPER)
+**Source of truth:** Live audit endpoint `GET /api/diagnostics/guards` (web_server.py:2033).
+After any code modification touching the email pipeline, re-run validator:
 
-**5-col LOCK (không được edit) — Schema fixed:**
-| Column | Type | Purpose |
-|--------|------|---------|
-| `EMAIL_STATUS` | Enum: ACTIVE/EXCLUDED/SUPPRESSED/HOLD/DEAD | Send eligibility |
-| `SEND_COUNT` | Integer | Total sends since baseline |
-| `LAST_SENT_DATE` | Date | Last successful send (ISO 8601) |
-| `REPLY_STATUS` | Enum: NONE/OOO/LEFT/BOUNCED | Auto-reply classifier |
-| `TIER` | Enum: CUSTOMER/VIP/PROSPECT | Priority level |
+```bash
+python scripts/validate-system.py --section 6.5
+```
 
-**RULE 6.5.1 — Cooldown enforcement (hard, no override):**
-- Minimum 7 days between sends to same recipient
-- Checked by `rotation_engine.py` before queue
-- Violation = log WARN + skip email + increment deficiency counter
-
-**RULE 6.5.2 — Hard send limit per window:**
-- Max 3 sends per 30-day rolling window per recipient
-- Enforced at:
-  - `build_daily_plan()` exclusion filter (before pick)
-  - `smart_send_window` queue validation (before Outlook)
-- Violation = log ERROR + orphan email + manual review flag
-
-**RULE 6.5.3 — Daily quota + rotation:**
-- Target: 700 emails/weekday (Monday–Friday only)
-- Config: `email_engine/config/rotation_quota.json` (by commodity)
-- Default distribution:
-  ```
-  FLOORING       150    FURNITURE_INDOOR  150
-  CANDLE         100    RUBBER            100
-  PLASTIC        100    PLYWOOD            50
-  FOOD_AMBIENT    30    OTHERS             20
-  ```
-- Redist logic: commodity not enough candidates → spill to next commodity (auto)
-- **Skip on:** Saturday/Sunday + US/VN holidays (via `us_holidays.py`, `vn_holidays.py`)
-
-**RULE 6.5.4 — Excluded list (3 files):**
-| File | Purpose | Updated by |
-|------|---------|-----------|
-| `email_engine/data/excluded_customers.json` | Direct customers (Nelson manual HOLD) | Nelson manual |
-| `email_engine/data/excluded_emails.json` | Hard bounces, spam complaints | Scanner auto-detect |
-| `email_engine/data/competitor_blacklist.json` | VN team overlap (for SHIPPER sheet) | Panjiva clean script |
-
-**Scan trigger:** After each Quick Send batch completes, `scan-sent-outlook.py` auto-runs (Task Scheduler):
-- Read Outlook Sent folder (last 14 days)
-- Extract auto-reply subject/body
-- Classify: OOO / LEFT / BOUNCED
-- Update `REPLY_STATUS` + `EMAIL_STATUS` in master file
-- Commit to git log: `scan_sent_YYYY-MM-DD_HHMM.log`
-
-**RULE 6.5.5 — Typo Shield (RapidFuzz fuzzy domain match):**
-- Threshold 1: ≥92% confidence → auto-BLOCK (log ERROR, skip)
-- Threshold 2: 85–91% confidence → HOLD (manual review flag, ask Nelson)
-- Threshold 3: <85% confidence → OK (send)
-- Domain list: `email_engine/core/typo_domains.py` (TOP_DOMAINS ~300 entries)
-- Usage: called in `web_server.py` before Outlook queue, also in batch verifier
-
-**RULE 6.5.6 — Bounce Harvest v2 (OOO/LEFT auto-detect):**
-- OOO reply → parse return date → set `DEFER_UNTIL` (resume send after date)
-- LEFT reply → extract replacement contact (position: PRICING/BOOKING/OPS) → queue for Nelson approval before master insert
-- Detection: regex patterns in `email_engine/core/harvest_patterns.py`
-- Storage: Replacement queue in `email_engine/data/replacement_candidates.json` (append-only)
-
-**RULE 6.5.7 — Smart Send Window (timezone-aware scheduling):**
-- Target: Tue/Wed/Thu 9–11h local time (contact's TIMEZONE col)
-- Avoid: Mon before 10h, Fri after 15h, Sat/Sun, US federal holidays
-- URGENT bypass: contact['URGENT'] == True → send immediately
-- Module: `email_engine/core/smart_send_window.py::plan_send_time(contact_row)`
+This calls the audit endpoint and asserts `all_active=true`. CI/pre-commit also runs this.
 
 ---
 
+### RULE 6.5.1 — EXCLUDED list
+
+- **Source:** `data/excluded_customers.json` → `EXCLUDED_EMAILS` set at `web_server.py:252`
+- **Blocks:** Active customers / opt-out emails
+- **Check locations:** `web_server.py:748` (filter inside `_do_send`), `web_server.py:1726` (sequence send)
+- **Enforcement:** Set membership (lowercase email), no override
+- **Log signature:** `EXCLUDED -> {email}` (info level)
+- **Failure mode:** Active customer receives cold-outreach — REPUTATION RISK
+- **Validation:** `len(EXCLUDED_EMAILS) >= 0` — guard.id=1 returned by `/api/diagnostics/guards`
+
+---
+
+### RULE 6.5.2 — SUPPRESSED status
+
+- **Source:** `web_server.py:735` — statuses `{HARD_BOUNCE, INVALID, NO_MX}`
+- **Blocks:** Hard bounces, invalid emails, domains with no MX
+- **Check location:** same `_do_send` filter path as Rule 1
+- **Enforcement:** Status enum membership check
+- **Log signature:** `SUPPRESSED -> {email}`
+- **Failure mode:** Bounced address retried — ISP spam complaint risk
+- **Validation:** 3 statuses listed — guard.id=2 returned by `/api/diagnostics/guards`
+
+---
+
+### RULE 6.5.3 — Cooldown 14d
+
+- **Source:** `web_server.py:760` — hardcoded 14 days
+- **Blocks:** Re-sending to same recipient before 14 days elapsed
+- **Check location:** `rotation_engine.py` before queue, also `web_server.py` before send
+- **Enforcement:** Date comparison against `LAST_SENT_DATE`, no override
+- **Log signature:** `COOLDOWN -> {email}`
+- **Failure mode:** Recipient marks email spam — full domain risk
+- **Validation:** value=14 — guard.id=3 returned by `/api/diagnostics/guards`
+
+---
+
+### RULE 6.5.4 — Hard limit 3/30d
+
+- **Source:** `web_server.py:779` — max 3 sends per contact per 30-day rolling window
+- **Blocks:** Over-sending to same recipient
+- **Check locations:** `build_daily_plan()` exclusion filter, `smart_send_window` queue validation
+- **Enforcement:** Rolling window counter — skip if exceeded
+- **Log signature:** `HARD_LIMIT_3 -> {email}`
+- **Failure mode:** Recipient unsubscribes or flags — ISP blacklisting
+- **Validation:** value=3 — guard.id=4 returned by `/api/diagnostics/guards`
+
+---
+
+### RULE 6.5.5 — Typo Shield
+
+- **Source:** `core/typo_shield.py` — RapidFuzz fuzzy match, threshold 85
+- **Blocks:** Domains likely typos of known domains (e.g. `gmial.com` vs `gmail.com`)
+- **Check location:** `web_server.py` before Outlook queue, also in batch verifier
+- **Enforcement:** Fuzzy string match against `TOP_DOMAINS` list (~300 entries)
+- **Log signature:** `TYPO_BLOCK -> {email}`
+- **Failure mode:** Email goes to wrong person — data leak risk
+- **Validation:** `check_typo()` callable — guard.id=5 returned by `/api/diagnostics/guards`
+
+---
+
+### RULE 6.5.6 — Smart Send Window
+
+- **Source:** `core/smart_send_window.py::plan_send_time()`
+- **Blocks:** Sending outside Tue/Wed/Thu 9-11h recipient local time
+- **Check location:** Queue validation before Outlook submit
+- **Enforcement:** Timezone-aware defer — URGENT bypass if contact['URGENT']==True
+- **Log signature:** `DEFERRED -> {email}`
+- **Failure mode:** Email lands in inbox at bad time — low engagement
+- **Validation:** `plan_send_time()` callable — guard.id=6 returned by `/api/diagnostics/guards`
+
+---
+
+### RULE 6.5.7 — Competitor blacklist
+
+- **Source:** `web_server.py:261` → `data/competitor_blacklist.json` (~52 domains)
+- **Blocks:** CNEE/SHIPPER domains matching competitor domain list
+- **Check location:** `build_daily_plan()` and sequence send path
+- **Enforcement:** Domain membership check against competitor list
+- **Log signature:** `competitor blocked ({reason})`
+- **Failure mode:** Sending to competitor contacts — business exposure
+- **Validation:** domain_count > 0 — guard.id=7 returned by `/api/diagnostics/guards`
+
+---
+
+### RULE 6.5.8 — Priority isolation
+
+- **Source:** `core/priority_filter.py::drop_priority()`
+- **Blocks:** Priority contacts included in blast rotation (keep separate)
+- **Check location:** `build_daily_plan()` before candidate selection
+- **Enforcement:** Drop priority contacts before blast batch, keep for dedicated sends
+- **Log signature:** `rotation: dropped N priority`
+- **Failure mode:** VIP contacts in blast — lose dedicated send slot
+- **Validation:** `drop_priority()` callable — guard.id=8 returned by `/api/diagnostics/guards`
+
+---
+
+### RULE 6.5.9 — Today_sent guard
+
+- **Source:** `web_server.py:912` — `_load_today_sent_set()` reads `email_log.csv`
+- **Blocks:** Duplicate sends within same day (based on date in email_log.csv)
+- **Check location:** `web_server.py` before queue, per smart-batch run
+- **Enforcement:** Set of already-sent emails today vs candidate pool
+- **Log signature:** `[smart-batch] SKIP duplicate -> {email}`
+- **Failure mode:** Double-send same day — spam complaint
+- **Validation:** `today_sent_count >= 0` — guard.id=9 returned by `/api/diagnostics/guards`
+
+---
+
+### RULE 6.5.10 — Graph pacing 28/min
+
+- **Source:** `senders/graph_sender.py:39` — `MIN_INTERVAL_SEC = 2.1`
+- **Blocks:** More than 28 Graph API calls per minute (Microsoft limit)
+- **Check location:** Silent throttle inside `_pace()` before each Graph call
+- **Enforcement:** 2.1-second minimum interval between calls
+- **Log signature:** `[silent] _pace()`
+- **Failure mode:** Graph API throttled or suspended — tenant-wide impact
+- **Validation:** min_interval_sec in [2.0, 3.0] — guard.id=10 returned by `/api/diagnostics/guards`
+
+---
+
+### Migration history
+
+- **v6 (2026-04-22):** 4 rules (cooldown, hard limit, daily quota, excluded list) — superseded
+- **v7 (2026-04-28):** 10 rules — added Today_sent guard + Graph pacing + competitor + priority + typo shield + smart send window. Removed daily quota rule (moved to rotation_quota.json — not anti-spam)
 ## Section 7 — Windows Task Scheduler
 
 **Task được register under `\Nelson\` hoặc root:**

@@ -2,7 +2,7 @@
 """rate_predictor.py — Vietnam→US freight rate prediction (DuckDB + XGBoost)
 Model auto-saves to disk after training, auto-loads on import."""
 from __future__ import annotations
-import logging, math, sys, pickle, json as _json
+import logging, math, sys, pickle, json as _json, time as _time
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
@@ -23,6 +23,9 @@ except ImportError:
         PARQUET_FILE = _od
 
 _MODEL_CACHE: Optional[dict] = None
+_MODEL_CACHE_MTIME: float = 0.0
+_FEATURES_CACHE: dict = {}  # key: (str(path), frozenset(corridors_keys)) → (df, expires_at, parquet_mtime)
+_FEATURES_TTL_SEC = 600  # 10 minutes
 CHARGE_FILTER = "Charge_Name IN ('Total Ocean Freight', 'Base Ocean Freight')"
 FEATURE_COLS = ["carrier_count","rate_volatility","days_valid_avg","rate_change_1w",
                 "rate_change_4w","rolling_mean_4w","rolling_std_4w","fak_scfi_spread",
@@ -63,9 +66,23 @@ KEY_CORRIDORS = {
 
 
 def extract_features(parquet_path: Path | str = PARQUET_FILE, corridors: dict = None) -> pd.DataFrame:
-    """Weekly time-series features for KEY corridors only (not all 436)."""
-    p = str(parquet_path).replace("\\", "/")
+    """Weekly time-series features for KEY corridors only (cached 10 min, invalidates on parquet mtime change)."""
     corridors = corridors or KEY_CORRIDORS
+    p = str(parquet_path).replace("\\", "/")
+    cache_key = (p, frozenset(corridors.keys()))
+
+    # Check cache
+    now = _time.time()
+    cached = _FEATURES_CACHE.get(cache_key)
+    if cached is not None:
+        df_cached, expires_at, cached_mtime = cached
+        try:
+            current_mtime = Path(parquet_path).stat().st_mtime
+        except Exception:
+            current_mtime = cached_mtime
+        if now < expires_at and current_mtime == cached_mtime:
+            return df_cached.copy()
+
     log.info("Extracting features for %d key corridors from: %s", len(corridors), p)
     con = duckdb.connect()
 
@@ -123,7 +140,14 @@ def extract_features(parquet_path: Path | str = PARQUET_FILE, corridors: dict = 
     df["rate_volatility"] = df["rate_volatility"].fillna(0)
     df["days_valid_avg"]  = df["days_valid_avg"].fillna(14)
     log.info("Features ready: %d rows, %d corridors", len(df), df["corridor"].nunique())
-    return df
+
+    # Store in cache
+    try:
+        new_mtime = Path(parquet_path).stat().st_mtime
+    except Exception:
+        new_mtime = 0.0
+    _FEATURES_CACHE[cache_key] = (df, now + _FEATURES_TTL_SEC, new_mtime)
+    return df.copy()
 
 
 def train_model(features_df: pd.DataFrame) -> dict:
@@ -336,10 +360,14 @@ def save_model(model_dict: dict) -> None:
 
 
 def load_model() -> Optional[dict]:
-    """Load saved model from disk. Returns None if not found or corrupted."""
+    """Load saved model from disk (cached per process; invalidates on file mtime change)."""
+    global _MODEL_CACHE, _MODEL_CACHE_MTIME
     if not MODEL_FILE.exists():
         return None
     try:
+        current_mtime = MODEL_FILE.stat().st_mtime
+        if _MODEL_CACHE is not None and current_mtime == _MODEL_CACHE_MTIME:
+            return _MODEL_CACHE
         with open(MODEL_FILE, "rb") as f:
             model = pickle.load(f)
         meta = {}
@@ -349,6 +377,8 @@ def load_model() -> Optional[dict]:
         model["walk_forward_results"] = meta.get("walk_forward_results", [])
         model["trained_at"] = meta.get("trained_at", "unknown")
         log.info("Model loaded from disk (trained: %s)", model["trained_at"])
+        _MODEL_CACHE = model
+        _MODEL_CACHE_MTIME = current_mtime
         return model
     except Exception as e:
         log.warning("Failed to load model: %s", e)

@@ -136,10 +136,10 @@ def render_carrier_cell(rate: dict, is_best: bool, row_even: bool) -> str:
     badge_str = "".join(badges)
 
     price_parts = []
-    if amount_40:
-        price_parts.append(f"${int(amount_40):,}")
     if amount_20:
         price_parts.append(f"20GP ${int(amount_20):,}")
+    if amount_40:
+        price_parts.append(f"40HQ ${int(amount_40):,}")
     price_str = " / ".join(price_parts) if price_parts else "—"
 
     meta_parts = []

@@ -1260,7 +1260,11 @@ def run_full_import(days: int = 3, rate_type: Optional[str] = None,
         erp_ok = _trigger_erp_refresh()
         result["erp_refreshed"] = erp_ok
 
-        tg_ok = _notify_telegram(result, erp_refreshed=erp_ok)
+        # Telegram "Rates Updated" ping disabled 2026-04-26 (Sếp request — silent mode).
+        # Spam mỗi 30 phút từ NelsonUnifiedScanner -> outlook_scanner -> rate_importer chain.
+        # Function _notify_telegram() vẫn defined ở line 1103, uncomment dòng dưới để bật lại.
+        # tg_ok = _notify_telegram(result, erp_refreshed=erp_ok)
+        tg_ok = False
         result["telegram_sent"] = tg_ok
 
         # ── Anomaly check — scan rates for pricing deviations ──

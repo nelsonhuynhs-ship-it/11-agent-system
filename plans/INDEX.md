@@ -1,59 +1,54 @@
 # Plans Index — Active + Pending
 
-**Last updated:** 2026-04-24 (SHIPPED `260424-rate-table-v2-redesign` Phase 1-4 auto-checks — HPL SCFI surface HCM→USSAV/USNYC; USATL RIPI via SAV; 10 POD default live)
+**Last updated:** 2026-04-26 (cleanup: archived 6 completed plans, added 3 new plans 25/04)
 **Purpose:** Single source of truth for "what plans are still open?" — so AI and Nelson don't have to re-scan every session.
 
 > Maintenance rule: khi một plan SHIP hoàn toàn → `git mv` vào `plans/archive/completed-YYYY-MM/` và xoá row khỏi bảng này.
 > Khi start plan mới → thêm row.
 
-## 🔨 PARTIAL — đã ship một phần, còn phase chưa làm
-
-| Plan | Done | Remaining | Priority | Notes |
-|------|------|-----------|----------|-------|
-| [260420-1700-auto-cnee-milestone-notify](260420-1700-auto-cnee-milestone-notify/plan.md) | Phase 1 Schema · Phase 2 MVP · Phase 3 Tests (shipped 2026-04-20) | Phase 3 **SOAK** (1 tuần live monitor) — đã qua 3 ngày, còn 4 ngày | Low (soak auto) | Chờ hết soak → promote to DONE + archive. |
-| [260418-shipment-brain](260418-shipment-brain/plan.md) | Phase 01 Customer Sort **LIVE** (59 rules, 269 emails/scan) · DuckDB extractor + vault_writer scaffolded | Phase 02 Extractor dual-write · Phase 03 Retrieval API · Phase 04 Fox Spirit skill | Medium | Infrastructure ready, cần Nelson ưu tiên. |
-
 ## ⏳ PENDING — chưa start, chờ Nelson approve
 
-| Plan | Effort | Blocker | Open questions |
-|------|--------|---------|----------------|
-| [260415-price-watch-v2-requote-alert](260415-price-watch-v2-requote-alert/plan.md) | ~6h | None | UAT path ready. Nelson cần approve feature scope. |
-| [260416-email-nelson-solo-platform](260416-email-nelson-solo-platform/plan.md) | 30-39h (9 phases) | v7 master đã SHIP → OK start | Largest remaining. Nên re-audit vs v7 state trước khi start (có phase đã cover bởi v7). |
-| [260421-0000-rate-mix-calculator](260421-0000-rate-mix-calculator/plan.md) | 3h | CustomUI_v14.xml shared lock (CNEE Milestone merged OK) | 5 câu hỏi Nelson decide |
-| [260421-0000-invoicelog-auto-scan](260421-0000-invoicelog-auto-scan/plan.md) | 4h | None — reuse 90% CNEE architecture | 5 câu hỏi Nelson decide |
-| [260422-ribbon-pricing-toggle-buttons](260422-ribbon-pricing-toggle-buttons/plan.md) | 2h | Layout chưa chọn (Option A vs B) | 5 câu clarify |
+| Plan | Effort | Priority | Notes |
+|------|--------|----------|-------|
+| [260425-system-contract-discovery](260425-system-contract-discovery/plan.md) | ~18h | P1 / FOUNDATION | Auto-discover data contracts + DOMAIN_MODEL.md + validator pre-commit. Unblocks visual-tour. |
+| [260425-customer-tier-margin](260425-customer-tier-margin/plan.md) | 10–13h | HIGH | VIP×0.7 / Regular×1.0 / New×1.3 multiplier in CRM. Anh approved Option A3. ERP pure. |
+| [260425-visual-tour-domain-model](260425-visual-tour-domain-model/plan.md) | ~10h | HIGH | Visual onboarding + DOMAIN-ERP/DATA/EMAIL.md. Uses contract-discovery findings. |
+| [260424-rate-table-v2-redesign](260424-rate-table-v2-redesign/plan.md) | ~10h | HIGH | Phase 1-4 SHIPPED 2026-04-24 (HPL SCFI surface, RIPI gateway, 10 POD). Phase 5 smoke tests pending. |
+| [260416-email-nelson-solo-platform](260416-email-nelson-solo-platform/plan.md) | 30–39h (9 phases) | Low | Email-only, không phải ERP. Nên re-audit vs v7 master trước khi start. |
 
 ## 📝 Next session prompt
 
-- [NEXT_SESSION_PROMPT_ERP.md](NEXT_SESSION_PROMPT_ERP.md) — **STILL RELEVANT** (dated 2026-04-22).
-  - PRIORITY TASK: Import Profit Reports 5/2025–3/2026 (2-3h)
-  - 5 options outlined: Plan C Phase 1 debug · Rate Mix · InvoiceLog · Tech debt · Email Dashboard Sprint 2
+- [NEXT_SESSION_PROMPT_ERP.md](NEXT_SESSION_PROMPT_ERP.md) — dated 2026-04-22, có thể đã outdated sau 4 ngày.
 
-## ✅ Recently archived (this session)
+## ✅ Recently archived (this cleanup 2026-04-26)
 
-| Plan | Moved to | Why |
-|------|----------|-----|
-| 260424-rate-table-v2-redesign | `archive/completed-2026-04/` | SHIPPED 2026-04-24. Phase 1-4 auto-checks pass. HCM→USSAV: HPL SCFI $3008 (BEST). HCM→USNYC: HPL SCFI $3036. USATL via SAV (RIPI). 10 POD default live. HTML renderer 18.6KB. Pending Nelson manual Outlook send test + git commit. |
-| 260422-1800-email-dashboard-v6-master | `archive/completed-2026-04/260422-email-dashboard-v6-superseded-by-v7` | v7 SHIPPED (commit `e7375e9` + 2026-04-24 stability hardening). Remaining v6 phases (WhatsApp/LinkedIn) are speculative — spawn new plan if pursued. |
-| 260422-2100-daily-rotation-engine | `archive/completed-2026-04/` | Status=completed, batch ROT_1776868843 verified 700/700 SENT. Memory confirms SHIPPED. |
+| Plan | Status | Why archived |
+|------|--------|--------------|
+| 260415-price-watch-v2-requote-alert | DISCARDED | Speculative, không Nelson approve. |
+| 260418-shipment-brain | Phase 01 SHIPPED, P02-04 not pursued | Phase 01 Customer Sort live (59 rules). Phase 02-04 deferred — infrastructure đã đủ. |
+| 260420-1700-auto-cnee-milestone-notify | SHIPPED + soak | Production live, soak passive observation. |
+| 260421-0000-invoicelog-auto-scan | DISCARDED | Plan-only, không pursued. |
+| 260421-0000-rate-mix-calculator | SHIPPED v1 (with known peer bug FIXED 22/04 commit 63d67c4) | Refresh-v14.py dedup fix recovered ports → Mix peer-finding now works for all carriers. |
+| 260422-ribbon-pricing-toggle-buttons | DISCARDED | UX polish, không ưu tiên. |
+| 260424-rate-table-v2-redesign Phase 06 | OBSOLETE — DELETED | Phase 06 (fix Rate Mix CMA/HPL/YML) was duplicate of fix already shipped commit 63d67c4. |
 
 ## 📂 Archive folders
 
 | Folder | Contents |
 |--------|----------|
-| `archive/completed-2026-04/` | 6 plans shipped April 2026 (contract-group-fix, full-tracking-system, tracking-auto-sync, refresh-all-fix, daily-rotation-engine, rule-engine-smart-consolidation) |
+| `archive/completed-2026-04/` | All 13 plans shipped or discarded April 2026 |
 | `archive/email-v4-v5-superseded-by-v6/` | Legacy email dashboard iterations |
 | `archive/email-sequence-ai-forecast/` | Older plan |
-| `archive/completed-2026-04/` (root parent) | Mixed archive folder |
-| `archive/260402-*` through `260414-*` | Historical plans (stand-alone archives) |
+| `archive/260402-*` through `260414-*` | Historical plans |
 
 ## 🤖 For AI
 
 When Nelson asks "bây giờ làm gì tiếp?" hoặc "plan nào chưa làm?" → đọc file này trước. Top priorities (em đề xuất):
-1. **InvoiceLog auto-scan** (4h, low risk, reuse architecture)
-2. **Rate Mix calculator** (3h, unblocks ERP Pricing workflow)
-3. **Ribbon toggle buttons** (2h, UX polish, nhỏ)
-4. **Shipment Brain Phase 02-03** (mid effort, unlocks retrieval queries)
-5. **Email Solo Platform 260416** (large, nên phân mảnh thành sprints)
 
-Low priority / defer: **Email v6 future phases** (WhatsApp/LinkedIn) — speculative features, cần validate với Nelson trước.
+1. **System Contract Discovery** (18h) — foundation, unblocks visual-tour + giúp tránh future drift bugs.
+2. **Customer Tier Margin** (10-13h, HIGH) — ERP pure, ship nhanh, Anh đã approve A3.
+3. **Visual Tour + DOMAIN_MODEL** (10h) — sau khi contract-discovery xong.
+4. **Rate Table v2 Phase 5** (smoke tests, ~1h) — finish 260424.
+5. **Email Solo Platform** (30h) — large, phân mảnh sprints, re-audit vs v7.
+
+**Verify trước khi work:** Rate Mix ribbon hiện tại có work cho HPL/CMA/YML không? Commit 63d67c4 (22/04) đã fix `refresh-v14.py` dedup root cause. Test 1 quote thực tế trước khi assume bug còn.

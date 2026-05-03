@@ -21,6 +21,7 @@ import argparse
 import csv
 import logging
 import sys
+import win32com.client
 from datetime import datetime, date
 from pathlib import Path
 
@@ -38,6 +39,23 @@ LOG_DIR      = sp.EMAIL_LOG_DIR
 CONFIG_FILE  = sp.CONFIG_XLSX
 PROFILE_PDF  = sp.COMPANY_PDF
 LOGO_PNG     = sp.LOGO_FILE
+
+
+def _outlook_send(to: str, subject: str, html_body: str) -> bool:
+    """Send via Outlook COM. Returns True on success."""
+    try:
+        import pythoncom
+        pythoncom.CoInitialize()
+        app = win32com.client.Dispatch("Outlook.Application")
+        m = app.CreateItem(0)
+        m.To = to
+        m.Subject = subject
+        m.HTMLBody = html_body
+        m.Send()
+        return True
+    except Exception as exc:
+        logging.warning(f"[outlook_send] FAIL to={to}: {exc}")
+        return False
 
 CNEE_MASTER    = sp.CNEE_MASTER
 CONTACT_MASTER = sp.CONTACT_MASTER
@@ -433,8 +451,7 @@ def run_source_mode(source: str, dry_run: bool = False,
             log.info("  [DRY] Step 1 -> %s (%s)", email,
                      row.get("COMPANY", ""))
         else:
-            from email_engine.senders import send_html_via_graph
-            ok, _ = send_html_via_graph(to=email, subject=subject, html_body=body)
+            ok = _outlook_send(to=email, subject=subject, html_body=body)
             if ok:
                 log_email_send(email, subject,
                                row.get("CAMPAIGN_ID", "SEQUENCE"))
@@ -491,8 +508,7 @@ def run_sequence_mode(sources: list[str] | None = None,
                     log.info("    [DRY] Step 3 -> %s (%dd since last)",
                              email, row.get("_DAYS_SINCE", "?"))
                 else:
-                    from email_engine.senders import send_html_via_graph
-                    ok, _ = send_html_via_graph(to=email, subject=subject, html_body=body)
+                    ok = _outlook_send(to=email, subject=subject, html_body=body)
                     if ok:
                         log_email_send(email, subject,
                                        row.get("CAMPAIGN_ID", "SEQ-3"))
@@ -515,8 +531,7 @@ def run_sequence_mode(sources: list[str] | None = None,
                     log.info("    [DRY] Step 2 -> %s (%dd since last)",
                              email, row.get("_DAYS_SINCE", "?"))
                 else:
-                    from email_engine.senders import send_html_via_graph
-                    ok, _ = send_html_via_graph(to=email, subject=subject, html_body=body)
+                    ok = _outlook_send(to=email, subject=subject, html_body=body)
                     if ok:
                         log_email_send(email, subject,
                                        row.get("CAMPAIGN_ID", "SEQ-2"))
@@ -555,8 +570,7 @@ def run_sequence_mode(sources: list[str] | None = None,
                     log.info("    [DRY] Step 1 -> %s%s (%s)",
                              email, pri_tag, row.get("COMPANY", ""))
                 else:
-                    from email_engine.senders import send_html_via_graph
-                    ok, _ = send_html_via_graph(to=email, subject=subject, html_body=body)
+                    ok = _outlook_send(to=email, subject=subject, html_body=body)
                     if ok:
                         log_email_send(email, subject,
                                        row.get("CAMPAIGN_ID", "SEQ-1"))

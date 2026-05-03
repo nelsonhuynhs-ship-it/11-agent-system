@@ -18,6 +18,20 @@
       "campaign": "N/A",
       "added_at": "2026-04-22",
       "added_by": "Nelson (Phase 2.5 emergency block)"
+    },
+    "flexsteel.itl@itlvn.com": {
+      "reason": "COMPETITOR_ITL_2026-04-24",
+      "company": "ITL Vietnam",
+      "campaign": "",
+      "added_at": "2026-04-24",
+      "added_by": "blacklist-sync"
+    },
+    "shing.cheung@vexos.cn": {
+      "reason": "TEST_EMAIL_SPAM_REMOVAL",
+      "company": "",
+      "campaign": "",
+      "added_at": "2026-05-02",
+      "added_by": "DEBUG"
     }
   }
 }

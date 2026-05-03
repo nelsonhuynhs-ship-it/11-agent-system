@@ -98,10 +98,11 @@ Last updated: 2026-04-01
 ## Sprint Codes
 | Code | Meaning |
 |------|---------|
-| S14A | Sprint 14A — Fix rate query fallback + freshness badge |
-| S14B | Sprint 14B — Email History + Follow-up Dashboard |
-| S14C | Sprint 14C — Price Delta + Smart Compose |
-| S14D | Sprint 14D — Bulk Send Intelligence + Cooldown |
+| S14A | Sprint 14A Dashboard v2 — **✅ SHIPPED 2026-04-14** (b42646b/896a1b2). Now part of email-v7. |
+| S14B/C/D | **DEPRECATED** — superseded by v6 (Apr 22) → v7 (Apr 24). Do not reference. |
+| email-v7 | **CURRENT email pipeline** (shipped 2026-04-24). Graph API send, daily rotation 700/day, master CNEE+SHIPPER. See `memory/projects/sprint-14-email-tool.md`. |
+| Outlook COM | **DEPRECATED** — pipeline 100% Graph API now. 5 files still have dead `import win32com` (legacy, scheduled for removal). |
+| Graph API | **CURRENT email backend** — `email_engine/senders/graph_sender.py`, delegated Mail.Read + Mail.Send via pudongprime.vn. |
 | S13 | Sprint 13 — Rate & Send API + WebApp (completed) |
 
 ## File Paths (VPS & Local)

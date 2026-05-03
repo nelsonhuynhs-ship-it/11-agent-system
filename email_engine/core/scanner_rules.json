@@ -91,7 +91,7 @@
     }
   },
   "notifications": {
-    "telegram_enabled": true,
+    "telegram_enabled": false,
     "summary_after_scan": true,
     "alert_on_surcharge": true,
     "alert_on_new_rates": true

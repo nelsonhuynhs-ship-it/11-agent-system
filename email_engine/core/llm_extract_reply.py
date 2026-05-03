@@ -258,3 +258,77 @@ def _as_str_or_none(v) -> Optional[str]:
     if v is None or str(v).strip().lower() in ("", "null", "none"):
         return None
     return str(v).strip()
+
+
+# === Phase 2: Reply Routing Intelligence — CC + Forward Detection ===
+
+import re as _re
+
+CC_PATTERNS = [
+    _re.compile(r"cc[:\s]+([^\s]+@[^\s]+)", _re.IGNORECASE),
+    _re.compile(r"cc[:\s]+([A-Z][a-z]+ [A-Z][a-z]+)", _re.IGNORECASE),
+    _re.compile(r"should be in the loop[:\s]+([^\s]+@[^\s]+)", _re.IGNORECASE),
+    _re.compile(r"add.+on this[:\s]+([^\s]+@[^\s]+)", _re.IGNORECASE),
+    _re.compile(r"my colleague[:\s]+([^\s]+@[^\s]+)", _re.IGNORECASE),
+    _re.compile(r"copy[:\s]+([^\s]+@[^\s]+)", _re.IGNORECASE),
+]
+
+FORWARD_PATTERNS = [
+    _re.compile(r"send to[:\s]+([^\s]+@[^\s]+)", _re.IGNORECASE),
+    _re.compile(r"contact[:\s].*at[:\s]+([^\s]+@[^\s]+)", _re.IGNORECASE),
+    _re.compile(r"attention[:\s]+([^\s]+@[^\s]+)", _re.IGNORECASE),
+    _re.compile(r"forward.*to[:\s]+([^\s]+@[^\s]+)", _re.IGNORECASE),
+    _re.compile(r"email.*at[:\s]+([^\s]+@[^\s]+)", _re.IGNORECASE),
+    _re.compile(r"(?:logistics|purchasing|ops|booking).*@([^\s]+)", _re.IGNORECASE),
+]
+
+
+def _extract_context(text: str, match_start: int, context_chars: int = 50) -> str:
+    """Extract `context_chars` characters before the match start."""
+    start = max(0, match_start - context_chars)
+    return text[start:match_start].strip()
+
+
+def extract_routing_signals(subject: str, body: str, cnee_email: str = "") -> dict:
+    """
+    Parse reply body for CC and forward/routing suggestions.
+
+    Returns: {
+        "cc_suggestions": [{"email": "...", "context": "...", "confidence": 0.0}],
+        "forward_suggestions": [{"email": "...", "context": "...", "confidence": 0.0}]
+    }
+    """
+    combined = f"{subject}\n{body}"
+    cc_suggestions = []
+    forward_suggestions = []
+
+    for pattern in CC_PATTERNS:
+        for match in pattern.finditer(combined):
+            email = match.group(1).strip()
+            # Basic email validation
+            if "@" not in email or email.count("@") != 1:
+                continue
+            context = _extract_context(combined, match.start())
+            cc_suggestions.append({
+                "email": email.lower(),
+                "context": context,
+                "confidence": 0.85,
+            })
+
+    for pattern in FORWARD_PATTERNS:
+        for match in pattern.finditer(combined):
+            email = match.group(1).strip()
+            # Basic email validation
+            if "@" not in email or email.count("@") != 1:
+                continue
+            context = _extract_context(combined, match.start())
+            forward_suggestions.append({
+                "email": email.lower(),
+                "context": context,
+                "confidence": 0.80,
+            })
+
+    return {
+        "cc_suggestions": cc_suggestions,
+        "forward_suggestions": forward_suggestions,
+    }

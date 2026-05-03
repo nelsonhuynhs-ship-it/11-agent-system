@@ -37,7 +37,7 @@ def test_no_pandas_read_parquet():
 
     assert len(violations) == 0, \
         f"Found {len(violations)} Pandas/DAL read calls:\n" + "\n".join(violations)
-    print("  ✓ Zero pd.read_parquet()/dal.load_rates() calls in rate_router.py")
+    print("  [PASS] Zero pd.read_parquet()/dal.load_rates() calls in rate_router.py")
 
 
 def test_freight_db_import():
@@ -46,7 +46,7 @@ def test_freight_db_import():
     parquet = _PARQUET
     db = FreightDB(parquet)
     assert db is not None
-    print("  ✓ FreightDB imports and initializes correctly")
+    print("  [PASS] FreightDB imports and initializes correctly")
 
 
 def test_get_rates_logic():
@@ -63,7 +63,7 @@ def test_get_rates_logic():
     required_cols = ['POL', 'POD', 'Carrier', 'Container_Type', 'Amount']
     for col in required_cols:
         assert col in df.columns, f"Missing column: {col}"
-    print(f"  ✓ get_rates: {len(df):,} rates in {elapsed:.3f}s")
+    print(f"  [PASS] get_rates: {len(df):,} rows in {elapsed:.3f}s")
     assert elapsed < 3.0, f"Too slow: {elapsed:.1f}s > 3s limit"
 
 
@@ -76,7 +76,7 @@ def test_carriers_logic():
     df = db.query_rates(days=90)
     counts = df['Carrier'].value_counts().to_dict()
     assert len(counts) > 0, "No carriers found"
-    print(f"  ✓ carriers: {len(counts)} carriers with rates")
+    print(f"  [PASS] carriers: {len(counts)} carriers with rates")
 
 
 def test_regions_logic():
@@ -102,7 +102,7 @@ def test_regions_logic():
 
     df['region'] = df['POD'].apply(classify)
     region_counts = df['region'].value_counts().to_dict()
-    print(f"  ✓ regions: {region_counts}")
+    print(f"  [PASS] regions: {region_counts}")
 
 
 def test_matrix_envelope():
@@ -115,7 +115,7 @@ def test_matrix_envelope():
     envelope = db.get_market_envelope(pol="HPH", pod="LAX", container_type="40HQ", days=90)
     elapsed = time.perf_counter() - start
 
-    print(f"  ✓ matrix envelope: Low ${envelope['market_low']:,.0f} | "
+    print(f"  [PASS] matrix envelope: Low ${envelope['market_low']:,.0f} | "
           f"Avg ${envelope['market_avg']:,.0f} | "
           f"High ${envelope['market_high']:,.0f} "
           f"({envelope['data_points']} pts, {envelope['carriers']} carriers) "
@@ -135,7 +135,7 @@ def test_envelope_endpoint():
     stats = db.get_rate_stats("HPH", "LAX", "40HQ", 30)
 
     response = {
-        "route": "HPH → LAX",
+        "route": "HPH -> LAX",
         "container_type": "40HQ",
         "days": 30,
         "envelope": envelope,
@@ -144,7 +144,7 @@ def test_envelope_endpoint():
 
     assert "envelope" in response
     assert "stats" in response
-    print(f"  ✓ envelope endpoint: {response['route']} — "
+    print(f"  [PASS] envelope endpoint: {response['route']} — "
           f"data_points={envelope.get('data_points', 0)}")
 
 
@@ -167,7 +167,7 @@ def test_memory_under_200mb():
     tracemalloc.stop()
 
     peak_mb = peak / (1024 * 1024)
-    print(f"  ✓ Memory: peak={peak_mb:.1f}MB (limit: 200MB)")
+    print(f"  [PASS] Memory: peak={peak_mb:.1f}MB (limit: 200MB)")
     assert peak_mb < 200, f"Peak {peak_mb:.1f}MB exceeds 200MB"
 
 
@@ -190,7 +190,7 @@ def test_response_time_under_3s():
         elapsed = time.perf_counter() - start
         assert elapsed < 3.0, f"{name} took {elapsed:.1f}s > 3s limit"
 
-    print(f"  ✓ All {len(endpoints)} endpoint types respond in < 3s")
+    print(f"  [PASS] All {len(endpoints)} endpoint types respond in < 3s")
 
 
 if __name__ == "__main__":
@@ -217,7 +217,7 @@ if __name__ == "__main__":
             test()
             passed += 1
         except Exception as e:
-            print(f"  ✗ {test.__name__}: {e}")
+            print(f"  [FAIL] {test.__name__}: {e}")
             failed += 1
 
     print(f"\n{'='*60}")
@@ -225,4 +225,4 @@ if __name__ == "__main__":
     print(f"{'='*60}")
     if failed > 0:
         sys.exit(1)
-    print("\n✅ ALL TESTS PASSED")
+    print("\n[PASS] ALL TESTS PASSED")

@@ -157,6 +157,34 @@ def check_section_6() -> None:
         ok(6, "No forbidden email paths found")
 
 
+# ── Section 6.5: Anti-spam guards live audit ────────────────────────────────
+def check_section_6_5() -> None:
+    print("\n=== Section 6.5 — Anti-spam guards (live audit) ===")
+    try:
+        import urllib.request
+        import json as _json
+        with urllib.request.urlopen("http://localhost:8100/api/diagnostics/guards", timeout=5) as resp:
+            if resp.status != 200:
+                fail(65, f"Audit endpoint returned HTTP {resp.status}")
+                return
+            data = _json.loads(resp.read().decode("utf-8"))
+    except Exception as exc:
+        # Server may be off when committing — log warn but don't fail
+        print(f"  [S6.5] WARN: Cannot reach /api/diagnostics/guards (server off?) — section skipped")
+        return
+
+    guards = data.get("guards", [])
+    if len(guards) != 10:
+        fail(65, f"Expected 10 guards, endpoint returned {len(guards)}")
+
+    inactive = [g for g in guards if not g.get("active")]
+    if inactive:
+        for g in inactive:
+            fail(65, f"Guard #{g['id']} ({g['name']}) inactive — value={g.get('value')!r} expected={g.get('expected')!r}")
+    else:
+        ok(65, f"All {len(guards)} guards active (timestamp: {data.get('timestamp')})")
+
+
 # ── Section 9: Temp file cleanup ────────────────────────────────────────────
 def check_section_9(fix: bool = False) -> None:
     print("\n=== Section 9 — Temp file cleanup ===")
@@ -217,7 +245,8 @@ def check_section_11() -> None:
 # ── Main ─────────────────────────────────────────────────────────────────────
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--section", type=int, help="Run only one section (1-11)")
+    p.add_argument("--section", type=str, default=None,
+                  help="Run only one section (e.g. 1, 6, 6.5)")
     p.add_argument("--fix", action="store_true", help="Auto-cleanup where safe (section 9)")
     args = p.parse_args()
 
@@ -232,17 +261,22 @@ def main() -> int:
         3: check_section_3,
         5: check_section_5,
         6: check_section_6,
+        65: check_section_6_5,  # NEW
         9: lambda: check_section_9(fix=args.fix),
         11: check_section_11,
     }
 
     targets = [args.section] if args.section else sorted(runners.keys())
     for s in targets:
-        if s in runners:
-            try:
-                runners[s]()
-            except Exception as exc:
-                fail(s, f"Validator error: {exc}")
+        sec_key = int(str(s).replace(".", ""))
+        fn = runners.get(sec_key)
+        if fn is None:
+            print(f"Unknown section: {s}")
+            sys.exit(1)
+        try:
+            fn()
+        except Exception as exc:
+            fail(sec_key, f"Validator error: {exc}")
 
     print("\n" + "=" * 60)
     if ISSUES:

@@ -1,109 +1,109 @@
 {
-  "trained_at": "2026-04-14 21:38:51",
+  "trained_at": "2026-04-21 20:40:57",
   "metrics": {
-    "accuracy": 0.522,
-    "f1": 0.5004,
-    "mape": 135.06,
-    "directional_accuracy": 0.5756,
-    "n_predictions": 1475,
-    "n_walk_forward_weeks": 90
+    "accuracy": 0.5298,
+    "f1": 0.507,
+    "mape": 135.76,
+    "directional_accuracy": 0.5847,
+    "n_predictions": 1525,
+    "n_walk_forward_weeks": 93
   },
   "walk_forward_results": [
     {
-      "week": "2026-03-30",
-      "predicted": "DOWN",
-      "actual": "UP",
-      "pred_pct": -11.43,
-      "actual_pct": 2.04,
-      "correct": false
-    },
-    {
-      "week": "2026-03-30",
+      "week": "2026-04-20",
       "predicted": "UP",
       "actual": "UP",
-      "pred_pct": -4.79,
-      "actual_pct": 8.99,
+      "pred_pct": 52.74,
+      "actual_pct": 17.21,
       "correct": true
     },
     {
-      "week": "2026-03-30",
-      "predicted": "DOWN",
+      "week": "2026-04-20",
+      "predicted": "UP",
       "actual": "UP",
-      "pred_pct": -5.4,
-      "actual_pct": 4.72,
+      "pred_pct": 27.67,
+      "actual_pct": 27.22,
+      "correct": true
+    },
+    {
+      "week": "2026-04-20",
+      "predicted": "UP",
+      "actual": "DOWN",
+      "pred_pct": 41.5,
+      "actual_pct": -8.82,
       "correct": false
     },
     {
-      "week": "2026-03-30",
-      "predicted": "DOWN",
-      "actual": "UP",
-      "pred_pct": -4.77,
-      "actual_pct": 6.08,
+      "week": "2026-04-20",
+      "predicted": "UP",
+      "actual": "DOWN",
+      "pred_pct": 60.13,
+      "actual_pct": -2.94,
       "correct": false
     },
     {
-      "week": "2026-03-30",
-      "predicted": "DOWN",
+      "week": "2026-04-20",
+      "predicted": "UP",
       "actual": "UP",
-      "pred_pct": -5.98,
-      "actual_pct": 5.54,
-      "correct": false
+      "pred_pct": 34.76,
+      "actual_pct": 37.09,
+      "correct": true
     },
     {
-      "week": "2026-03-30",
-      "predicted": "DOWN",
+      "week": "2026-04-20",
+      "predicted": "UP",
       "actual": "UP",
-      "pred_pct": -2.39,
-      "actual_pct": 5.03,
-      "correct": false
+      "pred_pct": 151.54,
+      "actual_pct": 68.0,
+      "correct": true
     },
     {
-      "week": "2026-03-30",
-      "predicted": "DOWN",
+      "week": "2026-04-20",
+      "predicted": "UP",
       "actual": "UP",
-      "pred_pct": -12.07,
-      "actual_pct": 4.79,
-      "correct": false
+      "pred_pct": 63.08,
+      "actual_pct": 25.27,
+      "correct": true
     },
     {
-      "week": "2026-03-30",
-      "predicted": "DOWN",
+      "week": "2026-04-20",
+      "predicted": "UP",
       "actual": "UP",
-      "pred_pct": -3.23,
-      "actual_pct": 12.26,
-      "correct": false
+      "pred_pct": 29.49,
+      "actual_pct": 4.73,
+      "correct": true
     },
     {
-      "week": "2026-03-30",
-      "predicted": "DOWN",
+      "week": "2026-04-20",
+      "predicted": "UP",
       "actual": "UP",
-      "pred_pct": -3.48,
-      "actual_pct": 5.51,
-      "correct": false
+      "pred_pct": 152.54,
+      "actual_pct": 122.47,
+      "correct": true
     },
     {
-      "week": "2026-03-30",
-      "predicted": "DOWN",
+      "week": "2026-04-20",
+      "predicted": "UP",
       "actual": "UP",
-      "pred_pct": -3.44,
-      "actual_pct": 7.1,
-      "correct": false
+      "pred_pct": 49.4,
+      "actual_pct": 18.66,
+      "correct": true
     },
     {
-      "week": "2026-03-30",
-      "predicted": "DOWN",
+      "week": "2026-04-20",
+      "predicted": "UP",
       "actual": "UP",
-      "pred_pct": -0.84,
-      "actual_pct": 7.16,
-      "correct": false
+      "pred_pct": 150.47,
+      "actual_pct": 122.47,
+      "correct": true
     },
     {
-      "week": "2026-03-30",
-      "predicted": "DOWN",
+      "week": "2026-04-20",
+      "predicted": "UP",
       "actual": "UP",
-      "pred_pct": -5.39,
-      "actual_pct": 5.13,
-      "correct": false
+      "pred_pct": 50.84,
+      "actual_pct": 18.55,
+      "correct": true
     }
   ],
   "corridors": [

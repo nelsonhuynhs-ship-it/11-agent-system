@@ -4053,8 +4053,425 @@ def bounce_kb_sync_disposable():
         log.error(f"[KB] sync-disposable error: {exc}")
         raise HTTPException(status_code=500, detail=str(exc))
 
+# === Phase 1: Email Cleaner — Bounce + Error Cleanup ===
+
+# NDR subject keywords (aligned with core/bounce_handler.py)
+_NDR_SUBJECTS = [
+    "undeliverable", "delivery status notification", "mail delivery failed",
+    "returned mail", "failure notice", "delivery failure", "not found",
+    "undelivered", "bounce", "NDR",
+]
+
+# Disposable + typo domains for 1B classifier
+_DISPOSABLE_DOMAINS = {
+    "mailinator.com", "tempmail.com", "guerrillamail.com", "10minutemail.com",
+    "throwaway.email", "fakeinbox.com", "trashmail.com", "maildrop.cc",
+    "getairmail.com", "yopmail.com", "sharklasers.com", "guerrillamailblock.com",
+}
+_TYPO_DOMAINS = {
+    "gmal.com", "gmial.com", "yahooo.com", "hotmal.com", "gmai.com",
+    "gamil.com", "hotmial.com", "outloo.com", "outlok.com", "yahooo.com",
+}
+
+
+class DeleteRowsRequest(BaseModel):
+    emails: list[str] = Field(..., min_length=1)
+
+
+@app.get("/api/cleaner/scan-inbox")
+def scan_inbox():
+    """Scan Outlook Inbox for NDR/bounce emails and move them to Deleted Items.
+
+    Returns:
+        { moved: N, bounce_emails: [{subject, bounced_email, entry_id}, ...] }
+    """
+    import pythoncom
+    from email_engine.scanner.handlers import extract_bounced_email, _move_to_deleted
+
+    try:
+        pythoncom.CoInitialize()
+    except Exception:
+        pass  # already initialized
+
+    outlook = None
+    try:
+        import win32com.client
+        outlook = win32com.client.Dispatch("Outlook.Application")
+        ns = outlook.GetNamespace("MAPI")
+        inbox = ns.GetDefaultFolder(6)  # olFolderInbox
+        items = inbox.Items
+        moved = 0
+        bounce_emails = []
+        for item in items:
+            try:
+                subject = (getattr(item, "Subject", "") or "").lower()
+                body = (getattr(item, "Body", "") or "") + (getattr(item, "HTMLBody", "") or "")
+                is_ndr = any(kw in subject for kw in _NDR_SUBJECTS)
+                if not is_ndr:
+                    is_ndr = bool(re.search(r"Final-Recipient:\s*rfc822;", body, re.IGNORECASE))
+                if not is_ndr:
+                    continue
+                bounced = extract_bounced_email(body)
+                if bounced:
+                    log.info(f"[cleaner] NDR found: {bounced!r} | subject: {subject[:80]}")
+                else:
+                    bounced = ""
+                    log.info(f"[cleaner] NDR (no email extracted) | subject: {subject[:80]}")
+                if _move_to_deleted(item):
+                    moved += 1
+                    bounce_emails.append({
+                        "subject": getattr(item, "Subject", "") or "",
+                        "bounced_email": bounced,
+                        "entry_id": getattr(item, "EntryID", "") or "",
+                    })
+            except Exception as exc:
+                log.warning(f"[cleaner] Item scan error: {exc}")
+                continue
+    except Exception as exc:
+        log.error(f"[cleaner] Outlook connection failed: {exc}")
+        raise HTTPException(status_code=500, detail=f"Outlook unavailable: {exc}")
+    finally:
+        if outlook is not None:
+            try:
+                del outlook
+            except Exception:
+                pass
+        try:
+            pythoncom.CoUninitialize()
+        except Exception:
+            pass
+
+    return {"moved": moved, "bounce_emails": bounce_emails}
+
+
+@app.get("/api/cleaner/scan-master")
+def scan_master():
+    """Scan contact_unified_v7.xlsx CNEE sheet for bad emails.
+
+    Returns:
+        { total: N, errors: [{email, issue_code, issue_label, suggested_fix, row_index}, ...] }
+    """
+    # Resolve master file (same fallback chain as _get_cnee_df)
+    master_paths = [
+        CNEE_V7,
+        CNEE_V6,
+        CNEE_V2,
+        CNEE_V1,
+    ]
+    data_file = None
+    for p in master_paths:
+        if p.exists():
+            data_file = p
+            break
+    if not data_file:
+        raise HTTPException(status_code=500, detail="No CNEE master file found")
+
+    try:
+        df = pd.read_excel(data_file, sheet_name="CNEE")
+    except Exception as exc:
+        log.error(f"[cleaner] Failed to read CNEE sheet: {exc}")
+        raise HTTPException(status_code=500, detail=f"Failed to read CNEE sheet: {exc}")
+
+    if "EMAIL" not in df.columns:
+        raise HTTPException(status_code=500, detail="EMAIL column not found in CNEE sheet")
+
+    emails_col = df["EMAIL"].fillna("").astype(str).str.strip().str.lower()
+    errors = []
+    seen: dict[str, int] = {}
+
+    for i, email in enumerate(emails_col):
+        row_idx = int(df.index[i])  # actual Excel row = i + 2 (header is row 1)
+        excel_row = i + 2
+
+        if not email or email == "nan":
+            continue
+
+        # Track duplicates
+        seen[email] = seen.get(email, 0) + 1
+
+        issue_code = None
+        issue_label = None
+        suggested_fix = None
+
+        # SYNTAX_INVALID: no @
+        if "@" not in email:
+            issue_code = "SYNTAX_INVALID"
+            issue_label = "No @ in email"
+        else:
+            local, _, domain = email.partition("@")
+            # PREFIX_CORRUPT: local starts with me. te. em.
+            if local.startswith(("me.", "te.", "em.")):
+                issue_code = "PREFIX_CORRUPT"
+                issue_label = f"Corrupt prefix '{local[:3]}'"
+                suggested_fix = email[len(local.split(".")[0]) + 1:]  # strip "me." prefix
+            # DISPOSABLE_DOMAIN
+            elif domain in _DISPOSABLE_DOMAINS:
+                issue_code = "DISPOSABLE_DOMAIN"
+                issue_label = f"Disposable domain '{domain}'"
+            # DOMAIN_TYPO
+            elif domain in _TYPO_DOMAINS:
+                issue_code = "DOMAIN_TYPO"
+                issue_label = f"Typo domain '{domain}'"
+
+        if issue_code:
+            errors.append({
+                "email": email,
+                "issue_code": issue_code,
+                "issue_label": issue_label,
+                "suggested_fix": suggested_fix or "",
+                "row_index": excel_row,
+            })
+
+    # DUPLICATE pass
+    dup_emails = {e for e, c in seen.items() if c > 1}
+    for i, email in enumerate(emails_col):
+        excel_row = i + 2
+        if email in dup_emails:
+            # Avoid double-adding if already flagged
+            existing = next((x for x in errors if x["email"] == email and x["issue_code"] == "DUPLICATE"), None)
+            if not existing:
+                errors.append({
+                    "email": email,
+                    "issue_code": "DUPLICATE",
+                    "issue_label": f"Appears {seen[email]} times in master",
+                    "suggested_fix": "",
+                    "row_index": excel_row,
+                })
+
+    return {"total": int(len(df)), "errors": errors}
+
+
+@app.post("/api/cleaner/delete-rows")
+def delete_rows(req: DeleteRowsRequest):
+    """Delete emails from CNEE sheet, with backup + 14-day cooldown protection.
+
+    Body: { emails: ["a@b.com", ...] }
+    Returns: { deleted: N, skipped_cooldown: M, remaining: K }
+    """
+    emails_to_delete = {e.lower().strip() for e in req.emails}
+    if not emails_to_delete:
+        return {"deleted": 0, "skipped_cooldown": 0, "remaining": 0}
+
+    # Resolve master file
+    master_paths = [CNEE_V7, CNEE_V6, CNEE_V2, CNEE_V1]
+    data_file = None
+    for p in master_paths:
+        if p.exists():
+            data_file = p
+            break
+    if not data_file:
+        raise HTTPException(status_code=500, detail="No CNEE master file found")
+
+    # --- Backup ---
+    from datetime import datetime as _dt
+    backup_dir = BASE_DIR / "data"
+    backup_dir.mkdir(exist_ok=True)
+    backup_name = f"cleaner_backup_{_dt.now().strftime('%Y%m%d')}.xlsx"
+    backup_path = backup_dir / backup_name
+    import shutil
+    shutil.copy2(data_file, backup_path)
+    log.info(f"[cleaner] Backup saved: {backup_path}")
+
+    # --- Load CNEE sheet ---
+    try:
+        df = pd.read_excel(data_file, sheet_name="CNEE")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read CNEE sheet: {exc}")
+
+    if "EMAIL" not in df.columns:
+        raise HTTPException(status_code=500, detail="EMAIL column not found")
+
+    # --- Cooldown check from email_log.csv ---
+    cooldown_emails: set = set()
+    try:
+        if LOG_FILE.exists():
+            df_log = pd.read_csv(LOG_FILE, usecols=["email", "timestamp"], on_bad_lines="skip", engine="python")
+            df_log["timestamp"] = pd.to_datetime(df_log["timestamp"], errors="coerce", dayfirst=True)
+            cutoff = _dt.now() - timedelta(days=14)
+            recent = df_log[df_log["timestamp"] >= cutoff]["email"]
+            cooldown_emails = set(recent.dropna().str.lower().str.strip().tolist())
+    except Exception as exc:
+        log.warning(f"[cleaner] Cooldown check failed: {exc}")
+
+    emails_col_lower = df["EMAIL"].fillna("").astype(str).str.lower().str.strip()
+    mask = emails_col_lower.isin(emails_to_delete)
+    matching = df[mask]
+
+    skipped_cooldown = 0
+    to_delete_indices = []
+
+    for _, row in matching.iterrows():
+        email = str(row.get("EMAIL", "")).lower().strip()
+        # Check LAST_SENT_DATE from master file
+        last_sent = row.get("LAST_SENT_DATE", "")
+        if last_sent and last_sent != "":
+            try:
+                sent_dt = pd.to_datetime(last_sent, errors="coerce")
+                if sent_dt and (_dt.now() - sent_dt.to_pydatetime()) < timedelta(days=14):
+                    skipped_cooldown += 1
+                    emails_to_delete.discard(email)
+                    continue
+            except Exception:
+                pass
+        # Also check email_log cooldown
+        if email in cooldown_emails:
+            skipped_cooldown += 1
+            emails_to_delete.discard(email)
+            continue
+        to_delete_indices.append(row.name)
+
+    # Perform deletion
+    original_count = len(df)
+    df_cleaned = df.drop(index=to_delete_indices)
+
+    # --- Save back ---
+    try:
+        import openpyxl
+        with pd.ExcelWriter(data_file, engine="openpyxl", mode="w") as writer:
+            df_cleaned.to_excel(writer, sheet_name="CNEE", index=False)
+    except Exception as exc:
+        log.error(f"[cleaner] Failed to write Excel: {exc}")
+        raise HTTPException(status_code=500, detail=f"Failed to write Excel: {exc}")
+
+    deleted = len(to_delete_indices)
+    remaining = len(df_cleaned)
+    log.info(f"[cleaner] Deleted {deleted} rows, skipped_cooldown={skipped_cooldown}, remaining={remaining}")
+
+    return {"deleted": deleted, "skipped_cooldown": skipped_cooldown, "remaining": remaining}
+
+
 # === S1v3 END ===
 
+# === Phase 2: Reply Routing Intelligence — CC + Forward Detection ===
+
+import json as _json_routing
+
+_CUSTOMER_RULES_PATH: Path = BASE_DIR / "data" / "customer_rules.json"
+
+
+def _load_customer_rules() -> dict:
+    """Load customer_rules.json. Returns {} on any error."""
+    try:
+        return _json_routing.loads(_CUSTOMER_RULES_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {"cc_suggestions": [], "forward_suggestions": [], "routing_history": [], "customers": {}}
+
+
+def _save_customer_rules(rules: dict) -> bool:
+    """Write customer_rules.json atomically. Returns success flag."""
+    try:
+        _CUSTOMER_RULES_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp = _CUSTOMER_RULES_PATH.with_suffix(".json.tmp")
+        tmp.write_text(_json_routing.dumps(rules, indent=2, ensure_ascii=False), encoding="utf-8")
+        import os as _os_routing
+        _os_routing.replace(tmp, _CUSTOMER_RULES_PATH)
+        return True
+    except Exception as exc:
+        log.warning("_save_customer_rules failed: %s", exc)
+        return False
+
+
+@app.get("/api/routing/suggestions")
+def get_routing_suggestions():
+    """Return all unapproved cc_suggestions + forward_suggestions from customer_rules.json."""
+    try:
+        rules = _load_customer_rules()
+        cc_pending = [
+            s for s in rules.get("cc_suggestions", [])
+            if not s.get("approved") and not s.get("rejected")
+        ]
+        fwd_pending = [
+            s for s in rules.get("forward_suggestions", [])
+            if not s.get("approved") and not s.get("rejected")
+        ]
+        return {
+            "cc_suggestions": cc_pending,
+            "forward_suggestions": fwd_pending,
+        }
+    except Exception as exc:
+        log.error(f"[Routing] get_suggestions error: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+class _ApproveBody(BaseModel):
+    source_email: str
+    suggested_email: str
+    type: str  # "cc" or "forward"
+
+
+@app.post("/api/routing/approve")
+def approve_routing_suggestion(body: _ApproveBody):
+    """Mark a routing suggestion as approved in customer_rules.json."""
+    if body.type not in ("cc", "forward"):
+        raise HTTPException(status_code=400, detail="type must be 'cc' or 'forward'")
+
+    try:
+        rules = _load_customer_rules()
+        key = "cc_suggestions" if body.type == "cc" else "forward_suggestions"
+        found = False
+        for s in rules.get(key, []):
+            if s.get("source_email", "").lower() == body.source_email.lower() and \
+               s.get("email", "").lower() == body.suggested_email.lower():
+                s["approved"] = True
+                s["approved_at"] = datetime.now().strftime("%Y-%m-%d")
+                found = True
+                break
+
+        if not found:
+            raise HTTPException(status_code=404, detail="Suggestion not found")
+
+        _save_customer_rules(rules)
+        return {"ok": True}
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log.error(f"[Routing] approve error: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+class _RejectBody(BaseModel):
+    source_email: str
+    suggested_email: str
+    type: str  # "cc" or "forward"
+    reason: str = ""
+
+
+@app.post("/api/routing/reject")
+def reject_routing_suggestion(body: _RejectBody):
+    """Mark a routing suggestion as rejected in routing_history."""
+    if body.type not in ("cc", "forward"):
+        raise HTTPException(status_code=400, detail="type must be 'cc' or 'forward'")
+
+    try:
+        rules = _load_customer_rules()
+        key = "cc_suggestions" if body.type == "cc" else "forward_suggestions"
+
+        # Remove from suggestions list
+        rules[key] = [
+            s for s in rules.get(key, [])
+            if not (s.get("source_email", "").lower() == body.source_email.lower() and
+                    s.get("email", "").lower() == body.suggested_email.lower())
+        ]
+
+        # Add to routing_history
+        rules.setdefault("routing_history", []).append({
+            "source_email": body.source_email.lower(),
+            "suggested_email": body.suggested_email.lower(),
+            "type": body.type,
+            "reason": body.reason,
+            "rejected_at": datetime.now().strftime("%Y-%m-%d"),
+        })
+
+        _save_customer_rules(rules)
+        return {"ok": True}
+
+    except Exception as exc:
+        log.error(f"[Routing] reject error: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# === Phase 2 END ===
 
 if __name__ == "__main__":
     # pythonw.exe (no console) has sys.stdout/stderr = None → uvicorn's default
