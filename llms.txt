@@ -1,21 +1,34 @@
-# 11-Agent System v2.0
+# 11-Agent System v2.0 — AI Documentation
 
-> Generated 2026-05-03
+Generated 2026-05-03
+https://github.com/nelsonhuynhs-ship-it/11-agent-system
 
 ## Overview
 11-agent Claude workflow with MiniMax M2.7 delegation.
-https://github.com/nelsonhuynhs-ship-it/11-agent-system
+
+## 11 Core Agents
+1. design-finder (Phase 1)
+2. ux-reviewer (Phase 2)
+3. code-reviewer (Phase 2)
+4. security-auditor (Phase 2)
+5. perf-analyzer (Phase 2)
+6. master-executor (Phase 3)
+7. test-writer (Phase 4)
+8. doc-writer (Phase 4)
+9. tech-debt-tracker (Phase 4)
+10. git-commit (Phase 5)
+11. i18n-checker (not used by Nelson)
 
 ## Architecture
 Phase 1: design-finder
-Phase 2: ux-reviewer, code-reviewer, security-auditor, perf-analyzer
+Phase 2: ux-reviewer, code-reviewer, security-auditor, perf-analyzer (parallel)
 Phase 3: master-executor
 Phase 4: test-writer, doc-writer, tech-debt-tracker
 Phase 5: git-commit
 
-## Key Improvements v2.0
+## v2.0 Improvements
 - Two-stage review: spec compliance then code quality
-- Fresh context isolation anti-patterns enforced
+- Fresh context isolation anti-patterns
 - Model routing: M2.7 for mechanical, Opus for judgment
 - Max 3 review iterations with escalation
 - Mandatory final whole-implementation review
@@ -26,11 +39,7 @@ cd 11-agent-system
 ./install.sh
 
 ## Files
-skills/workflow/SKILL.md - main orchestrator
-skills/code-reviewer/SKILL.md - two-stage review
-skills/master-executor/SKILL.md - final review step
-rules/orchestration-protocol.md - escalation rules
-reports/11-agent-code-review-report.md
-reports/11-agent-execution-report.md
-llms.txt - this file
+skills/ - 11 agent SKILL.md files
+rules/orchestration-protocol.md
+reports/ - review and execution reports
 
