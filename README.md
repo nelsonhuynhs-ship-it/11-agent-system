@@ -4,13 +4,7 @@ ClaudeKit 11-agent workflow orchestration with MiniMax M2.7 auto-delegation.
 
 ## Architecture
 
-```
-Phase 1 — Design    : design-finder
-Phase 2 — Review    : ux-reviewer · code-reviewer · security-auditor · perf-analyzer
-Phase 3 — Execute   : master-executor
-Phase 4 — Process   : test-writer · doc-writer · tech-debt-tracker
-Phase 5 — Finalize  : git-commit
-```
+
 
 ## 11 Core Agents
 
@@ -36,6 +30,21 @@ Phase 5 — Finalize  : git-commit
 - **Status Escalation Rules**: Max 3 retries, clear escalation path
 - **Mandatory Final Whole-Implementation Review**: Before commit
 
+## Automation Agents
+
+### autopilot (NEW)
+Autonomous pipeline agent. Runs 11-agent workflow **without human confirmation**.
+- Self-healing on failure (3x retry then escalate)
+- Auto-proceed when phase complete
+- Only blocks on: security, 3x failure, user data affected
+
+### monitor (NEW)
+Observability agent. Track agent performance metrics.
+- Execution time per agent
+- Success/error rates
+- Token usage tracking
+- Health alerts
+
 ## Installation
 
 ```bash
@@ -43,8 +52,6 @@ git clone https://github.com/nelsonhuynhs-ship-it/11-agent-system.git
 cd 11-agent-system
 ./install.sh
 ```
-
-Restart Claude Code to apply.
 
 ## Skills
 
@@ -56,9 +63,11 @@ skills/perf-analyzer/       - Performance analysis
 skills/master-executor/     - Phase 3 executor
 skills/test-writer/         - Test generation
 skills/doc-writer/          - Documentation generation
-skills/tech-debt-tracker/   - Technical debt tracking
+skills/tech-debt-tracker/  - Technical debt tracking
 skills/git-commit/           - Commit message generation
-skills/i18n-checker/        - Internationalization (not used)
+skills/i18n-checker/       - Internationalization (not used)
+skills/autopilot/           - Autonomous pipeline (NEW)
+skills/monitor/             - Observability (NEW)
 
 ## Rules
 

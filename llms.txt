@@ -4,7 +4,7 @@ Generated 2026-05-03
 https://github.com/nelsonhuynhs-ship-it/11-agent-system
 
 ## Overview
-11-agent Claude workflow with MiniMax M2.7 delegation.
+11-agent Claude workflow with MiniMax M2.7 delegation + 2 automation agents.
 
 ## 11 Core Agents
 1. design-finder (Phase 1)
@@ -17,7 +17,11 @@ https://github.com/nelsonhuynhs-ship-it/11-agent-system
 8. doc-writer (Phase 4)
 9. tech-debt-tracker (Phase 4)
 10. git-commit (Phase 5)
-11. i18n-checker (not used by Nelson)
+11. i18n-checker (not used)
+
+## Automation Agents (NEW)
+- autopilot: Autonomous pipeline without human confirmation. Self-healing, 3x retry, auto-escalate.
+- monitor: Observability agent. Track execution time, success rates, token usage, health alerts.
 
 ## Architecture
 Phase 1: design-finder
@@ -32,6 +36,8 @@ Phase 5: git-commit
 - Model routing: M2.7 for mechanical, Opus for judgment
 - Max 3 review iterations with escalation
 - Mandatory final whole-implementation review
+- Autopilot: autonomous loop without confirm
+- Monitor: observability and health tracking
 
 ## Installation
 git clone https://github.com/nelsonhuynhs-ship-it/11-agent-system.git
@@ -39,7 +45,8 @@ cd 11-agent-system
 ./install.sh
 
 ## Files
-skills/ - 11 agent SKILL.md files
+skills/ - 13 agent SKILL.md files (11 core + autopilot + monitor)
 rules/orchestration-protocol.md
 reports/ - review and execution reports
-
+LLLMSEOF
+echo "llms updated"
