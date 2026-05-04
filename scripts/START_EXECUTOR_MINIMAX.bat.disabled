@@ -1,0 +1,28 @@
+@echo off
+REM START_EXECUTOR_MINIMAX.bat - Executor Bot (MiniMax M2.7) [DISABLED]
+REM Bot: @nelson_freight_bot | Token: from TELEGRAM_BOT_TOKEN env var
+title MINIMAX Executor Launcher
+
+REM ---- Clean leak ----
+set "ANTHROPIC_BASE_URL="
+set "ANTHROPIC_AUTH_TOKEN="
+set "ANTHROPIC_MODEL="
+set "ANTHROPIC_DEFAULT_OPUS_MODEL="
+set "ANTHROPIC_DEFAULT_SONNET_MODEL="
+set "ANTHROPIC_DEFAULT_HAIKU_MODEL="
+
+REM ---- Telegram bind (token from env, NOT hardcoded) ----
+set "TELEGRAM_STATE_DIR=C:\Users\Nelson\.claude\channels\telegram-minimax"
+
+REM ---- Log file ----
+set "EXECUTOR_LOG=D:\NELSON\2. Areas\Engine_test\logs\executor-bot.log"
+
+REM ---- Launch bash ----
+start "MINIMAX-EXECUTOR" "C:\Program Files\Git\bin\bash.exe" -c "source 'C:/Users/Nelson/.claude/.env.minimax'; export ANTHROPIC_BASE_URL='https://api.minimax.io/anthropic'; export ANTHROPIC_AUTH_TOKEN=\"$MINIMAX_API_KEY\"; export ANTHROPIC_MODEL='MiniMax-M2.7'; export ANTHROPIC_DEFAULT_OPUS_MODEL='MiniMax-M2.7'; export ANTHROPIC_DEFAULT_SONNET_MODEL='MiniMax-M2.7'; export ANTHROPIC_DEFAULT_HAIKU_MODEL='MiniMax-M2.7'; export ANTHROPIC_SMALL_FAST_MODEL='MiniMax-M2.7'; export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1; export API_TIMEOUT_MS=3000000; export TELEGRAM_BOT_TOKEN='%TELEGRAM_BOT_TOKEN%'; export TELEGRAM_STATE_DIR='%TELEGRAM_STATE_DIR%'; LOG='%EXECUTOR_LOG%'; : > \"$LOG\"; echo \"[$(date +%%H:%%M:%%S)] === Bot starting ===\" | tee -a \"$LOG\"; echo \"TG_TOKEN=%TELEGRAM_BOT_TOKEN:~0,12%...\" | tee -a \"$LOG\"; echo '--- launching claude ---' | tee -a \"$LOG\"; claude --settings 'C:/Users/Nelson/AppData/Roaming/Claude/executor-settings.json' --channels plugin:telegram@claude-plugins-official 2>> \"$LOG\"; ec=$?; echo \"[$(date +%%H:%%M:%%S)] === Bot exited (code=$ec) ===\" | tee -a \"$LOG\""
+
+echo.
+echo [OK] MINIMAX-EXECUTOR window opened. Log: %EXECUTOR_LOG%
+echo.
+echo Token must be set in TELEGRAM_BOT_TOKEN env var.
+echo.
+pause

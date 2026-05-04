@@ -1,0 +1,23 @@
+# Secrets — DO NOT COMMIT
+.env
+.env.local
+*.local_backup
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyc
+.pytest_cache/
+
+# Logs (rotate via cleanup script)
+*.log
+logs/*.log
+
+# Runtime state — cleanup via cleanup-state.ps1
+data/*.jsonl
+data/*.state
+data/*.lock
+
+# OS temp
+.DS_Store
+Thumbs.db

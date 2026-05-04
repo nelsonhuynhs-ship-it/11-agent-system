@@ -1,0 +1,65 @@
+@echo off
+REM start-telegram-channels.bat - Telegram Channels Bridge [DISABLED]
+REM Bot: @nelson_freight_bot | Token + access from ~/.claude/channels/telegram/
+REM Auto-retry on crash (max 5 retries / 5 min, then stop + log)
+REM ============================================================
+
+setlocal enabledelayedexpansion
+title Nelson Claude x Telegram Bridge
+
+set LOG_FILE=D:\NELSON\2. Areas\Engine_test\logs\telegram-bridge.log
+set RETRY_COUNT=0
+set MAX_RETRIES=5
+set RETRY_WINDOW_SEC=300
+set START_TIME=%TIME%
+
+if not exist "D:\NELSON\2. Areas\Engine_test\logs" mkdir "D:\NELSON\2. Areas\Engine_test\logs"
+
+echo.
+echo  ==========================================================
+echo   NELSON CLAUDE x TELEGRAM BRIDGE (auto-retry)
+echo   Bot: @nelson_freight_bot
+echo   Log: %LOG_FILE%
+echo  ==========================================================
+echo.
+echo   DM bot tren Telegram -^> message vao session nay.
+echo   Dung Ctrl+C de thoat hoan toan.
+echo.
+
+cd /d "D:\NELSON\2. Areas\Engine_test"
+
+:loop
+echo [%DATE% %TIME%] Starting Channels session (attempt #!RETRY_COUNT!) >> "%LOG_FILE%"
+echo.
+echo  ----------------------------------------------------------
+echo   Attempt #!RETRY_COUNT! - %DATE% %TIME%
+echo  ----------------------------------------------------------
+echo.
+
+claude --channels plugin:telegram@claude-plugins-official
+
+set EXIT_CODE=!ERRORLEVEL!
+echo [%DATE% %TIME%] Session ended exit_code=!EXIT_CODE! attempt=!RETRY_COUNT! >> "%LOG_FILE%"
+
+set /a RETRY_COUNT+=1
+
+if !RETRY_COUNT! geq %MAX_RETRIES% (
+  echo.
+  echo  ==========================================================
+  echo   STOPPED - Hit max retries (%MAX_RETRIES%)
+  echo   Check log: %LOG_FILE%
+  echo  ==========================================================
+  echo [%DATE% %TIME%] STOPPED - max retries reached >> "%LOG_FILE%"
+  pause
+  endlocal
+  exit /b 1
+)
+
+echo.
+echo  ----------------------------------------------------------
+echo   Crashed exit=!EXIT_CODE! - Retry #!RETRY_COUNT!/%MAX_RETRIES% in 5s...
+echo   Press Ctrl+C now to STOP retry, or wait 5s for restart
+echo  ----------------------------------------------------------
+timeout /t 5 /nobreak >nul
+
+goto loop
