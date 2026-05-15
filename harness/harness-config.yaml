@@ -1,0 +1,88 @@
+# Harness Configuration
+# Main config for 11-agent workflow orchestration
+
+version: "1.0"
+name: "Nelson 11-Agent Harness"
+description: "Harness controller for MiniMax 11-agent orchestration via Telegram group"
+
+# Model routing
+models:
+  commander:
+    type: "opus"
+    bot: "@claude_bot"
+    purpose: "planning, orchestration, context injection"
+  executor:
+    type: "minimax-m2.7"
+    bot: "@nelson_freight_bot"
+    purpose: "11-agent execution, mechanical tasks"
+
+# 11-Agent Phase Order
+phases:
+  - name: "design-finder"
+    model: "executor"
+    timeout: 300
+    retry: 3
+    validator: "design-finder.yaml"
+  - name: "ux-reviewer"
+    model: "executor"
+    timeout: 300
+    retry: 3
+    validator: "ux-reviewer.yaml"
+  - name: "code-reviewer"
+    model: "executor"
+    timeout: 300
+    retry: 3
+    validator: "code-reviewer.yaml"
+  - name: "security-auditor"
+    model: "executor"
+    timeout: 300
+    retry: 3
+    validator: "security-auditor.yaml"
+  - name: "perf-analyzer"
+    model: "executor"
+    timeout: 300
+    retry: 3
+    validator: "perf-analyzer.yaml"
+  - name: "master-executor"
+    model: "executor"
+    timeout: 600
+    retry: 3
+    validator: "master-executor.yaml"
+  - name: "test-writer"
+    model: "executor"
+    timeout: 300
+    retry: 3
+    validator: "test-writer.yaml"
+  - name: "doc-writer"
+    model: "executor"
+    timeout: 300
+    retry: 3
+    validator: "doc-writer.yaml"
+  - name: "tech-debt-tracker"
+    model: "executor"
+    timeout: 300
+    retry: 3
+    validator: "tech-debt-tracker.yaml"
+  - name: "git-commit"
+    model: "executor"
+    timeout: 120
+    retry: 1
+    validator: "git-commit.yaml"
+
+# Validation rules
+validation:
+  report_dir: "plans/reports"
+  output_pattern: "**/*-report.md"
+  max_duration: 3600
+
+# Retry engine
+retry:
+  max_attempts: 3
+  backoff_multiplier: 2
+  initial_delay: 10
+
+# Notification
+notification:
+  telegram_group: true
+  on_failure: true
+  on_success: true
