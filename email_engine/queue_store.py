@@ -79,6 +79,28 @@ CREATE INDEX IF NOT EXISTS idx_queue_picked
 _MIGRATION_SQL = [
     "ALTER TABLE email_queue ADD COLUMN opened_at TIMESTAMP",
     "ALTER TABLE email_queue ADD COLUMN open_count INTEGER NOT NULL DEFAULT 0",
+    """
+    CREATE TABLE IF NOT EXISTS email_events (
+        id                INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_id          TEXT NOT NULL UNIQUE,
+        message_key       TEXT,
+        campaign_id       TEXT,
+        customer_id       TEXT,
+        cnee_email        TEXT NOT NULL,
+        event_type        TEXT NOT NULL,
+        status            TEXT NOT NULL,
+        reason_code       TEXT,
+        subject           TEXT,
+        outlook_entry_id  TEXT,
+        conversation_id   TEXT,
+        source_folder     TEXT,
+        detected_at       TEXT NOT NULL,
+        raw_json          TEXT
+    );
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_email_events_key ON email_events(message_key)",
+    "CREATE INDEX IF NOT EXISTS idx_email_events_email ON email_events(cnee_email)",
+    "CREATE INDEX IF NOT EXISTS idx_email_events_status ON email_events(status, detected_at)",
 ]
 
 # Resolved DB path (set by init_db). Tests pass tmp paths; production uses default.
@@ -391,6 +413,121 @@ def reset_stuck(older_than_min: int = 10) -> int:
 def kill_switch_active(flag_path: str | None = None) -> bool:
     """True when KILL_SWITCH.flag file exists."""
     return os.path.exists(flag_path or KILL_SWITCH_PATH)
+
+
+# ---------------------------------------------------------------------------
+# Email Events (Phase 3 — Operational Event Store)
+# ---------------------------------------------------------------------------
+
+# Event types
+ET_PRE_SEND_VALIDATED = "PRE_SEND_VALIDATED"
+ET_PRE_SEND_BLOCKED = "PRE_SEND_BLOCKED"
+ET_QUEUED = "QUEUED"
+ET_OUTLOOK_SEND_ATTEMPT = "OUTLOOK_SEND_ATTEMPT"
+ET_OUTLOOK_SEND_RETURNED = "OUTLOOK_SEND_RETURNED"
+ET_SENT_CONFIRMED = "SENT_CONFIRMED"
+ET_SENT_PENDING_VERIFICATION = "SENT_PENDING_VERIFICATION"
+ET_SEND_FAILED = "SEND_FAILED"
+ET_NDR_DETECTED = "NDR_DETECTED"
+ET_BOUNCE_CLASSIFIED = "BOUNCE_CLASSIFIED"
+ET_REPLY_DETECTED = "REPLY_DETECTED"
+ET_REPLY_CLASSIFIED = "REPLY_CLASSIFIED"
+ET_FOLLOWUP_SUGGESTED = "FOLLOWUP_SUGGESTED"
+ET_EXCEL_WRITEBACK_DONE = "EXCEL_WRITEBACK_DONE"
+
+ALL_EVENT_TYPES = {
+    ET_PRE_SEND_VALIDATED, ET_PRE_SEND_BLOCKED, ET_QUEUED,
+    ET_OUTLOOK_SEND_ATTEMPT, ET_OUTLOOK_SEND_RETURNED,
+    ET_SENT_CONFIRMED, ET_SENT_PENDING_VERIFICATION, ET_SEND_FAILED,
+    ET_NDR_DETECTED, ET_BOUNCE_CLASSIFIED, ET_REPLY_DETECTED,
+    ET_REPLY_CLASSIFIED, ET_FOLLOWUP_SUGGESTED, ET_EXCEL_WRITEBACK_DONE,
+}
+
+
+def log_event(
+    event_id: str,
+    cnee_email: str,
+    event_type: str,
+    status: str,
+    message_key: str = "",
+    campaign_id: str = "",
+    customer_id: str = "",
+    reason_code: str = "",
+    subject: str = "",
+    outlook_entry_id: str = "",
+    conversation_id: str = "",
+    source_folder: str = "",
+    raw_json: str = "",
+    db_path: str | None = None,
+) -> int:
+    """Append an email event. Returns the row id. Idempotent — duplicate event_id is a no-op."""
+    if event_type not in ALL_EVENT_TYPES:
+        log.warning("Unknown event_type '%s' — proceeding anyway", event_type)
+
+    with _DB_LOCK:
+        with _connect(db_path) as conn:
+            try:
+                cur = conn.execute(
+                    """INSERT INTO email_events
+                       (event_id, message_key, campaign_id, customer_id,
+                        cnee_email, event_type, status, reason_code,
+                        subject, outlook_entry_id, conversation_id,
+                        source_folder, detected_at, raw_json)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        event_id, message_key, campaign_id, customer_id,
+                        cnee_email, event_type, status, reason_code,
+                        subject, outlook_entry_id, conversation_id,
+                        source_folder, _now_iso(), raw_json,
+                    ),
+                )
+                return cur.lastrowid or 0
+            except sqlite3.IntegrityError:
+                return 0  # duplicate event_id — already logged
+
+
+def get_events_for_email(
+    cnee_email: str,
+    status_filter: str | None = None,
+    limit: int = 100,
+    db_path: str | None = None,
+) -> list[dict]:
+    """Fetch events for a given email, newest first."""
+    with _connect(db_path) as conn:
+        if status_filter:
+            rows = conn.execute(
+                """SELECT * FROM email_events
+                   WHERE cnee_email=? AND status=?
+                   ORDER BY detected_at DESC LIMIT ?""",
+                (cnee_email, status_filter, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """SELECT * FROM email_events
+                   WHERE cnee_email=?
+                   ORDER BY detected_at DESC LIMIT ?""",
+                (cnee_email, limit),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def event_summary(campaign_id: str = "", db_path: str | None = None) -> dict:
+    """Aggregate event counts by status for a campaign (or all)."""
+    with _connect(db_path) as conn:
+        if campaign_id:
+            rows = conn.execute(
+                """SELECT status, COUNT(*) as cnt
+                   FROM email_events WHERE campaign_id=?
+                   GROUP BY status""",
+                (campaign_id,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT status, COUNT(*) as cnt FROM email_events GROUP BY status",
+            ).fetchall()
+        total = sum(r["cnt"] for r in rows)
+        by_status = {r["status"]: r["cnt"] for r in rows}
+        return {"total": total, "by_status": by_status}
 
 
 # ---------------------------------------------------------------------------

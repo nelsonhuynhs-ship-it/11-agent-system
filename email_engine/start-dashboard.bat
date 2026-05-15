@@ -39,12 +39,10 @@ goto skip_worker
 :api_ready
 echo [OK] API ready on :8100
 
-:: Outlook COM queue worker disabled 2026-04-27 — Smart Send now uses Graph API
-:: directly via background thread (see web_server.py _do_send_built_emails).
-:: To re-enable for Outlook COM rollback: set EMAIL_SEND_BACKEND=outlook in .env
-:: AND uncomment the line below.
+:: Outlook COM queue worker — enabled for Outlook COM rollback.
+:: To re-enable: set EMAIL_SEND_BACKEND=outlook in .env AND uncomment below.
 ::powershell -NoProfile -Command "Start-Process -WindowStyle Hidden -FilePath 'pythonw' -ArgumentList 'outlook_queue_worker.py','--workers','3','--loop' -WorkingDirectory '%~dp0' -RedirectStandardError '%~dp0worker_err.log'"
-echo [INFO] Outlook queue worker SKIPPED (Graph API backend, see .env)
+echo [INFO] Outlook queue worker available (set EMAIL_SEND_BACKEND=outlook to enable)
 
 :skip_worker
 :: Open dashboard via URL (NEVER file:// - API calls need http://)

@@ -1,0 +1,64 @@
+# EmailAddressGuard configuration
+# Phase 2 — prefix shield and email validation rules
+
+BAD_PREFIX_CLASSES:
+  BAD_PREFIX_ROLE:
+    - info@
+    - noreply@
+    - no-reply@
+    - unknown@
+    - test@
+    - admin@
+    - fax@
+    - tel@
+    - privacy@
+    - support@
+    - news@
+    - mailing@
+    - bounce@
+    - auto@
+    - donotreply@
+    - nospam@
+
+  BAD_PREFIX_CORRUPT:
+    # Short junk locals that appear to be corrupted (no company signal)
+    - em@
+    - te@
+    - me@
+    - xx@
+    - yy@
+    - zz@
+    - ab@
+    - cd@
+    - em_
+    - te_
+    - mail@
+    - post@
+
+  BAD_PREFIX_STRIPPED:
+    # Local part appears to have known corruption prepended
+    - _em@
+    - _te@
+    - _me@
+    - __@
+
+REASON_CODES:
+  INVALID_FORMAT: "Email format invalid (empty local/domain, spaces, multiple @, missing dot)"
+  BAD_PREFIX: "Email prefix is a role/no-reply/auto address — not a person"
+  TYPO_SUSPECT: "Domain may be a typo of a major provider"
+  NO_MX: "Domain has no MX records — likely undeliverable"
+  HARD_BOUNCE: "Previously returned hard bounce"
+  UNSUBSCRIBED: "Customer has unsubscribed"
+  EXCLUDED: "Manually excluded by Nelson"
+  COOLDOWN: "In send cooldown period"
+  SEND_LIMIT: "Customer has reached max sends"
+  ROLE_OR_NO_REPLY: "Role-based or no-reply address — not a personal inbox"
+
+# Confidence thresholds
+TYPO_MIN_SCORE: 85   # RapidFuzz score below this → OK
+SUPPRESSION_CHECK: true
+MX_CHECK: false       # Disable MX check (slows validation; can enable in Phase 4)
+
+# Quarantine vs block policy
+QUARANTINE_FIRST: true   # Always quarantine suspicious before blocking
+AUTO_FIX_CONFIDENCE: 97  # Only auto-correct if RapidFuzz score >= this

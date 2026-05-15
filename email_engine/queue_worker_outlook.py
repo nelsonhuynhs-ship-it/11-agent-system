@@ -17,45 +17,19 @@ _repo = str(Path(__file__).parent.parent)
 if _repo not in sys.path:
     sys.path.insert(0, _repo)
 
-import pythoncom
-import win32com.client
-
 from email_engine.queue_store import pop_one, mark_sent, mark_failed, kill_switch_active
+from email_engine.core.outlook_com_adapter import OutlookSender as _OutlookSender
 
 log = logging.getLogger(__name__)
 
 WORKER_ID = f"outlook-worker-{uuid.uuid4().hex[:8]}"
 INTERVAL_SEC = 5
 
-
-class OutlookSender:
-    """Thread-safe Outlook COM sender with single App instance."""
-
-    def __init__(self):
-        pythoncom.CoInitialize()
-        self._app = None
-
-    def _get_app(self):
-        if self._app is None:
-            self._app = win32com.client.Dispatch("Outlook.Application")
-        return self._app
-
-    def send(self, to: str, subject: str, html_body: str) -> bool:
-        try:
-            ol = self._get_app()
-            m = ol.CreateItem(0)
-            m.To = to
-            m.Subject = subject
-            m.HTMLBody = html_body
-            m.Send()
-            log.info("[%s] SENT %s", WORKER_ID, to)
-            return True
-        except Exception as e:
-            log.error("[%s] SEND FAILED %s: %s", WORKER_ID, to, e)
-            return False
+# Re-export OutlookSender from adapter for callers that need the type
+OutlookSender = _OutlookSender
 
 
-def run_once(sender: OutlookSender) -> int:
+def run_once(sender: _OutlookSender) -> int:
     """Pop one job from queue and send. Returns 1 if sent, 0 if no job."""
     if kill_switch_active():
         log.warning("[%s] KILL_SWITCH active — sleeping %ds", WORKER_ID, INTERVAL_SEC)

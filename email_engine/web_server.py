@@ -62,6 +62,8 @@ log = logging.getLogger("email-dash")
 # REMOVED: EMAIL_SEND_BACKEND env var — hardcoded to outlook.
 
 
+from email_engine.core.outlook_com_adapter import send_mail as _outlook_send
+
 def _send_email_html(to: str, subject: str, html_body: str, outlook_app=None) -> dict:
     """Send one HTML email via Outlook COM. Returns verification dict.
 
@@ -75,25 +77,15 @@ def _send_email_html(to: str, subject: str, html_body: str, outlook_app=None) ->
         }
     Raises RuntimeError if Outlook COM is unavailable.
     """
-    sent_at = datetime.now(timezone.utc).isoformat()
-    if outlook_app is None:
-        try:
-            import pythoncom
-            pythoncom.CoInitialize()
-        except Exception:
-            pass
-        try:
-            import win32com.client
-            outlook_app = win32com.client.Dispatch("Outlook.Application")
-        except Exception as exc:
-            log.error(f"[SEND-FAIL] Outlook COM unavailable: {exc}")
-            raise RuntimeError(f"Outlook COM unavailable: {exc}")
-    m = outlook_app.CreateItem(0)
-    m.To = to
-    m.Subject = subject
-    m.HTMLBody = html_body
-    m.Send()
-    return {"ok": True, "backend": "outlook", "graph_msg_id": None, "sent_at": sent_at, "to": to, "subject": subject}
+    result = _outlook_send(to=to, subject=subject, html_body=html_body)
+    return {
+        "ok": result["ok"],
+        "backend": "outlook",
+        "graph_msg_id": result.get("outlook_entry_id"),
+        "sent_at": result["sent_at"],
+        "to": result["to"],
+        "subject": result["subject"],
+    }
 
 try:
     from shared.paths import PARQUET_FILE
@@ -3296,6 +3288,14 @@ try:
     log.info("[Rotation] rotation_router mounted (/api/rotation/*)")
 except ImportError as _e:
     log.warning(f"[Rotation] rotation_router unavailable: {_e}")
+
+# Phase 6 — Email Contract (canonical v9 state endpoints)
+try:
+    from email_engine.api.routes.email_contract import router as _email_contract_router
+    app.include_router(_email_contract_router)
+    log.info("[R6] email_contract router mounted (/api/email/*)")
+except ImportError as _e:
+    log.warning(f"[R6] email_contract router unavailable: {_e}")
 
 # === A2 BEGIN ===
 # Send-time State Rules — optimal VN hour per US/CA state based on local 9h arrival.
