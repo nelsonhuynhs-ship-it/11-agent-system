@@ -1,84 +1,75 @@
-# 11-Agent System v2.0
+# 11-Agent System v3.0
 
-ClaudeKit 11-agent workflow orchestration with MiniMax M2.7 auto-delegation.
+ClaudeKit-native 11-agent orchestration system with MiniMax routing, skill preload policy, runtime observability, fake-executor E2E tests, and workflow state machine.
 
 ## Architecture
 
-
-
 ## 11 Core Agents
 
-| # | Agent | Phase | Route | Purpose |
-|---|-------|-------|-------|---------|
-| 1 | design-finder | 1 | Opus | UI/UX design inspiration |
-| 2 | ux-reviewer | 2 | Opus | UX/Accessibility audit |
-| 3 | code-reviewer | 2 | Opus | Logic, TypeScript, patterns |
-| 4 | security-auditor | 2 | Opus | Security vulnerabilities |
-| 5 | perf-analyzer | 2 | Opus | Performance, bundle size |
-| 6 | master-executor | 3 | M2.7 | Apply fixes from reports |
-| 7 | test-writer | 4 | M2.7 | Generate tests |
-| 8 | doc-writer | 4 | M2.7 | Generate documentation |
-| 9 | tech-debt-tracker | 4 | Opus | Prioritize technical debt |
-| 10 | git-commit | 5 | M2.7 | Conventional commit message |
-| 11 | i18n-checker | — | N/A | (Nelson does not use) |
+| # | Agent | Phase | Route | Capability | Tools |
+|---|-------|-------|-------|------------|-------|
+| 1 | design-finder | 1 | Opus/M2.7 | image+search | Read-only |
+| 2 | ux-reviewer | 2 | VLM | vlm | Read-only |
+| 3 | code-reviewer | 2 | M2.7 | text | Read-only |
+| 4 | security-auditor | 2 | M2.7 | search+text | Read-only |
+| 5 | perf-analyzer | 2 | VLM | vlm | Read-only |
+| 6 | master-executor | 3 | M2.7 | text | **Write** |
+| 7 | test-writer | 4 | M2.7 | text | **Write** |
+| 8 | doc-writer | 4 | M2.7 | text | **Write** |
+| 9 | tech-debt-tracker | 4 | Opus | text | Read-only |
+| 10 | git-commit | 5 | M2.7 | text | Read-only |
+| 11 | i18n-checker | — | N/A | — | (Nelson does not use) |
 
-## v2.0 Improvements
+> **Read-only roles**: design-finder, ux-reviewer, code-reviewer, security-auditor, perf-analyzer, tech-debt-tracker, git-commit — deny Edit/Write in tools, use disallowedTools.
+> **Write-capable roles**: master-executor, test-writer, doc-writer — allow Edit/Write in tools.
 
-- **Two-Stage Review Cycle**: Spec Compliance then Code Quality
-- **Fresh Context Isolation**: Anti-pattern rules prevent subagent pollution
-- **Model Selection by Complexity**: M2.7 for mechanical, Opus for judgment
-- **Status Escalation Rules**: Max 3 retries, clear escalation path
-- **Mandatory Final Whole-Implementation Review**: Before commit
+## v3.0 Highlights
 
-## Automation Agents
+- **Claude Code-native frontmatter** for role templates (name, model, effort, maxTurns, memory, isolation, skills[], tools[], disallowedTools[])
+- **Explicit skill loading policy** per role with bounded helper skills
+- **Runtime snapshot** under agent-system-runtime/ (Git-tracked backup of C:\Users\Nelson\.claude)
+- **mm-agent-spawner.sh** routing: text / search / vlm / image
+- **log-spawn.py** JSONL + SQLite observability (spawn_start, capability_resolved, fallback_used, spawn_complete, spawn_failed)
+- **Harness workflow state machine** (PLAN / SCOUT / REVIEW / EXECUTE / VERIFY / OBSERVE / RETRY / STOP)
+- **Fake executor E2E regression suite** — no real model cost during testing
+- **127 agent-system tests passing**
 
-### autopilot (NEW)
-Autonomous pipeline agent. Runs 11-agent workflow **without human confirmation**.
-- Self-healing on failure (3x retry then escalate)
-- Auto-proceed when phase complete
-- Only blocks on: security, 3x failure, user data affected
+## Runtime Snapshot
 
-### monitor (NEW)
-Observability agent. Track agent performance metrics.
-- Execution time per agent
-- Success/error rates
-- Token usage tracking
-- Health alerts
+Files under agent-system-runtime/ are a Git-tracked snapshot of the live runtime at C:\Users\Nelson\.claude:
 
-## Installation
+| File | Live path |
+|------|-----------|
+| bin/mm-agent-spawner.sh | C:\Users\Nelson\.claude\bin\mm-agent-spawner.sh |
+| bin/log-spawn.py | C:\Users\Nelson\.claude\bin\log-spawn.py |
+| agents-mm/*.md | C:\Users\Nelson\.claude\agents-mm\*.md |
 
-```bash
-git clone https://github.com/nelsonhuynhs-ship-it/11-agent-system.git
-cd 11-agent-system
-./install.sh
+To restore from snapshot: backup live runtime first, then copy files back to the live paths.
+
+## Verification
+
+```powershell
+& "C:\Program Files\Git\bin\bash.exe" -n "C:/Users/Nelson/.claude/bin/mm-agent-spawner.sh"
+pytest tests/agent-system -q
 ```
+
+Expected: 127 passed.
 
 ## Skills
 
+```
 skills/design-finder/       - Design inspiration
 skills/ux-reviewer/        - UX/Accessibility review
 skills/code-reviewer/       - Code quality review
 skills/security-auditor/    - Security audit
 skills/perf-analyzer/       - Performance analysis
 skills/master-executor/     - Phase 3 executor
-skills/test-writer/         - Test generation
-skills/doc-writer/          - Documentation generation
-skills/tech-debt-tracker/  - Technical debt tracking
-skills/git-commit/           - Commit message generation
-skills/i18n-checker/       - Internationalization (not used)
-skills/autopilot/           - Autonomous pipeline (NEW)
-skills/monitor/             - Observability (NEW)
-
-## Rules
-
-rules/orchestration-protocol.md - Status escalation + max iterations
-
-## Reports
-
-reports/11-agent-code-review-report.md   - Review findings
-reports/11-agent-execution-report.md     - Implementation report
+skills/test-writer/          - Test generation
+skills/doc-writer/           - Documentation generation
+skills/tech-debt-tracker/   - Technical debt tracking
+skills/git-commit/            - Commit message generation
+```
 
 ## Source
 
 Inspired by subagent-driven-development (57.4K installs) from skills.sh
-
