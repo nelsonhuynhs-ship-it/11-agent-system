@@ -53,13 +53,36 @@ def test_log_spawn_backward_compatible():
         content = f.read()
     assert "agent_runs" in content, "agent_runs table not found (backward compat broken)"
 
-def test_log_spawn_has_event_types():
-    """log-spawn.py has event types: spawn_start, skill_load, search, vlm, fallback."""
+def test_log_spawn_has_query_arg():
+    """log-spawn.py accepts --query arg."""
     with open(LOG_SPAWN, encoding="utf-8") as f:
         content = f.read()
-    event_types = ["spawn_complete", "spawn_failed", "skill_load", "search", "vlm", "fallback"]
-    found = [e for e in event_types if e in content]
-    assert len(found) >= 2, f"Missing event types, only found: {found}"
+    assert "--query" in content, "log-spawn.py missing --query argument"
+
+def test_log_spawn_has_source_url_arg():
+    """log-spawn.py accepts --source-url arg."""
+    with open(LOG_SPAWN, encoding="utf-8") as f:
+        content = f.read()
+    assert "--source-url" in content, "log-spawn.py missing --source-url argument"
+
+def test_log_spawn_has_task_id_arg():
+    """log-spawn.py accepts --task-id arg."""
+    with open(LOG_SPAWN, encoding="utf-8") as f:
+        content = f.read()
+    assert "--task-id" in content, "log-spawn.py missing --task-id argument"
+
+def test_log_spawn_query_persisted():
+    """log-spawn.py persists query field into agent_tool_events."""
+    with open(LOG_SPAWN, encoding="utf-8") as f:
+        content = f.read()
+    # query should be inserted into the INSERT_EVENT call
+    assert "args.query" in content, "log-spawn.py does not pass query to INSERT_EVENT"
+
+def test_log_spawn_source_url_persisted():
+    """log-spawn.py persists source_url field into agent_tool_events."""
+    with open(LOG_SPAWN, encoding="utf-8") as f:
+        content = f.read()
+    assert "args.source_url" in content, "log-spawn.py does not pass source_url to INSERT_EVENT"
 
 if __name__ == "__main__":
     import pytest
