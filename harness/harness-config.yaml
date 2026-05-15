@@ -1,7 +1,8 @@
 # Harness Configuration
 # Main config for 11-agent workflow orchestration
+# Version 2.0 — added workflow_state_machine per NEXT_LEVEL_11_AGENT_UPGRADE_PLAN.md
 
-version: "1.0"
+version: "2.0"
 name: "Nelson 11-Agent Harness"
 description: "Harness controller for MiniMax 11-agent orchestration via Telegram group"
 
@@ -16,30 +17,34 @@ models:
     bot: "@nelson_freight_bot"
     purpose: "11-agent execution, mechanical tasks"
 
+routing:
+  default_policy: "workflow"
+  all_m2_override: false
+
 # 11-Agent Phase Order
 phases:
   - name: "design-finder"
-    model: "executor"
+    model: "commander"
     timeout: 300
     retry: 3
     validator: "design-finder.yaml"
   - name: "ux-reviewer"
-    model: "executor"
+    model: "commander"
     timeout: 300
     retry: 3
     validator: "ux-reviewer.yaml"
   - name: "code-reviewer"
-    model: "executor"
+    model: "commander"
     timeout: 300
     retry: 3
     validator: "code-reviewer.yaml"
   - name: "security-auditor"
-    model: "executor"
+    model: "commander"
     timeout: 300
     retry: 3
     validator: "security-auditor.yaml"
   - name: "perf-analyzer"
-    model: "executor"
+    model: "commander"
     timeout: 300
     retry: 3
     validator: "perf-analyzer.yaml"
@@ -59,7 +64,7 @@ phases:
     retry: 3
     validator: "doc-writer.yaml"
   - name: "tech-debt-tracker"
-    model: "executor"
+    model: "commander"
     timeout: 300
     retry: 3
     validator: "tech-debt-tracker.yaml"
@@ -86,3 +91,39 @@ notification:
   telegram_group: true
   on_failure: true
   on_success: true
+
+# Workflow State Machine — Phase 5 of NEXT_LEVEL_11_AGENT_UPGRADE_PLAN
+workflow_state_machine:
+  states:
+    - PLAN
+    - SCOUT
+    - REVIEW
+    - EXECUTE
+    - VERIFY
+    - OBSERVE
+    - RETRY
+    - STOP
+  transitions:
+    PLAN: [SCOUT, REVIEW, EXECUTE, STOP]
+    SCOUT: [REVIEW, PLAN, STOP]
+    REVIEW: [EXECUTE, PLAN, STOP]
+    EXECUTE: [VERIFY, RETRY, STOP]
+    VERIFY: [OBSERVE, RETRY, STOP]
+    OBSERVE: [STOP, PLAN]
+    RETRY: [EXECUTE, STOP]
+    STOP: []
+  retry_policy:
+    max_retries_per_agent: 1
+    max_total_workflow_retries: 3
+    require_degraded_mode_marker: true
+  handoff_payload:
+    required_fields:
+      - trace_id
+      - task_id
+      - phase
+      - role
+      - input_files
+      - output_report
+      - verification_command
+      - status
+      - needs_verification
